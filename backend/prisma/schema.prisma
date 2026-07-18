@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ENUMS
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum FileProvider {
+  LOCAL
+  S3
+  CLOUDINARY
+  MINIO
+}
+
+// ROLE
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+
+  users       User[]
+  permissions RolePermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("roles")
+}
+
+// PERMISSION
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+
+  roles       RolePermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("permissions")
+}
+
+// ROLE PERMISSION
+
+model RolePermission {
+  id           String      @id @default(uuid())
+
+  roleId       String
+  permissionId String
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+
+  @@unique([roleId, permissionId])
+
+  @@index([roleId])
+  @@index([permissionId])
+
+  @@map("role_permissions")
+}
+
+// USER
+
+model User {
+  id               String      @id @default(uuid())
+
+  email            String      @unique
+  username         String      @unique
+
+  passwordHash     String
+
+  roleId           String
+  role             Role        @relation(fields: [roleId], references: [id])
+
+  status           UserStatus  @default(ACTIVE)
+
+  isEmailVerified  Boolean     @default(false)
+
+  lastLoginAt      DateTime?
+
+  profile          Profile?
+
+  sessions         Session[]
+
+  refreshTokens    RefreshToken[]
+
+  createdFiles     File[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([email])
+  @@index([username])
+  @@index([roleId])
+
+  @@map("users")
+}
+
+// PROFILE
+
+model Profile {
+
+  id             String   @id @default(uuid())
+
+  userId         String   @unique
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName      String?
+
+  lastName       String?
+
+  displayName    String?
+
+  bio            String?   @db.Text
+
+  avatarFileId   String?
+
+  coverFileId    String?
+
+  avatar         File?     @relation("Avatar", fields: [avatarFileId], references: [id])
+
+  cover          File?     @relation("Cover", fields: [coverFileId], references: [id])
+
+  website        String?
+
+  country        String?
+
+  language       String?
+
+  gender         Gender?
+
+  birthDate      DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+// SESSION
+
+model Session {
+
+  id           String   @id @default(uuid())
+
+  userId       String
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshToken String?
+
+  ipAddress    String?
+
+  userAgent    String?
+
+  device       String?
+
+  browser      String?
+
+  os           String?
+
+  location     String?
+
+  status       SessionStatus @default(ACTIVE)
+
+  expiresAt    DateTime
+
+  lastSeenAt   DateTime?
+
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+
+  @@map("sessions")
+}
+
+// REFRESH TOKEN
+
+model RefreshToken {
+
+  id            String   @id @default(uuid())
+
+  userId        String
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash     String
+
+  expiresAt     DateTime
+
+  revokedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+
+  @@map("refresh_tokens")
+}
+
+// FILE
+
+model File {
+
+  id            String   @id @default(uuid())
+
+  originalName  String
+
+  fileName      String
+
+  mimeType      String
+
+  extension     String
+
+  size          BigInt
+
+  provider      FileProvider
+
+  storageKey    String
+
+  url           String
+
+  uploadedById  String
+
+  uploadedBy    User @relation(fields: [uploadedById], references: [id])
+
+  avatarOf      Profile[] @relation("Avatar")
+
+  coverOf       Profile[] @relation("Cover")
+
+  createdAt     DateTime @default(now())
+
+  @@index([uploadedById])
+
+  @@map("files")
+}
