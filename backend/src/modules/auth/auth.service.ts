@@ -39,16 +39,16 @@ export class AuthService {
     });
   }
 
-  async generateAccessToken(
-    user: { id: string; email?: string; role?: { name?: string } },
-  ): Promise<string> {
+  async generateAccessToken(user: {
+    id: string;
+    email?: string;
+    role?: { name?: string };
+  }): Promise<string> {
     const payload = { sub: user.id, email: user.email, role: user?.role?.name };
     return this.jwtService.signAsync(payload);
   }
 
-  async generateRefreshToken(
-    user: { id: string },
-  ): Promise<string> {
+  async generateRefreshToken(user: { id: string }): Promise<string> {
     const payload = { sub: user.id };
     const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
 
