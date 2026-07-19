@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { PrismaModule } from '../prisma/prisma.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './modules/auth/auth.module.js';
-import { UsersModule } from './modules/users/users.module';
-import { RolesService } from './modules/roles/roles.service';
-import { RolesModule } from './modules/roles/roles.module';
-import { RefreshTokenService } from './modules/refresh-token/refresh-token.service';
-import { SessionsService } from './modules/sessions/sessions.service';
+import { UsersModule } from './modules/users/users.module.js';
+import { RolesModule } from './modules/roles/roles.module.js';
+import { RolesService } from './modules/roles/roles.service.js';
+import { RefreshTokenService } from './modules/refresh-token/refresh-token.service.js';
+import { SessionsService } from './modules/sessions/sessions.service.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
   imports: [

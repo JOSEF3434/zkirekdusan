@@ -1,7 +1,7 @@
 // src/modules/roles/roles.service.ts
 
+import { PrismaService } from '../../prisma/prisma.service.js';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service.js';
 
 @Injectable()
 export class RolesService {

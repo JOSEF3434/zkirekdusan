@@ -9,14 +9,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-
       ignoreExpiration: false,
-
-      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET'),
+      // Fall back to an empty string or error check to make TS happy
+      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') || '',
     });
   }
 
-  async validate(payload: JwtPayload): Promise<JwtPayload> {
+  validate(payload: JwtPayload): JwtPayload {
     return payload;
   }
 }
