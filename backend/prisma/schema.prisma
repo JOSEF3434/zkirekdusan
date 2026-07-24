@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -36,6 +36,41 @@ enum FileProvider {
   MINIO
 }
 
+enum ProfileVisibility {
+
+  PUBLIC
+
+  FOLLOWERS
+
+  PRIVATE
+}
+
+enum FileType {
+
+  IMAGE
+
+  VIDEO
+
+  AUDIO
+
+  DOCUMENT
+
+  OTHER
+}
+
+enum FileStatus {
+
+  UPLOADING
+
+  PROCESSING
+
+  READY
+
+  FAILED
+
+  DELETED
+}
+
 // ROLE
 
 model Role {
@@ -45,7 +80,7 @@ model Role {
 
   users       User[]
   permissions RolePermission[]
-
+  isActive Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -115,6 +150,10 @@ model User {
 
   createdFiles     File[]
 
+  failedLoginAttempts Int @default(0)
+
+  lockedUntil DateTime?
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -177,8 +216,6 @@ model Session {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  refreshToken String?
-
   ipAddress    String?
 
   userAgent    String?
@@ -220,6 +257,12 @@ model RefreshToken {
 
   revokedAt     DateTime?
 
+  createdByIp String?
+
+  userAgent String?
+
+  device String?
+
   createdAt     DateTime @default(now())
 
   @@index([userId])
@@ -256,7 +299,9 @@ model File {
   avatarOf      Profile[] @relation("Avatar")
 
   coverOf       Profile[] @relation("Cover")
+  createdBy String?
 
+  updatedBy String?
   createdAt     DateTime @default(now())
 
   @@index([uploadedById])

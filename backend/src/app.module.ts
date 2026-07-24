@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+
+import { PrismaModule } from './prisma/prisma.module.js';
+
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
-import { RolesService } from './modules/roles/roles.service.js';
-import { RefreshTokenService } from './modules/refresh-token/refresh-token.service.js';
-import { SessionsService } from './modules/sessions/sessions.service.js';
-import { PrismaModule } from './prisma/prisma.module.js';
+import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module.js';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
+import { SessionsModule } from './modules/sessions/sessions.module.js';
 
 @Module({
   imports: [
@@ -18,12 +21,25 @@ import { PrismaModule } from './prisma/prisma.module.js';
       envFilePath: '.env',
       expandVariables: true,
     }),
+
     PrismaModule,
+
     AuthModule,
     UsersModule,
-    RolesModule, // This is a Module, so it stays here.
+    RolesModule,
+    SessionsModule,
+    RefreshTokenModule,
   ],
-  controllers: [AppController], // Controllers go here.
-  providers: [AppService, RolesService, RefreshTokenService, SessionsService], // Services/Providers go here.
+
+  controllers: [AppController],
+
+  providers: [
+    AppService,
+
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule {}

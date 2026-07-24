@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Module, forwardRef } from '@nestjs/common';
 import { StringValue } from 'ms';
+import { PassportModule } from '@nestjs/passport';
 import { CommonModule } from '../../common/common.module.js';
 import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
@@ -14,14 +15,33 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
 
 @Module({
   imports: [
+    PassportModule.register({
+      defaultStrategy: 'jwt',
+    }),
+
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN') as StringValue,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        console.log(
+          'JWT_ACCESS_SECRET:',
+          configService.get('JWT_ACCESS_SECRET'),
+        );
+
+        console.log(
+          'JWT_ACCESS_EXPIRES:',
+          configService.get('JWT_ACCESS_EXPIRES'),
+        );
+
+        return {
+          secret: configService.get<string>('JWT_SECRET'),
+
+          signOptions: {
+            expiresIn: configService.get<string>(
+              'JWT_EXPIRES_IN',
+            ) as StringValue,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     forwardRef(() => UsersModule),
