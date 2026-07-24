@@ -182,10 +182,22 @@ export class AuthService {
   }
 
   async refresh(dto: RefreshTokenDto) {
-    // Verify refresh JWT
-    const payload = await this.jwtService.verifyAsync(dto.refreshToken, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-    });
+    if (!dto?.refreshToken) {
+      throw new BadRequestException('Refresh token is required');
+    }
+
+    let payload: { sub: string };
+    try {
+      // Verify refresh JWT
+      payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        dto.refreshToken,
+        {
+          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        },
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
 
     const user = await this.usersService.findById(payload.sub);
 

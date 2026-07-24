@@ -4,6 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
 
+interface RefreshPayload {
+  sub: string;
+}
+
+interface RefreshBody {
+  refreshToken?: string;
+}
+
 @Injectable()
 export class RefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(configService: ConfigService) {
@@ -15,7 +23,10 @@ export class RefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
     });
   }
 
-  validate(req: Request, payload: any) {
+  validate(
+    req: Request<Record<string, never>, unknown, RefreshBody>,
+    payload: RefreshPayload,
+  ) {
     return {
       sub: payload.sub,
       refreshToken: req.body.refreshToken,
