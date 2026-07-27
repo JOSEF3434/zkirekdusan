@@ -1,22 +1,18 @@
+// src/modules/authorization/authorization.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import {
-  Injectable,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { AppRole } from '../../common/constants/roles.js';
+import { GroupRole, hasGroupRoleAtLeast } from '../../common/constants/group-roles.js';
 
 @Injectable()
 export class AuthorizationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Get complete user with role and permissions
-   */
   private async getUserWithRole(userId: string) {
+    if (!userId) throw new NotFoundException('User ID is required');
+
     const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
+      where: { id: userId },
       include: {
         role: {
           include: {
@@ -31,128 +27,74 @@ export class AuthorizationService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found.');
+      throw new NotFoundException('User not found');
     }
 
     return user;
   }
 
-  /**
-   * Get user's role
-   */
   async getUserRole(userId: string): Promise<string> {
     const user = await this.getUserWithRole(userId);
-
     return user.role.name;
   }
 
-  /**
-   * Get all user permissions
-   */
   async getUserPermissions(userId: string): Promise<string[]> {
     const user = await this.getUserWithRole(userId);
 
+    // SUPER_ADMIN gets wildcard access
+    if (user.role.name === AppRole.SUPER_ADMIN) {
+      return ['*'];
+    }
+
     return [
       ...new Set(
-        user.role.permissions.map(
-          (rolePermission) => rolePermission.permission.name,
-        ),
+        user.role.permissions.map((rp) => rp.permission.name),
       ),
     ];
   }
 
-  /**
-   * Check single role
-   */
   async hasRole(userId: string, role: string): Promise<boolean> {
     const userRole = await this.getUserRole(userId);
-
-    return userRole === role;
+    return userRole === AppRole.SUPER_ADMIN || userRole === role;
   }
 
-  /**
-   * Check multiple roles
-   */
-  async hasAnyRole(userId: string, roles: string[]): Promise<boolean> {
-    const userRole = await this.getUserRole(userId);
-
-    return roles.includes(userRole);
-  }
-
-  /**
-   * Check one permission
-   */
   async hasPermission(userId: string, permission: string): Promise<boolean> {
     const permissions = await this.getUserPermissions(userId);
-
-    return permissions.includes(permission);
+    return permissions.includes('*') || permissions.includes(permission);
   }
 
-  /**
-   * Check if user has ANY permission
-   */
-  async hasAnyPermission(
-    userId: string,
-    permissions: string[],
-  ): Promise<boolean> {
+  async hasAllPermissions(userId: string, requiredPermissions: string[]): Promise<boolean> {
     const userPermissions = await this.getUserPermissions(userId);
+    if (userPermissions.includes('*')) return true;
 
-    return permissions.some((permission) =>
-      userPermissions.includes(permission),
-    );
+    return requiredPermissions.every((perm) => userPermissions.includes(perm));
   }
 
   /**
-   * Check if user has ALL permissions
+   * Group-scoped authorization check:
+   * Checks if user has a required GroupRole in a specific group.
+   * SUPER_ADMIN and ADMIN bypass all group role checks.
    */
-  async hasAllPermissions(
+  async hasGroupRole(
     userId: string,
-    permissions: string[],
+    groupId: string,
+    requiredRole: GroupRole,
   ): Promise<boolean> {
-    const userPermissions = await this.getUserPermissions(userId);
-
-    return permissions.every((permission) =>
-      userPermissions.includes(permission),
-    );
-  }
-
-  /**
-   * Require role or throw exception
-   */
-  async authorizeRole(userId: string, roles: string[]): Promise<void> {
-    const hasRole = await this.hasAnyRole(userId, roles);
-
-    if (!hasRole) {
-      throw new ForbiddenException('You do not have the required role.');
+    const globalRole = await this.getUserRole(userId);
+    if (globalRole === AppRole.SUPER_ADMIN || globalRole === AppRole.ADMIN) {
+      return true;
     }
-  }
 
-  /**
-   * Require permission or throw exception
-   */
-  async authorizePermission(
-    userId: string,
-    permissions: string[],
-  ): Promise<void> {
-    const hasPermission = await this.hasAnyPermission(userId, permissions);
+    const member = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: { groupId, userId },
+        removedAt: null,
+      },
+      select: { role: true },
+    });
 
-    if (!hasPermission) {
-      throw new ForbiddenException('You do not have the required permission.');
-    }
-  }
+    if (!member) return false;
 
-  /**
-   * Return authorization summary
-   */
-  async getAuthorizationInfo(userId: string) {
-    const user = await this.getUserWithRole(userId);
-
-    return {
-      userId: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role.name,
-      permissions: user.role.permissions.map((rp) => rp.permission.name),
-    };
+    return hasGroupRoleAtLeast(member.role as GroupRole, requiredRole);
   }
 }

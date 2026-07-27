@@ -1,15 +1,28 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-
+// src/common/guards/permissions.guard.ts
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator.js';
+import { AppRole } from '../constants/roles.js';
+import { JwtPayload } from '../interfaces/jwt-payload.interface.js';
 import { AuthorizationService } from '../../modules/authorization/authorization.service.js';
 
+/**
+ * Global permissions guard.
+ * Reads permission requirements from @Permissions() decorator
+ * and checks them against the DB via AuthorizationService.
+ *
+ * FIX: Previously could receive an undefined user.id — now validates user presence first.
+ */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
-
-    private authorizationService: AuthorizationService,
+    private readonly reflector: Reflector,
+    private readonly authorizationService: AuthorizationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -18,21 +31,34 @@ export class PermissionsGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredPermissions) {
+    // No @Permissions() decorator — pass through
+    if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-
+    const request = context.switchToHttp().getRequest<{ user: JwtPayload }>();
     const user = request.user;
 
-    if (!user) {
-      return false;
+    if (!user?.sub) {
+      throw new ForbiddenException('Access denied');
     }
 
-    return this.authorizationService.hasAllPermissions(
-      user.id,
+    // SUPER_ADMIN bypasses all permission checks
+    if (user.role === AppRole.SUPER_ADMIN) {
+      return true;
+    }
+
+    const hasAll = await this.authorizationService.hasAllPermissions(
+      user.sub,
       requiredPermissions,
     );
+
+    if (!hasAll) {
+      throw new ForbiddenException(
+        `Access denied. Missing permissions: ${requiredPermissions.join(', ')}`,
+      );
+    }
+
+    return true;
   }
 }

@@ -1,45 +1,42 @@
 // src/modules/auth/auth.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RolesService } from '../roles/roles.service.js';
-import { JwtService, JwtSignOptions } from '@nestjs/jwt';
-import { RegisterDto } from './dto/register.dto.js';
+import { JwtService } from '@nestjs/jwt';
 import { PasswordService } from '../../common/service/password.service.js';
-import type { StringValue } from 'ms'; // Import the type for the expiration string
 import { UsersService } from '../users/users.service.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { UnauthorizedException } from '@nestjs/common';
+import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
+import { AuthResponseDto } from './dto/auth-response.dto.js';
+import { AppRole } from '../../common/constants/roles.js';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly rolesService: RolesService,
     private readonly passwordService: PasswordService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly prisma: PrismaService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const emailExists = await this.usersService.findByEmail(dto.email);
-
     if (emailExists) {
-      throw new BadRequestException('Email already exists');
+      throw new BadRequestException('Email already registered');
     }
 
     const usernameExists = await this.usersService.findByUsername(dto.username);
-
     if (usernameExists) {
-      throw new BadRequestException('Username already exists');
+      throw new BadRequestException('Username already taken');
     }
 
-    const role = await this.rolesService.getDefaultRole();
-
-    if (!role) {
-      throw new BadRequestException('Default USER role not found.');
+    const defaultRole = await this.usersService.getRoleByName(AppRole.USER);
+    if (!defaultRole) {
+      throw new BadRequestException('Default USER role not found in system');
     }
 
     const passwordHash = await this.passwordService.hash(dto.password);
@@ -48,24 +45,19 @@ export class AuthService {
       email: dto.email,
       username: dto.username,
       passwordHash,
-      roleId: role.id,
+      roleId: defaultRole.id,
     });
 
-    const accessToken = await this.generateAccessToken(user);
-
-    const refreshToken = await this.generateRefreshToken(user);
+    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const refreshToken = await this.generateRefreshToken(user.id);
 
     const refreshHash = await this.passwordService.hash(refreshToken);
+    const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.usersService.saveRefreshToken(
-      user.id,
-      refreshHash,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    );
-
+    await this.usersService.saveRefreshToken(user.id, refreshHash, refreshExpires);
     await this.usersService.createSession({
       userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: refreshExpires,
     });
 
     return {
@@ -80,47 +72,45 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.usersService.findByEmail(dto.email);
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException('Account is temporarily locked');
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException(`Account is ${user.status.toLowerCase()}`);
     }
 
-    const passwordValid = await this.passwordService.compare(
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Account is temporarily locked due to failed attempts');
+    }
+
+    const isPasswordValid = await this.passwordService.compare(
       dto.password,
       user.passwordHash,
     );
 
-    if (!passwordValid) {
+    if (!isPasswordValid) {
       await this.usersService.incrementFailedLogin(user.id);
-
       throw new UnauthorizedException('Invalid email or password');
     }
 
     await this.usersService.updateLastLogin(user.id);
 
-    const accessToken = await this.generateAccessToken(user);
-
-    const refreshToken = await this.generateRefreshToken(user);
+    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const refreshToken = await this.generateRefreshToken(user.id);
 
     await this.usersService.revokeRefreshTokens(user.id);
 
     const refreshHash = await this.passwordService.hash(refreshToken);
+    const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.usersService.saveRefreshToken(
-      user.id,
-      refreshHash,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    );
-
+    await this.usersService.saveRefreshToken(user.id, refreshHash, refreshExpires);
     await this.usersService.createSession({
       userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: refreshExpires,
     });
 
     return {
@@ -134,119 +124,81 @@ export class AuthService {
       refreshToken,
     };
   }
-  async generateAccessToken(user: {
-    id: string;
-    email?: string;
-    role?: { name?: string };
-  }): Promise<string> {
-    const payload = { sub: user.id, email: user.email, role: user?.role?.name };
-    return this.jwtService.signAsync(payload);
-  }
 
-  async generateRefreshToken(user: { id: string }): Promise<string> {
-    const payload = { sub: user.id };
-    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
-
-    // Cast this explicitly so TypeScript knows it matches ms's layout
-    const expiresIn = this.configService.get<string>(
-      'JWT_REFRESH_EXPIRES',
-    ) as StringValue;
-
-    const options: JwtSignOptions = { secret, expiresIn };
-    return this.jwtService.signAsync(payload, options);
-  }
-
-  // Move the HTTP logic to your controller! This service method should just return the user profile.
-  async getMe(userPayload: { sub: string }) {
-    return this.usersService.findById(userPayload.sub);
-  }
-  updateLastLogin(userId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        lastLoginAt: new Date(),
-        failedLoginAttempts: 0,
-      },
-    });
-  }
-
-  incrementFailedLogin(userId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        failedLoginAttempts: {
-          increment: 1,
-        },
-      },
-    });
-  }
-
-  async refresh(dto: RefreshTokenDto) {
+  async refresh(dto: RefreshTokenDto): Promise<{ accessToken: string; refreshToken: string }> {
     if (!dto?.refreshToken) {
       throw new BadRequestException('Refresh token is required');
     }
 
     let payload: { sub: string };
     try {
-      // Verify refresh JWT
-      payload = await this.jwtService.verifyAsync<{ sub: string }>(
-        dto.refreshToken,
-        {
-          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        },
-      );
+      payload = await this.jwtService.verifyAsync<{ sub: string }>(dto.refreshToken, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     const user = await this.usersService.findById(payload.sub);
-
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User account invalid or inactive');
     }
 
-    const storedToken = await this.usersService.findActiveRefreshToken(user.id);
-
-    if (!storedToken) {
-      throw new UnauthorizedException('Refresh token not found');
+    const activeToken = await this.usersService.findActiveRefreshToken(user.id);
+    if (!activeToken) {
+      throw new UnauthorizedException('Refresh token revoked or not found');
     }
 
     const matches = await this.passwordService.compare(
       dto.refreshToken,
-      storedToken.tokenHash,
+      activeToken.tokenHash,
     );
 
     if (!matches) {
-      throw new UnauthorizedException('Invalid refresh token');
+      // Security warning: possible token reuse attempt — revoke all user tokens
+      await this.usersService.revokeRefreshTokens(user.id);
+      throw new UnauthorizedException('Invalid refresh token — all sessions revoked for security');
     }
 
     await this.usersService.revokeRefreshTokens(user.id);
 
-    const accessToken = await this.generateAccessToken(user);
+    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const newRefreshToken = await this.generateRefreshToken(user.id);
 
-    const refreshToken = await this.generateRefreshToken(user);
+    const newRefreshHash = await this.passwordService.hash(newRefreshToken);
+    const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const refreshHash = await this.passwordService.hash(refreshToken);
-
-    await this.usersService.saveRefreshToken(
-      user.id,
-      refreshHash,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    );
+    await this.usersService.saveRefreshToken(user.id, newRefreshHash, refreshExpires);
 
     return {
       accessToken,
-      refreshToken,
+      refreshToken: newRefreshToken,
     };
   }
 
-  async logout(userId: string) {
+  async logout(userId: string): Promise<{ message: string }> {
     await this.usersService.revokeRefreshTokens(userId);
-
     await this.usersService.revokeSessions(userId);
+    return { message: 'Successfully logged out' };
+  }
 
-    return {
-      message: 'Logged out successfully',
-    };
+  private async generateAccessToken(
+    userId: string,
+    email: string,
+    role: string,
+  ): Promise<string> {
+    const payload = { sub: userId, email, role };
+    return this.jwtService.signAsync(payload, {
+      secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRES') ?? '15m') as any,
+    });
+  }
+
+  private async generateRefreshToken(userId: string): Promise<string> {
+    const payload = { sub: userId };
+    return this.jwtService.signAsync(payload, {
+      secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES') ?? '7d') as any,
+    });
   }
 }

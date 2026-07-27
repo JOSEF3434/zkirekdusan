@@ -1,0 +1,73 @@
+// src/modules/profiles/profiles.repository.ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { UpdateProfileDto } from './dto/update-profile.dto.js';
+
+@Injectable()
+export class ProfilesRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findByUserId(userId: string) {
+    return this.prisma.profile.findUnique({
+      where: { userId },
+      include: {
+        user: { select: { id: true, username: true, email: true } },
+        avatar: { select: { url: true } },
+        cover: { select: { url: true } },
+      },
+    });
+  }
+
+  async findByUsername(username: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    if (!user) return null;
+    return this.findByUserId(user.id);
+  }
+
+  async update(userId: string, data: UpdateProfileDto) {
+    return this.prisma.profile.update({
+      where: { userId },
+      data,
+      include: {
+        user: { select: { id: true, username: true, email: true } },
+        avatar: { select: { url: true } },
+        cover: { select: { url: true } },
+      },
+    });
+  }
+
+  async updateAvatar(userId: string, fileId: string) {
+    return this.prisma.profile.update({
+      where: { userId },
+      data: { avatarFileId: fileId },
+    });
+  }
+
+  async updateCover(userId: string, fileId: string) {
+    return this.prisma.profile.update({
+      where: { userId },
+      data: { coverFileId: fileId },
+    });
+  }
+
+  /** Calculate profile stats dynamically */
+  async getProfileStats(userId: string) {
+    const [groupsCount] = await Promise.all([
+      this.prisma.groupMember.count({
+        where: { userId, removedAt: null },
+      }),
+    ]);
+
+    return {
+      followersCount: 0,
+      followingCount: 0,
+      groupsCount,
+      postsCount: 0,
+      videosCount: 0,
+    };
+  }
+}

@@ -1,15 +1,13 @@
-import { Injectable } from '@nestjs/common';
+// src/modules/auth/strategies/refresh.strategy.ts
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
+import { RefreshTokenPayload } from '../../../common/interfaces/jwt-payload.interface.js';
 
-interface RefreshPayload {
-  sub: string;
-}
-
-interface RefreshBody {
-  refreshToken?: string;
+interface RequestWithRefreshBody extends Request {
+  body: { refreshToken?: string };
 }
 
 @Injectable()
@@ -24,12 +22,21 @@ export class RefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   }
 
   validate(
-    req: Request<Record<string, never>, unknown, RefreshBody>,
-    payload: RefreshPayload,
-  ) {
+    req: RequestWithRefreshBody,
+    payload: RefreshTokenPayload,
+  ): { sub: string; refreshToken: string } {
+    if (!payload?.sub) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const refreshToken = req.body?.refreshToken;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
     return {
       sub: payload.sub,
-      refreshToken: req.body.refreshToken,
+      refreshToken,
     };
   }
 }

@@ -1,102 +1,117 @@
+// prisma/seed/seed.ts
 import { PrismaClient } from '@prisma/client';
-import { DEFAULT_ROLES } from '../../src/common/constants/roles.js';
+import bcrypt from 'bcrypt';
+import { DEFAULT_ROLES, AppRole } from '../../src/common/constants/roles.js';
 import { DEFAULT_PERMISSIONS } from '../../src/common/constants/permissions.js';
 import { ROLE_PERMISSIONS } from './role-permissions.js';
 
 export async function seed(prisma: PrismaClient) {
-  console.log('🌱 Starting database seed...');
+  console.log('🌱 Starting database seed for enterprise social platform...');
 
   /**
-   * Seed Roles
+   * 1. Seed Global Roles
    */
   for (const role of DEFAULT_ROLES) {
     await prisma.role.upsert({
-      where: {
-        name: role.name,
-      },
-      update: {},
+      where: { name: role.name },
+      update: { description: role.description },
       create: role,
     });
   }
-
-  console.log('✅ Roles seeded');
+  console.log('✅ Global Roles seeded (SUPER_ADMIN, ADMIN, USER)');
 
   /**
-   * Seed Permissions
+   * 2. Seed Permissions
    */
   for (const permission of DEFAULT_PERMISSIONS) {
     await prisma.permission.upsert({
-      where: {
-        name: permission.name,
-      },
-      update: {},
+      where: { name: permission.name },
+      update: { description: permission.description },
       create: permission,
     });
   }
-
-  console.log('✅ Permissions seeded');
+  console.log('✅ Global Permissions seeded');
 
   /**
-   * Assign Permissions to Roles
+   * 3. Assign Role Permissions
    */
   for (const [roleName, permissionNames] of Object.entries(ROLE_PERMISSIONS)) {
-    const role = await prisma.role.findUnique({
-      where: {
-        name: roleName,
-      },
-    });
-
+    const role = await prisma.role.findUnique({ where: { name: roleName } });
     if (!role) continue;
 
-    // SUPER_ADMIN gets every permission
     if (permissionNames.includes('*')) {
       const allPermissions = await prisma.permission.findMany();
-
-      for (const permission of allPermissions) {
+      for (const perm of allPermissions) {
         await prisma.rolePermission.upsert({
           where: {
-            roleId_permissionId: {
-              roleId: role.id,
-              permissionId: permission.id,
-            },
+            roleId_permissionId: { roleId: role.id, permissionId: perm.id },
           },
           update: {},
-          create: {
-            roleId: role.id,
-            permissionId: permission.id,
-          },
+          create: { roleId: role.id, permissionId: perm.id },
         });
       }
-
       continue;
     }
 
-    for (const permissionName of permissionNames) {
-      const permission = await prisma.permission.findUnique({
-        where: {
-          name: permissionName,
-        },
-      });
-
-      if (!permission) continue;
+    for (const permName of permissionNames) {
+      const perm = await prisma.permission.findUnique({ where: { name: permName } });
+      if (!perm) continue;
 
       await prisma.rolePermission.upsert({
         where: {
-          roleId_permissionId: {
-            roleId: role.id,
-            permissionId: permission.id,
-          },
+          roleId_permissionId: { roleId: role.id, permissionId: perm.id },
         },
         update: {},
-        create: {
-          roleId: role.id,
-          permissionId: permission.id,
-        },
+        create: { roleId: role.id, permissionId: perm.id },
       });
     }
   }
+  console.log('✅ Role permissions mapped');
 
-  console.log('✅ Role permissions assigned');
+  /**
+   * 4. Seed Super Admin & Regular Admin Accounts
+   */
+  const superAdminRole = await prisma.role.findUnique({ where: { name: AppRole.SUPER_ADMIN } });
+  const userRole = await prisma.role.findUnique({ where: { name: AppRole.USER } });
+
+  const passwordHash = await bcrypt.hash('Admin@123456', 12);
+
+  if (superAdminRole) {
+    const adminUser = await prisma.user.upsert({
+      where: { email: 'superadmin@platform.com' },
+      update: {},
+      create: {
+        email: 'superadmin@platform.com',
+        username: 'superadmin',
+        passwordHash,
+        roleId: superAdminRole.id,
+        isEmailVerified: true,
+        profile: {
+          create: {
+            displayName: 'Super Admin',
+            bio: 'Platform System Administrator',
+          },
+        },
+      },
+    });
+    console.log(`✅ Super Admin created: ${adminUser.email}`);
+  }
+
+  /**
+   * 5. Migrate any existing users assigned to removed global roles (MODERATOR/CREATOR) to USER
+   */
+  if (userRole) {
+    const staleRoles = await prisma.role.findMany({
+      where: { name: { in: ['MODERATOR', 'CREATOR'] } },
+    });
+
+    for (const staleRole of staleRoles) {
+      await prisma.user.updateMany({
+        where: { roleId: staleRole.id },
+        data: { roleId: userRole.id },
+      });
+    }
+  }
 
   console.log('🎉 Database seed completed successfully!');
 }

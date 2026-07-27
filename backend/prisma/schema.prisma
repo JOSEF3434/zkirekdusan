@@ -1,13 +1,43 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────────
 // ENUMS
+// ─────────────────────────────────────────────
+
+/// Global platform roles — only 3 at platform level
+enum GlobalRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+/// Group-scoped roles — granular control inside a group
+enum GroupRole {
+  GROUP_ADMIN
+  MODERATOR
+  MEMBER
+  GUEST
+}
+
+/// Group lifecycle — new groups require admin approval
+enum GroupStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum GroupVisibility {
+  PUBLIC
+  PRIVATE
+  INVITE_ONLY
+}
 
 enum UserStatus {
   ACTIVE
@@ -29,6 +59,12 @@ enum SessionStatus {
   EXPIRED
 }
 
+enum ProfileVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
 enum FileProvider {
   LOCAL
   S3
@@ -36,275 +72,366 @@ enum FileProvider {
   MINIO
 }
 
-enum ProfileVisibility {
-
-  PUBLIC
-
-  FOLLOWERS
-
-  PRIVATE
-}
-
 enum FileType {
-
   IMAGE
-
   VIDEO
-
   AUDIO
-
   DOCUMENT
-
+  ARCHIVE
   OTHER
 }
 
 enum FileStatus {
-
   UPLOADING
-
   PROCESSING
-
   READY
-
   FAILED
-
   DELETED
 }
 
-// ROLE
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+// ─────────────────────────────────────────────
+// ROLE & PERMISSIONS (global)
+// ─────────────────────────────────────────────
 
 model Role {
-  id          String           @id @default(uuid())
-  name        String           @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
+  isActive    Boolean  @default(true)
 
   users       User[]
   permissions RolePermission[]
-  isActive Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("roles")
 }
 
-// PERMISSION
-
 model Permission {
-  id          String           @id @default(uuid())
-  name        String           @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
 
-  roles       RolePermission[]
+  roles RolePermission[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("permissions")
 }
 
-// ROLE PERMISSION
-
 model RolePermission {
-  id           String      @id @default(uuid())
-
+  id           String @id @default(uuid())
   roleId       String
   permissionId String
 
-  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([roleId, permissionId])
-
   @@index([roleId])
   @@index([permissionId])
-
   @@map("role_permissions")
 }
 
+// ─────────────────────────────────────────────
 // USER
+// ─────────────────────────────────────────────
 
 model User {
-  id               String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  email            String      @unique
-  username         String      @unique
+  email    String @unique
+  username String @unique
 
-  passwordHash     String
+  passwordHash String
 
-  roleId           String
-  role             Role        @relation(fields: [roleId], references: [id])
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
 
-  status           UserStatus  @default(ACTIVE)
+  status UserStatus @default(ACTIVE)
 
-  isEmailVerified  Boolean     @default(false)
+  isEmailVerified Boolean @default(false)
 
-  lastLoginAt      DateTime?
+  lastLoginAt DateTime?
 
-  profile          Profile?
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
 
-  sessions         Session[]
+  profile Profile?
 
-  refreshTokens    RefreshToken[]
+  sessions      Session[]
+  refreshTokens RefreshToken[]
 
-  createdFiles     File[]
+  uploadedFiles File[]
 
-  failedLoginAttempts Int @default(0)
+  groupMemberships GroupMember[]
+  sentInvites      GroupInvite[] @relation("InviteSender")
+  receivedInvites  GroupInvite[] @relation("InviteRecipient")
 
-  lockedUntil DateTime?
+  createdGroups   Group[] @relation("GroupCreator")
+  approvedGroups  Group[] @relation("GroupApprover")
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([username])
   @@index([roleId])
-
   @@map("users")
 }
 
+// ─────────────────────────────────────────────
 // PROFILE
+// ─────────────────────────────────────────────
 
 model Profile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  id             String   @id @default(uuid())
+  firstName   String?
+  lastName    String?
+  displayName String?
+  bio         String?  @db.Text
+  website     String?
+  country     String?
+  language    String?
+  gender      Gender?
+  birthDate   DateTime?
 
-  userId         String   @unique
+  visibility ProfileVisibility @default(PUBLIC)
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  verificationBadge String?
 
-  firstName      String?
+  avatarFileId String?
+  coverFileId  String?
 
-  lastName       String?
+  avatar File? @relation("ProfileAvatar", fields: [avatarFileId], references: [id])
+  cover  File? @relation("ProfileCover", fields: [coverFileId], references: [id])
 
-  displayName    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  bio            String?   @db.Text
-
-  avatarFileId   String?
-
-  coverFileId    String?
-
-  avatar         File?     @relation("Avatar", fields: [avatarFileId], references: [id])
-
-  cover          File?     @relation("Cover", fields: [coverFileId], references: [id])
-
-  website        String?
-
-  country        String?
-
-  language       String?
-
-  gender         Gender?
-
-  birthDate      DateTime?
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
+  @@index([userId])
   @@map("profiles")
 }
 
+// ─────────────────────────────────────────────
+// GROUP
+// ─────────────────────────────────────────────
+
+model Group {
+  id          String  @id @default(uuid())
+  name        String
+  slug        String  @unique
+  description String? @db.Text
+  avatarUrl   String?
+  coverUrl    String?
+  website     String?
+  country     String?
+
+  status     GroupStatus     @default(PENDING_APPROVAL)
+  visibility GroupVisibility @default(PUBLIC)
+
+  /// The user who created the group
+  createdById String
+  createdBy   User   @relation("GroupCreator", fields: [createdById], references: [id])
+
+  /// Admin who approved or rejected the group (ADMIN/SUPER_ADMIN)
+  approvedById String?
+  approvedBy   User?   @relation("GroupApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  members GroupMember[]
+  invites GroupInvite[]
+  files   File[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([slug])
+  @@index([status])
+  @@index([createdById])
+  @@map("groups")
+}
+
+model GroupMember {
+  id      String    @id @default(uuid())
+  groupId String
+  userId  String
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role GroupRole @default(MEMBER)
+
+  joinedAt  DateTime  @default(now())
+  removedAt DateTime?
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+model GroupInvite {
+  id      String @id @default(uuid())
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  senderId    String
+  sender      User   @relation("InviteSender", fields: [senderId], references: [id])
+
+  recipientId String
+  recipient   User   @relation("InviteRecipient", fields: [recipientId], references: [id])
+
+  role   GroupRole  @default(MEMBER)
+  status InviteStatus @default(PENDING)
+  token  String     @unique @default(uuid())
+
+  expiresAt DateTime
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([groupId])
+  @@index([recipientId])
+  @@index([token])
+  @@map("group_invites")
+}
+
+// ─────────────────────────────────────────────
 // SESSION
+// ─────────────────────────────────────────────
 
 model Session {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  id           String   @id @default(uuid())
+  ipAddress String?
+  userAgent String?
+  device    String?
+  browser   String?
+  os        String?
+  location  String?
 
-  userId       String
+  status    SessionStatus @default(ACTIVE)
+  expiresAt DateTime
+  lastSeenAt DateTime?
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  ipAddress    String?
-
-  userAgent    String?
-
-  device       String?
-
-  browser      String?
-
-  os           String?
-
-  location     String?
-
-  status       SessionStatus @default(ACTIVE)
-
-  expiresAt    DateTime
-
-  lastSeenAt   DateTime?
-
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
-
   @@map("sessions")
 }
 
+// ─────────────────────────────────────────────
 // REFRESH TOKEN
+// ─────────────────────────────────────────────
 
 model RefreshToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  id            String   @id @default(uuid())
+  tokenHash String
 
-  userId        String
-
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  tokenHash     String
-
-  expiresAt     DateTime
-
-  revokedAt     DateTime?
+  expiresAt DateTime
+  revokedAt DateTime?
 
   createdByIp String?
+  userAgent   String?
+  device      String?
 
-  userAgent String?
-
-  device String?
-
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
-
   @@map("refresh_tokens")
 }
 
+// ─────────────────────────────────────────────
 // FILE
+// ─────────────────────────────────────────────
 
 model File {
+  id String @id @default(uuid())
 
-  id            String   @id @default(uuid())
+  /// Original filename from the client
+  originalName String
 
-  originalName  String
+  /// Stored filename (UUID-based, safe for filesystem)
+  fileName String
 
-  fileName      String
+  mimeType  String
+  extension String
+  size      BigInt
 
-  mimeType      String
+  fileType FileType @default(OTHER)
 
-  extension     String
+  /// Storage backend used for this file
+  provider  FileProvider
+  /// Provider-specific key/path (e.g. "uploads/2024/01/file.jpg" for local, Cloudinary public_id, etc.)
+  storageKey String
+  /// Public-facing URL
+  url        String
 
-  size          BigInt
+  /// SHA-256 checksum of the file contents
+  checksum String?
 
-  provider      FileProvider
+  status FileStatus @default(READY)
 
-  storageKey    String
+  /// Width in pixels (images/video)
+  width  Int?
+  /// Height in pixels (images/video)
+  height Int?
+  /// Duration in seconds (video/audio)
+  duration Float?
 
-  url           String
+  /// Thumbnail URL (for video/image, generated by provider)
+  thumbnailUrl String?
 
-  uploadedById  String
+  /// Additional metadata as JSON (e.g. EXIF, codec info)
+  metadata Json?
 
-  uploadedBy    User @relation(fields: [uploadedById], references: [id])
+  /// The user who uploaded the file
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
-  avatarOf      Profile[] @relation("Avatar")
+  /// Every file MUST belong to a group (group-scoped uploads only)
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
 
-  coverOf       Profile[] @relation("Cover")
-  createdBy String?
+  /// Profiles using this file as avatar
+  avatarOf Profile[] @relation("ProfileAvatar")
+  /// Profiles using this file as cover
+  coverOf  Profile[] @relation("ProfileCover")
 
-  updatedBy String?
-  createdAt     DateTime @default(now())
+  /// Soft delete
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([uploadedById])
-
+  @@index([groupId])
+  @@index([fileType])
+  @@index([status])
+  @@index([deletedAt])
   @@map("files")
 }

@@ -1,39 +1,29 @@
 // src/modules/users/users.service.ts
-
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { UsersRepository } from './users.repository.js';
+import { UserResponseDto } from './dto/user-response.dto.js';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly usersRepository: UsersRepository) {}
+
+  async findById(id: string) {
+    if (!id) throw new NotFoundException('User ID is required');
+    const user = await this.usersRepository.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        role: true,
-        profile: true,
-      },
-    });
+    return this.usersRepository.findByEmail(email);
   }
 
   async findByUsername(username: string) {
-    return this.prisma.user.findUnique({
-      where: { username },
-      include: {
-        role: true,
-      },
-    });
+    return this.usersRepository.findByUsername(username);
   }
 
-  async findById(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        role: true,
-        profile: true,
-      },
-    });
+  async getRoleByName(name: string) {
+    return this.usersRepository.getRoleByName(name);
   }
 
   async create(data: {
@@ -42,106 +32,80 @@ export class UsersService {
     passwordHash: string;
     roleId: string;
   }) {
-    return this.prisma.user.create({
-      data: {
-        ...data,
-
-        profile: {
-          create: {},
-        },
-      },
-      include: {
-        profile: true,
-        role: true,
-      },
-    });
+    return this.usersRepository.create(data);
   }
 
   async updateLastLogin(userId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        lastLoginAt: new Date(),
-        failedLoginAttempts: 0,
-      },
-    });
+    return this.usersRepository.updateLastLogin(userId);
   }
 
   async incrementFailedLogin(userId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        failedLoginAttempts: {
-          increment: 1,
-        },
-      },
-    });
+    return this.usersRepository.incrementFailedLogin(userId);
   }
 
-  // Save hashed refresh token
   async saveRefreshToken(userId: string, tokenHash: string, expiresAt: Date) {
-    return this.prisma.refreshToken.create({
-      data: {
-        userId,
-        tokenHash,
-        expiresAt,
-      },
-    });
+    return this.usersRepository.saveRefreshToken(userId, tokenHash, expiresAt);
   }
 
-  // Get latest active refresh token
   async findActiveRefreshToken(userId: string) {
-    return this.prisma.refreshToken.findFirst({
-      where: {
-        userId,
-        revokedAt: null,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    return this.usersRepository.findActiveRefreshToken(userId);
   }
 
-  // Revoke active refresh tokens
   async revokeRefreshTokens(userId: string) {
-    return this.prisma.refreshToken.updateMany({
-      where: {
-        userId,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+    return this.usersRepository.revokeRefreshTokens(userId);
   }
 
-  async createSession(data: {
-    userId: string;
-    ipAddress?: string;
-    userAgent?: string;
-    browser?: string;
-    os?: string;
-    device?: string;
-    location?: string;
-    expiresAt: Date;
-  }) {
-    return this.prisma.session.create({
-      data: {
-        ...data,
-        status: 'ACTIVE',
-      },
-    });
+  async createSession(data: { userId: string; expiresAt: Date }) {
+    return this.usersRepository.createSession(data);
   }
 
   async revokeSessions(userId: string) {
-    return this.prisma.session.updateMany({
-      where: {
-        userId,
-        status: 'ACTIVE',
-      },
-      data: {
-        status: 'REVOKED',
-      },
+    return this.usersRepository.revokeSessions(userId);
+  }
+
+  async getUserProfileDto(id: string): Promise<UserResponseDto> {
+    const user = await this.findById(id);
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role.name,
+      status: user.status,
+      isEmailVerified: user.isEmailVerified,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+    };
+  }
+
+  async findAll(page = 1, limit = 20, search?: string) {
+    const skip = (page - 1) * limit;
+    const { items, total } = await this.usersRepository.findAll({
+      skip,
+      take: limit,
+      search,
     });
+
+    const data: UserResponseDto[] = items.map((user) => ({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role.name,
+      status: user.status,
+      isEmailVerified: user.isEmailVerified,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 }

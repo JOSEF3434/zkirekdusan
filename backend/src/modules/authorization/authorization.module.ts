@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../prisma/prisma.module.js';
+// src/modules/authorization/authorization.module.ts
+import { Global, Module } from '@nestjs/common';
 import { AuthorizationService } from './authorization.service.js';
 
+@Global()
 @Module({
-  imports: [PrismaModule],
-  exports: [AuthorizationService],
   providers: [AuthorizationService],
+  exports: [AuthorizationService],
 })
 export class AuthorizationModule {}

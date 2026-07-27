@@ -1,9 +1,12 @@
+// src/common/constants/permissions.ts
+
 export const PERMISSIONS = {
   USERS: {
     READ: 'users.read',
     CREATE: 'users.create',
     UPDATE: 'users.update',
     DELETE: 'users.delete',
+    BAN: 'users.ban',
   },
 
   ROLES: {
@@ -23,6 +26,15 @@ export const PERMISSIONS = {
   PROFILE: {
     READ: 'profile.read',
     UPDATE: 'profile.update',
+  },
+
+  GROUPS: {
+    CREATE: 'groups.create',
+    READ: 'groups.read',
+    UPDATE: 'groups.update',
+    DELETE: 'groups.delete',
+    APPROVE: 'groups.approve',   // ADMIN / SUPER_ADMIN only
+    SUSPEND: 'groups.suspend',
   },
 
   POSTS: {
@@ -76,9 +88,12 @@ export const PERMISSIONS = {
     MANAGE: 'system.manage',
   },
 } as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS][keyof (typeof PERMISSIONS)[keyof typeof PERMISSIONS]];
+
 export const DEFAULT_PERMISSIONS = Object.values(PERMISSIONS)
   .flatMap((group) => Object.values(group))
   .map((permission) => ({
-    name: permission,
-    description: permission,
+    name: permission as string,
+    description: permission as string,
   }));

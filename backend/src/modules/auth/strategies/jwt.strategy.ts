@@ -1,71 +1,69 @@
-// backend/src/modules/auth/strategies/jwt.strategy.ts
-
-import { Injectable } from '@nestjs/common';
-
+// src/modules/auth/strategies/jwt.strategy.ts
+import {
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-
 import { ConfigService } from '@nestjs/config';
-
 import { ExtractJwt, Strategy } from 'passport-jwt';
-
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface.js';
 
+/**
+ * JWT Access Token strategy.
+ *
+ * FIXES applied:
+ * 1. validate() throws UnauthorizedException instead of returning null
+ *    → prevents PrismaClientValidationError when user is missing
+ * 2. Validates payload.sub is present before DB query
+ * 3. Checks user.status === ACTIVE — suspended/banned users get 401
+ * 4. Secret reads from JWT_ACCESS_SECRET (matches .env)
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-
       ignoreExpiration: false,
-
-      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') || '',
+      secretOrKey:
+        configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
     });
   }
 
-  async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: payload.sub,
-      },
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    // Guard against malformed payload (sub must be a non-empty string)
+    if (!payload?.sub || typeof payload.sub !== 'string') {
+      throw new UnauthorizedException('Invalid token payload');
+    }
 
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        status: true,
+        role: { select: { name: true } },
       },
     });
 
     if (!user) {
-      return null;
+      throw new UnauthorizedException('User account not found');
     }
 
-    return user;
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException(
+        `Account is ${user.status.toLowerCase()}. Contact support.`,
+      );
+    }
+
+    // Return the payload shape — this becomes request.user
+    // We re-embed the role name in case it changed since last token issuance
+    return {
+      sub: user.id,
+      email: payload.email,
+      role: user.role.name,
+    };
   }
-}
-// backend/src/modules/auth/decorators/Current-user.decorator.ts
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-
-export const CurrentUser = createParamDecorator(
-  (_: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest<{ user?: unknown }>();
-    return request.user;
-  },
-);
-export interface JwtPayload {
-  sub: string;
-
-  id: string;
-
-  email: string;
-
-  role: string;
 }
