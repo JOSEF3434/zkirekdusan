@@ -13,6 +13,9 @@ import { RolesModule } from './modules/roles/roles.module.js';
 import { RefreshTokenModule } from './modules/refresh-token/refresh-token.module.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { SessionsModule } from './modules/sessions/sessions.module.js';
+import { RolesGuard } from './common/guards/roles.guard.js';
+import { PermissionsGuard } from './common/guards/permissions.guard.js';
+import { AuthorizationModule } from './modules/authorization/authorization.module.js';
 
 @Module({
   imports: [
@@ -29,6 +32,7 @@ import { SessionsModule } from './modules/sessions/sessions.module.js';
     RolesModule,
     SessionsModule,
     RefreshTokenModule,
+    AuthorizationModule,
   ],
 
   controllers: [AppController],
@@ -39,6 +43,20 @@ import { SessionsModule } from './modules/sessions/sessions.module.js';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
   ],
 })

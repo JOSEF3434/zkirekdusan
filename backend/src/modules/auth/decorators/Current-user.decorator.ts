@@ -7,3 +7,12 @@ export const CurrentUser = createParamDecorator(
     return request.user;
   },
 );
+export interface JwtPayload {
+  sub: string;
+
+  id: string;
+
+  email: string;
+
+  role: string;
+}
