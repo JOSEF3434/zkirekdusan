@@ -7,5 +7,5 @@ export class EditMessageDto {
   @IsString()
   @MinLength(1)
   @MaxLength(10000)
-  content: string;
+  content!: string;
 }

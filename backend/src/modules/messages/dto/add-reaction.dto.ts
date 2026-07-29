@@ -7,5 +7,5 @@ export class AddReactionDto {
   @IsString()
   @MinLength(1)
   @MaxLength(10)
-  emoji: string;
+  emoji!: string;
 }
