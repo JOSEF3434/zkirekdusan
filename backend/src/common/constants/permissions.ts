@@ -37,6 +37,21 @@ export const PERMISSIONS = {
     SUSPEND: 'groups.suspend',
   },
 
+  CHANNELS: {
+    CREATE: 'channels.create',
+    READ: 'channels.read',
+    UPDATE: 'channels.update',
+    DELETE: 'channels.delete',
+  },
+
+  MESSAGES: {
+    SEND: 'messages.send',
+    READ: 'messages.read',
+    PIN: 'messages.pin',
+    DELETE_EVERYONE: 'messages.delete_everyone',
+    ANNOUNCE: 'messages.announce',
+  },
+
   POSTS: {
     CREATE: 'posts.create',
     UPDATE: 'posts.update',

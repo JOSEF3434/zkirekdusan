@@ -28,6 +28,15 @@ import { StoriesModule } from './modules/stories/stories.module.js';
 import { ReelsModule } from './modules/reels/reels.module.js';
 import { SavedPostsModule } from './modules/saved-posts/saved-posts.module.js';
 
+// Messaging Platform Modules (Phase 3)
+import { ChannelsModule } from './modules/channels/channels.module.js';
+import { ConversationsModule } from './modules/conversations/conversations.module.js';
+import { MessagesModule } from './modules/messages/messages.module.js';
+import { MessagingGatewayModule } from './modules/messaging-gateway/messaging-gateway.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { GroupJoinRequestsModule } from './modules/group-join-requests/group-join-requests.module.js';
+import { PresenceModule } from './modules/presence/presence.module.js';
+
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -46,6 +55,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     PrismaModule,
     CommonModule,
 
+    // Phase 1 — Foundation
     AuthModule,
     UsersModule,
     RolesModule,
@@ -56,7 +66,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     GroupsModule,
     UploadsModule,
 
-    // Phase 2 Social Features
+    // Phase 2 — Social Features
     FollowsModule,
     PostsModule,
     LikesModule,
@@ -64,6 +74,15 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     StoriesModule,
     ReelsModule,
     SavedPostsModule,
+
+    // Phase 3 — Enterprise Messaging Platform
+    ChannelsModule,
+    ConversationsModule,
+    MessagesModule,
+    MessagingGatewayModule,
+    NotificationsModule,
+    GroupJoinRequestsModule,
+    PresenceModule,
   ],
 
   controllers: [AppController],

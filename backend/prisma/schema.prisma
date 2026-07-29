@@ -138,6 +138,56 @@ enum ReactionType {
 }
 
 // ─────────────────────────────────────────────
+// Phase 3 Messaging Enums
+// ─────────────────────────────────────────────
+
+enum ChannelType {
+  TEXT
+  ANNOUNCEMENT
+  VOICE
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP_CHANNEL
+  GROUP_DIRECT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  VOICE_NOTE
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum PresenceStatus {
+  ONLINE
+  IDLE
+  BUSY
+  OFFLINE
+}
+
+enum NotificationType {
+  MESSAGE
+  MENTION
+  REACTION
+  GROUP_INVITE
+  GROUP_JOIN_REQUEST
+  GROUP_APPROVE
+  SYSTEM
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
 // ROLE & PERMISSIONS (global)
 // ─────────────────────────────────────────────
 
@@ -243,6 +293,19 @@ model User {
   savedPosts SavedPost[]
   storyViews StoryView[]
 
+  // Phase 3 Messaging Relations
+  conversationMembers ConversationMember[]
+  messages            Message[]
+  messageReactions    MessageReaction[]
+  messageReads        MessageRead[]
+  messageDeliveries   MessageDelivery[]
+  pinnedMessages      PinnedMessage[]
+  starredMessages     StarredMessage[]
+  groupJoinRequests   GroupJoinRequest[]
+  presence            UserPresence?
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -321,6 +384,11 @@ model Group {
   invites GroupInvite[]
   files   File[]
   posts   Post[]
+
+  // Phase 3 Messaging Relations
+  channels      Channel[]
+  conversations Conversation[]
+  joinRequests  GroupJoinRequest[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -492,6 +560,10 @@ model File {
 
   /// Story file references
   stories Story[]
+
+  /// Phase 3 Message attachment references
+  messageAttachments MessageAttachment[]
+  voiceMessages      VoiceMessage[]
 
   /// Soft delete
   deletedAt DateTime?
@@ -790,4 +862,285 @@ model SavedPost {
   @@id([userId, postId])
   @@index([userId])
   @@map("saved_posts")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 3 MESSAGING MODELS
+// ─────────────────────────────────────────────
+
+model Channel {
+  id          String      @id @default(uuid())
+  groupId     String
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  type        ChannelType @default(TEXT)
+  description String?     @db.Text
+  isPrivate   Boolean     @default(false)
+
+  conversations Conversation[]
+  messages      Message[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([groupId, slug])
+  @@index([groupId])
+  @@map("channels")
+}
+
+model Conversation {
+  id   String           @id @default(uuid())
+  type ConversationType @default(DIRECT)
+
+  groupId String?
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  channelId String?  @unique
+  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  lastMessageId String?
+  lastMessageAt DateTime?
+
+  members        ConversationMember[]
+  messages       Message[]
+  pinnedMessages PinnedMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([type])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lastReadMessageId String?
+  unreadCount       Int     @default(0)
+  isMuted           Boolean @default(false)
+  isPinned          Boolean @default(false)
+
+  encryptionKeyHash String? // E2EE key exchange metadata ready
+
+  joinedAt DateTime @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  channelId      String?
+  senderId       String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  channel      Channel?     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  content String?     @db.Text
+  type    MessageType @default(TEXT)
+
+  /// Threaded reply parent message
+  replyToId String?
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  isEdited             Boolean   @default(false)
+  isPinned             Boolean   @default(false)
+  deletedForEveryoneAt DateTime?
+
+  attachments MessageAttachment[]
+  reactions   MessageReaction[]
+  reads       MessageRead[]
+  deliveries  MessageDelivery[]
+  starredBy   StarredMessage[]
+  pinnedIn    PinnedMessage[]
+  voiceNote   VoiceMessage?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
+  @@index([channelId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String @id @default(uuid())
+  messageId String
+  fileId    String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file    File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([fileId])
+  @@map("message_attachments")
+}
+
+model MessageReaction {
+  id        String @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+model MessageRead {
+  messageId String
+  userId    String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt DateTime @default(now())
+
+  @@id([messageId, userId])
+  @@index([messageId])
+  @@map("message_reads")
+}
+
+model MessageDelivery {
+  messageId String
+  userId    String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deliveredAt DateTime @default(now())
+
+  @@id([messageId, userId])
+  @@index([messageId])
+  @@map("message_deliveries")
+}
+
+model PinnedMessage {
+  id             String @id @default(uuid())
+  conversationId String
+  messageId      String
+  pinnedById     String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedBy     User         @relation(fields: [pinnedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([conversationId, messageId])
+  @@index([conversationId])
+  @@map("pinned_messages")
+}
+
+model StarredMessage {
+  userId    String
+  messageId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  starredAt DateTime @default(now())
+
+  @@id([userId, messageId])
+  @@index([userId])
+  @@map("starred_messages")
+}
+
+model VoiceMessage {
+  id        String @id @default(uuid())
+  messageId String @unique
+  fileId    String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file    File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  duration Int     // duration in seconds
+  waveform Json?   // waveform JSON array
+
+  @@map("voice_messages")
+}
+
+model GroupJoinRequest {
+  id      String            @id @default(uuid())
+  groupId String
+  userId  String
+  status  JoinRequestStatus @default(PENDING)
+  note    String?
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_join_requests")
+}
+
+model UserPresence {
+  id           String         @id @default(uuid())
+  userId       String         @unique
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       PresenceStatus @default(OFFLINE)
+  customStatus String?
+  lastSeenAt   DateTime       @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("user_presence")
+}
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   NotificationType
+  title  String
+  body   String           @db.Text
+  data   Json?
+  isRead Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  resource  String
+  details   Json?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
 }
