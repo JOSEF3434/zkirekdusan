@@ -7,6 +7,7 @@ import { UploadsRepository } from './uploads.repository.js';
 import { UploadsController } from './uploads.controller.js';
 import { LocalStorageProvider } from './providers/local.provider.js';
 import { CloudinaryStorageProvider } from './providers/cloudinary.provider.js';
+import { MinioStorageProvider } from './providers/minio.provider.js';
 import { storageProviderFactory } from './providers/storage.factory.js';
 
 @Module({
@@ -27,6 +28,7 @@ import { storageProviderFactory } from './providers/storage.factory.js';
     UploadsRepository,
     LocalStorageProvider,
     CloudinaryStorageProvider,
+    MinioStorageProvider,
     storageProviderFactory,
   ],
   exports: [UploadsService],

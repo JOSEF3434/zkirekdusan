@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { IStorageProvider } from './storage.interface.js';
 import { LocalStorageProvider } from './local.provider.js';
 import { CloudinaryStorageProvider } from './cloudinary.provider.js';
+import { MinioStorageProvider } from './minio.provider.js';
 
 export const STORAGE_PROVIDER_TOKEN = 'STORAGE_PROVIDER_TOKEN';
 
@@ -13,8 +14,15 @@ export const storageProviderFactory = {
     configService: ConfigService,
     localProvider: LocalStorageProvider,
     cloudinaryProvider: CloudinaryStorageProvider,
+    minioProvider: MinioStorageProvider,
   ): IStorageProvider => {
     const logger = new Logger('StorageProviderFactory');
+
+    const providerType = configService.get<string>('STORAGE_PROVIDER')?.toUpperCase();
+    if (providerType === 'MINIO') {
+      logger.log('STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider');
+      return minioProvider;
+    }
 
     const cloudName = configService.get<string>('CLOUDINARY_CLOUD_NAME');
     const apiKey = configService.get<string>('CLOUDINARY_API_KEY');
@@ -26,9 +34,9 @@ export const storageProviderFactory = {
     }
 
     logger.log(
-      'Cloudinary credentials missing or incomplete — falling back to LocalStorageProvider (uploads/ folder)',
+      'Using LocalStorageProvider (uploads/ folder)',
     );
     return localProvider;
   },
-  inject: [ConfigService, LocalStorageProvider, CloudinaryStorageProvider],
+  inject: [ConfigService, LocalStorageProvider, CloudinaryStorageProvider, MinioStorageProvider],
 };

@@ -1,7 +1,8 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -37,6 +38,15 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { GroupJoinRequestsModule } from './modules/group-join-requests/group-join-requests.module.js';
 import { PresenceModule } from './modules/presence/presence.module.js';
 
+// Video Platform Modules (Phase 4)
+import { VideoChannelsModule } from './modules/video-channels/video-channels.module.js';
+import { VideosModule } from './modules/videos/videos.module.js';
+import { VideoProcessingModule } from './modules/video-processing/video-processing.module.js';
+import { VideoPlaylistsModule } from './modules/video-playlists/video-playlists.module.js';
+import { VideoCommentsModule } from './modules/video-comments/video-comments.module.js';
+import { VideoSubscriptionsModule } from './modules/video-subscriptions/video-subscriptions.module.js';
+import { DownloadsModule } from './modules/downloads/downloads.module.js';
+
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -50,6 +60,17 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
       isGlobal: true,
       envFilePath: '.env',
       expandVariables: true,
+    }),
+
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('REDIS_HOST') || 'localhost',
+          port: config.get<number>('REDIS_PORT') || 6379,
+        },
+      }),
+      inject: [ConfigService],
     }),
 
     PrismaModule,
@@ -83,6 +104,15 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     NotificationsModule,
     GroupJoinRequestsModule,
     PresenceModule,
+
+    // Phase 4 — Enterprise Video Platform & Downloads
+    VideoChannelsModule,
+    VideosModule,
+    VideoProcessingModule,
+    VideoPlaylistsModule,
+    VideoCommentsModule,
+    VideoSubscriptionsModule,
+    DownloadsModule,
   ],
 
   controllers: [AppController],

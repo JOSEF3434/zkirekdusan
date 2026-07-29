@@ -35,24 +35,46 @@ async function bootstrap() {
 
   // Configure Swagger OpenAPI documentation
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Enterprise Social Platform API')
+    .setTitle('Enterprise Social & Video Platform API')
     .setDescription(
-      'Production-ready social platform foundation (YouTube + Instagram + Discord style) built with NestJS, Clean Architecture, Prisma, PostgreSQL (Neon), and Two-Level RBAC.',
+      'Production-grade YouTube + Instagram + Discord backend platform built with NestJS, Clean Architecture, Prisma, PostgreSQL (Neon), BullMQ, HLS Video Pipeline, and Two-Level RBAC.',
     )
-    .setVersion('2.0.0')
+    .setVersion('4.0.0')
     .addBearerAuth()
+    // Phase 1 Tags
     .addTag('Authentication', 'Login, registration, token rotation & session management')
-    .addTag('Users', 'Platform user management')
+    .addTag('Users', 'Platform user management & admin controls')
+    .addTag('Roles', 'Global role-based access control (SUPER_ADMIN, ADMIN, USER)')
+    .addTag('Sessions', 'User active session tracking & revocation')
     .addTag('Profiles', 'User profile CRUD, visibility & statistics')
+    .addTag('Groups', 'Group management, approval workflows & membership RBAC')
+    .addTag('Group Uploads', 'Group-scoped file upload API with pluggable storage (Local, Cloudinary, MinIO, S3)')
+
+    // Phase 2 Tags
     .addTag('Follows', 'Follow/unfollow system & follower/following lists')
-    .addTag('Groups', 'Group system with approval workflows & membership management')
-    .addTag('Group Uploads', 'Group-scoped file upload API with pluggable storage backends')
     .addTag('Posts', 'Posts feed (Text, Image, Video, Carousel) with visibility & hashtags')
     .addTag('Likes & Reactions', 'Reactions on posts, reels, and comments')
     .addTag('Comments', 'Nested comments & replies')
     .addTag('Stories (24h Expiration)', '24-hour temporary media and text stories')
     .addTag('Reels (Short-form Videos)', 'Instagram/YouTube Shorts style short videos')
     .addTag('Saved Posts', 'Bookmark and save posts for later viewing')
+
+    // Phase 3 Tags
+    .addTag('Group Channels', 'Messaging channels (Text, Announcement, Voice) inside groups')
+    .addTag('Conversations', 'Direct 1-on-1 and Group messaging conversations')
+    .addTag('Messages', 'Real-time messaging with attachments, reactions, read receipts, and pinning')
+    .addTag('Notifications', 'User notifications for messages, mentions, and system events')
+    .addTag('Group Join Requests', 'Group join request approval workflow')
+    .addTag('Presence', 'User online/offline/idle presence management')
+
+    // Phase 4 Tags
+    .addTag('Video Channels', 'Group-owned Video Channels for publishing media content')
+    .addTag('Videos', 'Video upload, HLS playback, watch progress, recommendations, and analytics')
+    .addTag('Video Processing', 'BullMQ background transcoding queue and FFmpeg pipeline')
+    .addTag('Video Playlists', 'Custom user & channel video playlists')
+    .addTag('Video Comments', 'Nested video comment system with pinned comments')
+    .addTag('Video Subscriptions', 'Channel subscriptions and subscription feed')
+    .addTag('Downloads', 'Enterprise multi-resolution media download system with RBAC authorization')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

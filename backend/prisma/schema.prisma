@@ -306,6 +306,18 @@ model User {
   notifications       Notification[]
   auditLogs           AuditLog[]
 
+  // Phase 4 Video Platform Relations
+  uploadedVideos      Video[]            @relation("VideoUploader")
+  videoComments       VideoComment[]     @relation("UserVideoComments")
+  videoLikes          VideoLike[]        @relation("UserVideoLikes")
+  videoCommentLikes   VideoCommentLike[] @relation("UserVideoCommentLikes")
+  videoBookmarks      VideoBookmark[]    @relation("UserVideoBookmarks")
+  videoSubscriptions  VideoSubscription[] @relation("UserVideoSubscriptions")
+  videoWatchHistory   VideoWatchHistory[] @relation("UserWatchHistory")
+  videoReports        VideoReport[]      @relation("VideoReporter")
+  videoPlaylists      VideoPlaylist[]    @relation("PlaylistOwner")
+  downloadRecords     DownloadRecord[]   @relation("UserDownloads")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -389,6 +401,9 @@ model Group {
   channels      Channel[]
   conversations Conversation[]
   joinRequests  GroupJoinRequest[]
+
+  // Phase 4 Video Platform Relations
+  videoChannels VideoChannel[] @relation("GroupVideoChannels")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -564,6 +579,13 @@ model File {
   /// Phase 3 Message attachment references
   messageAttachments MessageAttachment[]
   voiceMessages      VoiceMessage[]
+
+  /// Phase 4 Video Platform references
+  videoChannelAvatars VideoChannel[] @relation("VideoChannelAvatar")
+  videoChannelBanners VideoChannel[] @relation("VideoChannelBanner")
+  videoSources        Video[]        @relation("VideoSourceFile")
+  videoThumbnails     Video[]        @relation("VideoThumbnail")
+  downloadRecords     DownloadRecord[] @relation("FileDownloads")
 
   /// Soft delete
   deletedAt DateTime?
@@ -1143,4 +1165,578 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 4 VIDEO PLATFORM ENUMS
+// ─────────────────────────────────────────────
+
+/// Video processing lifecycle state
+enum VideoStatus {
+  UPLOADING
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+  DELETED
+}
+
+/// Video visibility control
+enum VideoVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+  GROUP_ONLY
+  SCHEDULED
+}
+
+/// Supported transcoding resolutions
+enum VideoResolution {
+  R_240P
+  R_360P
+  R_480P
+  R_720P
+  R_1080P
+  R_4K
+}
+
+/// Who can download this media
+enum DownloadPermission {
+  PUBLIC
+  MEMBERS_ONLY
+  SUBSCRIBERS_ONLY
+  NONE
+}
+
+/// Playlist visibility
+enum PlaylistVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+/// Video channel status
+enum VideoChannelStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+/// Video report reasons
+enum VideoReportReason {
+  SPAM
+  VIOLENCE
+  SEXUAL_CONTENT
+  HATE_SPEECH
+  MISINFORMATION
+  COPYRIGHT
+  HARASSMENT
+  OTHER
+}
+
+/// Download record status
+enum DownloadStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// PHASE 4: VIDEO CHANNELS
+// Every video channel belongs to an approved Group.
+// Users upload videos ONLY inside video channels.
+// ─────────────────────────────────────────────
+
+model VideoChannel {
+  id          String @id @default(uuid())
+  groupId     String
+  group       Group  @relation("GroupVideoChannels", fields: [groupId], references: [id], onDelete: Cascade)
+
+  name        String
+  slug        String
+  handle      String  @unique // @handle for discovery
+  description String? @db.Text
+
+  avatarFileId  String?
+  bannerFileId  String?
+  avatarFile    File?   @relation("VideoChannelAvatar", fields: [avatarFileId], references: [id])
+  bannerFile    File?   @relation("VideoChannelBanner", fields: [bannerFileId], references: [id])
+
+  status      VideoChannelStatus @default(ACTIVE)
+  isVerified  Boolean            @default(false)
+
+  /// Who can upload to this channel (beyond GROUP_ADMIN/MODERATOR)
+  uploadPermission   GroupRole  @default(MEMBER)
+
+  /// Download permission default for videos in this channel
+  downloadPermission DownloadPermission @default(MEMBERS_ONLY)
+
+  /// Denormalized counters
+  subscribersCount Int @default(0)
+  videosCount      Int @default(0)
+  totalViewsCount  BigInt @default(0)
+
+  categories  String[]
+  tags        String[]
+  country     String?
+  language    String?
+
+  /// Social links stored as JSON
+  socialLinks Json?
+
+  videos        Video[]
+  subscriptions VideoSubscription[]
+  playlists     VideoPlaylist[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([groupId, slug])
+  @@index([groupId])
+  @@index([handle])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("video_channels")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 4: VIDEOS
+// ─────────────────────────────────────────────
+
+model Video {
+  id             String       @id @default(uuid())
+  videoChannelId String
+  videoChannel   VideoChannel @relation(fields: [videoChannelId], references: [id], onDelete: Cascade)
+
+  /// The uploader (must be an authorized group member)
+  uploadedById String
+  uploadedBy   User   @relation("VideoUploader", fields: [uploadedById], references: [id])
+
+  /// Original raw upload file reference
+  sourceFileId String?
+  sourceFile   File?   @relation("VideoSourceFile", fields: [sourceFileId], references: [id])
+
+  title       String
+  description String?  @db.Text
+  slug        String   @unique
+
+  status     VideoStatus     @default(UPLOADING)
+  visibility VideoVisibility @default(PRIVATE)
+
+  /// Duration in seconds (extracted after processing)
+  duration Float?
+
+  /// Original dimensions
+  width  Int?
+  height Int?
+
+  /// Bitrate in kbps
+  bitrate Int?
+
+  /// Codec info
+  videoCodec String?
+  audioCodec String?
+
+  /// Thumbnail references
+  thumbnailUrl String?
+  thumbnailFileId String?
+  thumbnailFile   File?   @relation("VideoThumbnail", fields: [thumbnailFileId], references: [id])
+
+  /// Preview/GIF clip URL
+  previewUrl String?
+
+  /// HLS master playlist URL (after processing)
+  hlsUrl  String?
+  /// DASH manifest URL (future)
+  dashUrl String?
+
+  /// Categories, tags, hashtags, mentions
+  categories String[]
+  tags       String[]
+  hashtags   String[]
+  mentions   String[] // array of user IDs
+
+  /// SEO fields
+  seoTitle       String?
+  seoDescription String?
+
+  /// Download settings
+  downloadPermission DownloadPermission @default(MEMBERS_ONLY)
+  isDownloadable Boolean @default(false)
+
+  /// Scheduling
+  scheduledAt DateTime?
+  publishedAt DateTime?
+
+  /// Engagement counters (denormalized for performance)
+  viewsCount    BigInt @default(0)
+  likesCount    Int    @default(0)
+  dislikesCount Int    @default(0)
+  commentsCount Int    @default(0)
+  sharesCount   Int    @default(0)
+  bookmarksCount Int   @default(0)
+  downloadsCount Int   @default(0)
+
+  /// Processing job ID (BullMQ)
+  processingJobId String?
+
+  /// Checksum of source file
+  checksum String?
+
+  renditions    VideoRendition[]
+  chapters      VideoChapter[]
+  subtitles     VideoSubtitle[]
+  likes         VideoLike[]
+  comments      VideoComment[]
+  bookmarks     VideoBookmark[]
+  reports       VideoReport[]
+  watchHistory  VideoWatchHistory[]
+  downloadRecords DownloadRecord[]
+  playlistItems VideoPlaylistItem[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([videoChannelId])
+  @@index([uploadedById])
+  @@index([status])
+  @@index([visibility])
+  @@index([slug])
+  @@index([publishedAt])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("videos")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO RENDITIONS (Transcoded quality variants)
+// ─────────────────────────────────────────────
+
+model VideoRendition {
+  id      String @id @default(uuid())
+  videoId String
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  resolution VideoResolution
+  height     Int
+  width      Int
+  bitrate    Int
+  fileSize   BigInt
+
+  /// Storage key for the HLS .m3u8 playlist or MP4 file
+  storageKey String
+  url        String
+
+  /// Provider used for this rendition
+  provider   FileProvider
+
+  isReady    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([videoId, resolution])
+  @@index([videoId])
+  @@map("video_renditions")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO CHAPTERS
+// ─────────────────────────────────────────────
+
+model VideoChapter {
+  id        String @id @default(uuid())
+  videoId   String
+  video     Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  title       String
+  startTimeMs Int  // start time in milliseconds
+  order       Int
+
+  @@index([videoId])
+  @@map("video_chapters")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO SUBTITLES / CAPTIONS
+// ─────────────────────────────────────────────
+
+model VideoSubtitle {
+  id      String @id @default(uuid())
+  videoId String
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  language   String // BCP 47 language tag e.g. "en", "fr"
+  label      String // Human-readable label e.g. "English"
+  fileUrl    String // URL to .vtt or .srt file
+  storageKey String
+  provider   FileProvider
+  isDefault  Boolean @default(false)
+  isAutoGenerated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([videoId, language])
+  @@index([videoId])
+  @@map("video_subtitles")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO PLAYLISTS
+// ─────────────────────────────────────────────
+
+model VideoPlaylist {
+  id             String  @id @default(uuid())
+  videoChannelId String?
+  videoChannel   VideoChannel? @relation(fields: [videoChannelId], references: [id], onDelete: SetNull)
+
+  /// Owner user
+  ownerId String
+  owner   User   @relation("PlaylistOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String? @db.Text
+  thumbnailUrl String?
+
+  visibility PlaylistVisibility @default(PUBLIC)
+
+  /// Watch later / favorites are system playlists
+  isSystemPlaylist Boolean @default(false)
+  systemType       String? // "WATCH_LATER", "LIKED_VIDEOS", etc.
+
+  videosCount Int @default(0)
+
+  items VideoPlaylistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([videoChannelId])
+  @@map("video_playlists")
+}
+
+model VideoPlaylistItem {
+  id         String @id @default(uuid())
+  playlistId String
+  videoId    String
+  order      Int    @default(0)
+  addedAt    DateTime @default(now())
+
+  playlist VideoPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@index([playlistId])
+  @@map("video_playlist_items")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO WATCH HISTORY
+// ─────────────────────────────────────────────
+
+model VideoWatchHistory {
+  id      String @id @default(uuid())
+  userId  String
+  videoId String
+
+  user  User  @relation("UserWatchHistory", fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  /// Progress position in seconds
+  watchedSeconds Float  @default(0)
+  /// Percentage of video watched (0-100)
+  watchedPercent Float  @default(0)
+  /// Whether user completed the video (≥90%)
+  isCompleted    Boolean @default(false)
+
+  watchedAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+  @@index([watchedAt])
+  @@map("video_watch_history")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO LIKES
+// ─────────────────────────────────────────────
+
+model VideoLike {
+  userId   String
+  videoId  String
+  isLike   Boolean // true = like, false = dislike
+
+  user  User  @relation("UserVideoLikes", fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, videoId])
+  @@index([videoId])
+  @@map("video_likes")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO COMMENTS (Nested)
+// ─────────────────────────────────────────────
+
+model VideoComment {
+  id      String @id @default(uuid())
+  videoId String
+  userId  String
+
+  /// null = root comment; non-null = reply
+  parentId String?
+
+  content    String  @db.Text
+  isPinned   Boolean @default(false)
+  isEdited   Boolean @default(false)
+
+  likesCount   Int @default(0)
+  repliesCount Int @default(0)
+
+  video   Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user    User         @relation("UserVideoComments", fields: [userId], references: [id], onDelete: Cascade)
+  parent  VideoComment? @relation("VideoCommentReplies", fields: [parentId], references: [id])
+  replies VideoComment[] @relation("VideoCommentReplies")
+  likes   VideoCommentLike[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([videoId])
+  @@index([parentId])
+  @@index([userId])
+  @@index([deletedAt])
+  @@map("video_comments")
+}
+
+model VideoCommentLike {
+  userId    String
+  commentId String
+
+  user    User         @relation("UserVideoCommentLikes", fields: [userId], references: [id], onDelete: Cascade)
+  comment VideoComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, commentId])
+  @@index([commentId])
+  @@map("video_comment_likes")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model VideoSubscription {
+  userId         String
+  videoChannelId String
+
+  user         User         @relation("UserVideoSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  videoChannel VideoChannel @relation(fields: [videoChannelId], references: [id], onDelete: Cascade)
+
+  /// Notification preferences
+  notifyOnUpload    Boolean @default(true)
+  notifyOnLive      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, videoChannelId])
+  @@index([userId])
+  @@index([videoChannelId])
+  @@map("video_subscriptions")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO BOOKMARKS (Watch Later / Favorites)
+// ─────────────────────────────────────────────
+
+model VideoBookmark {
+  userId  String
+  videoId String
+
+  user  User  @relation("UserVideoBookmarks", fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@id([userId, videoId])
+  @@index([userId])
+  @@map("video_bookmarks")
+}
+
+// ─────────────────────────────────────────────
+// VIDEO REPORTS (Moderation)
+// ─────────────────────────────────────────────
+
+model VideoReport {
+  id      String @id @default(uuid())
+  videoId String
+  userId  String
+
+  reason  VideoReportReason
+  details String?           @db.Text
+
+  isResolved  Boolean   @default(false)
+  resolvedAt  DateTime?
+  resolvedById String?
+
+  video    Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  reporter User  @relation("VideoReporter", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([videoId, userId])
+  @@index([videoId])
+  @@index([isResolved])
+  @@map("video_reports")
+}
+
+// ─────────────────────────────────────────────
+// DOWNLOAD RECORDS (Audit + Analytics)
+// ─────────────────────────────────────────────
+
+model DownloadRecord {
+  id      String @id @default(uuid())
+  userId  String
+  videoId String?
+
+  /// Generic file download (for non-video files)
+  fileId String?
+
+  resolution VideoResolution?
+  status     DownloadStatus   @default(PENDING)
+
+  /// Signed URL used for this download
+  signedUrl   String?
+  expiresAt   DateTime?
+
+  ipAddress   String?
+  userAgent   String?
+
+  fileSize    BigInt?
+  bytesServed BigInt? @default(0)
+
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  user  User   @relation("UserDownloads", fields: [userId], references: [id], onDelete: Cascade)
+  video Video? @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  file  File?  @relation("FileDownloads", fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([fileId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("download_records")
 }
