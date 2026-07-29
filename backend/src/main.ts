@@ -39,13 +39,20 @@ async function bootstrap() {
     .setDescription(
       'Production-ready social platform foundation (YouTube + Instagram + Discord style) built with NestJS, Clean Architecture, Prisma, PostgreSQL (Neon), and Two-Level RBAC.',
     )
-    .setVersion('1.0.0')
+    .setVersion('2.0.0')
     .addBearerAuth()
     .addTag('Authentication', 'Login, registration, token rotation & session management')
     .addTag('Users', 'Platform user management')
     .addTag('Profiles', 'User profile CRUD, visibility & statistics')
+    .addTag('Follows', 'Follow/unfollow system & follower/following lists')
     .addTag('Groups', 'Group system with approval workflows & membership management')
     .addTag('Group Uploads', 'Group-scoped file upload API with pluggable storage backends')
+    .addTag('Posts', 'Posts feed (Text, Image, Video, Carousel) with visibility & hashtags')
+    .addTag('Likes & Reactions', 'Reactions on posts, reels, and comments')
+    .addTag('Comments', 'Nested comments & replies')
+    .addTag('Stories (24h Expiration)', '24-hour temporary media and text stories')
+    .addTag('Reels (Short-form Videos)', 'Instagram/YouTube Shorts style short videos')
+    .addTag('Saved Posts', 'Bookmark and save posts for later viewing')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -98,6 +98,46 @@ enum InviteStatus {
 }
 
 // ─────────────────────────────────────────────
+// Phase 2 Enums
+// ─────────────────────────────────────────────
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  CAROUSEL
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+  GROUP_ONLY
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum StoryType {
+  IMAGE
+  VIDEO
+  TEXT
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
+// ─────────────────────────────────────────────
 // ROLE & PERMISSIONS (global)
 // ─────────────────────────────────────────────
 
@@ -152,8 +192,9 @@ model RolePermission {
 model User {
   id String @id @default(uuid())
 
-  email    String @unique
-  username String @unique
+  email       String?  @unique
+  phoneNumber String?  @unique
+  username    String   @unique
 
   passwordHash String
 
@@ -163,6 +204,7 @@ model User {
   status UserStatus @default(ACTIVE)
 
   isEmailVerified Boolean @default(false)
+  isPhoneVerified Boolean @default(false)
 
   lastLoginAt DateTime?
 
@@ -183,10 +225,29 @@ model User {
   createdGroups   Group[] @relation("GroupCreator")
   approvedGroups  Group[] @relation("GroupApprover")
 
+  // Social features
+  following Follow[] @relation("UserFollowing")
+  followers Follow[] @relation("UserFollowers")
+
+  posts    Post[]
+  stories  Story[]
+  reels    Reel[]
+
+  postLikes    PostLike[]
+  reelLikes    ReelLike[]
+  commentLikes CommentLike[]
+
+  comments      Comment[]
+  reelComments  ReelComment[]
+
+  savedPosts SavedPost[]
+  storyViews StoryView[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
+  @@index([phoneNumber])
   @@index([username])
   @@index([roleId])
   @@map("users")
@@ -213,8 +274,8 @@ model Profile {
 
   visibility ProfileVisibility @default(PUBLIC)
 
-  isVerified      Boolean  @default(false)
-  verifiedAt      DateTime?
+  isVerified        Boolean  @default(false)
+  verifiedAt        DateTime?
   verificationBadge String?
 
   avatarFileId String?
@@ -259,6 +320,7 @@ model Group {
   members GroupMember[]
   invites GroupInvite[]
   files   File[]
+  posts   Post[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -304,7 +366,7 @@ model GroupInvite {
   status InviteStatus @default(PENDING)
   token  String     @unique @default(uuid())
 
-  expiresAt DateTime
+  expiresAt   DateTime
   respondedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -422,6 +484,15 @@ model File {
   /// Profiles using this file as cover
   coverOf  Profile[] @relation("ProfileCover")
 
+  /// Post media references
+  postMedia PostMedia[]
+
+  /// Reel file references
+  reels Reel[]
+
+  /// Story file references
+  stories Story[]
+
   /// Soft delete
   deletedAt DateTime?
 
@@ -434,4 +505,289 @@ model File {
   @@index([status])
   @@index([deletedAt])
   @@map("files")
+}
+
+// ─────────────────────────────────────────────
+// FOLLOW
+// ─────────────────────────────────────────────
+
+model Follow {
+  followerId  String
+  followingId String
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// ─────────────────────────────────────────────
+// POST
+// ─────────────────────────────────────────────
+
+model Post {
+  id       String @id @default(uuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  groupId String?
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  type       PostType
+  status     PostStatus     @default(PUBLISHED)
+  visibility PostVisibility @default(PUBLIC)
+
+  content  String? @db.Text
+  hashtags String[]
+  mentions String[] // array of user IDs mentioned
+
+  /// Denormalized counters for feed performance
+  likesCount    Int @default(0)
+  commentsCount Int @default(0)
+  sharesCount   Int @default(0)
+  viewsCount    Int @default(0)
+
+  media    PostMedia[]
+  likes    PostLike[]
+  comments Comment[]
+  savedBy  SavedPost[]
+
+  publishedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([groupId])
+  @@index([status, visibility])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model PostMedia {
+  id      String @id @default(uuid())
+  postId  String
+  fileId  String
+  order   Int    @default(0)
+  caption String?
+  altText String?
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id])
+
+  @@index([postId])
+  @@map("post_media")
+}
+
+// ─────────────────────────────────────────────
+// LIKES
+// ─────────────────────────────────────────────
+
+model PostLike {
+  userId   String
+  postId   String
+  reaction ReactionType @default(LIKE)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+model ReelLike {
+  userId   String
+  reelId   String
+  reaction ReactionType @default(LIKE)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reel Reel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, reelId])
+  @@index([reelId])
+  @@map("reel_likes")
+}
+
+model CommentLike {
+  userId    String
+  commentId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, commentId])
+  @@index([commentId])
+  @@map("comment_likes")
+}
+
+// ─────────────────────────────────────────────
+// COMMENTS
+// ─────────────────────────────────────────────
+
+model Comment {
+  id       String @id @default(uuid())
+  postId   String
+  authorId String
+
+  /// null = root-level comment; non-null = reply to another comment
+  parentId String?
+
+  content    String @db.Text
+  likesCount Int    @default(0)
+
+  post   Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+  likes  CommentLike[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([postId])
+  @@index([parentId])
+  @@index([authorId])
+  @@index([deletedAt])
+  @@map("comments")
+}
+
+model ReelComment {
+  id       String @id @default(uuid())
+  reelId   String
+  authorId String
+  parentId String?
+  content  String @db.Text
+  likesCount Int  @default(0)
+
+  reel   Reel        @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent ReelComment? @relation("ReelCommentReplies", fields: [parentId], references: [id])
+  replies ReelComment[] @relation("ReelCommentReplies")
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([reelId])
+  @@index([authorId])
+  @@map("reel_comments")
+}
+
+// ─────────────────────────────────────────────
+// STORIES
+// ─────────────────────────────────────────────
+
+model Story {
+  id       String @id @default(uuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  type StoryType
+
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id])
+
+  content         String? @db.Text
+  backgroundColor String?
+  textColor       String?
+
+  viewsCount Int @default(0)
+
+  expiresAt DateTime // set to createdAt + 24h at creation
+
+  views     StoryView[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([authorId])
+  @@index([expiresAt])
+  @@index([deletedAt])
+  @@map("stories")
+}
+
+model StoryView {
+  storyId  String
+  viewerId String
+
+  story  Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer User  @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  viewedAt DateTime @default(now())
+
+  @@id([storyId, viewerId])
+  @@index([storyId])
+  @@map("story_views")
+}
+
+// ─────────────────────────────────────────────
+// REELS
+// ─────────────────────────────────────────────
+
+model Reel {
+  id       String @id @default(uuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id])
+
+  thumbnailUrl String?
+  caption      String? @db.Text
+  hashtags     String[]
+  mentions     String[]
+
+  duration Float // in seconds
+
+  likesCount    Int @default(0)
+  commentsCount Int @default(0)
+  viewsCount    Int @default(0)
+  sharesCount   Int @default(0)
+
+  visibility PostVisibility @default(PUBLIC)
+  status     PostStatus     @default(PUBLISHED)
+
+  likes    ReelLike[]
+  comments ReelComment[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([status, visibility])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("reels")
+}
+
+// ─────────────────────────────────────────────
+// SAVED POSTS
+// ─────────────────────────────────────────────
+
+model SavedPost {
+  userId  String
+  postId  String
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId])
+  @@map("saved_posts")
 }

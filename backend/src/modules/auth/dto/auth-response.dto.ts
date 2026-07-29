@@ -1,12 +1,15 @@
 // src/modules/auth/dto/auth-response.dto.ts
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserSummaryDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id!: string;
 
-  @ApiProperty({ example: 'user@example.com' })
-  email!: string;
+  @ApiPropertyOptional({ example: 'user@example.com', nullable: true })
+  email?: string | null;
+
+  @ApiPropertyOptional({ example: '+12025550123', nullable: true })
+  phoneNumber?: string | null;
 
   @ApiProperty({ example: 'johndoe' })
   username!: string;

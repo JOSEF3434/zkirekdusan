@@ -19,6 +19,15 @@ import { ProfilesModule } from './modules/profiles/profiles.module.js';
 import { GroupsModule } from './modules/groups/groups.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
 
+// Social Features Modules (Phase 2)
+import { FollowsModule } from './modules/follows/follows.module.js';
+import { PostsModule } from './modules/posts/posts.module.js';
+import { LikesModule } from './modules/likes/likes.module.js';
+import { CommentsModule } from './modules/comments/comments.module.js';
+import { StoriesModule } from './modules/stories/stories.module.js';
+import { ReelsModule } from './modules/reels/reels.module.js';
+import { SavedPostsModule } from './modules/saved-posts/saved-posts.module.js';
+
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -46,6 +55,15 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     ProfilesModule,
     GroupsModule,
     UploadsModule,
+
+    // Phase 2 Social Features
+    FollowsModule,
+    PostsModule,
+    LikesModule,
+    CommentsModule,
+    StoriesModule,
+    ReelsModule,
+    SavedPostsModule,
   ],
 
   controllers: [AppController],

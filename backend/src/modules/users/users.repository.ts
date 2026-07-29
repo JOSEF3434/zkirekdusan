@@ -29,6 +29,30 @@ export class UsersRepository {
     });
   }
 
+  async findByPhoneNumber(phoneNumber: string) {
+    if (!phoneNumber) return null;
+    return this.prisma.user.findUnique({
+      where: { phoneNumber },
+      include: {
+        role: true,
+        profile: true,
+      },
+    });
+  }
+
+  async findByEmailOrPhone(identifier: string) {
+    if (!identifier) return null;
+    return this.prisma.user.findFirst({
+      where: {
+        OR: [{ email: identifier }, { phoneNumber: identifier }],
+      },
+      include: {
+        role: true,
+        profile: true,
+      },
+    });
+  }
+
   async findByUsername(username: string) {
     if (!username) return null;
     return this.prisma.user.findUnique({
@@ -47,14 +71,16 @@ export class UsersRepository {
   }
 
   async create(data: {
-    email: string;
+    email?: string;
+    phoneNumber?: string;
     username: string;
     passwordHash: string;
     roleId: string;
   }) {
     return this.prisma.user.create({
       data: {
-        email: data.email,
+        email: data.email ?? null,
+        phoneNumber: data.phoneNumber ?? null,
         username: data.username,
         passwordHash: data.passwordHash,
         roleId: data.roleId,
@@ -132,6 +158,7 @@ export class UsersRepository {
       ? {
           OR: [
             { email: { contains: params.search, mode: 'insensitive' } },
+            { phoneNumber: { contains: params.search, mode: 'insensitive' } },
             { username: { contains: params.search, mode: 'insensitive' } },
           ],
         }

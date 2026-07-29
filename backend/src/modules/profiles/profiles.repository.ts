@@ -54,20 +54,23 @@ export class ProfilesRepository {
     });
   }
 
-  /** Calculate profile stats dynamically */
+  /** Calculate profile stats dynamically from real database tables */
   async getProfileStats(userId: string) {
-    const [groupsCount] = await Promise.all([
-      this.prisma.groupMember.count({
-        where: { userId, removedAt: null },
-      }),
+    const [followersCount, followingCount, groupsCount, postsCount, reelsCount] = await Promise.all([
+      this.prisma.follow.count({ where: { followingId: userId } }),
+      this.prisma.follow.count({ where: { followerId: userId } }),
+      this.prisma.groupMember.count({ where: { userId, removedAt: null } }),
+      this.prisma.post.count({ where: { authorId: userId, deletedAt: null } }),
+      this.prisma.reel.count({ where: { authorId: userId, deletedAt: null } }),
     ]);
 
     return {
-      followersCount: 0,
-      followingCount: 0,
+      followersCount,
+      followingCount,
       groupsCount,
-      postsCount: 0,
-      videosCount: 0,
+      postsCount,
+      reelsCount,
+      videosCount: reelsCount,
     };
   }
 }

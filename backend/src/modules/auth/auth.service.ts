@@ -24,9 +24,22 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
-    const emailExists = await this.usersService.findByEmail(dto.email);
-    if (emailExists) {
-      throw new BadRequestException('Email already registered');
+    if (!dto.email && !dto.phoneNumber) {
+      throw new BadRequestException('Provide at least one of email or phone number');
+    }
+
+    if (dto.email) {
+      const emailExists = await this.usersService.findByEmail(dto.email);
+      if (emailExists) {
+        throw new BadRequestException('Email already registered');
+      }
+    }
+
+    if (dto.phoneNumber) {
+      const phoneExists = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+      if (phoneExists) {
+        throw new BadRequestException('Phone number already registered');
+      }
     }
 
     const usernameExists = await this.usersService.findByUsername(dto.username);
@@ -43,12 +56,17 @@ export class AuthService {
 
     const user = await this.usersService.create({
       email: dto.email,
+      phoneNumber: dto.phoneNumber,
       username: dto.username,
       passwordHash,
       roleId: defaultRole.id,
     });
 
-    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      user.email ?? user.phoneNumber ?? user.username,
+      user.role.name,
+    );
     const refreshToken = await this.generateRefreshToken(user.id);
 
     const refreshHash = await this.passwordService.hash(refreshToken);
@@ -64,6 +82,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         username: user.username,
         role: user.role.name,
       },
@@ -73,10 +92,16 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.usersService.findByEmail(dto.email);
+    let user;
+
+    if (dto.email) {
+      user = await this.usersService.findByEmail(dto.email);
+    } else if (dto.phoneNumber) {
+      user = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+    }
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     if (user.status !== 'ACTIVE') {
@@ -94,12 +119,16 @@ export class AuthService {
 
     if (!isPasswordValid) {
       await this.usersService.incrementFailedLogin(user.id);
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     await this.usersService.updateLastLogin(user.id);
 
-    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      user.email ?? user.phoneNumber ?? user.username,
+      user.role.name,
+    );
     const refreshToken = await this.generateRefreshToken(user.id);
 
     await this.usersService.revokeRefreshTokens(user.id);
@@ -117,6 +146,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         username: user.username,
         role: user.role.name,
       },
@@ -162,7 +192,11 @@ export class AuthService {
 
     await this.usersService.revokeRefreshTokens(user.id);
 
-    const accessToken = await this.generateAccessToken(user.id, user.email, user.role.name);
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      user.email ?? user.phoneNumber ?? user.username,
+      user.role.name,
+    );
     const newRefreshToken = await this.generateRefreshToken(user.id);
 
     const newRefreshHash = await this.passwordService.hash(newRefreshToken);
@@ -184,10 +218,10 @@ export class AuthService {
 
   private async generateAccessToken(
     userId: string,
-    email: string,
+    identifier: string,
     role: string,
   ): Promise<string> {
-    const payload = { sub: userId, email, role };
+    const payload = { sub: userId, email: identifier, role };
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRES') ?? '15m') as any,

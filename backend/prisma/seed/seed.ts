@@ -82,10 +82,12 @@ export async function seed(prisma: PrismaClient) {
       update: {},
       create: {
         email: 'superadmin@platform.com',
+        phoneNumber: '+10000000000',
         username: 'superadmin',
         passwordHash,
         roleId: superAdminRole.id,
         isEmailVerified: true,
+        isPhoneVerified: true,
         profile: {
           create: {
             displayName: 'Super Admin',

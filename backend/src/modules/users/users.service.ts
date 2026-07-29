@@ -18,6 +18,14 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
+  async findByPhoneNumber(phoneNumber: string) {
+    return this.usersRepository.findByPhoneNumber(phoneNumber);
+  }
+
+  async findByEmailOrPhone(identifier: string) {
+    return this.usersRepository.findByEmailOrPhone(identifier);
+  }
+
   async findByUsername(username: string) {
     return this.usersRepository.findByUsername(username);
   }
@@ -27,7 +35,8 @@ export class UsersService {
   }
 
   async create(data: {
-    email: string;
+    email?: string;
+    phoneNumber?: string;
     username: string;
     passwordHash: string;
     roleId: string;
@@ -68,10 +77,12 @@ export class UsersService {
     return {
       id: user.id,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       username: user.username,
       role: user.role.name,
       status: user.status,
       isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
     };
@@ -88,10 +99,12 @@ export class UsersService {
     const data: UserResponseDto[] = items.map((user) => ({
       id: user.id,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       username: user.username,
       role: user.role.name,
       status: user.status,
       isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
     }));

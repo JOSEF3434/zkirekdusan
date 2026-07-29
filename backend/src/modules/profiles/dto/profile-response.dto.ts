@@ -15,6 +15,9 @@ export class ProfileStatsDto {
   postsCount!: number;
 
   @ApiProperty({ example: 3 })
+  reelsCount!: number;
+
+  @ApiProperty({ example: 3 })
   videosCount!: number;
 }
 
