@@ -40,13 +40,13 @@ class WatchProgressBodyDto {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  watchedSeconds: number;
+  watchedSeconds!: number;
 }
 
 class ReportVideoDto {
   @ApiPropertyOptional({ enum: VideoReportReason })
   @IsEnum(VideoReportReason)
-  reason: VideoReportReason;
+  reason!: VideoReportReason;
 
   @ApiPropertyOptional()
   @IsOptional()

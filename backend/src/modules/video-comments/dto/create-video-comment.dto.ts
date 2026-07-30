@@ -7,7 +7,7 @@ export class CreateVideoCommentDto {
   @IsString()
   @MinLength(1)
   @MaxLength(2000)
-  content: string;
+  content!: string;
 
   @ApiPropertyOptional({ description: 'Parent comment ID for nested reply' })
   @IsOptional()

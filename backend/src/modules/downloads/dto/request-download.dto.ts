@@ -6,7 +6,7 @@ import { VideoResolution } from '@prisma/client';
 export class RequestVideoDownloadDto {
   @ApiProperty({ description: 'Video ID to download' })
   @IsString()
-  videoId: string;
+  videoId!: string;
 
   @ApiPropertyOptional({
     enum: VideoResolution,
@@ -21,22 +21,22 @@ export class RequestVideoDownloadDto {
 export class RequestFileDownloadDto {
   @ApiProperty({ description: 'File ID to download (for images, audio, docs, etc.)' })
   @IsString()
-  fileId: string;
+  fileId!: string;
 }
 
 export class DownloadTokenResponseDto {
   @ApiProperty({ description: 'Download authorization record ID' })
-  downloadId: string;
+  downloadId!: string;
 
   @ApiProperty({ description: 'Signed URL or streaming link valid for 1 hour' })
-  downloadUrl: string;
+  downloadUrl!: string;
 
   @ApiProperty({ description: 'ISO expiration timestamp' })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @ApiPropertyOptional({ enum: VideoResolution })
   resolution?: VideoResolution;
 
   @ApiProperty({ description: 'Target filename for Content-Disposition header' })
-  filename: string;
+  filename!: string;
 }

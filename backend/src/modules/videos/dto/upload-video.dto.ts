@@ -17,7 +17,7 @@ export class UploadVideoDto {
   @IsString()
   @MinLength(3)
   @MaxLength(300)
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ example: 'A comprehensive intro to NestJS for beginners' })
   @IsOptional()

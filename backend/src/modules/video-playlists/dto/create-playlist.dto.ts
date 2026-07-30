@@ -8,7 +8,7 @@ export class CreatePlaylistDto {
   @IsString()
   @MinLength(2)
   @MaxLength(150)
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ example: 'A collection of the best NestJS tutorials' })
   @IsOptional()
@@ -30,5 +30,5 @@ export class CreatePlaylistDto {
 export class AddPlaylistItemDto {
   @ApiProperty({ description: 'Video ID to add to playlist' })
   @IsString()
-  videoId: string;
+  videoId!: string;
 }

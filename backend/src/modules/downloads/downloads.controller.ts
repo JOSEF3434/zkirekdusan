@@ -14,7 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags }
 import { DownloadsService } from './downloads.service.js';
 import { RequestVideoDownloadDto, RequestFileDownloadDto, DownloadTokenResponseDto } from './dto/request-download.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express';
 import fs from 'fs';
 
 @ApiTags('Downloads')

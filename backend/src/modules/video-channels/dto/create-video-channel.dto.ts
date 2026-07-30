@@ -13,11 +13,14 @@ import { GroupRole } from '../../../common/constants/group-roles.js';
 import { DownloadPermission } from '@prisma/client';
 
 export class CreateVideoChannelDto {
-  @ApiProperty({ example: 'Tech Tutorials', description: 'Channel display name' })
+  @ApiProperty({
+    example: 'Tech Tutorials',
+    description: 'Channel display name',
+  })
   @IsString()
   @MinLength(2)
   @MaxLength(100)
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'tech-tutorials', description: 'URL-friendly slug' })
   @IsString()
@@ -26,16 +29,20 @@ export class CreateVideoChannelDto {
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
     message: 'Slug must be lowercase letters, numbers, and hyphens only',
   })
-  slug: string;
+  slug!: string;
 
-  @ApiProperty({ example: '@techtutorials', description: 'Unique @handle for discovery' })
+  @ApiProperty({
+    example: '@techtutorials',
+    description: 'Unique @handle for discovery',
+  })
   @IsString()
   @MinLength(3)
   @MaxLength(50)
   @Matches(/^@[a-zA-Z0-9_]+$/, {
-    message: 'Handle must start with @ and contain only letters, numbers, and underscores',
+    message:
+      'Handle must start with @ and contain only letters, numbers, and underscores',
   })
-  handle: string;
+  handle!: string;
 
   @ApiPropertyOptional({ example: 'We make tech tutorials for everyone.' })
   @IsOptional()
@@ -48,7 +55,10 @@ export class CreateVideoChannelDto {
   @IsEnum(GroupRole)
   uploadPermission?: GroupRole;
 
-  @ApiPropertyOptional({ enum: DownloadPermission, default: DownloadPermission.MEMBERS_ONLY })
+  @ApiPropertyOptional({
+    enum: DownloadPermission,
+    default: DownloadPermission.MEMBERS_ONLY,
+  })
   @IsOptional()
   @IsEnum(DownloadPermission)
   downloadPermission?: DownloadPermission;
