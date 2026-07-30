@@ -318,6 +318,20 @@ model User {
   videoPlaylists      VideoPlaylist[]    @relation("PlaylistOwner")
   downloadRecords     DownloadRecord[]   @relation("UserDownloads")
 
+  // Phase 5 Live Streaming Relations
+  createdStreams        LiveStream[]          @relation("StreamCreator")
+  streamViewerSessions  StreamViewer[]        @relation("StreamViewers")
+  streamChatMessages    StreamChatMessage[]   @relation("StreamChatSender")
+  streamChatReactions   StreamChatReaction[]  @relation("StreamChatReactions")
+  streamReactions       StreamReaction[]      @relation("StreamReactions")
+  streamBookmarks       StreamBookmark[]      @relation("StreamBookmarks")
+  streamReports         StreamReport[]        @relation("StreamReporters")
+  streamModerators      StreamModerator[]     @relation("StreamModerators")
+  streamModeratorAssignments StreamModerator[] @relation("StreamModeratorAssigner")
+  streamPolls           StreamPoll[]          @relation("StreamPolls")
+  streamPollVotes       StreamPollVote[]      @relation("StreamPollVotes")
+  streamHighlights      StreamHighlight[]     @relation("StreamHighlights")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -404,6 +418,9 @@ model Group {
 
   // Phase 4 Video Platform Relations
   videoChannels VideoChannel[] @relation("GroupVideoChannels")
+
+  // Phase 5 Live Streaming Relations
+  liveStreams LiveStream[] @relation("GroupLiveStreams")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -586,6 +603,11 @@ model File {
   videoSources        Video[]        @relation("VideoSourceFile")
   videoThumbnails     Video[]        @relation("VideoThumbnail")
   downloadRecords     DownloadRecord[] @relation("FileDownloads")
+
+  /// Phase 5 Live Streaming references
+  streamThumbnails    LiveStream[]       @relation("StreamThumbnail")
+  streamRecordings    StreamRecording[]  @relation("StreamRecordingFile")
+  streamHighlightFiles StreamHighlight[] @relation("StreamHighlightFile")
 
   /// Soft delete
   deletedAt DateTime?
@@ -1290,6 +1312,10 @@ model VideoChannel {
   subscriptions VideoSubscription[]
   playlists     VideoPlaylist[]
 
+  // Phase 5 Live Streaming Relations
+  streamKey   StreamKey?
+  liveStreams LiveStream[] @relation("ChannelLiveStreams")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -1739,4 +1765,547 @@ model DownloadRecord {
   @@index([status])
   @@index([createdAt])
   @@map("download_records")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5 LIVE STREAMING ENUMS
+// ─────────────────────────────────────────────
+
+enum LiveStreamStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+  FAILED
+}
+
+enum LiveStreamVisibility {
+  PUBLIC
+  PRIVATE
+  GROUP_ONLY
+  UNLISTED
+}
+
+enum StreamProtocol {
+  RTMP
+  WEBRTC
+  HLS_PULL
+}
+
+enum StreamRecordingStatus {
+  RECORDING
+  PROCESSING
+  READY
+  FAILED
+  DELETED
+}
+
+enum StreamChatMessageType {
+  TEXT
+  EMOTE
+  SUPER_CHAT
+  ANNOUNCEMENT
+  SYSTEM
+  MODERATION
+}
+
+enum StreamModeratorRole {
+  CO_HOST
+  MOD
+}
+
+enum StreamPollStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+}
+
+enum StreamReportReason {
+  SPAM
+  VIOLENCE
+  SEXUAL_CONTENT
+  HATE_SPEECH
+  MISINFORMATION
+  COPYRIGHT
+  HARASSMENT
+  OTHER
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM KEY
+// ─────────────────────────────────────────────
+
+model StreamKey {
+  id             String       @id @default(uuid())
+  videoChannelId String       @unique
+  videoChannel   VideoChannel @relation(fields: [videoChannelId], references: [id], onDelete: Cascade)
+
+  keyHash    String  @unique
+  keyPrefix  String
+
+  isActive   Boolean  @default(true)
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([videoChannelId])
+  @@index([keyHash])
+  @@map("stream_keys")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: LIVE STREAM
+// ─────────────────────────────────────────────
+
+model LiveStream {
+  id             String       @id @default(uuid())
+  videoChannelId String
+  videoChannel   VideoChannel @relation("ChannelLiveStreams", fields: [videoChannelId], references: [id], onDelete: Cascade)
+
+  groupId String
+  group   Group  @relation("GroupLiveStreams", fields: [groupId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation("StreamCreator", fields: [createdById], references: [id])
+
+  title       String
+  description String? @db.Text
+  slug        String  @unique
+
+  status     LiveStreamStatus     @default(DRAFT)
+  visibility LiveStreamVisibility @default(PUBLIC)
+
+  protocol StreamProtocol @default(RTMP)
+
+  hlsUrl        String?
+  dashUrl       String?
+  webrtcUrl     String?
+  rtmpIngestUrl String?
+
+  thumbnailFileId String?
+  thumbnailFile   File?   @relation("StreamThumbnail", fields: [thumbnailFileId], references: [id])
+  thumbnailUrl    String?
+
+  categories String[]
+  tags       String[]
+  hashtags   String[]
+
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  isRecordingEnabled    Boolean @default(true)
+  isDvrEnabled          Boolean @default(true)
+  isReplayEnabled       Boolean @default(true)
+
+  isChatEnabled         Boolean @default(true)
+  isChatSlowMode        Boolean @default(false)
+  chatSlowModeSeconds   Int     @default(0)
+  isMembersOnlyChat     Boolean @default(false)
+  isSubscribersOnlyChat Boolean @default(false)
+
+  peakViewerCount    Int    @default(0)
+  totalViewerCount   Int    @default(0)
+  currentViewerCount Int    @default(0)
+  totalChatMessages  Int    @default(0)
+  totalReactions     Int    @default(0)
+  likesCount         Int    @default(0)
+
+  duration        Float?
+  vodVideoId      String? @unique
+  processingJobId String?
+
+  sessions   StreamSession[]
+  chatRoom   StreamChatRoom?
+  analytics  StreamAnalytics?
+  recordings StreamRecording[]
+  moderators StreamModerator[]
+  reactions  StreamReaction[]
+  reports    StreamReport[]
+  bookmarks  StreamBookmark[]
+  polls      StreamPoll[]
+  highlights StreamHighlight[]
+  viewers    StreamViewer[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([videoChannelId])
+  @@index([groupId])
+  @@index([createdById])
+  @@index([status])
+  @@index([visibility])
+  @@index([scheduledAt])
+  @@index([slug])
+  @@index([deletedAt])
+  @@map("live_streams")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM SESSION
+// ─────────────────────────────────────────────
+
+model StreamSession {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  streamKeyId       String?
+  ingestBitrate     Int?
+  ingestResolution  String?
+  ingestFramerate   Int?
+
+  peakViewers  Int @default(0)
+  totalViewers Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([liveStreamId])
+  @@map("stream_sessions")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM VIEWER
+// ─────────────────────────────────────────────
+
+model StreamViewer {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  userId       String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User       @relation("StreamViewers", fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+  watchDuration Float     @default(0)
+  quality       String?
+
+  @@index([liveStreamId])
+  @@index([userId])
+  @@index([joinedAt])
+  @@map("stream_viewers")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM ANALYTICS
+// ─────────────────────────────────────────────
+
+model StreamAnalytics {
+  id           String     @id @default(uuid())
+  liveStreamId String     @unique
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  totalUniqueViewers    Int   @default(0)
+  peakConcurrentViewers Int   @default(0)
+  averageWatchDuration  Float @default(0)
+
+  totalChatMessages Int @default(0)
+  totalReactions    Int @default(0)
+  totalLikes        Int @default(0)
+  totalShares       Int @default(0)
+  totalClips        Int @default(0)
+
+  retentionData   Json?
+  geoBreakdown    Json?
+  deviceBreakdown Json?
+  qualityBreakdown Json?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("stream_analytics")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM RECORDING
+// ─────────────────────────────────────────────
+
+model StreamRecording {
+  id           String                @id @default(uuid())
+  liveStreamId String
+  liveStream   LiveStream            @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  status  StreamRecordingStatus @default(RECORDING)
+
+  fileId  String?
+  file    File?   @relation("StreamRecordingFile", fields: [fileId], references: [id])
+
+  url             String?
+  duration        Float?
+  fileSize        BigInt?
+  hlsUrl          String?
+  processingJobId String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([liveStreamId])
+  @@index([status])
+  @@map("stream_recordings")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM CHAT ROOM
+// ─────────────────────────────────────────────
+
+model StreamChatRoom {
+  id           String     @id @default(uuid())
+  liveStreamId String     @unique
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  isEnabled Boolean @default(true)
+
+  messages StreamChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("stream_chat_rooms")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM CHAT MESSAGE
+// ─────────────────────────────────────────────
+
+model StreamChatMessage {
+  id         String         @id @default(uuid())
+  chatRoomId String
+  chatRoom   StreamChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("StreamChatSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  content String                @db.Text
+  type    StreamChatMessageType @default(TEXT)
+
+  replyToId String?
+  replyTo   StreamChatMessage?  @relation("ChatMessageReplies", fields: [replyToId], references: [id])
+  replies   StreamChatMessage[] @relation("ChatMessageReplies")
+
+  isPinned  Boolean   @default(false)
+  pinnedAt  DateTime?
+
+  superChatAmount   Int?
+  superChatCurrency String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  reactions StreamChatReaction[]
+
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([isPinned])
+  @@index([deletedAt])
+  @@map("stream_chat_messages")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM CHAT REACTION
+// ─────────────────────────────────────────────
+
+model StreamChatReaction {
+  id        String            @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+
+  message StreamChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User              @relation("StreamChatReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("stream_chat_reactions")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM MODERATOR
+// ─────────────────────────────────────────────
+
+model StreamModerator {
+  id           String @id @default(uuid())
+  liveStreamId String
+  userId       String
+  assignedById String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User       @relation("StreamModerators", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User       @relation("StreamModeratorAssigner", fields: [assignedById], references: [id])
+
+  role StreamModeratorRole @default(MOD)
+
+  createdAt DateTime @default(now())
+
+  @@unique([liveStreamId, userId])
+  @@index([liveStreamId])
+  @@map("stream_moderators")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM REACTION (floating reactions)
+// ─────────────────────────────────────────────
+
+model StreamReaction {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  userId       String
+  emoji        String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User       @relation("StreamReactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([liveStreamId])
+  @@index([createdAt])
+  @@map("stream_reactions")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM BOOKMARK
+// ─────────────────────────────────────────────
+
+model StreamBookmark {
+  userId       String
+  liveStreamId String
+
+  user       User       @relation("StreamBookmarks", fields: [userId], references: [id], onDelete: Cascade)
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, liveStreamId])
+  @@index([userId])
+  @@index([liveStreamId])
+  @@map("stream_bookmarks")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM REPORT
+// ─────────────────────────────────────────────
+
+model StreamReport {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  reporterId   String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  reporter   User       @relation("StreamReporters", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  reason  StreamReportReason
+  details String?            @db.Text
+
+  isResolved   Boolean   @default(false)
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([liveStreamId, reporterId])
+  @@index([liveStreamId])
+  @@index([isResolved])
+  @@map("stream_reports")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM POLL
+// ─────────────────────────────────────────────
+
+model StreamPoll {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  createdById  String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  createdBy  User       @relation("StreamPolls", fields: [createdById], references: [id])
+
+  question String
+  status   StreamPollStatus @default(ACTIVE)
+  endsAt   DateTime?
+
+  options StreamPollOption[]
+  votes   StreamPollVote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([liveStreamId])
+  @@index([status])
+  @@map("stream_polls")
+}
+
+model StreamPollOption {
+  id     String     @id @default(uuid())
+  pollId String
+  poll   StreamPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  text       String
+  voteCount  Int @default(0)
+  orderIndex Int @default(0)
+
+  votes StreamPollVote[]
+
+  @@index([pollId])
+  @@map("stream_poll_options")
+}
+
+model StreamPollVote {
+  pollId   String
+  optionId String
+  userId   String
+
+  poll   StreamPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option StreamPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User             @relation("StreamPollVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([pollId, userId])
+  @@index([pollId])
+  @@index([optionId])
+  @@map("stream_poll_votes")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 5: STREAM HIGHLIGHT
+// ─────────────────────────────────────────────
+
+model StreamHighlight {
+  id           String     @id @default(uuid())
+  liveStreamId String
+  createdById  String
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  createdBy  User       @relation("StreamHighlights", fields: [createdById], references: [id])
+
+  title       String
+  description String?
+
+  startTimeSec Float
+  endTimeSec   Float
+
+  clipUrl String?
+  fileId  String?
+  file    File?   @relation("StreamHighlightFile", fields: [fileId], references: [id])
+
+  isPublic Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([liveStreamId])
+  @@index([createdById])
+  @@map("stream_highlights")
 }

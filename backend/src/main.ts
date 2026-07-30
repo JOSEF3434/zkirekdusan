@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import path from 'path';
 import { AppModule } from './app.module.js';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -25,6 +26,11 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // Setup Redis Adapter for Socket.IO
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // Serve static files from local uploads folder
   const uploadDir = path.resolve(process.cwd(), 'uploads');
@@ -75,6 +81,11 @@ async function bootstrap() {
     .addTag('Video Comments', 'Nested video comment system with pinned comments')
     .addTag('Video Subscriptions', 'Channel subscriptions and subscription feed')
     .addTag('Downloads', 'Enterprise multi-resolution media download system with RBAC authorization')
+
+    // Phase 5 Tags
+    .addTag('Live Streaming', 'Enterprise Live Streaming (RTMP/WebRTC) channel management')
+    .addTag('Stream Chat', 'Real-time Live Chat for streams with moderation')
+    .addTag('Stream Analytics', 'Live stream concurrent viewers and engagement metrics')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
