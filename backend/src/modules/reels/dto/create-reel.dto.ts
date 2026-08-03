@@ -1,6 +1,13 @@
 // src/modules/reels/dto/create-reel.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateReelDto {
   @ApiProperty({ example: 'file-uuid', description: 'Uploaded video file ID' })
@@ -13,7 +20,9 @@ export class CreateReelDto {
   @IsString()
   thumbnailUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Check out this awesome video! #viral #reels' })
+  @ApiPropertyOptional({
+    example: 'Check out this awesome video! #viral #reels',
+  })
   @IsOptional()
   @IsString()
   caption?: string;

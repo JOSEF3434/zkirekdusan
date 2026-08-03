@@ -29,7 +29,7 @@ export class ProfileResponseDto {
   userId!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiPropertyOptional({ example: 'John' })
   firstName?: string | null;

@@ -29,7 +29,12 @@ const COMMENT_INCLUDE = {
 export class VideoCommentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(videoId: string, userId: string, content: string, parentId?: string) {
+  async create(
+    videoId: string,
+    userId: string,
+    content: string,
+    parentId?: string,
+  ) {
     const comment = await this.prisma.videoComment.create({
       data: { videoId, userId, content, parentId },
       include: COMMENT_INCLUDE,
@@ -60,7 +65,9 @@ export class VideoCommentsRepository {
         take: limit,
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       }),
-      this.prisma.videoComment.count({ where: { videoId, parentId: null, deletedAt: null } }),
+      this.prisma.videoComment.count({
+        where: { videoId, parentId: null, deletedAt: null },
+      }),
     ]);
     return { data, total, page, limit };
   }

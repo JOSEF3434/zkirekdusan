@@ -34,13 +34,18 @@ export class DownloadsRepository {
     });
   }
 
-  async updateRecordStatus(id: string, status: DownloadStatus, bytesServed?: bigint) {
+  async updateRecordStatus(
+    id: string,
+    status: DownloadStatus,
+    bytesServed?: bigint,
+  ) {
     return this.prisma.downloadRecord.update({
       where: { id },
       data: {
         status,
         bytesServed,
-        completedAt: status === DownloadStatus.COMPLETED ? new Date() : undefined,
+        completedAt:
+          status === DownloadStatus.COMPLETED ? new Date() : undefined,
       },
     });
   }
@@ -51,8 +56,17 @@ export class DownloadsRepository {
       this.prisma.downloadRecord.findMany({
         where: { userId },
         include: {
-          video: { select: { id: true, title: true, slug: true, thumbnailUrl: true } },
-          file: { select: { id: true, originalName: true, fileType: true, mimeType: true } },
+          video: {
+            select: { id: true, title: true, slug: true, thumbnailUrl: true },
+          },
+          file: {
+            select: {
+              id: true,
+              originalName: true,
+              fileType: true,
+              mimeType: true,
+            },
+          },
         },
         skip,
         take: limit,
@@ -77,7 +91,9 @@ export class DownloadsRepository {
     const where = userId ? { userId } : {};
     const [totalDownloads, completed, bytes] = await this.prisma.$transaction([
       this.prisma.downloadRecord.count({ where }),
-      this.prisma.downloadRecord.count({ where: { ...where, status: DownloadStatus.COMPLETED } }),
+      this.prisma.downloadRecord.count({
+        where: { ...where, status: DownloadStatus.COMPLETED },
+      }),
       this.prisma.downloadRecord.aggregate({
         where: { ...where, status: DownloadStatus.COMPLETED },
         _sum: { bytesServed: true },

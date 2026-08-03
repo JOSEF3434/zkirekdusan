@@ -5,7 +5,11 @@ import { PlaylistVisibility } from '@prisma/client';
 
 const PLAYLIST_INCLUDE = {
   owner: {
-    select: { id: true, username: true, profile: { select: { displayName: true } } },
+    select: {
+      id: true,
+      username: true,
+      profile: { select: { displayName: true } },
+    },
   },
   videoChannel: {
     select: { id: true, name: true, handle: true },
@@ -32,7 +36,15 @@ const PLAYLIST_INCLUDE = {
 export class VideoPlaylistsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(ownerId: string, data: { title: string; description?: string; visibility?: PlaylistVisibility; videoChannelId?: string }) {
+  async create(
+    ownerId: string,
+    data: {
+      title: string;
+      description?: string;
+      visibility?: PlaylistVisibility;
+      videoChannelId?: string;
+    },
+  ) {
     return this.prisma.videoPlaylist.create({
       data: {
         ownerId,
@@ -67,7 +79,14 @@ export class VideoPlaylistsRepository {
     return { data, total, page, limit };
   }
 
-  async update(id: string, data: { title?: string; description?: string; visibility?: PlaylistVisibility }) {
+  async update(
+    id: string,
+    data: {
+      title?: string;
+      description?: string;
+      visibility?: PlaylistVisibility;
+    },
+  ) {
     return this.prisma.videoPlaylist.update({
       where: { id },
       data,
@@ -80,7 +99,9 @@ export class VideoPlaylistsRepository {
   }
 
   async addItem(playlistId: string, videoId: string) {
-    const count = await this.prisma.videoPlaylistItem.count({ where: { playlistId } });
+    const count = await this.prisma.videoPlaylistItem.count({
+      where: { playlistId },
+    });
     const item = await this.prisma.videoPlaylistItem.create({
       data: { playlistId, videoId, order: count + 1 },
     });

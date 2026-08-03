@@ -9,7 +9,7 @@ export class GroupMemberSummaryDto {
   userId!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiProperty({ example: 'GROUP_ADMIN' })
   role!: string;
@@ -28,7 +28,9 @@ export class GroupResponseDto {
   @ApiProperty({ example: 'tech-enthusiasts' })
   slug!: string;
 
-  @ApiPropertyOptional({ example: 'A community for technology and software discussions' })
+  @ApiPropertyOptional({
+    example: 'A community for technology and software discussions',
+  })
   description?: string | null;
 
   @ApiProperty({ example: 'PENDING_APPROVAL' })

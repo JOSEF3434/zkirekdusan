@@ -9,7 +9,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FollowsService } from './follows.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { FollowStatusDto } from './dto/follow-response.dto.js';
@@ -65,7 +71,9 @@ export class FollowsController {
   }
 
   @Get(':userId/follow-status')
-  @ApiOperation({ summary: 'Check mutual follow status between current user and target user' })
+  @ApiOperation({
+    summary: 'Check mutual follow status between current user and target user',
+  })
   @ApiResponse({ status: 200, type: FollowStatusDto })
   async getFollowStatus(
     @Param('userId') targetUserId: string,

@@ -3,7 +3,9 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateJoinRequestDto {
-  @ApiPropertyOptional({ description: 'Optional note/message to the group admin' })
+  @ApiPropertyOptional({
+    description: 'Optional note/message to the group admin',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

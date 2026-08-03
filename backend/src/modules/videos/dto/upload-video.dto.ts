@@ -19,7 +19,9 @@ export class UploadVideoDto {
   @MaxLength(300)
   title!: string;
 
-  @ApiPropertyOptional({ example: 'A comprehensive intro to NestJS for beginners' })
+  @ApiPropertyOptional({
+    example: 'A comprehensive intro to NestJS for beginners',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(10000)
@@ -28,13 +30,17 @@ export class UploadVideoDto {
   @ApiPropertyOptional({
     enum: VideoVisibility,
     default: VideoVisibility.PRIVATE,
-    description: 'Initial visibility. Defaults to PRIVATE until explicitly published.',
+    description:
+      'Initial visibility. Defaults to PRIVATE until explicitly published.',
   })
   @IsOptional()
   @IsEnum(VideoVisibility)
   visibility?: VideoVisibility;
 
-  @ApiPropertyOptional({ enum: DownloadPermission, default: DownloadPermission.MEMBERS_ONLY })
+  @ApiPropertyOptional({
+    enum: DownloadPermission,
+    default: DownloadPermission.MEMBERS_ONLY,
+  })
   @IsOptional()
   @IsEnum(DownloadPermission)
   downloadPermission?: DownloadPermission;

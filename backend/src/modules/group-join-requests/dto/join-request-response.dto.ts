@@ -5,7 +5,7 @@ export class JoinRequestResponseDto {
   @ApiProperty() id!: string;
   @ApiProperty() groupId!: string;
   @ApiProperty() userId!: string;
-  @ApiProperty() username!: string;
+  @ApiProperty() username!: string | null;
   @ApiPropertyOptional() displayName?: string;
   @ApiPropertyOptional() avatarUrl?: string;
   @ApiProperty() status!: string; // PENDING | APPROVED | REJECTED

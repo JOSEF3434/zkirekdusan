@@ -22,9 +22,10 @@ import { Transform } from 'class-transformer';
  * - password: required, minimum 8 characters
  *
  * Examples:
- *   { email, username, password }
- *   { phoneNumber, username, password }
- *   { email, phoneNumber, username, password }
+ *   { email, password }
+ *   { phoneNumber, password }
+ *   { email, phoneNumber, password }
+ *   { email, username, firstName, lastName, password }
  */
 export class RegisterDto {
   @ApiPropertyOptional({
@@ -40,22 +41,44 @@ export class RegisterDto {
 
   @ApiPropertyOptional({
     example: '+12025550123',
-    description: 'Phone number in E.164 format (required if email is not provided)',
+    description:
+      'Phone number in E.164 format (required if email is not provided)',
   })
   @IsOptional()
   @IsPhoneNumber(undefined, {
-    message: 'phoneNumber must be a valid E.164 phone number (e.g. +12025550123)',
+    message:
+      'phoneNumber must be a valid E.164 phone number (e.g. +12025550123)',
   })
   phoneNumber?: string;
 
-  @ApiProperty({ example: 'johndoe', description: 'Unique username (3–32 chars, alphanumeric, _ or -)' })
+  @ApiPropertyOptional({
+    example: 'johndoe',
+    description: 'Unique username (3–32 chars, alphanumeric, _ or -)',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'username is required' })
   @MinLength(3, { message: 'Username must be at least 3 characters' })
   @Matches(/^[a-zA-Z0-9_-]+$/, {
-    message: 'Username can only contain letters, numbers, underscores and hyphens',
+    message:
+      'Username can only contain letters, numbers, underscores and hyphens',
   })
-  username!: string;
+  username?: string;
+
+  @ApiPropertyOptional({
+    example: 'John',
+    description: 'First name',
+  })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({
+    example: 'Doe',
+    description: 'Last name',
+  })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 
   @ApiProperty({ example: 'StrongP@ssw0rd!' })
   @IsString()

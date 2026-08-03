@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  ConflictException,
 } from '@nestjs/common';
 import { LiveStreamingRepository } from './live-streaming.repository.js';
 import { VideoChannelsRepository } from '../video-channels/video-channels.repository.js';
@@ -11,11 +12,12 @@ import { AuthorizationService } from '../authorization/authorization.service.js'
 import { CreateStreamDto } from './dto/create-stream.dto.js';
 import { UpdateStreamDto } from './dto/update-stream.dto.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
-import { LiveStreamStatus, Prisma } from '@prisma/client';
+import { LiveStreamStatus, GlobalRole } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 import slugify from 'slugify';
 import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 export class LiveStreamingService {
@@ -26,30 +28,75 @@ export class LiveStreamingService {
     private readonly videoChannelsRepository: VideoChannelsRepository,
     private readonly authorizationService: AuthorizationService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private generateSlug(title: string): string {
     return `${slugify(title, { lower: true, strict: true })}-${nanoid(6)}`;
   }
 
+  /**
+   * Check if user is a SUPER_ADMIN or ADMIN globally
+   */
+  private async isGlobalAdmin(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    return (
+      user?.role?.name === GlobalRole.SUPER_ADMIN ||
+      user?.role?.name === GlobalRole.ADMIN
+    );
+  }
+
+  /**
+   * Check if user has at least MODERATOR role in a group, OR is a global admin
+   */
+  private async hasStreamPermission(
+    userId: string,
+    groupId: string,
+  ): Promise<boolean> {
+    if (await this.isGlobalAdmin(userId)) return true;
+    return this.authorizationService.hasGroupRole(
+      userId,
+      groupId,
+      GroupRole.MODERATOR,
+    );
+  }
+
+  /**
+   * Check if user has at least GROUP_ADMIN role in a group, OR is a global admin
+   */
+  private async hasStreamAdminPermission(
+    userId: string,
+    groupId: string,
+  ): Promise<boolean> {
+    if (await this.isGlobalAdmin(userId)) return true;
+    return this.authorizationService.hasGroupRole(
+      userId,
+      groupId,
+      GroupRole.GROUP_ADMIN,
+    );
+  }
+
   async createStream(userId: string, channelId: string, dto: CreateStreamDto) {
     const channel = await this.videoChannelsRepository.findById(channelId);
     if (!channel) throw new NotFoundException('Video channel not found');
 
-    // Verify stream start permission / group admin
-    const hasPermission = await this.authorizationService.hasGroupRole(
+    const hasPermission = await this.hasStreamPermission(
       userId,
       channel.groupId,
-      GroupRole.MODERATOR,
     );
     if (!hasPermission) {
-      throw new ForbiddenException('You do not have permission to create streams in this channel');
+      throw new ForbiddenException(
+        'You do not have permission to create streams in this channel',
+      );
     }
 
     const slug = this.generateSlug(dto.title);
-    
-    // Determine initial status based on scheduledAt
-    const initialStatus = dto.scheduledAt ? LiveStreamStatus.SCHEDULED : LiveStreamStatus.DRAFT;
+    const initialStatus = dto.scheduledAt
+      ? LiveStreamStatus.SCHEDULED
+      : LiveStreamStatus.DRAFT;
 
     const stream = await this.repository.createStream({
       videoChannelId: channel.id,
@@ -80,14 +127,18 @@ export class LiveStreamingService {
 
   async getStreamById(userId: string | undefined, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
-    if (!stream) throw new NotFoundException('Stream not found');
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
 
     if (stream.visibility !== 'PUBLIC') {
-      if (!userId) throw new ForbiddenException('Authentication required');
+      if (!userId)
+        throw new ForbiddenException(
+          'Authentication required to view this stream',
+        );
       const hasPermission = await this.authorizationService.hasGroupRole(
         userId,
         stream.groupId,
-        GroupRole.MEMBER, // Allow group members to see private/group-only streams
+        GroupRole.MEMBER,
       );
       if (!hasPermission) throw new ForbiddenException('Stream is private');
     }
@@ -97,15 +148,23 @@ export class LiveStreamingService {
 
   async updateStream(userId: string, streamId: string, dto: UpdateStreamDto) {
     const stream = await this.repository.getStreamById(streamId);
-    if (!stream) throw new NotFoundException('Stream not found');
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
+    if (stream.status === LiveStreamStatus.LIVE) {
+      throw new BadRequestException(
+        'Cannot update metadata while stream is live. Use end stream first.',
+      );
+    }
+
+    const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
-      GroupRole.MODERATOR,
     );
     if (!hasPermission) {
-      throw new ForbiddenException('You do not have permission to update this stream');
+      throw new ForbiddenException(
+        'You do not have permission to update this stream',
+      );
     }
 
     return this.repository.updateStream(streamId, dto);
@@ -113,97 +172,336 @@ export class LiveStreamingService {
 
   async deleteStream(userId: string, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
-    if (!stream) throw new NotFoundException('Stream not found');
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
+    if (stream.status === LiveStreamStatus.LIVE) {
+      throw new BadRequestException(
+        'Cannot delete an active live stream. End it first.',
+      );
+    }
+
+    const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
-      GroupRole.MODERATOR,
     );
     if (!hasPermission) {
-      throw new ForbiddenException('You do not have permission to delete this stream');
+      throw new ForbiddenException(
+        'You do not have permission to delete this stream',
+      );
     }
 
     return this.repository.deleteStream(streamId);
   }
 
-  async getChannelStreams(userId: string | undefined, channelId: string, page = 1, limit = 20) {
+  async getChannelStreams(
+    userId: string | undefined,
+    channelId: string,
+    page = 1,
+    limit = 20,
+  ) {
     const channel = await this.videoChannelsRepository.findById(channelId);
     if (!channel) throw new NotFoundException('Channel not found');
 
     const skip = (page - 1) * limit;
-    const where: Prisma.LiveStreamWhereInput = { videoChannelId: channelId, deletedAt: null };
+    const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
+      videoChannelId: channelId,
+      deletedAt: null,
+    };
 
-    // Basic visibility filter
     if (!userId) {
       where.visibility = 'PUBLIC';
     } else {
-      const hasMemberRole = await this.authorizationService.hasGroupRole(
-        userId,
-        channel.groupId,
-        GroupRole.MEMBER,
-      );
-      if (!hasMemberRole) {
-         where.visibility = 'PUBLIC';
+      const isAdmin = await this.isGlobalAdmin(userId);
+      if (!isAdmin) {
+        const hasMemberRole = await this.authorizationService.hasGroupRole(
+          userId,
+          channel.groupId,
+          GroupRole.MEMBER,
+        );
+        if (!hasMemberRole) {
+          where.visibility = 'PUBLIC';
+        }
       }
     }
 
-    const streams = await this.repository.findStreams({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
-
-    const total = await this.repository.countStreams(where);
+    const [streams, total] = await Promise.all([
+      this.repository.findStreams({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.repository.countStreams(where),
+    ]);
 
     return { data: streams, total, page, limit };
   }
 
+  async getLiveStreams(userId: string | undefined, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
+      status: LiveStreamStatus.LIVE,
+      deletedAt: null,
+      visibility: 'PUBLIC',
+    };
+
+    const [streams, total] = await Promise.all([
+      this.repository.findStreams({
+        where,
+        orderBy: { currentViewerCount: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.repository.countStreams(where),
+    ]);
+
+    return { data: streams, total, page, limit };
+  }
+
+  async getScheduledStreams(userId: string | undefined, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
+      status: LiveStreamStatus.SCHEDULED,
+      deletedAt: null,
+      visibility: 'PUBLIC',
+      scheduledAt: { gt: new Date() },
+    };
+
+    const [streams, total] = await Promise.all([
+      this.repository.findStreams({
+        where,
+        orderBy: { scheduledAt: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.repository.countStreams(where),
+    ]);
+
+    return { data: streams, total, page, limit };
+  }
+
+  // ─── Stream Lifecycle ──────────────────────────────────────────────
+
+  async startStream(userId: string, streamId: string) {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
+
+    if (stream.status === LiveStreamStatus.LIVE) {
+      throw new ConflictException('Stream is already live');
+    }
+    if (
+      stream.status === LiveStreamStatus.ENDED ||
+      stream.status === LiveStreamStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        'Cannot restart an ended or cancelled stream',
+      );
+    }
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to start this stream',
+      );
+    }
+
+    // Get stream key for the channel
+    const streamKey = await this.repository.getStreamKeyByChannelId(
+      stream.videoChannelId,
+    );
+    const rtmpBaseUrl = this.configService.get<string>(
+      'RTMP_SERVER_URL',
+      'rtmp://localhost:1935/live',
+    );
+    const rtmpIngestUrl = streamKey
+      ? `${rtmpBaseUrl}?key=${streamKey.keyPrefix}`
+      : undefined;
+
+    const updatedStream = await this.repository.startStream(
+      streamId,
+      rtmpIngestUrl,
+    );
+
+    // Create a stream session for tracking
+    await this.repository.createStreamSession(streamId, streamKey?.id);
+
+    // Create chat room if chat is enabled
+    if (stream.isChatEnabled) {
+      await this.prisma.streamChatRoom.upsert({
+        where: { liveStreamId: streamId },
+        create: { liveStreamId: streamId },
+        update: {},
+      });
+    }
+
+    this.logger.log(`Stream ${streamId} started by user ${userId}`);
+    return updatedStream;
+  }
+
+  async endStream(userId: string, streamId: string) {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
+
+    if (stream.status !== LiveStreamStatus.LIVE) {
+      throw new BadRequestException('Stream is not currently live');
+    }
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to end this stream',
+      );
+    }
+
+    // Calculate duration
+    const duration = stream.startedAt
+      ? (Date.now() - stream.startedAt.getTime()) / 1000
+      : undefined;
+
+    const updatedStream = await this.repository.endStream(streamId, duration);
+    await this.repository.endStreamSession(streamId);
+
+    // If recording was enabled, create a recording record for processing
+    if (stream.isRecordingEnabled) {
+      await this.repository.createRecording(streamId);
+    }
+
+    this.logger.log(
+      `Stream ${streamId} ended by user ${userId}, duration: ${duration?.toFixed(0)}s`,
+    );
+    return updatedStream;
+  }
+
+  async publishVod(userId: string, streamId: string) {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
+
+    if (stream.status !== LiveStreamStatus.ENDED) {
+      throw new BadRequestException(
+        'Stream must be ended before publishing VOD',
+      );
+    }
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to publish VOD for this stream',
+      );
+    }
+
+    const recording = await this.prisma.streamRecording.findFirst({
+      where: { liveStreamId: streamId },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (!recording || recording.status !== 'READY') {
+      throw new BadRequestException(
+        'No ready recording available for this stream',
+      );
+    }
+
+    // Here we could create a Video entity from the recording
+    this.logger.log(`VOD published for stream ${streamId} by user ${userId}`);
+    return {
+      message: 'VOD published successfully',
+      recordingId: recording.id,
+      hlsUrl: recording.hlsUrl,
+    };
+  }
+
   // ─── Stream Key Management ──────────────────────────────────────────────
+
+  async getStreamKey(userId: string, channelId: string) {
+    const channel = await this.videoChannelsRepository.findById(channelId);
+    if (!channel) throw new NotFoundException('Channel not found');
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      channel.groupId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to view stream keys',
+      );
+    }
+
+    const key = await this.repository.getStreamKeyByChannelId(channelId);
+    if (!key) {
+      return { keyPrefix: null, rtmpUrl: null, hasKey: false };
+    }
+
+    return {
+      keyPrefix: key.keyPrefix,
+      rtmpUrl: this.configService.get<string>(
+        'RTMP_SERVER_URL',
+        'rtmp://localhost:1935/live',
+      ),
+      hasKey: true,
+      lastUsedAt: key.lastUsedAt,
+    };
+  }
 
   async generateStreamKey(userId: string, channelId: string) {
     const channel = await this.videoChannelsRepository.findById(channelId);
     if (!channel) throw new NotFoundException('Channel not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
+    const hasPermission = await this.hasStreamPermission(
       userId,
       channel.groupId,
-      GroupRole.MODERATOR,
     );
     if (!hasPermission) {
-      throw new ForbiddenException('You do not have permission to manage stream keys');
+      throw new ForbiddenException(
+        'You do not have permission to manage stream keys',
+      );
     }
 
-    // Generate secure key
+    // Generate secure key: sk_live_<48 hex chars>
     const rawKey = randomBytes(24).toString('hex');
     const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
-    
-    // Hash key for storage
     const keyHash = createHash('sha256').update(rawKey).digest('hex');
 
     await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
 
-    // Only return raw key ONCE upon generation
+    // Return raw key ONCE — not stored in plaintext
     return {
       streamKey: rawKey,
-      rtmpUrl: this.configService.get<string>('RTMP_SERVER_URL', 'rtmp://localhost:1935/live'),
+      rtmpUrl: this.configService.get<string>(
+        'RTMP_SERVER_URL',
+        'rtmp://localhost:1935/live',
+      ),
+      warning: 'This key will not be shown again. Store it securely.',
     };
   }
 
-  // Internal method for RTMP server webhook to validate keys
-  async validateStreamKey(key: string): Promise<string | null> {
+  /** Internal method for RTMP server webhook validation */
+  async validateStreamKey(
+    key: string,
+  ): Promise<{ streamId: string | null; channelId: string | null }> {
     const keyHash = createHash('sha256').update(key).digest('hex');
     const streamKey = await this.repository.getStreamKeyByHash(keyHash);
-    
-    if (!streamKey || !streamKey.isActive) return null;
 
-    // A valid key is active. It maps to the video channel.
-    // The RTMP server might want the active LiveStream ID
-    const activeStream = streamKey.videoChannel.liveStreams[0]; // Assuming taking the first LIVE one
-    if (!activeStream) return null; // Or return channel ID depending on the architecture
+    if (!streamKey || !streamKey.isActive)
+      return { streamId: null, channelId: null };
 
     await this.repository.updateStreamKeyUsedAt(streamKey.id);
-    return activeStream.id;
+
+    const activeLiveStream = streamKey.videoChannel?.liveStreams?.[0];
+    return {
+      streamId: activeLiveStream?.id ?? null,
+      channelId: streamKey.videoChannelId,
+    };
   }
 }

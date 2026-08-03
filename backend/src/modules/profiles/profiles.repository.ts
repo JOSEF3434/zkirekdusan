@@ -56,7 +56,13 @@ export class ProfilesRepository {
 
   /** Calculate profile stats dynamically from real database tables */
   async getProfileStats(userId: string) {
-    const [followersCount, followingCount, groupsCount, postsCount, reelsCount] = await Promise.all([
+    const [
+      followersCount,
+      followingCount,
+      groupsCount,
+      postsCount,
+      reelsCount,
+    ] = await Promise.all([
       this.prisma.follow.count({ where: { followingId: userId } }),
       this.prisma.follow.count({ where: { followerId: userId } }),
       this.prisma.groupMember.count({ where: { userId, removedAt: null } }),

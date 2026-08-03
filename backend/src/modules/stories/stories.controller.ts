@@ -1,6 +1,11 @@
 // src/modules/stories/stories.controller.ts
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { StoriesService } from './stories.service.js';
 import { CreateStoryDto } from './dto/create-story.dto.js';
 import { StoryResponseDto } from './dto/story-response.dto.js';

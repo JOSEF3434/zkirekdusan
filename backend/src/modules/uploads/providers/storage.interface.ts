@@ -13,7 +13,12 @@ export interface IStorageProvider {
    * Save a buffer/file to storage
    */
   upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult>;
 

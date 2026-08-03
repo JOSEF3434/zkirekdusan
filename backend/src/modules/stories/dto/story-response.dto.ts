@@ -7,12 +7,15 @@ export class StoryAuthorDto {
   id!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiPropertyOptional({ example: 'John Doe', nullable: true })
   displayName?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/avatar.jpg',
+    nullable: true,
+  })
   avatarUrl?: string | null;
 }
 
@@ -23,7 +26,10 @@ export class StoryResponseDto {
   @ApiProperty({ enum: StoryType })
   type!: StoryType;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/story.jpg', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/story.jpg',
+    nullable: true,
+  })
   mediaUrl?: string | null;
 
   @ApiPropertyOptional({ example: 'Text caption', nullable: true })

@@ -75,10 +75,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Prisma — validation errors (e.g. passing undefined/null where required)
     if (exception instanceof Prisma.PrismaClientValidationError) {
-      this.logger.error('PrismaClientValidationError — likely undefined id passed to query');
+      this.logger.error(
+        'PrismaClientValidationError — likely undefined id passed to query',
+      );
       return {
         statusCode: HttpStatus.BAD_REQUEST,
-        message: 'Invalid query parameters — this is a server bug, please report it',
+        message:
+          'Invalid query parameters — this is a server bug, please report it',
       };
     }
 
@@ -128,10 +131,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       case 'P2014':
         return {
           statusCode: HttpStatus.BAD_REQUEST,
-          message: 'The change you are trying to make would violate a required relation',
+          message:
+            'The change you are trying to make would violate a required relation',
         };
       default:
-        this.logger.error(`Unhandled Prisma error: ${error.code}`, error.message);
+        this.logger.error(
+          `Unhandled Prisma error: ${error.code}`,
+          error.message,
+        );
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'A database error occurred',

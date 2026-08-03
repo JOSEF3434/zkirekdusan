@@ -32,18 +32,18 @@ export class StreamAnalyticsService {
 
     return analytics;
   }
-  
+
   // To be used internally by LiveGateway
   async trackViewerJoin(streamId: string, userId: string) {
-      return this.repository.recordViewerJoin(streamId, userId);
+    return this.repository.recordViewerJoin(streamId, userId);
   }
 
   async trackViewerLeave(viewerSessionId: string, durationSec: number) {
-      return this.repository.recordViewerLeave(viewerSessionId, durationSec);
+    return this.repository.recordViewerLeave(viewerSessionId, durationSec);
   }
 
   async updateCurrentViewers(streamId: string, current: number, peak: number) {
-      return this.repository.updateViewerCount(streamId, current, peak);
+    return this.repository.updateViewerCount(streamId, current, peak);
   }
 
   async trackEngagement(streamId: string, type: 'chat' | 'reaction' | 'like') {

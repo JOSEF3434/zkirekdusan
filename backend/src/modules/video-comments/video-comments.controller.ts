@@ -1,6 +1,22 @@
 // src/modules/video-comments/video-comments.controller.ts
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { VideoCommentsService } from './video-comments.service.js';
 import { CreateVideoCommentDto } from './dto/create-video-comment.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -70,7 +86,9 @@ export class VideoCommentsController {
   }
 
   @Post(':commentId/pin')
-  @ApiOperation({ summary: 'Toggle pinned status on video comment (Uploader or Admin)' })
+  @ApiOperation({
+    summary: 'Toggle pinned status on video comment (Uploader or Admin)',
+  })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   @ApiParam({ name: 'commentId', description: 'Comment ID' })
   async togglePin(

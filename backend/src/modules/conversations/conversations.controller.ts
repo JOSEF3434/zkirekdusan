@@ -18,7 +18,9 @@ export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
   @Post('direct')
-  @ApiOperation({ summary: 'Start or retrieve a direct conversation with another user' })
+  @ApiOperation({
+    summary: 'Start or retrieve a direct conversation with another user',
+  })
   @ApiResponse({ status: 201, type: ConversationResponseDto })
   async createDirect(
     @Body() dto: CreateDirectConversationDto,
@@ -46,6 +48,9 @@ export class ConversationsController {
     @Param('conversationId') conversationId: string,
     @CurrentUser('sub') userId: string,
   ): Promise<ConversationResponseDto> {
-    return this.conversationsService.getConversationById(conversationId, userId);
+    return this.conversationsService.getConversationById(
+      conversationId,
+      userId,
+    );
   }
 }

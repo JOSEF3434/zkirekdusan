@@ -4,12 +4,16 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import path from 'path';
+import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Security Hardening (Phase 8)
+  app.use(helmet());
 
   // Enable CORS
   app.enableCors({
@@ -48,44 +52,95 @@ async function bootstrap() {
     .setVersion('4.0.0')
     .addBearerAuth()
     // Phase 1 Tags
-    .addTag('Authentication', 'Login, registration, token rotation & session management')
+    .addTag(
+      'Authentication',
+      'Login, registration, token rotation & session management',
+    )
     .addTag('Users', 'Platform user management & admin controls')
-    .addTag('Roles', 'Global role-based access control (SUPER_ADMIN, ADMIN, USER)')
+    .addTag(
+      'Roles',
+      'Global role-based access control (SUPER_ADMIN, ADMIN, USER)',
+    )
     .addTag('Sessions', 'User active session tracking & revocation')
     .addTag('Profiles', 'User profile CRUD, visibility & statistics')
     .addTag('Groups', 'Group management, approval workflows & membership RBAC')
-    .addTag('Group Uploads', 'Group-scoped file upload API with pluggable storage (Local, Cloudinary, MinIO, S3)')
+    .addTag(
+      'Group Uploads',
+      'Group-scoped file upload API with pluggable storage (Local, Cloudinary, MinIO, S3)',
+    )
 
     // Phase 2 Tags
     .addTag('Follows', 'Follow/unfollow system & follower/following lists')
-    .addTag('Posts', 'Posts feed (Text, Image, Video, Carousel) with visibility & hashtags')
+    .addTag(
+      'Posts',
+      'Posts feed (Text, Image, Video, Carousel) with visibility & hashtags',
+    )
     .addTag('Likes & Reactions', 'Reactions on posts, reels, and comments')
     .addTag('Comments', 'Nested comments & replies')
-    .addTag('Stories (24h Expiration)', '24-hour temporary media and text stories')
-    .addTag('Reels (Short-form Videos)', 'Instagram/YouTube Shorts style short videos')
+    .addTag(
+      'Stories (24h Expiration)',
+      '24-hour temporary media and text stories',
+    )
+    .addTag(
+      'Reels (Short-form Videos)',
+      'Instagram/YouTube Shorts style short videos',
+    )
     .addTag('Saved Posts', 'Bookmark and save posts for later viewing')
 
     // Phase 3 Tags
-    .addTag('Group Channels', 'Messaging channels (Text, Announcement, Voice) inside groups')
+    .addTag(
+      'Group Channels',
+      'Messaging channels (Text, Announcement, Voice) inside groups',
+    )
     .addTag('Conversations', 'Direct 1-on-1 and Group messaging conversations')
-    .addTag('Messages', 'Real-time messaging with attachments, reactions, read receipts, and pinning')
-    .addTag('Notifications', 'User notifications for messages, mentions, and system events')
+    .addTag(
+      'Messages',
+      'Real-time messaging with attachments, reactions, read receipts, and pinning',
+    )
+    .addTag(
+      'Notifications',
+      'User notifications for messages, mentions, and system events',
+    )
     .addTag('Group Join Requests', 'Group join request approval workflow')
     .addTag('Presence', 'User online/offline/idle presence management')
 
     // Phase 4 Tags
-    .addTag('Video Channels', 'Group-owned Video Channels for publishing media content')
-    .addTag('Videos', 'Video upload, HLS playback, watch progress, recommendations, and analytics')
-    .addTag('Video Processing', 'BullMQ background transcoding queue and FFmpeg pipeline')
+    .addTag(
+      'Video Channels',
+      'Group-owned Video Channels for publishing media content',
+    )
+    .addTag(
+      'Videos',
+      'Video upload, HLS playback, watch progress, recommendations, and analytics',
+    )
+    .addTag(
+      'Video Processing',
+      'BullMQ background transcoding queue and FFmpeg pipeline',
+    )
     .addTag('Video Playlists', 'Custom user & channel video playlists')
-    .addTag('Video Comments', 'Nested video comment system with pinned comments')
-    .addTag('Video Subscriptions', 'Channel subscriptions and subscription feed')
-    .addTag('Downloads', 'Enterprise multi-resolution media download system with RBAC authorization')
+    .addTag(
+      'Video Comments',
+      'Nested video comment system with pinned comments',
+    )
+    .addTag(
+      'Video Subscriptions',
+      'Channel subscriptions and subscription feed',
+    )
+    .addTag(
+      'Downloads',
+      'Enterprise multi-resolution media download system with RBAC authorization',
+    )
 
     // Phase 5 Tags
-    .addTag('Live Streaming', 'Enterprise Live Streaming (RTMP/WebRTC) channel management')
+    .addTag(
+      'Live Streaming',
+      'Enterprise Live Streaming (RTMP/WebRTC) channel management',
+    )
     .addTag('Stream Chat', 'Real-time Live Chat for streams with moderation')
-    .addTag('Stream Analytics', 'Live stream concurrent viewers and engagement metrics')
+    .addTag(
+      'Stream Analytics',
+      'Live stream concurrent viewers and engagement metrics',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -95,7 +150,9 @@ async function bootstrap() {
   await app.listen(port);
 
   logger.log(`🚀 Enterprise Server running at http://localhost:${port}/api`);
-  logger.log(`📚 Swagger Documentation live at http://localhost:${port}/api/docs`);
+  logger.log(
+    `📚 Swagger Documentation live at http://localhost:${port}/api/docs`,
+  );
 }
 
 void bootstrap();

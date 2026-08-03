@@ -7,12 +7,15 @@ export class PostAuthorDto {
   id!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiPropertyOptional({ example: 'John Doe', nullable: true })
   displayName?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/avatar.jpg',
+    nullable: true,
+  })
   avatarUrl?: string | null;
 }
 
@@ -64,10 +67,16 @@ export class PostResponseDto {
   @ApiProperty({ type: [PostMediaItemDto] })
   media!: PostMediaItemDto[];
 
-  @ApiPropertyOptional({ example: true, description: 'True if current user liked this post' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'True if current user liked this post',
+  })
   isLiked?: boolean;
 
-  @ApiPropertyOptional({ example: false, description: 'True if current user saved this post' })
+  @ApiPropertyOptional({
+    example: false,
+    description: 'True if current user saved this post',
+  })
   isSaved?: boolean;
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })

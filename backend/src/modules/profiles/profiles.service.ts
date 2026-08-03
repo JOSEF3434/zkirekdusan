@@ -1,5 +1,9 @@
 // src/modules/profiles/profiles.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ProfilesRepository } from './profiles.repository.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { ProfileResponseDto } from './dto/profile-response.dto.js';
@@ -8,10 +12,15 @@ import { ProfileResponseDto } from './dto/profile-response.dto.js';
 export class ProfilesService {
   constructor(private readonly profilesRepository: ProfilesRepository) {}
 
-  async getProfileByUsername(username: string, viewerId?: string): Promise<ProfileResponseDto> {
+  async getProfileByUsername(
+    username: string,
+    viewerId?: string,
+  ): Promise<ProfileResponseDto> {
     const profile = await this.profilesRepository.findByUsername(username);
     if (!profile) {
-      throw new NotFoundException(`Profile for username '${username}' not found`);
+      throw new NotFoundException(
+        `Profile for username '${username}' not found`,
+      );
     }
 
     // Check visibility permissions
@@ -67,7 +76,10 @@ export class ProfilesService {
     };
   }
 
-  async updateMyProfile(userId: string, dto: UpdateProfileDto): Promise<ProfileResponseDto> {
+  async updateMyProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<ProfileResponseDto> {
     await this.profilesRepository.update(userId, dto);
     return this.getMyProfile(userId);
   }

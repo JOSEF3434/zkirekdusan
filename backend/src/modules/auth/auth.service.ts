@@ -25,7 +25,9 @@ export class AuthService {
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     if (!dto.email && !dto.phoneNumber) {
-      throw new BadRequestException('Provide at least one of email or phone number');
+      throw new BadRequestException(
+        'Provide at least one of email or phone number',
+      );
     }
 
     if (dto.email) {
@@ -36,15 +38,19 @@ export class AuthService {
     }
 
     if (dto.phoneNumber) {
-      const phoneExists = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+      const phoneExists = await this.usersService.findByPhoneNumber(
+        dto.phoneNumber,
+      );
       if (phoneExists) {
         throw new BadRequestException('Phone number already registered');
       }
     }
 
-    const usernameExists = await this.usersService.findByUsername(dto.username);
-    if (usernameExists) {
-      throw new BadRequestException('Username already taken');
+    if (dto.username) {
+      const usernameExists = await this.usersService.findByUsername(dto.username);
+      if (usernameExists) {
+        throw new BadRequestException('Username already taken');
+      }
     }
 
     const defaultRole = await this.usersService.getRoleByName(AppRole.USER);
@@ -58,13 +64,15 @@ export class AuthService {
       email: dto.email,
       phoneNumber: dto.phoneNumber,
       username: dto.username,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       passwordHash,
       roleId: defaultRole.id,
     });
 
     const accessToken = await this.generateAccessToken(
       user.id,
-      user.email ?? user.phoneNumber ?? user.username,
+      user.email ?? user.phoneNumber ?? user.username ?? 'user',
       user.role.name,
     );
     const refreshToken = await this.generateRefreshToken(user.id);
@@ -72,7 +80,11 @@ export class AuthService {
     const refreshHash = await this.passwordService.hash(refreshToken);
     const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.usersService.saveRefreshToken(user.id, refreshHash, refreshExpires);
+    await this.usersService.saveRefreshToken(
+      user.id,
+      refreshHash,
+      refreshExpires,
+    );
     await this.usersService.createSession({
       userId: user.id,
       expiresAt: refreshExpires,
@@ -98,6 +110,8 @@ export class AuthService {
       user = await this.usersService.findByEmail(dto.email);
     } else if (dto.phoneNumber) {
       user = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+    } else if (dto.username) {
+      user = await this.usersService.findByUsername(dto.username);
     }
 
     if (!user) {
@@ -105,11 +119,15 @@ export class AuthService {
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException(`Account is ${user.status.toLowerCase()}`);
+      throw new UnauthorizedException(
+        `Account is ${user.status.toLowerCase()}`,
+      );
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException('Account is temporarily locked due to failed attempts');
+      throw new UnauthorizedException(
+        'Account is temporarily locked due to failed attempts',
+      );
     }
 
     const isPasswordValid = await this.passwordService.compare(
@@ -126,7 +144,7 @@ export class AuthService {
 
     const accessToken = await this.generateAccessToken(
       user.id,
-      user.email ?? user.phoneNumber ?? user.username,
+      user.email ?? user.phoneNumber ?? user.username ?? 'user',
       user.role.name,
     );
     const refreshToken = await this.generateRefreshToken(user.id);
@@ -136,7 +154,11 @@ export class AuthService {
     const refreshHash = await this.passwordService.hash(refreshToken);
     const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.usersService.saveRefreshToken(user.id, refreshHash, refreshExpires);
+    await this.usersService.saveRefreshToken(
+      user.id,
+      refreshHash,
+      refreshExpires,
+    );
     await this.usersService.createSession({
       userId: user.id,
       expiresAt: refreshExpires,
@@ -155,16 +177,21 @@ export class AuthService {
     };
   }
 
-  async refresh(dto: RefreshTokenDto): Promise<{ accessToken: string; refreshToken: string }> {
+  async refresh(
+    dto: RefreshTokenDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!dto?.refreshToken) {
       throw new BadRequestException('Refresh token is required');
     }
 
     let payload: { sub: string };
     try {
-      payload = await this.jwtService.verifyAsync<{ sub: string }>(dto.refreshToken, {
-        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      });
+      payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        dto.refreshToken,
+        {
+          secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        },
+      );
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -187,14 +214,16 @@ export class AuthService {
     if (!matches) {
       // Security warning: possible token reuse attempt — revoke all user tokens
       await this.usersService.revokeRefreshTokens(user.id);
-      throw new UnauthorizedException('Invalid refresh token — all sessions revoked for security');
+      throw new UnauthorizedException(
+        'Invalid refresh token — all sessions revoked for security',
+      );
     }
 
     await this.usersService.revokeRefreshTokens(user.id);
 
     const accessToken = await this.generateAccessToken(
       user.id,
-      user.email ?? user.phoneNumber ?? user.username,
+      user.email ?? user.phoneNumber ?? user.username ?? 'user',
       user.role.name,
     );
     const newRefreshToken = await this.generateRefreshToken(user.id);
@@ -202,7 +231,11 @@ export class AuthService {
     const newRefreshHash = await this.passwordService.hash(newRefreshToken);
     const refreshExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.usersService.saveRefreshToken(user.id, newRefreshHash, refreshExpires);
+    await this.usersService.saveRefreshToken(
+      user.id,
+      newRefreshHash,
+      refreshExpires,
+    );
 
     return {
       accessToken,
@@ -224,7 +257,8 @@ export class AuthService {
     const payload = { sub: userId, email: identifier, role };
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-      expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRES') ?? '15m') as any,
+      expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRES') ??
+        '15m') as any,
     });
   }
 
@@ -232,7 +266,8 @@ export class AuthService {
     const payload = { sub: userId };
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES') ?? '7d') as any,
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES') ??
+        '7d') as any,
     });
   }
 }

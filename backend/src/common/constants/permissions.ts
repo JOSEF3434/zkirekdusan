@@ -33,7 +33,7 @@ export const PERMISSIONS = {
     READ: 'groups.read',
     UPDATE: 'groups.update',
     DELETE: 'groups.delete',
-    APPROVE: 'groups.approve',   // ADMIN / SUPER_ADMIN only
+    APPROVE: 'groups.approve', // ADMIN / SUPER_ADMIN only
     SUSPEND: 'groups.suspend',
   },
 
@@ -104,11 +104,12 @@ export const PERMISSIONS = {
   },
 } as const;
 
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS][keyof (typeof PERMISSIONS)[keyof typeof PERMISSIONS]];
+export type Permission =
+  (typeof PERMISSIONS)[keyof typeof PERMISSIONS][keyof (typeof PERMISSIONS)[keyof typeof PERMISSIONS]];
 
 export const DEFAULT_PERMISSIONS = Object.values(PERMISSIONS)
   .flatMap((group) => Object.values(group))
   .map((permission) => ({
-    name: permission as string,
-    description: permission as string,
+    name: permission,
+    description: permission,
   }));

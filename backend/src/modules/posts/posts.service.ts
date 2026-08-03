@@ -1,5 +1,9 @@
 // src/modules/posts/posts.service.ts
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PostsRepository } from './posts.repository.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
@@ -9,7 +13,10 @@ import { PostResponseDto } from './dto/post-response.dto.js';
 export class PostsService {
   constructor(private readonly postsRepository: PostsRepository) {}
 
-  async createPost(authorId: string, dto: CreatePostDto): Promise<PostResponseDto> {
+  async createPost(
+    authorId: string,
+    dto: CreatePostDto,
+  ): Promise<PostResponseDto> {
     const post = await this.postsRepository.createPost(authorId, dto);
     if (!post) {
       throw new NotFoundException('Failed to create post');
@@ -26,7 +33,11 @@ export class PostsService {
     return this.mapToDto(post);
   }
 
-  async updatePost(postId: string, userId: string, dto: UpdatePostDto): Promise<PostResponseDto> {
+  async updatePost(
+    postId: string,
+    userId: string,
+    dto: UpdatePostDto,
+  ): Promise<PostResponseDto> {
     const post = await this.postsRepository.findById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
@@ -41,7 +52,10 @@ export class PostsService {
     return this.mapToDto(updated!);
   }
 
-  async deletePost(postId: string, userId: string): Promise<{ message: string }> {
+  async deletePost(
+    postId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
     const post = await this.postsRepository.findById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
@@ -55,7 +69,13 @@ export class PostsService {
     return { message: 'Post deleted successfully' };
   }
 
-  async getFeed(page = 1, limit = 20, authorId?: string, groupId?: string, hashtag?: string) {
+  async getFeed(
+    page = 1,
+    limit = 20,
+    authorId?: string,
+    groupId?: string,
+    hashtag?: string,
+  ) {
     const skip = (page - 1) * limit;
     const { items, total } = await this.postsRepository.findFeed({
       skip,

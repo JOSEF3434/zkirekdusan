@@ -21,7 +21,11 @@ export class StreamAnalyticsRepository {
     });
   }
 
-  async updateViewerCount(liveStreamId: string, currentViewers: number, peakViewers: number) {
+  async updateViewerCount(
+    liveStreamId: string,
+    currentViewers: number,
+    peakViewers: number,
+  ) {
     // Update live stream stats
     await this.prisma.liveStream.update({
       where: { id: liveStreamId },
@@ -66,16 +70,29 @@ export class StreamAnalyticsRepository {
     amount = 1,
   ) {
     await this.ensureAnalyticsExists(liveStreamId);
-    
-    // Update both LiveStream and StreamAnalytics
+
+    const liveStreamData =
+      field === 'totalChatMessages'
+        ? { totalChatMessages: { increment: amount } }
+        : field === 'totalReactions'
+          ? { totalReactions: { increment: amount } }
+          : { likesCount: { increment: amount } };
+
+    const analyticsData =
+      field === 'totalChatMessages'
+        ? { totalChatMessages: { increment: amount } }
+        : field === 'totalReactions'
+          ? { totalReactions: { increment: amount } }
+          : { totalLikes: { increment: amount } };
+
     await this.prisma.$transaction([
       this.prisma.liveStream.update({
         where: { id: liveStreamId },
-        data: { [field]: { increment: amount } },
+        data: liveStreamData,
       }),
       this.prisma.streamAnalytics.update({
         where: { liveStreamId },
-        data: { [field]: { increment: amount } },
+        data: analyticsData,
       }),
     ]);
   }

@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, MaxLength, IsOptional, IsEnum, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { StreamChatMessageType } from '@prisma/client';
 
@@ -17,12 +25,18 @@ export class SendChatMessageDto {
   @IsEnum(StreamChatMessageType)
   type?: StreamChatMessageType;
 
-  @ApiPropertyOptional({ example: 'uuid', description: 'ID of message being replied to' })
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description: 'ID of message being replied to',
+  })
   @IsOptional()
   @IsString()
   replyToId?: string;
 
-  @ApiPropertyOptional({ example: 500, description: 'Super chat amount in cents' })
+  @ApiPropertyOptional({
+    example: 500,
+    description: 'Super chat amount in cents',
+  })
   @IsOptional()
   @IsInt()
   @Min(100)

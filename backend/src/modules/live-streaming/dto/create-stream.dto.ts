@@ -17,13 +17,18 @@ import { LiveStreamVisibility, StreamProtocol } from '@prisma/client';
 import { Transform } from 'class-transformer';
 
 export class CreateStreamDto {
-  @ApiProperty({ example: 'Building a NestJS App Live', description: 'Stream title' })
+  @ApiProperty({
+    example: 'Building a NestJS App Live',
+    description: 'Stream title',
+  })
   @IsString()
   @MinLength(3)
   @MaxLength(300)
   title!: string;
 
-  @ApiPropertyOptional({ example: 'Join us as we build a production-grade NestJS app live!' })
+  @ApiPropertyOptional({
+    example: 'Join us as we build a production-grade NestJS app live!',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(5000)
@@ -47,12 +52,18 @@ export class CreateStreamDto {
   @IsEnum(StreamProtocol)
   protocol?: StreamProtocol;
 
-  @ApiPropertyOptional({ example: ['2026-08-01T18:00:00Z'], description: 'ISO scheduled start time' })
+  @ApiPropertyOptional({
+    example: ['2026-08-01T18:00:00Z'],
+    description: 'ISO scheduled start time',
+  })
   @IsOptional()
   @IsDateString()
   scheduledAt?: string;
 
-  @ApiPropertyOptional({ example: ['technology', 'programming'], type: [String] })
+  @ApiPropertyOptional({
+    example: ['technology', 'programming'],
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -94,13 +105,19 @@ export class CreateStreamDto {
   @Transform(({ value }) => value === 'true' || value === true)
   isChatEnabled?: boolean;
 
-  @ApiPropertyOptional({ default: false, description: 'Enable slow mode for chat' })
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Enable slow mode for chat',
+  })
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   isChatSlowMode?: boolean;
 
-  @ApiPropertyOptional({ default: 0, description: 'Slow mode interval in seconds (0 = off)' })
+  @ApiPropertyOptional({
+    default: 0,
+    description: 'Slow mode interval in seconds (0 = off)',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

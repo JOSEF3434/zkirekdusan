@@ -56,7 +56,11 @@ export class VideoChannelsRepository {
     const skip = (page - 1) * limit;
     const [data, total] = await this.prisma.$transaction([
       this.prisma.videoChannel.findMany({
-        where: { groupId, deletedAt: null, status: { not: VideoChannelStatus.ARCHIVED } },
+        where: {
+          groupId,
+          deletedAt: null,
+          status: { not: VideoChannelStatus.ARCHIVED },
+        },
         select: VIDEO_CHANNEL_SELECT,
         skip,
         take: limit,

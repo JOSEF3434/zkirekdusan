@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MessageSenderDto {
   @ApiProperty() id!: string;
-  @ApiProperty() username!: string;
+  @ApiProperty() username!: string | null;
   @ApiPropertyOptional() displayName?: string;
   @ApiPropertyOptional() avatarUrl?: string;
 }
@@ -30,11 +30,16 @@ export class MessageResponseDto {
   @ApiPropertyOptional() content?: string;
   @ApiProperty() type!: string;
   @ApiPropertyOptional() replyToId?: string;
-  @ApiPropertyOptional() replyTo?: Pick<MessageResponseDto, 'id' | 'content' | 'sender'>;
+  @ApiPropertyOptional() replyTo?: Pick<
+    MessageResponseDto,
+    'id' | 'content' | 'sender'
+  >;
   @ApiProperty() isEdited!: boolean;
   @ApiProperty() isPinned!: boolean;
-  @ApiProperty({ type: [MessageAttachmentResponseDto] }) attachments!: MessageAttachmentResponseDto[];
-  @ApiProperty({ type: [MessageReactionResponseDto] }) reactions!: MessageReactionResponseDto[];
+  @ApiProperty({ type: [MessageAttachmentResponseDto] })
+  attachments!: MessageAttachmentResponseDto[];
+  @ApiProperty({ type: [MessageReactionResponseDto] })
+  reactions!: MessageReactionResponseDto[];
   @ApiProperty({ type: [String] }) readBy!: string[];
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;

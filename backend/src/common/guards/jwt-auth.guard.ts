@@ -50,7 +50,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       const message =
         info instanceof Error
           ? info.message
-          : info?.message ?? 'Authentication required';
+          : (info?.message ?? 'Authentication required');
 
       throw new UnauthorizedException(message);
     }

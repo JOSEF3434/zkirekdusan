@@ -7,7 +7,9 @@ const JOIN_REQUEST_INCLUDE = {
     select: {
       id: true,
       username: true,
-      profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+      profile: {
+        select: { displayName: true, avatar: { select: { url: true } } },
+      },
     },
   },
 } as const;
@@ -49,7 +51,9 @@ export class GroupJoinRequestsRepository {
       where: { userId },
       include: {
         ...JOIN_REQUEST_INCLUDE,
-        group: { select: { id: true, name: true, slug: true, avatarUrl: true } },
+        group: {
+          select: { id: true, name: true, slug: true, avatarUrl: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

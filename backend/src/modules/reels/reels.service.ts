@@ -1,5 +1,9 @@
 // src/modules/reels/reels.service.ts
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ReelsRepository } from './reels.repository.js';
 import { CreateReelDto } from './dto/create-reel.dto.js';
 import { ReelResponseDto } from './dto/reel-response.dto.js';
@@ -8,7 +12,10 @@ import { ReelResponseDto } from './dto/reel-response.dto.js';
 export class ReelsService {
   constructor(private readonly reelsRepository: ReelsRepository) {}
 
-  async createReel(authorId: string, dto: CreateReelDto): Promise<ReelResponseDto> {
+  async createReel(
+    authorId: string,
+    dto: CreateReelDto,
+  ): Promise<ReelResponseDto> {
     const reel = await this.reelsRepository.createReel(authorId, dto);
     return this.mapToDto(reel);
   }
@@ -24,7 +31,11 @@ export class ReelsService {
 
   async getReelsFeed(page = 1, limit = 20, authorId?: string) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.reelsRepository.findFeed(skip, limit, authorId);
+    const { items, total } = await this.reelsRepository.findFeed(
+      skip,
+      limit,
+      authorId,
+    );
 
     const data = items.map((r) => this.mapToDto(r));
 

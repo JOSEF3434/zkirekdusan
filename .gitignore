@@ -57,3 +57,33 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Test files
+*.test.js
+*.test.ts
+*.test.jsx
+*.test.tsx
+
+*.spec.js
+*.spec.ts
+*.spec.jsx
+*.spec.tsx
+
+# Test directories
+test/
+tests/
+__tests__/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Jest cache
+jest-cache/
+
+# Vitest cache
+.vitest/
+
+# Playwright
+playwright-report/
+test-results/

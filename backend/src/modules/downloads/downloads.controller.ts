@@ -10,9 +10,20 @@ import {
   Req,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { DownloadsService } from './downloads.service.js';
-import { RequestVideoDownloadDto, RequestFileDownloadDto, DownloadTokenResponseDto } from './dto/request-download.dto.js';
+import {
+  RequestVideoDownloadDto,
+  RequestFileDownloadDto,
+  DownloadTokenResponseDto,
+} from './dto/request-download.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { Response, Request } from 'express';
 import fs from 'fs';
@@ -25,7 +36,8 @@ export class DownloadsController {
 
   @Post('video')
   @ApiOperation({
-    summary: 'Authorize and request video download (Quality selection: 240p to 4K)',
+    summary:
+      'Authorize and request video download (Quality selection: 240p to 4K)',
     description:
       'Validates user authorization against Global & Group RBAC. Generates signed download URL and logs audit record.',
   })
@@ -35,20 +47,31 @@ export class DownloadsController {
     @Body() dto: RequestVideoDownloadDto,
     @Req() req: Request,
   ): Promise<DownloadTokenResponseDto> {
-    return this.service.authorizeVideoDownload(userId, dto, req.ip, req.headers['user-agent']);
+    return this.service.authorizeVideoDownload(
+      userId,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
   }
 
   @Post('file')
   @ApiOperation({
     summary: 'Authorize generic media/file download (Images, Audio, Documents)',
-    description: 'Validates group membership authorization and produces signed download URL.',
+    description:
+      'Validates group membership authorization and produces signed download URL.',
   })
   async requestFileDownload(
     @CurrentUser('sub') userId: string,
     @Body() dto: RequestFileDownloadDto,
     @Req() req: Request,
   ) {
-    return this.service.authorizeFileDownload(userId, dto, req.ip, req.headers['user-agent']);
+    return this.service.authorizeFileDownload(
+      userId,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
   }
 
   @Get('history')
@@ -70,8 +93,13 @@ export class DownloadsController {
   }
 
   @Get('file/:downloadId')
-  @ApiOperation({ summary: 'Stream / Download media file via authorization record ID' })
-  @ApiParam({ name: 'downloadId', description: 'Download Authorization Record ID' })
+  @ApiOperation({
+    summary: 'Stream / Download media file via authorization record ID',
+  })
+  @ApiParam({
+    name: 'downloadId',
+    description: 'Download Authorization Record ID',
+  })
   async streamDownload(
     @Param('downloadId') downloadId: string,
     @CurrentUser('sub') userId: string,
@@ -80,10 +108,15 @@ export class DownloadsController {
     const info = await this.service.getDownloadStreamInfo(downloadId, userId);
 
     if (!info.filePath || !fs.existsSync(info.filePath)) {
-      throw new NotFoundException('Requested file was not found on storage server');
+      throw new NotFoundException(
+        'Requested file was not found on storage server',
+      );
     }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${info.filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${info.filename}"`,
+    );
     res.setHeader('Content-Type', info.mimeType);
 
     const stream = fs.createReadStream(info.filePath);

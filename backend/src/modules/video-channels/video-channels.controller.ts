@@ -40,7 +40,10 @@ export class VideoChannelsController {
   })
   @ApiParam({ name: 'groupId', description: 'Group ID' })
   @ApiResponse({ status: 201, type: VideoChannelResponseDto })
-  @ApiResponse({ status: 403, description: 'Insufficient permissions (requires GROUP_ADMIN)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Insufficient permissions (requires GROUP_ADMIN)',
+  })
   @ApiResponse({ status: 409, description: 'Slug or handle already taken' })
   async createChannel(
     @Param('groupId') groupId: string,
@@ -53,7 +56,8 @@ export class VideoChannelsController {
   @Get()
   @ApiOperation({
     summary: 'List all video channels in a group',
-    description: 'Returns paginated list of video channels belonging to the specified group.',
+    description:
+      'Returns paginated list of video channels belonging to the specified group.',
   })
   @ApiParam({ name: 'groupId', description: 'Group ID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -174,7 +178,9 @@ export class VideoChannelsPublicController {
   @ApiOperation({ summary: 'Find video channel by @handle' })
   @ApiParam({ name: 'handle', example: '@techtutorials' })
   @ApiResponse({ status: 200, type: VideoChannelResponseDto })
-  async findByHandle(@Param('handle') handle: string): Promise<VideoChannelResponseDto> {
+  async findByHandle(
+    @Param('handle') handle: string,
+  ): Promise<VideoChannelResponseDto> {
     return this.service.findById(handle) as any;
   }
 }

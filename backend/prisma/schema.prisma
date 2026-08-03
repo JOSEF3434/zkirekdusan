@@ -192,10 +192,10 @@ enum JoinRequestStatus {
 // ─────────────────────────────────────────────
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String  @id @default(uuid())
+  name        String  @unique
   description String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   users       User[]
   permissions RolePermission[]
@@ -207,8 +207,8 @@ model Role {
 }
 
 model Permission {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String  @id @default(uuid())
+  name        String  @unique
   description String?
 
   roles RolePermission[]
@@ -242,9 +242,9 @@ model RolePermission {
 model User {
   id String @id @default(uuid())
 
-  email       String?  @unique
-  phoneNumber String?  @unique
-  username    String   @unique
+  email       String? @unique
+  phoneNumber String? @unique
+  username    String? @unique
 
   passwordHash String
 
@@ -258,7 +258,7 @@ model User {
 
   lastLoginAt DateTime?
 
-  failedLoginAttempts Int      @default(0)
+  failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
   profile Profile?
@@ -272,23 +272,23 @@ model User {
   sentInvites      GroupInvite[] @relation("InviteSender")
   receivedInvites  GroupInvite[] @relation("InviteRecipient")
 
-  createdGroups   Group[] @relation("GroupCreator")
-  approvedGroups  Group[] @relation("GroupApprover")
+  createdGroups  Group[] @relation("GroupCreator")
+  approvedGroups Group[] @relation("GroupApprover")
 
   // Social features
   following Follow[] @relation("UserFollowing")
   followers Follow[] @relation("UserFollowers")
 
-  posts    Post[]
-  stories  Story[]
-  reels    Reel[]
+  posts   Post[]
+  stories Story[]
+  reels   Reel[]
 
   postLikes    PostLike[]
   reelLikes    ReelLike[]
   commentLikes CommentLike[]
 
-  comments      Comment[]
-  reelComments  ReelComment[]
+  comments     Comment[]
+  reelComments ReelComment[]
 
   savedPosts SavedPost[]
   storyViews StoryView[]
@@ -307,30 +307,34 @@ model User {
   auditLogs           AuditLog[]
 
   // Phase 4 Video Platform Relations
-  uploadedVideos      Video[]            @relation("VideoUploader")
-  videoComments       VideoComment[]     @relation("UserVideoComments")
-  videoLikes          VideoLike[]        @relation("UserVideoLikes")
-  videoCommentLikes   VideoCommentLike[] @relation("UserVideoCommentLikes")
-  videoBookmarks      VideoBookmark[]    @relation("UserVideoBookmarks")
-  videoSubscriptions  VideoSubscription[] @relation("UserVideoSubscriptions")
-  videoWatchHistory   VideoWatchHistory[] @relation("UserWatchHistory")
-  videoReports        VideoReport[]      @relation("VideoReporter")
-  videoPlaylists      VideoPlaylist[]    @relation("PlaylistOwner")
-  downloadRecords     DownloadRecord[]   @relation("UserDownloads")
+  uploadedVideos     Video[]             @relation("VideoUploader")
+  videoComments      VideoComment[]      @relation("UserVideoComments")
+  videoLikes         VideoLike[]         @relation("UserVideoLikes")
+  videoCommentLikes  VideoCommentLike[]  @relation("UserVideoCommentLikes")
+  videoBookmarks     VideoBookmark[]     @relation("UserVideoBookmarks")
+  videoSubscriptions VideoSubscription[] @relation("UserVideoSubscriptions")
+  videoWatchHistory  VideoWatchHistory[] @relation("UserWatchHistory")
+  videoReports       VideoReport[]       @relation("VideoReporter")
+  videoPlaylists     VideoPlaylist[]     @relation("PlaylistOwner")
+  downloadRecords    DownloadRecord[]    @relation("UserDownloads")
 
   // Phase 5 Live Streaming Relations
-  createdStreams        LiveStream[]          @relation("StreamCreator")
-  streamViewerSessions  StreamViewer[]        @relation("StreamViewers")
-  streamChatMessages    StreamChatMessage[]   @relation("StreamChatSender")
-  streamChatReactions   StreamChatReaction[]  @relation("StreamChatReactions")
-  streamReactions       StreamReaction[]      @relation("StreamReactions")
-  streamBookmarks       StreamBookmark[]      @relation("StreamBookmarks")
-  streamReports         StreamReport[]        @relation("StreamReporters")
-  streamModerators      StreamModerator[]     @relation("StreamModerators")
-  streamModeratorAssignments StreamModerator[] @relation("StreamModeratorAssigner")
-  streamPolls           StreamPoll[]          @relation("StreamPolls")
-  streamPollVotes       StreamPollVote[]      @relation("StreamPollVotes")
-  streamHighlights      StreamHighlight[]     @relation("StreamHighlights")
+  createdStreams             LiveStream[]         @relation("StreamCreator")
+  streamViewerSessions       StreamViewer[]       @relation("StreamViewers")
+  streamChatMessages         StreamChatMessage[]  @relation("StreamChatSender")
+  streamChatReactions        StreamChatReaction[] @relation("StreamChatReactions")
+  streamReactions            StreamReaction[]     @relation("StreamReactions")
+  streamBookmarks            StreamBookmark[]     @relation("StreamBookmarks")
+  streamReports              StreamReport[]       @relation("StreamReporters")
+  streamModerators           StreamModerator[]    @relation("StreamModerators")
+  streamModeratorAssignments StreamModerator[]    @relation("StreamModeratorAssigner")
+  streamPolls                StreamPoll[]         @relation("StreamPolls")
+  streamPollVotes            StreamPollVote[]     @relation("StreamPollVotes")
+  streamHighlights           StreamHighlight[]    @relation("StreamHighlights")
+
+  // Phase 6/7 Relations
+  searchHistory SearchHistory[] @relation("UserSearchHistory")
+  reports       Report[]        @relation("UserReports")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -354,7 +358,7 @@ model Profile {
   firstName   String?
   lastName    String?
   displayName String?
-  bio         String?  @db.Text
+  bio         String?   @db.Text
   website     String?
   country     String?
   language    String?
@@ -363,7 +367,7 @@ model Profile {
 
   visibility ProfileVisibility @default(PUBLIC)
 
-  isVerified        Boolean  @default(false)
+  isVerified        Boolean   @default(false)
   verifiedAt        DateTime?
   verificationBadge String?
 
@@ -403,7 +407,7 @@ model Group {
 
   /// Admin who approved or rejected the group (ADMIN/SUPER_ADMIN)
   approvedById String?
-  approvedBy   User?   @relation("GroupApprover", fields: [approvedById], references: [id])
+  approvedBy   User?     @relation("GroupApprover", fields: [approvedById], references: [id])
   approvedAt   DateTime?
 
   members GroupMember[]
@@ -433,7 +437,7 @@ model Group {
 }
 
 model GroupMember {
-  id      String    @id @default(uuid())
+  id      String @id @default(uuid())
   groupId String
   userId  String
 
@@ -456,15 +460,15 @@ model GroupInvite {
   groupId String
   group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  senderId    String
-  sender      User   @relation("InviteSender", fields: [senderId], references: [id])
+  senderId String
+  sender   User   @relation("InviteSender", fields: [senderId], references: [id])
 
   recipientId String
   recipient   User   @relation("InviteRecipient", fields: [recipientId], references: [id])
 
-  role   GroupRole  @default(MEMBER)
+  role   GroupRole    @default(MEMBER)
   status InviteStatus @default(PENDING)
-  token  String     @unique @default(uuid())
+  token  String       @unique @default(uuid())
 
   expiresAt   DateTime
   respondedAt DateTime?
@@ -493,8 +497,8 @@ model Session {
   os        String?
   location  String?
 
-  status    SessionStatus @default(ACTIVE)
-  expiresAt DateTime
+  status     SessionStatus @default(ACTIVE)
+  expiresAt  DateTime
   lastSeenAt DateTime?
 
   createdAt DateTime @default(now())
@@ -547,7 +551,7 @@ model File {
   fileType FileType @default(OTHER)
 
   /// Storage backend used for this file
-  provider  FileProvider
+  provider   FileProvider
   /// Provider-specific key/path (e.g. "uploads/2024/01/file.jpg" for local, Cloudinary public_id, etc.)
   storageKey String
   /// Public-facing URL
@@ -559,9 +563,9 @@ model File {
   status FileStatus @default(READY)
 
   /// Width in pixels (images/video)
-  width  Int?
+  width    Int?
   /// Height in pixels (images/video)
-  height Int?
+  height   Int?
   /// Duration in seconds (video/audio)
   duration Float?
 
@@ -598,15 +602,15 @@ model File {
   voiceMessages      VoiceMessage[]
 
   /// Phase 4 Video Platform references
-  videoChannelAvatars VideoChannel[] @relation("VideoChannelAvatar")
-  videoChannelBanners VideoChannel[] @relation("VideoChannelBanner")
-  videoSources        Video[]        @relation("VideoSourceFile")
-  videoThumbnails     Video[]        @relation("VideoThumbnail")
+  videoChannelAvatars VideoChannel[]   @relation("VideoChannelAvatar")
+  videoChannelBanners VideoChannel[]   @relation("VideoChannelBanner")
+  videoSources        Video[]          @relation("VideoSourceFile")
+  videoThumbnails     Video[]          @relation("VideoThumbnail")
   downloadRecords     DownloadRecord[] @relation("FileDownloads")
 
   /// Phase 5 Live Streaming references
-  streamThumbnails    LiveStream[]       @relation("StreamThumbnail")
-  streamRecordings    StreamRecording[]  @relation("StreamRecordingFile")
+  streamThumbnails     LiveStream[]      @relation("StreamThumbnail")
+  streamRecordings     StreamRecording[] @relation("StreamRecordingFile")
   streamHighlightFiles StreamHighlight[] @relation("StreamHighlightFile")
 
   /// Soft delete
@@ -658,7 +662,7 @@ model Post {
   status     PostStatus     @default(PUBLISHED)
   visibility PostVisibility @default(PUBLIC)
 
-  content  String? @db.Text
+  content  String?  @db.Text
   hashtags String[]
   mentions String[] // array of user IDs mentioned
 
@@ -680,17 +684,17 @@ model Post {
 
   @@index([authorId])
   @@index([groupId])
-  @@index([status, visibility])
+  @@index([status, visibility, publishedAt(sort: Desc)])
   @@index([deletedAt])
   @@index([createdAt])
   @@map("posts")
 }
 
 model PostMedia {
-  id      String @id @default(uuid())
+  id      String  @id @default(uuid())
   postId  String
   fileId  String
-  order   Int    @default(0)
+  order   Int     @default(0)
   caption String?
   altText String?
 
@@ -764,11 +768,11 @@ model Comment {
   content    String @db.Text
   likesCount Int    @default(0)
 
-  post   Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parent Comment? @relation("CommentReplies", fields: [parentId], references: [id])
-  replies Comment[] @relation("CommentReplies")
-  likes  CommentLike[]
+  post    Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[]     @relation("CommentReplies")
+  likes   CommentLike[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -782,16 +786,16 @@ model Comment {
 }
 
 model ReelComment {
-  id       String @id @default(uuid())
-  reelId   String
-  authorId String
-  parentId String?
-  content  String @db.Text
-  likesCount Int  @default(0)
+  id         String  @id @default(uuid())
+  reelId     String
+  authorId   String
+  parentId   String?
+  content    String  @db.Text
+  likesCount Int     @default(0)
 
-  reel   Reel        @relation(fields: [reelId], references: [id], onDelete: Cascade)
-  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parent ReelComment? @relation("ReelCommentReplies", fields: [parentId], references: [id])
+  reel    Reel          @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  author  User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  ReelComment?  @relation("ReelCommentReplies", fields: [parentId], references: [id])
   replies ReelComment[] @relation("ReelCommentReplies")
 
   deletedAt DateTime?
@@ -825,7 +829,7 @@ model Story {
 
   expiresAt DateTime // set to createdAt + 24h at creation
 
-  views     StoryView[]
+  views StoryView[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -863,7 +867,7 @@ model Reel {
   file   File   @relation(fields: [fileId], references: [id])
 
   thumbnailUrl String?
-  caption      String? @db.Text
+  caption      String?  @db.Text
   hashtags     String[]
   mentions     String[]
 
@@ -960,7 +964,7 @@ model Conversation {
 }
 
 model ConversationMember {
-  id             String       @id @default(uuid())
+  id             String @id @default(uuid())
   conversationId String
   userId         String
 
@@ -983,7 +987,7 @@ model ConversationMember {
 }
 
 model Message {
-  id             String      @id @default(uuid())
+  id             String  @id @default(uuid())
   conversationId String
   channelId      String?
   senderId       String
@@ -1118,8 +1122,8 @@ model VoiceMessage {
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   file    File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
-  duration Int     // duration in seconds
-  waveform Json?   // waveform JSON array
+  duration Int // duration in seconds
+  waveform Json? // waveform JSON array
 
   @@map("voice_messages")
 }
@@ -1174,9 +1178,9 @@ model Notification {
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
   resource  String
   details   Json?
@@ -1272,38 +1276,38 @@ enum DownloadStatus {
 // ─────────────────────────────────────────────
 
 model VideoChannel {
-  id          String @id @default(uuid())
-  groupId     String
-  group       Group  @relation("GroupVideoChannels", fields: [groupId], references: [id], onDelete: Cascade)
+  id      String @id @default(uuid())
+  groupId String
+  group   Group  @relation("GroupVideoChannels", fields: [groupId], references: [id], onDelete: Cascade)
 
   name        String
   slug        String
   handle      String  @unique // @handle for discovery
   description String? @db.Text
 
-  avatarFileId  String?
-  bannerFileId  String?
-  avatarFile    File?   @relation("VideoChannelAvatar", fields: [avatarFileId], references: [id])
-  bannerFile    File?   @relation("VideoChannelBanner", fields: [bannerFileId], references: [id])
+  avatarFileId String?
+  bannerFileId String?
+  avatarFile   File?   @relation("VideoChannelAvatar", fields: [avatarFileId], references: [id])
+  bannerFile   File?   @relation("VideoChannelBanner", fields: [bannerFileId], references: [id])
 
-  status      VideoChannelStatus @default(ACTIVE)
-  isVerified  Boolean            @default(false)
+  status     VideoChannelStatus @default(ACTIVE)
+  isVerified Boolean            @default(false)
 
   /// Who can upload to this channel (beyond GROUP_ADMIN/MODERATOR)
-  uploadPermission   GroupRole  @default(MEMBER)
+  uploadPermission GroupRole @default(MEMBER)
 
   /// Download permission default for videos in this channel
   downloadPermission DownloadPermission @default(MEMBERS_ONLY)
 
   /// Denormalized counters
-  subscribersCount Int @default(0)
-  videosCount      Int @default(0)
+  subscribersCount Int    @default(0)
+  videosCount      Int    @default(0)
   totalViewsCount  BigInt @default(0)
 
-  categories  String[]
-  tags        String[]
-  country     String?
-  language    String?
+  categories String[]
+  tags       String[]
+  country    String?
+  language   String?
 
   /// Social links stored as JSON
   socialLinks Json?
@@ -1346,8 +1350,8 @@ model Video {
   sourceFile   File?   @relation("VideoSourceFile", fields: [sourceFileId], references: [id])
 
   title       String
-  description String?  @db.Text
-  slug        String   @unique
+  description String? @db.Text
+  slug        String  @unique
 
   status     VideoStatus     @default(UPLOADING)
   visibility VideoVisibility @default(PRIVATE)
@@ -1367,7 +1371,7 @@ model Video {
   audioCodec String?
 
   /// Thumbnail references
-  thumbnailUrl String?
+  thumbnailUrl    String?
   thumbnailFileId String?
   thumbnailFile   File?   @relation("VideoThumbnail", fields: [thumbnailFileId], references: [id])
 
@@ -1391,20 +1395,20 @@ model Video {
 
   /// Download settings
   downloadPermission DownloadPermission @default(MEMBERS_ONLY)
-  isDownloadable Boolean @default(false)
+  isDownloadable     Boolean            @default(false)
 
   /// Scheduling
   scheduledAt DateTime?
   publishedAt DateTime?
 
   /// Engagement counters (denormalized for performance)
-  viewsCount    BigInt @default(0)
-  likesCount    Int    @default(0)
-  dislikesCount Int    @default(0)
-  commentsCount Int    @default(0)
-  sharesCount   Int    @default(0)
-  bookmarksCount Int   @default(0)
-  downloadsCount Int   @default(0)
+  viewsCount     BigInt @default(0)
+  likesCount     Int    @default(0)
+  dislikesCount  Int    @default(0)
+  commentsCount  Int    @default(0)
+  sharesCount    Int    @default(0)
+  bookmarksCount Int    @default(0)
+  downloadsCount Int    @default(0)
 
   /// Processing job ID (BullMQ)
   processingJobId String?
@@ -1412,16 +1416,16 @@ model Video {
   /// Checksum of source file
   checksum String?
 
-  renditions    VideoRendition[]
-  chapters      VideoChapter[]
-  subtitles     VideoSubtitle[]
-  likes         VideoLike[]
-  comments      VideoComment[]
-  bookmarks     VideoBookmark[]
-  reports       VideoReport[]
-  watchHistory  VideoWatchHistory[]
+  renditions      VideoRendition[]
+  chapters        VideoChapter[]
+  subtitles       VideoSubtitle[]
+  likes           VideoLike[]
+  comments        VideoComment[]
+  bookmarks       VideoBookmark[]
+  reports         VideoReport[]
+  watchHistory    VideoWatchHistory[]
   downloadRecords DownloadRecord[]
-  playlistItems VideoPlaylistItem[]
+  playlistItems   VideoPlaylistItem[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -1429,10 +1433,8 @@ model Video {
 
   @@index([videoChannelId])
   @@index([uploadedById])
-  @@index([status])
-  @@index([visibility])
+  @@index([status, visibility, publishedAt(sort: Desc)])
   @@index([slug])
-  @@index([publishedAt])
   @@index([deletedAt])
   @@index([createdAt])
   @@map("videos")
@@ -1458,9 +1460,9 @@ model VideoRendition {
   url        String
 
   /// Provider used for this rendition
-  provider   FileProvider
+  provider FileProvider
 
-  isReady    Boolean @default(false)
+  isReady Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -1474,12 +1476,12 @@ model VideoRendition {
 // ─────────────────────────────────────────────
 
 model VideoChapter {
-  id        String @id @default(uuid())
-  videoId   String
-  video     Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  id      String @id @default(uuid())
+  videoId String
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   title       String
-  startTimeMs Int  // start time in milliseconds
+  startTimeMs Int // start time in milliseconds
   order       Int
 
   @@index([videoId])
@@ -1495,13 +1497,13 @@ model VideoSubtitle {
   videoId String
   video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
-  language   String // BCP 47 language tag e.g. "en", "fr"
-  label      String // Human-readable label e.g. "English"
-  fileUrl    String // URL to .vtt or .srt file
-  storageKey String
-  provider   FileProvider
-  isDefault  Boolean @default(false)
-  isAutoGenerated Boolean @default(false)
+  language        String // BCP 47 language tag e.g. "en", "fr"
+  label           String // Human-readable label e.g. "English"
+  fileUrl         String // URL to .vtt or .srt file
+  storageKey      String
+  provider        FileProvider
+  isDefault       Boolean      @default(false)
+  isAutoGenerated Boolean      @default(false)
 
   createdAt DateTime @default(now())
 
@@ -1515,7 +1517,7 @@ model VideoSubtitle {
 // ─────────────────────────────────────────────
 
 model VideoPlaylist {
-  id             String  @id @default(uuid())
+  id             String        @id @default(uuid())
   videoChannelId String?
   videoChannel   VideoChannel? @relation(fields: [videoChannelId], references: [id], onDelete: SetNull)
 
@@ -1523,8 +1525,8 @@ model VideoPlaylist {
   ownerId String
   owner   User   @relation("PlaylistOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  title       String
-  description String? @db.Text
+  title        String
+  description  String? @db.Text
   thumbnailUrl String?
 
   visibility PlaylistVisibility @default(PUBLIC)
@@ -1546,10 +1548,10 @@ model VideoPlaylist {
 }
 
 model VideoPlaylistItem {
-  id         String @id @default(uuid())
+  id         String   @id @default(uuid())
   playlistId String
   videoId    String
-  order      Int    @default(0)
+  order      Int      @default(0)
   addedAt    DateTime @default(now())
 
   playlist VideoPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
@@ -1573,14 +1575,14 @@ model VideoWatchHistory {
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   /// Progress position in seconds
-  watchedSeconds Float  @default(0)
+  watchedSeconds Float   @default(0)
   /// Percentage of video watched (0-100)
-  watchedPercent Float  @default(0)
+  watchedPercent Float   @default(0)
   /// Whether user completed the video (≥90%)
   isCompleted    Boolean @default(false)
 
-  watchedAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  watchedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, videoId])
   @@index([userId])
@@ -1594,9 +1596,9 @@ model VideoWatchHistory {
 // ─────────────────────────────────────────────
 
 model VideoLike {
-  userId   String
-  videoId  String
-  isLike   Boolean // true = like, false = dislike
+  userId  String
+  videoId String
+  isLike  Boolean // true = like, false = dislike
 
   user  User  @relation("UserVideoLikes", fields: [userId], references: [id], onDelete: Cascade)
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
@@ -1620,17 +1622,17 @@ model VideoComment {
   /// null = root comment; non-null = reply
   parentId String?
 
-  content    String  @db.Text
-  isPinned   Boolean @default(false)
-  isEdited   Boolean @default(false)
+  content  String  @db.Text
+  isPinned Boolean @default(false)
+  isEdited Boolean @default(false)
 
   likesCount   Int @default(0)
   repliesCount Int @default(0)
 
-  video   Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user    User         @relation("UserVideoComments", fields: [userId], references: [id], onDelete: Cascade)
-  parent  VideoComment? @relation("VideoCommentReplies", fields: [parentId], references: [id])
-  replies VideoComment[] @relation("VideoCommentReplies")
+  video   Video              @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user    User               @relation("UserVideoComments", fields: [userId], references: [id], onDelete: Cascade)
+  parent  VideoComment?      @relation("VideoCommentReplies", fields: [parentId], references: [id])
+  replies VideoComment[]     @relation("VideoCommentReplies")
   likes   VideoCommentLike[]
 
   deletedAt DateTime?
@@ -1670,8 +1672,8 @@ model VideoSubscription {
   videoChannel VideoChannel @relation(fields: [videoChannelId], references: [id], onDelete: Cascade)
 
   /// Notification preferences
-  notifyOnUpload    Boolean @default(true)
-  notifyOnLive      Boolean @default(false)
+  notifyOnUpload Boolean @default(true)
+  notifyOnLive   Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -1712,8 +1714,8 @@ model VideoReport {
   reason  VideoReportReason
   details String?           @db.Text
 
-  isResolved  Boolean   @default(false)
-  resolvedAt  DateTime?
+  isResolved   Boolean   @default(false)
+  resolvedAt   DateTime?
   resolvedById String?
 
   video    Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
@@ -1732,7 +1734,7 @@ model VideoReport {
 // ─────────────────────────────────────────────
 
 model DownloadRecord {
-  id      String @id @default(uuid())
+  id      String  @id @default(uuid())
   userId  String
   videoId String?
 
@@ -1743,11 +1745,11 @@ model DownloadRecord {
   status     DownloadStatus   @default(PENDING)
 
   /// Signed URL used for this download
-  signedUrl   String?
-  expiresAt   DateTime?
+  signedUrl String?
+  expiresAt DateTime?
 
-  ipAddress   String?
-  userAgent   String?
+  ipAddress String?
+  userAgent String?
 
   fileSize    BigInt?
   bytesServed BigInt? @default(0)
@@ -1841,10 +1843,10 @@ model StreamKey {
   videoChannelId String       @unique
   videoChannel   VideoChannel @relation(fields: [videoChannelId], references: [id], onDelete: Cascade)
 
-  keyHash    String  @unique
-  keyPrefix  String
+  keyHash   String @unique
+  keyPrefix String
 
-  isActive   Boolean  @default(true)
+  isActive   Boolean   @default(true)
   lastUsedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -1896,9 +1898,9 @@ model LiveStream {
   startedAt   DateTime?
   endedAt     DateTime?
 
-  isRecordingEnabled    Boolean @default(true)
-  isDvrEnabled          Boolean @default(true)
-  isReplayEnabled       Boolean @default(true)
+  isRecordingEnabled Boolean @default(true)
+  isDvrEnabled       Boolean @default(true)
+  isReplayEnabled    Boolean @default(true)
 
   isChatEnabled         Boolean @default(true)
   isChatSlowMode        Boolean @default(false)
@@ -1906,12 +1908,12 @@ model LiveStream {
   isMembersOnlyChat     Boolean @default(false)
   isSubscribersOnlyChat Boolean @default(false)
 
-  peakViewerCount    Int    @default(0)
-  totalViewerCount   Int    @default(0)
-  currentViewerCount Int    @default(0)
-  totalChatMessages  Int    @default(0)
-  totalReactions     Int    @default(0)
-  likesCount         Int    @default(0)
+  peakViewerCount    Int @default(0)
+  totalViewerCount   Int @default(0)
+  currentViewerCount Int @default(0)
+  totalChatMessages  Int @default(0)
+  totalReactions     Int @default(0)
+  likesCount         Int @default(0)
 
   duration        Float?
   vodVideoId      String? @unique
@@ -1956,10 +1958,10 @@ model StreamSession {
   startedAt DateTime  @default(now())
   endedAt   DateTime?
 
-  streamKeyId       String?
-  ingestBitrate     Int?
-  ingestResolution  String?
-  ingestFramerate   Int?
+  streamKeyId      String?
+  ingestBitrate    Int?
+  ingestResolution String?
+  ingestFramerate  Int?
 
   peakViewers  Int @default(0)
   totalViewers Int @default(0)
@@ -1975,7 +1977,7 @@ model StreamSession {
 // ─────────────────────────────────────────────
 
 model StreamViewer {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   liveStreamId String
   userId       String
 
@@ -2012,9 +2014,9 @@ model StreamAnalytics {
   totalShares       Int @default(0)
   totalClips        Int @default(0)
 
-  retentionData   Json?
-  geoBreakdown    Json?
-  deviceBreakdown Json?
+  retentionData    Json?
+  geoBreakdown     Json?
+  deviceBreakdown  Json?
   qualityBreakdown Json?
 
   updatedAt DateTime @updatedAt
@@ -2028,14 +2030,14 @@ model StreamAnalytics {
 // ─────────────────────────────────────────────
 
 model StreamRecording {
-  id           String                @id @default(uuid())
+  id           String     @id @default(uuid())
   liveStreamId String
-  liveStream   LiveStream            @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  liveStream   LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
 
-  status  StreamRecordingStatus @default(RECORDING)
+  status StreamRecordingStatus @default(RECORDING)
 
-  fileId  String?
-  file    File?   @relation("StreamRecordingFile", fields: [fileId], references: [id])
+  fileId String?
+  file   File?   @relation("StreamRecordingFile", fields: [fileId], references: [id])
 
   url             String?
   duration        Float?
@@ -2091,8 +2093,8 @@ model StreamChatMessage {
   replyTo   StreamChatMessage?  @relation("ChatMessageReplies", fields: [replyToId], references: [id])
   replies   StreamChatMessage[] @relation("ChatMessageReplies")
 
-  isPinned  Boolean   @default(false)
-  pinnedAt  DateTime?
+  isPinned Boolean   @default(false)
+  pinnedAt DateTime?
 
   superChatAmount   Int?
   superChatCurrency String?
@@ -2115,7 +2117,7 @@ model StreamChatMessage {
 // ─────────────────────────────────────────────
 
 model StreamChatReaction {
-  id        String            @id @default(uuid())
+  id        String @id @default(uuid())
   messageId String
   userId    String
   emoji     String
@@ -2158,7 +2160,7 @@ model StreamModerator {
 // ─────────────────────────────────────────────
 
 model StreamReaction {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   liveStreamId String
   userId       String
   emoji        String
@@ -2197,7 +2199,7 @@ model StreamBookmark {
 // ─────────────────────────────────────────────
 
 model StreamReport {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   liveStreamId String
   reporterId   String
 
@@ -2224,7 +2226,7 @@ model StreamReport {
 // ─────────────────────────────────────────────
 
 model StreamPoll {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   liveStreamId String
   createdById  String
 
@@ -2252,8 +2254,8 @@ model StreamPollOption {
   poll   StreamPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
 
   text       String
-  voteCount  Int @default(0)
-  orderIndex Int @default(0)
+  voteCount  Int    @default(0)
+  orderIndex Int    @default(0)
 
   votes StreamPollVote[]
 
@@ -2283,7 +2285,7 @@ model StreamPollVote {
 // ─────────────────────────────────────────────
 
 model StreamHighlight {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   liveStreamId String
   createdById  String
 
@@ -2309,3 +2311,164 @@ model StreamHighlight {
   @@index([createdById])
   @@map("stream_highlights")
 }
+
+// ─────────────────────────────────────────────
+// PHASE 6: DISCOVERY (Search, Recommendations, Trending)
+// ─────────────────────────────────────────────
+
+model SearchHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  query      String
+  entityType String? // Optional: if they searched specifically for users, posts, etc.
+  timestamp  DateTime @default(now())
+
+  // We do not require a strict relation to User to avoid cascading issues if we want to retain history
+  // But optionally:
+  user User @relation("UserSearchHistory", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([timestamp])
+  @@map("search_history")
+}
+
+model RecommendationEvent {
+  id         String   @id @default(uuid())
+  userId     String
+  entityType String // "POST", "VIDEO", "REEL", "STREAM"
+  entityId   String
+  eventType  String // "VIEW", "LIKE", "COMMENT", "SHARE", "SAVE"
+  value      Float    @default(1.0) // Weight of the interaction
+  timestamp  DateTime @default(now())
+
+  @@index([userId, entityType])
+  @@index([timestamp])
+  @@map("recommendation_events")
+}
+
+model TrendingScore {
+  id         String   @id @default(uuid())
+  entityType String // "POST", "VIDEO", "REEL", "STREAM", "HASHTAG"
+  entityId   String
+  score      Float
+  window     String // "HOURLY", "DAILY", "WEEKLY"
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId, window])
+  @@index([score(sort: Desc)])
+  @@map("trending_scores")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 7: ENTERPRISE ADMIN PLATFORM
+// ─────────────────────────────────────────────
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+model Report {
+  id         String @id @default(uuid())
+  reporterId String
+
+  // What is being reported? (Unified report system)
+  entityType String // "USER", "GROUP", "POST", "VIDEO", "REEL", "COMMENT", "MESSAGE", "STREAM"
+  entityId   String
+
+  reason  String
+  details String? @db.Text
+
+  status ReportStatus @default(PENDING)
+
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  reporter User @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("reports")
+}
+
+enum ModerationStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  REJECTED
+  ESCALATED
+}
+
+model ModerationCase {
+  id         String @id @default(uuid())
+  entityType String
+  entityId   String
+
+  status   ModerationStatus @default(OPEN)
+  priority Int              @default(0) // Higher = more urgent
+
+  assignedToId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actions ModerationAction[]
+
+  @@unique([entityType, entityId])
+  @@index([status])
+  @@index([assignedToId])
+  @@map("moderation_cases")
+}
+
+model ModerationAction {
+  id     String         @id @default(uuid())
+  caseId String
+  case   ModerationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  actorId String
+  action  String // "HIDE", "DELETE", "SUSPEND", "WARN", "IGNORE"
+  reason  String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@map("moderation_actions")
+}
+
+model AnalyticsEvent {
+  id         String  @id @default(uuid())
+  eventType  String // "USER_SIGNUP", "VIDEO_VIEW", "POST_CREATE", "AD_CLICK"
+  userId     String?
+  entityType String?
+  entityId   String?
+  metadata   Json?
+
+  timestamp DateTime @default(now())
+
+  @@index([eventType, timestamp])
+  @@map("analytics_events")
+}
+
+model AnalyticsAggregate {
+  id        String   @id @default(uuid())
+  metric    String // "DAU", "MAU", "TOTAL_VIEWS", "TOTAL_STREAMS"
+  value     Float
+  dimension String? // e.g., "COUNTRY:US", "DEVICE:MOBILE"
+  window    String // "HOURLY", "DAILY", "WEEKLY", "MONTHLY"
+  timestamp DateTime
+
+  @@unique([metric, dimension, window, timestamp])
+  @@map("analytics_aggregates")
+}
+
+// ─────────────────────────────────────────────
+// EXTENSIONS TO EXISTING MODELS FOR PHASE 6/7
+// ─────────────────────────────────────────────
+// We also need to add relation names back to User. We can just run a Prisma migration for these models.
+// NOTE: I will manually add the relation for User->Report and User->SearchHistory in the User model later if needed, 
+// but Prisma allows omitting the back-relation on User if not strictly required, though it's best practice.

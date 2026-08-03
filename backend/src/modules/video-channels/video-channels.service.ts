@@ -20,7 +20,11 @@ export class VideoChannelsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  private async verifyGroupAccess(groupId: string, userId: string, requiredRole: GroupRole) {
+  private async verifyGroupAccess(
+    groupId: string,
+    userId: string,
+    requiredRole: GroupRole,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
@@ -28,7 +32,10 @@ export class VideoChannelsService {
     if (!user) throw new NotFoundException('User not found');
 
     // SUPER_ADMIN bypasses all checks
-    if (user.role.name === AppRole.SUPER_ADMIN || user.role.name === AppRole.ADMIN) {
+    if (
+      user.role.name === AppRole.SUPER_ADMIN ||
+      user.role.name === AppRole.ADMIN
+    ) {
       return true;
     }
 
@@ -37,13 +44,15 @@ export class VideoChannelsService {
       select: { id: true, status: true },
     });
     if (!group) throw new NotFoundException('Group not found');
-    if (group.status !== 'ACTIVE') throw new ForbiddenException('Group is not active');
+    if (group.status !== 'ACTIVE')
+      throw new ForbiddenException('Group is not active');
 
     const membership = await this.prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId }, removedAt: null },
       select: { role: true },
     });
-    if (!membership) throw new ForbiddenException('You are not a member of this group');
+    if (!membership)
+      throw new ForbiddenException('You are not a member of this group');
 
     const roleHierarchy: Record<GroupRole, number> = {
       [GroupRole.GROUP_ADMIN]: 4,
@@ -52,8 +61,12 @@ export class VideoChannelsService {
       [GroupRole.GUEST]: 1,
     };
 
-    if (roleHierarchy[membership.role as GroupRole] < roleHierarchy[requiredRole]) {
-      throw new ForbiddenException(`This action requires at least ${requiredRole} role`);
+    if (
+      roleHierarchy[membership.role as GroupRole] < roleHierarchy[requiredRole]
+    ) {
+      throw new ForbiddenException(
+        `This action requires at least ${requiredRole} role`,
+      );
     }
     return true;
   }
@@ -64,7 +77,9 @@ export class VideoChannelsService {
     // Check slug uniqueness within group
     const existing = await this.repo.findBySlugAndGroup(groupId, dto.slug);
     if (existing) {
-      throw new ConflictException(`A channel with slug '${dto.slug}' already exists in this group`);
+      throw new ConflictException(
+        `A channel with slug '${dto.slug}' already exists in this group`,
+      );
     }
 
     // Check handle uniqueness globally
@@ -91,16 +106,27 @@ export class VideoChannelsService {
     const channel = await this.repo.findById(id);
     if (!channel) throw new NotFoundException('Video channel not found');
 
-    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    await this.verifyGroupAccess(
+      channel.groupId,
+      userId,
+      GroupRole.GROUP_ADMIN,
+    );
 
     if (dto.handle && dto.handle !== channel.handle) {
       const handleExists = await this.repo.findByHandle(dto.handle);
-      if (handleExists) throw new ConflictException(`Handle '${dto.handle}' is already taken`);
+      if (handleExists)
+        throw new ConflictException(`Handle '${dto.handle}' is already taken`);
     }
 
     if (dto.slug && dto.slug !== channel.slug) {
-      const slugExists = await this.repo.findBySlugAndGroup(channel.groupId, dto.slug);
-      if (slugExists) throw new ConflictException(`Slug '${dto.slug}' already exists in this group`);
+      const slugExists = await this.repo.findBySlugAndGroup(
+        channel.groupId,
+        dto.slug,
+      );
+      if (slugExists)
+        throw new ConflictException(
+          `Slug '${dto.slug}' already exists in this group`,
+        );
     }
 
     return this.repo.update(id, dto);
@@ -110,7 +136,11 @@ export class VideoChannelsService {
     const channel = await this.repo.findById(id);
     if (!channel) throw new NotFoundException('Video channel not found');
 
-    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    await this.verifyGroupAccess(
+      channel.groupId,
+      userId,
+      GroupRole.GROUP_ADMIN,
+    );
     await this.repo.softDelete(id);
     return { message: 'Video channel deleted successfully' };
   }
@@ -120,7 +150,8 @@ export class VideoChannelsService {
     if (!channel) throw new NotFoundException('Video channel not found');
 
     const isSubbed = await this.repo.isSubscribed(userId, channelId);
-    if (isSubbed) throw new BadRequestException('Already subscribed to this channel');
+    if (isSubbed)
+      throw new BadRequestException('Already subscribed to this channel');
 
     await this.repo.subscribe(userId, channelId);
     await this.repo.incrementSubscribers(channelId, 1);
@@ -132,7 +163,8 @@ export class VideoChannelsService {
     if (!channel) throw new NotFoundException('Video channel not found');
 
     const isSubbed = await this.repo.isSubscribed(userId, channelId);
-    if (!isSubbed) throw new BadRequestException('Not subscribed to this channel');
+    if (!isSubbed)
+      throw new BadRequestException('Not subscribed to this channel');
 
     await this.repo.unsubscribe(userId, channelId);
     await this.repo.incrementSubscribers(channelId, -1);
@@ -151,21 +183,24 @@ export class VideoChannelsService {
 
     await this.verifyGroupAccess(channel.groupId, userId, GroupRole.MODERATOR);
 
-    const [totalVideos, totalViews, totalLikes, totalComments] = await this.prisma.$transaction([
-      this.prisma.video.count({ where: { videoChannelId: channelId, deletedAt: null } }),
-      this.prisma.video.aggregate({
-        where: { videoChannelId: channelId, deletedAt: null },
-        _sum: { viewsCount: true },
-      }),
-      this.prisma.video.aggregate({
-        where: { videoChannelId: channelId, deletedAt: null },
-        _sum: { likesCount: true },
-      }),
-      this.prisma.video.aggregate({
-        where: { videoChannelId: channelId, deletedAt: null },
-        _sum: { commentsCount: true },
-      }),
-    ]);
+    const [totalVideos, totalViews, totalLikes, totalComments] =
+      await this.prisma.$transaction([
+        this.prisma.video.count({
+          where: { videoChannelId: channelId, deletedAt: null },
+        }),
+        this.prisma.video.aggregate({
+          where: { videoChannelId: channelId, deletedAt: null },
+          _sum: { viewsCount: true },
+        }),
+        this.prisma.video.aggregate({
+          where: { videoChannelId: channelId, deletedAt: null },
+          _sum: { likesCount: true },
+        }),
+        this.prisma.video.aggregate({
+          where: { videoChannelId: channelId, deletedAt: null },
+          _sum: { commentsCount: true },
+        }),
+      ]);
 
     return {
       channelId,

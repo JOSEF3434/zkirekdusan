@@ -1,5 +1,9 @@
 // src/modules/comments/comments.service.ts
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CommentsRepository } from './comments.repository.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { CommentResponseDto } from './dto/comment-response.dto.js';
@@ -12,7 +16,11 @@ export class CommentsService {
     private readonly postsRepository: PostsRepository,
   ) {}
 
-  async createComment(postId: string, authorId: string, dto: CreateCommentDto): Promise<CommentResponseDto> {
+  async createComment(
+    postId: string,
+    authorId: string,
+    dto: CreateCommentDto,
+  ): Promise<CommentResponseDto> {
     const post = await this.postsRepository.findById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
@@ -25,7 +33,11 @@ export class CommentsService {
       }
     }
 
-    const comment = await this.commentsRepository.createComment(postId, authorId, dto);
+    const comment = await this.commentsRepository.createComment(
+      postId,
+      authorId,
+      dto,
+    );
     return this.mapToDto(comment);
   }
 
@@ -36,7 +48,11 @@ export class CommentsService {
     }
 
     const skip = (page - 1) * limit;
-    const { items, total } = await this.commentsRepository.findByPost(postId, skip, limit);
+    const { items, total } = await this.commentsRepository.findByPost(
+      postId,
+      skip,
+      limit,
+    );
 
     const data = items.map((c) => ({
       ...this.mapToDto(c),

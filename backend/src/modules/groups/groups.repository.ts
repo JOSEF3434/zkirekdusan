@@ -80,7 +80,11 @@ export class GroupsRepository {
   }
 
   async findPublicActiveGroups(skip = 0, take = 20) {
-    const where = { status: 'ACTIVE' as const, visibility: 'PUBLIC' as const, deletedAt: null };
+    const where = {
+      status: 'ACTIVE' as const,
+      visibility: 'PUBLIC' as const,
+      deletedAt: null,
+    };
     const [items, total] = await Promise.all([
       this.prisma.group.findMany({
         where,
@@ -120,7 +124,11 @@ export class GroupsRepository {
     });
   }
 
-  async addMember(groupId: string, userId: string, role: GroupRole = GroupRole.MEMBER) {
+  async addMember(
+    groupId: string,
+    userId: string,
+    role: GroupRole = GroupRole.MEMBER,
+  ) {
     return this.prisma.groupMember.upsert({
       where: { groupId_userId: { groupId, userId } },
       create: { groupId, userId, role },
@@ -142,7 +150,12 @@ export class GroupsRepository {
     });
   }
 
-  async createInvite(groupId: string, senderId: string, recipientId: string, role: GroupRole) {
+  async createInvite(
+    groupId: string,
+    senderId: string,
+    recipientId: string,
+    role: GroupRole,
+  ) {
     return this.prisma.groupInvite.create({
       data: {
         groupId,

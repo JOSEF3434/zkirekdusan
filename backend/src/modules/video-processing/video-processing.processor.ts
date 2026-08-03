@@ -2,7 +2,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { VideoProcessingService, TranscodeJobData } from './video-processing.service.js';
+import {
+  VideoProcessingService,
+  TranscodeJobData,
+} from './video-processing.service.js';
 
 export const VIDEO_PROCESSING_QUEUE = 'video-processing';
 
@@ -15,7 +18,9 @@ export class VideoProcessingProcessor extends WorkerHost {
   }
 
   async process(job: Job<TranscodeJobData>): Promise<any> {
-    this.logger.log(`Processing video job [${job.id}] for Video [${job.data.videoId}]`);
+    this.logger.log(
+      `Processing video job [${job.id}] for Video [${job.data.videoId}]`,
+    );
     await this.videoProcessingService.processVideo(job.data);
     return { status: 'completed', videoId: job.data.videoId };
   }

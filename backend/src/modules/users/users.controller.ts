@@ -1,12 +1,27 @@
 // src/modules/users/users.controller.ts
-import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Query,
+  ParseIntPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
+import { UpdateUsernameDto } from './dto/update-username.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
+import { Body, Patch } from '@nestjs/common';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -19,6 +34,24 @@ export class UsersController {
   @ApiResponse({ status: 200, type: UserResponseDto })
   async me(@CurrentUser('sub') userId: string): Promise<UserResponseDto> {
     return this.usersService.getUserProfileDto(userId);
+  }
+
+  @Public()
+  @Get('username/availability')
+  @ApiOperation({ summary: 'Check if a username is available' })
+  @ApiQuery({ name: 'username', required: true, example: 'johndoe' })
+  async checkUsernameAvailability(@Query('username') username: string) {
+    const isAvailable = await this.usersService.checkUsernameAvailability(username);
+    return { available: isAvailable };
+  }
+
+  @Patch('me/username')
+  @ApiOperation({ summary: 'Set or update the current user username' })
+  async updateUsername(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: UpdateUsernameDto,
+  ) {
+    return this.usersService.updateUsername(userId, dto.username);
   }
 
   @Get()

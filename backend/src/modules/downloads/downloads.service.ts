@@ -8,8 +8,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { DownloadsRepository } from './downloads.repository.js';
-import { RequestVideoDownloadDto, RequestFileDownloadDto } from './dto/request-download.dto.js';
-import { DownloadPermission, VideoResolution, DownloadStatus, GroupRole } from '@prisma/client';
+import {
+  RequestVideoDownloadDto,
+  RequestFileDownloadDto,
+} from './dto/request-download.dto.js';
+import {
+  DownloadPermission,
+  VideoResolution,
+  DownloadStatus,
+  GroupRole,
+} from '@prisma/client';
 import { AppRole } from '../../common/constants/roles.js';
 import crypto from 'crypto';
 import path from 'path';
@@ -34,7 +42,9 @@ export class DownloadsService {
     const video = await this.prisma.video.findUnique({
       where: { id: dto.videoId, deletedAt: null },
       include: {
-        videoChannel: { select: { id: true, groupId: true, downloadPermission: true } },
+        videoChannel: {
+          select: { id: true, groupId: true, downloadPermission: true },
+        },
         renditions: true,
       },
     });
@@ -50,9 +60,10 @@ export class DownloadsService {
       video.renditions.find((r) => r.resolution === targetRes) ||
       video.renditions.sort((a, b) => b.height - a.height)[0];
 
-    const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+    const appUrl =
+      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
     const relativePath = rendition ? rendition.storageKey : video.hlsUrl;
-    
+
     // Generate signed download URL token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour validity
@@ -119,7 +130,8 @@ export class DownloadsService {
     // Group membership check for group files
     await this.verifyGroupFileAccess(userId, file.groupId);
 
-    const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+    const appUrl =
+      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
@@ -158,7 +170,10 @@ export class DownloadsService {
         where: { id: userId },
         include: { role: true },
       });
-      if (user?.role.name !== AppRole.SUPER_ADMIN && user?.role.name !== AppRole.ADMIN) {
+      if (
+        user?.role.name !== AppRole.SUPER_ADMIN &&
+        user?.role.name !== AppRole.ADMIN
+      ) {
         throw new ForbiddenException('Download record does not belong to user');
       }
     }
@@ -169,8 +184,12 @@ export class DownloadsService {
 
     if (record.videoId && record.video) {
       const targetRes = record.resolution ?? VideoResolution.R_720P;
-      const rendition = record.video.renditions.find((r) => r.resolution === targetRes);
-      const relativeKey = rendition ? rendition.storageKey : `videos/${record.videoId}/master.m3u8`;
+      const rendition = record.video.renditions.find(
+        (r) => r.resolution === targetRes,
+      );
+      const relativeKey = rendition
+        ? rendition.storageKey
+        : `videos/${record.videoId}/master.m3u8`;
       filePath = path.resolve(process.cwd(), 'uploads', relativeKey);
       filename = `${record.video.title.replace(/[^a-zA-Z0-9_\-]/g, '_')}_${targetRes.toLowerCase()}.mp4`;
     } else if (record.fileId && record.file) {
@@ -180,7 +199,11 @@ export class DownloadsService {
     }
 
     // Update status to COMPLETED
-    await this.repo.updateRecordStatus(downloadRecordId, DownloadStatus.COMPLETED, record.fileSize || BigInt(0));
+    await this.repo.updateRecordStatus(
+      downloadRecordId,
+      DownloadStatus.COMPLETED,
+      record.fileSize || BigInt(0),
+    );
 
     return { filePath, filename, mimeType };
   }
@@ -200,11 +223,15 @@ export class DownloadsService {
     });
 
     // SUPER_ADMIN has unrestricted download access
-    if (user?.role.name === AppRole.SUPER_ADMIN || user?.role.name === AppRole.ADMIN) {
+    if (
+      user?.role.name === AppRole.SUPER_ADMIN ||
+      user?.role.name === AppRole.ADMIN
+    ) {
       return true;
     }
 
-    const permission = video.downloadPermission || video.videoChannel.downloadPermission;
+    const permission =
+      video.downloadPermission || video.videoChannel.downloadPermission;
 
     if (permission === DownloadPermission.NONE) {
       throw new ForbiddenException('Downloads are disabled for this video');
@@ -221,15 +248,24 @@ export class DownloadsService {
     });
 
     if (!member) {
-      throw new ForbiddenException('You must be a member of the group to download this video');
+      throw new ForbiddenException(
+        'You must be a member of the group to download this video',
+      );
     }
 
     if (permission === DownloadPermission.SUBSCRIBERS_ONLY) {
       const isSubbed = await this.prisma.videoSubscription.findUnique({
-        where: { userId_videoChannelId: { userId, videoChannelId: video.videoChannelId } },
+        where: {
+          userId_videoChannelId: {
+            userId,
+            videoChannelId: video.videoChannelId,
+          },
+        },
       });
       if (!isSubbed) {
-        throw new ForbiddenException('You must be subscribed to this channel to download');
+        throw new ForbiddenException(
+          'You must be subscribed to this channel to download',
+        );
       }
     }
 
@@ -242,7 +278,10 @@ export class DownloadsService {
       include: { role: true },
     });
 
-    if (user?.role.name === AppRole.SUPER_ADMIN || user?.role.name === AppRole.ADMIN) {
+    if (
+      user?.role.name === AppRole.SUPER_ADMIN ||
+      user?.role.name === AppRole.ADMIN
+    ) {
       return true;
     }
 
@@ -251,7 +290,9 @@ export class DownloadsService {
     });
 
     if (!member) {
-      throw new ForbiddenException('Access denied. You are not a member of this group.');
+      throw new ForbiddenException(
+        'Access denied. You are not a member of this group.',
+      );
     }
   }
 }

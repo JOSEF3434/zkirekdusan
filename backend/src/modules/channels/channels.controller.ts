@@ -9,7 +9,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ChannelsService } from './channels.service.js';
 import { CreateChannelDto } from './dto/create-channel.dto.js';
 import { UpdateChannelDto } from './dto/update-channel.dto.js';
@@ -28,7 +33,9 @@ export class ChannelsController {
   @Post()
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.GROUP_ADMIN, GroupRole.MODERATOR)
-  @ApiOperation({ summary: 'Create a channel in a group (GROUP_ADMIN or MODERATOR)' })
+  @ApiOperation({
+    summary: 'Create a channel in a group (GROUP_ADMIN or MODERATOR)',
+  })
   @ApiResponse({ status: 201, type: ChannelResponseDto })
   async createChannel(
     @Param('groupId') groupId: string,

@@ -47,7 +47,10 @@ export class PasswordService {
    *
    * Returns false in all invalid-hash cases instead of throwing.
    */
-  async compare(plaintext: string, hash: string | null | undefined): Promise<boolean> {
+  async compare(
+    plaintext: string,
+    hash: string | null | undefined,
+  ): Promise<boolean> {
     if (!hash || !hash.startsWith('$2')) {
       // Hash is null, empty, or not a bcrypt hash — safe rejection
       this.logger.warn(

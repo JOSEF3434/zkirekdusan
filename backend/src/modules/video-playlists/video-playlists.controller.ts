@@ -1,8 +1,27 @@
 // src/modules/video-playlists/video-playlists.controller.ts
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { VideoPlaylistsService } from './video-playlists.service.js';
-import { CreatePlaylistDto, AddPlaylistItemDto } from './dto/create-playlist.dto.js';
+import {
+  CreatePlaylistDto,
+  AddPlaylistItemDto,
+} from './dto/create-playlist.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('Video Playlists')

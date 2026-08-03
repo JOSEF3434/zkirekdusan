@@ -21,7 +21,11 @@ export class SavedPostsService {
 
   async getSavedPosts(userId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.savedPostsRepository.getSavedPosts(userId, skip, limit);
+    const { items, total } = await this.savedPostsRepository.getSavedPosts(
+      userId,
+      skip,
+      limit,
+    );
 
     const data = items.map((sp) => ({
       savedAt: sp.savedAt,
@@ -35,7 +39,8 @@ export class SavedPostsService {
         author: {
           id: sp.post.author.id,
           username: sp.post.author.username,
-          displayName: sp.post.author.profile?.displayName ?? sp.post.author.username,
+          displayName:
+            sp.post.author.profile?.displayName ?? sp.post.author.username,
           avatarUrl: sp.post.author.profile?.avatar?.url ?? null,
         },
         media: sp.post.media.map((m: any) => ({

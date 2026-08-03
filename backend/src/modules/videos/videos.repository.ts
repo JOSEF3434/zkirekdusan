@@ -98,7 +98,7 @@ export class VideosRepository {
     },
   ) {
     const limit = opts.limit ?? 20;
-    const skip = opts.cursor ? 1 : (opts.page ? (opts.page - 1) * limit : 0);
+    const skip = opts.cursor ? 1 : opts.page ? (opts.page - 1) * limit : 0;
 
     const where = {
       videoChannelId,
@@ -108,8 +108,15 @@ export class VideosRepository {
       ...(opts.search
         ? {
             OR: [
-              { title: { contains: opts.search, mode: 'insensitive' as const } },
-              { description: { contains: opts.search, mode: 'insensitive' as const } },
+              {
+                title: { contains: opts.search, mode: 'insensitive' as const },
+              },
+              {
+                description: {
+                  contains: opts.search,
+                  mode: 'insensitive' as const,
+                },
+              },
             ],
           }
         : {}),
@@ -139,7 +146,7 @@ export class VideosRepository {
     category?: string;
   }) {
     const limit = opts.limit ?? 20;
-    const skip = opts.cursor ? 1 : (opts.page ? (opts.page - 1) * limit : 0);
+    const skip = opts.cursor ? 1 : opts.page ? (opts.page - 1) * limit : 0;
 
     const where = {
       status: VideoStatus.READY,
@@ -148,7 +155,9 @@ export class VideosRepository {
       ...(opts.search
         ? {
             OR: [
-              { title: { contains: opts.search, mode: 'insensitive' as const } },
+              {
+                title: { contains: opts.search, mode: 'insensitive' as const },
+              },
               { hashtags: { has: opts.search } },
             ],
           }

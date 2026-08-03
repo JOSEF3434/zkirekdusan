@@ -11,7 +11,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PostsService } from './posts.service.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
@@ -37,7 +43,10 @@ export class PostsController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Get posts feed with optional filtering by author, group, or hashtag' })
+  @ApiOperation({
+    summary:
+      'Get posts feed with optional filtering by author, group, or hashtag',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'authorId', required: false })

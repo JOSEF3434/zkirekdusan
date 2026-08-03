@@ -41,7 +41,12 @@ export class FollowsRepository {
             select: {
               id: true,
               username: true,
-              profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+              profile: {
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
+              },
             },
           },
         },
@@ -65,7 +70,12 @@ export class FollowsRepository {
             select: {
               id: true,
               username: true,
-              profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+              profile: {
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
+              },
             },
           },
         },

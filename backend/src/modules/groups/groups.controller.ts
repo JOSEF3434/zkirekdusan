@@ -11,7 +11,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { GroupsService } from './groups.service.js';
 import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
@@ -81,7 +87,9 @@ export class GroupsController {
   @Get(':groupId')
   @ApiOperation({ summary: 'Get group details by ID' })
   @ApiResponse({ status: 200, type: GroupResponseDto })
-  async getGroupById(@Param('groupId') groupId: string): Promise<GroupResponseDto> {
+  async getGroupById(
+    @Param('groupId') groupId: string,
+  ): Promise<GroupResponseDto> {
     return this.groupsService.getGroupById(groupId);
   }
 
@@ -99,13 +107,20 @@ export class GroupsController {
   @Post(':groupId/members/invite')
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.MODERATOR)
-  @ApiOperation({ summary: 'Invite a user to group (MODERATOR or GROUP_ADMIN)' })
+  @ApiOperation({
+    summary: 'Invite a user to group (MODERATOR or GROUP_ADMIN)',
+  })
   async inviteUser(
     @Param('groupId') groupId: string,
     @CurrentUser('sub') senderId: string,
     @Body() dto: InviteMemberDto,
   ) {
-    return this.groupsService.inviteUser(groupId, senderId, dto.recipientId, dto.role);
+    return this.groupsService.inviteUser(
+      groupId,
+      senderId,
+      dto.recipientId,
+      dto.role,
+    );
   }
 
   @Post('invites/:token/join')

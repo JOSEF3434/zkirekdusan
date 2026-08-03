@@ -18,8 +18,10 @@ export class StreamProcessingService {
   ) {}
 
   async enqueueRecording(data: ProcessRecordingJobData) {
-    this.logger.log(`Enqueueing recording ${data.recordingId} for stream ${data.liveStreamId}`);
-    
+    this.logger.log(
+      `Enqueueing recording ${data.recordingId} for stream ${data.liveStreamId}`,
+    );
+
     await this.queue.add('process-recording', data, {
       attempts: 3,
       backoff: {

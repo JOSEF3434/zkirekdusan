@@ -1,7 +1,14 @@
 // src/modules/video-playlists/video-playlists.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { VideoPlaylistsRepository } from './video-playlists.repository.js';
-import { CreatePlaylistDto, AddPlaylistItemDto } from './dto/create-playlist.dto.js';
+import {
+  CreatePlaylistDto,
+  AddPlaylistItemDto,
+} from './dto/create-playlist.dto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AppRole } from '../../common/constants/roles.js';
 
@@ -57,7 +64,10 @@ export class VideoPlaylistsService {
         where: { id: userId },
         include: { role: true },
       });
-      if (user?.role.name !== AppRole.SUPER_ADMIN && user?.role.name !== AppRole.ADMIN) {
+      if (
+        user?.role.name !== AppRole.SUPER_ADMIN &&
+        user?.role.name !== AppRole.ADMIN
+      ) {
         throw new ForbiddenException('You do not own this playlist');
       }
     }

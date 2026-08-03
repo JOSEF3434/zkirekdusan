@@ -9,14 +9,22 @@ export class MinioStorageProvider implements IStorageProvider {
   private readonly endpoint: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.endpoint = this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
+    this.endpoint =
+      this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
   }
 
   async upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult> {
-    this.logger.log(`[MinIO Provider Ready] Simulating MinIO upload for ${file.originalname} into ${subfolder}`);
+    this.logger.log(
+      `[MinIO Provider Ready] Simulating MinIO upload for ${file.originalname} into ${subfolder}`,
+    );
     const key = `${subfolder}/${Date.now()}-${file.originalname}`;
     return {
       storageKey: key,

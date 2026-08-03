@@ -50,10 +50,7 @@ export class GroupMembershipGuard implements CanActivate {
     }
 
     // Platform admins can access any group
-    if (
-      user.role === AppRole.SUPER_ADMIN ||
-      user.role === AppRole.ADMIN
-    ) {
+    if (user.role === AppRole.SUPER_ADMIN || user.role === AppRole.ADMIN) {
       return true;
     }
 

@@ -1,6 +1,12 @@
 // src/modules/presence/presence.controller.ts
 import { Body, Controller, Get, Param, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiProperty,
+  ApiPropertyOptional,
+  ApiTags,
+} from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { PresenceStatus } from '@prisma/client';
 import { PresenceService } from './presence.service.js';
@@ -24,7 +30,9 @@ export class PresenceController {
   constructor(private readonly presenceService: PresenceService) {}
 
   @Put()
-  @ApiOperation({ summary: 'Update your presence status (ONLINE/OFFLINE/IDLE/BUSY)' })
+  @ApiOperation({
+    summary: 'Update your presence status (ONLINE/OFFLINE/IDLE/BUSY)',
+  })
   async updatePresence(
     @Body() dto: UpdatePresenceDto,
     @CurrentUser('sub') userId: string,

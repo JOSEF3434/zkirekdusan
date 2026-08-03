@@ -18,7 +18,12 @@ export class StreamChatService {
     private readonly authorizationService: AuthorizationService,
   ) {}
 
-  async getChatHistory(userId: string | undefined, streamId: string, limit = 50, cursor?: string) {
+  async getChatHistory(
+    userId: string | undefined,
+    streamId: string,
+    limit = 50,
+    cursor?: string,
+  ) {
     const stream = await this.liveStreamingRepository.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
 
@@ -29,7 +34,8 @@ export class StreamChatService {
         stream.groupId,
         GroupRole.MEMBER,
       );
-      if (!hasMemberRole) throw new ForbiddenException('You cannot access this stream chat');
+      if (!hasMemberRole)
+        throw new ForbiddenException('You cannot access this stream chat');
     }
 
     const chatRoom = await this.repository.getChatRoomByStreamId(streamId);
@@ -52,13 +58,18 @@ export class StreamChatService {
     const message = await this.repository.getMessageById(messageId);
     const chatRoom = await this.repository.getChatRoomByStreamId(streamId);
     if (!message || message.chatRoomId !== chatRoom?.id) {
-       throw new NotFoundException('Message not found');
+      throw new NotFoundException('Message not found');
     }
 
     return this.repository.deleteMessage(messageId);
   }
 
-  async pinMessage(userId: string, streamId: string, messageId: string, isPinned: boolean) {
+  async pinMessage(
+    userId: string,
+    streamId: string,
+    messageId: string,
+    isPinned: boolean,
+  ) {
     const stream = await this.liveStreamingRepository.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
 
@@ -72,7 +83,7 @@ export class StreamChatService {
     const message = await this.repository.getMessageById(messageId);
     const chatRoom = await this.repository.getChatRoomByStreamId(streamId);
     if (!message || message.chatRoomId !== chatRoom?.id) {
-       throw new NotFoundException('Message not found');
+      throw new NotFoundException('Message not found');
     }
 
     return this.repository.pinMessage(messageId, isPinned);

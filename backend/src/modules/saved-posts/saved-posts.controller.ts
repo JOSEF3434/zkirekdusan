@@ -8,7 +8,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { SavedPostsService } from './saved-posts.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -29,7 +35,9 @@ export class SavedPostsController {
   }
 
   @Get('saved/my')
-  @ApiOperation({ summary: 'List saved posts for the current authenticated user' })
+  @ApiOperation({
+    summary: 'List saved posts for the current authenticated user',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getMySavedPosts(

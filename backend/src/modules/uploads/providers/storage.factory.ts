@@ -18,9 +18,13 @@ export const storageProviderFactory = {
   ): IStorageProvider => {
     const logger = new Logger('StorageProviderFactory');
 
-    const providerType = configService.get<string>('STORAGE_PROVIDER')?.toUpperCase();
+    const providerType = configService
+      .get<string>('STORAGE_PROVIDER')
+      ?.toUpperCase();
     if (providerType === 'MINIO') {
-      logger.log('STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider');
+      logger.log(
+        'STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider',
+      );
       return minioProvider;
     }
 
@@ -29,14 +33,19 @@ export const storageProviderFactory = {
     const apiSecret = configService.get<string>('CLOUDINARY_API_SECRET');
 
     if (cloudName && apiKey && apiSecret) {
-      logger.log('Cloudinary credentials found in .env — using CloudinaryStorageProvider');
+      logger.log(
+        'Cloudinary credentials found in .env — using CloudinaryStorageProvider',
+      );
       return cloudinaryProvider;
     }
 
-    logger.log(
-      'Using LocalStorageProvider (uploads/ folder)',
-    );
+    logger.log('Using LocalStorageProvider (uploads/ folder)');
     return localProvider;
   },
-  inject: [ConfigService, LocalStorageProvider, CloudinaryStorageProvider, MinioStorageProvider],
+  inject: [
+    ConfigService,
+    LocalStorageProvider,
+    CloudinaryStorageProvider,
+    MinioStorageProvider,
+  ],
 };

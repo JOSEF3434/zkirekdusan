@@ -16,7 +16,8 @@ import { storageProviderFactory } from './providers/storage.factory.js';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         limits: {
-          fileSize: configService.get<number>('UPLOAD_MAX_SIZE') ?? 50 * 1024 * 1024, // 50MB
+          fileSize:
+            configService.get<number>('UPLOAD_MAX_SIZE') ?? 50 * 1024 * 1024, // 50MB
         },
       }),
       inject: [ConfigService],

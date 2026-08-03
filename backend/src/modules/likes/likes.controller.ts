@@ -1,6 +1,11 @@
 // src/modules/likes/likes.controller.ts
 import { Body, Controller, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { LikesService } from './likes.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { LikeRequestDto } from './dto/like-request.dto.js';

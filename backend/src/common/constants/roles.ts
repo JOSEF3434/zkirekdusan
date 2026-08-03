@@ -11,7 +11,8 @@ export enum AppRole {
 export const DEFAULT_ROLES = [
   {
     name: AppRole.SUPER_ADMIN,
-    description: 'Full platform access — can approve groups, manage all resources',
+    description:
+      'Full platform access — can approve groups, manage all resources',
   },
   {
     name: AppRole.ADMIN,

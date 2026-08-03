@@ -1,6 +1,11 @@
 // src/modules/profiles/profiles.controller.ts
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { ProfileResponseDto } from './dto/profile-response.dto.js';
@@ -16,7 +21,9 @@ export class ProfilesController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, type: ProfileResponseDto })
-  async getMyProfile(@CurrentUser('sub') userId: string): Promise<ProfileResponseDto> {
+  async getMyProfile(
+    @CurrentUser('sub') userId: string,
+  ): Promise<ProfileResponseDto> {
     return this.profilesService.getMyProfile(userId);
   }
 

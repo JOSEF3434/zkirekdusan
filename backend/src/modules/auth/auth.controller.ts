@@ -1,6 +1,12 @@
 // src/modules/auth/auth.controller.ts
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -11,6 +17,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('Authentication')
 @Controller('auth')
+@Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for auth endpoints
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -28,7 +35,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Authenticate user and obtain JWT tokens' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid credentials or inactive account' })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid credentials or inactive account',
+  })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
   }

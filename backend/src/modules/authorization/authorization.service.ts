@@ -2,7 +2,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AppRole } from '../../common/constants/roles.js';
-import { GroupRole, hasGroupRoleAtLeast } from '../../common/constants/group-roles.js';
+import {
+  GroupRole,
+  hasGroupRoleAtLeast,
+} from '../../common/constants/group-roles.js';
 
 @Injectable()
 export class AuthorizationService {
@@ -46,11 +49,7 @@ export class AuthorizationService {
       return ['*'];
     }
 
-    return [
-      ...new Set(
-        user.role.permissions.map((rp) => rp.permission.name),
-      ),
-    ];
+    return [...new Set(user.role.permissions.map((rp) => rp.permission.name))];
   }
 
   async hasRole(userId: string, role: string): Promise<boolean> {
@@ -63,7 +62,10 @@ export class AuthorizationService {
     return permissions.includes('*') || permissions.includes(permission);
   }
 
-  async hasAllPermissions(userId: string, requiredPermissions: string[]): Promise<boolean> {
+  async hasAllPermissions(
+    userId: string,
+    requiredPermissions: string[],
+  ): Promise<boolean> {
     const userPermissions = await this.getUserPermissions(userId);
     if (userPermissions.includes('*')) return true;
 

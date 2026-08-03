@@ -12,7 +12,7 @@ export class UserResponseDto {
   phoneNumber?: string | null;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiProperty({ example: 'USER' })
   role!: string;

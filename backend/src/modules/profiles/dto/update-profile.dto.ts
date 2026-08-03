@@ -1,6 +1,12 @@
 // src/modules/profiles/dto/update-profile.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { Gender, ProfileVisibility } from '@prisma/client';
 
 export class UpdateProfileDto {
@@ -19,7 +25,9 @@ export class UpdateProfileDto {
   @IsString()
   displayName?: string;
 
-  @ApiPropertyOptional({ example: 'Full-stack software developer & content creator' })
+  @ApiPropertyOptional({
+    example: 'Full-stack software developer & content creator',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

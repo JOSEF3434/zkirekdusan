@@ -57,7 +57,9 @@ export class ChannelsRepository {
       where: {
         groupId,
         deletedAt: null,
-        ...(typeof isPrivateFilter === 'boolean' ? { isPrivate: isPrivateFilter } : {}),
+        ...(typeof isPrivateFilter === 'boolean'
+          ? { isPrivate: isPrivateFilter }
+          : {}),
       },
       include: {
         conversations: { select: { id: true } },

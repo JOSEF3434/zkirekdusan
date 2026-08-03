@@ -7,7 +7,11 @@ import { ReactionType } from '@prisma/client';
 export class LikesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async togglePostLike(userId: string, postId: string, reaction: ReactionType = 'LIKE') {
+  async togglePostLike(
+    userId: string,
+    postId: string,
+    reaction: ReactionType = 'LIKE',
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.postLike.findUnique({
         where: { userId_postId: { userId, postId } },
@@ -35,7 +39,11 @@ export class LikesRepository {
     });
   }
 
-  async toggleReelLike(userId: string, reelId: string, reaction: ReactionType = 'LIKE') {
+  async toggleReelLike(
+    userId: string,
+    reelId: string,
+    reaction: ReactionType = 'LIKE',
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.reelLike.findUnique({
         where: { userId_reelId: { userId, reelId } },

@@ -13,8 +13,16 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { UploadsService } from './uploads.service.js';
 import { FileResponseDto } from './dto/file-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -24,6 +32,7 @@ import { GroupMembershipGuard } from '../../common/guards/group-membership.guard
 @ApiBearerAuth()
 @Controller('groups/:groupId/files')
 @UseGuards(GroupMembershipGuard)
+@Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 uploads/actions per minute per user/IP
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
@@ -53,7 +62,9 @@ export class UploadsController {
   }
 
   @Delete(':fileId')
-  @ApiOperation({ summary: 'Delete a file uploaded to a group (Uploader only)' })
+  @ApiOperation({
+    summary: 'Delete a file uploaded to a group (Uploader only)',
+  })
   async deleteFile(
     @Param('fileId') fileId: string,
     @CurrentUser('sub') userId: string,

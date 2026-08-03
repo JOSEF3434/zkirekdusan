@@ -28,7 +28,11 @@ export class PresenceRepository {
   async setOffline(userId: string) {
     return this.prisma.userPresence.upsert({
       where: { userId },
-      create: { userId, status: PresenceStatus.OFFLINE, lastSeenAt: new Date() },
+      create: {
+        userId,
+        status: PresenceStatus.OFFLINE,
+        lastSeenAt: new Date(),
+      },
       update: { status: PresenceStatus.OFFLINE, lastSeenAt: new Date() },
     });
   }

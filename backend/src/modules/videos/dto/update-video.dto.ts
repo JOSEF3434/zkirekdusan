@@ -57,7 +57,10 @@ export class UpdateVideoDto {
   @IsString({ each: true })
   hashtags?: string[];
 
-  @ApiPropertyOptional({ type: [String], description: 'Array of mentioned user IDs' })
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Array of mentioned user IDs',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

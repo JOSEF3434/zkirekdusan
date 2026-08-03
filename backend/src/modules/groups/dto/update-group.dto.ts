@@ -1,6 +1,12 @@
 // src/modules/groups/dto/update-group.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { GroupVisibility } from '@prisma/client';
 
 export class UpdateGroupDto {

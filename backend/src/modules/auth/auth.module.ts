@@ -17,7 +17,8 @@ import { RefreshStrategy } from './strategies/refresh.strategy.js';
       useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_ACCESS_EXPIRES') ?? '15m') as any,
+          expiresIn: (configService.get<string>('JWT_ACCESS_EXPIRES') ??
+            '15m') as any,
         },
       }),
       inject: [ConfigService],

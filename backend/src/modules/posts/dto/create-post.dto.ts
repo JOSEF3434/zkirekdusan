@@ -20,7 +20,9 @@ export class CreatePostDto {
   @IsEnum(PostVisibility)
   visibility?: PostVisibility;
 
-  @ApiPropertyOptional({ example: 'This is a sample post content with #hashtags' })
+  @ApiPropertyOptional({
+    example: 'This is a sample post content with #hashtags',
+  })
   @IsOptional()
   @IsString()
   content?: string;
@@ -31,18 +33,28 @@ export class CreatePostDto {
   @IsString({ each: true })
   hashtags?: string[];
 
-  @ApiPropertyOptional({ example: ['123e4567-e89b-12d3-a456-426614174000'], type: [String] })
+  @ApiPropertyOptional({
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   mentions?: string[];
 
-  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', description: 'Associated group ID if posting to a group' })
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Associated group ID if posting to a group',
+  })
   @IsOptional()
   @IsUUID()
   groupId?: string;
 
-  @ApiPropertyOptional({ example: ['file-id-1', 'file-id-2'], type: [String], description: 'Media file IDs attached to the post' })
+  @ApiPropertyOptional({
+    example: ['file-id-1', 'file-id-2'],
+    type: [String],
+    description: 'Media file IDs attached to the post',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

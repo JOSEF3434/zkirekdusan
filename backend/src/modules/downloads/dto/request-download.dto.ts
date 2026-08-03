@@ -11,7 +11,8 @@ export class RequestVideoDownloadDto {
   @ApiPropertyOptional({
     enum: VideoResolution,
     default: VideoResolution.R_720P,
-    description: 'Desired resolution quality (240p, 360p, 480p, 720p, 1080p, 4K)',
+    description:
+      'Desired resolution quality (240p, 360p, 480p, 720p, 1080p, 4K)',
   })
   @IsOptional()
   @IsEnum(VideoResolution)
@@ -19,7 +20,9 @@ export class RequestVideoDownloadDto {
 }
 
 export class RequestFileDownloadDto {
-  @ApiProperty({ description: 'File ID to download (for images, audio, docs, etc.)' })
+  @ApiProperty({
+    description: 'File ID to download (for images, audio, docs, etc.)',
+  })
   @IsString()
   fileId!: string;
 }
@@ -37,6 +40,8 @@ export class DownloadTokenResponseDto {
   @ApiPropertyOptional({ enum: VideoResolution })
   resolution?: VideoResolution;
 
-  @ApiProperty({ description: 'Target filename for Content-Disposition header' })
+  @ApiProperty({
+    description: 'Target filename for Content-Disposition header',
+  })
   filename!: string;
 }

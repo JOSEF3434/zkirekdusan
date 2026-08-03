@@ -19,7 +19,11 @@ export class PresenceService {
     status: PresenceStatus,
     customStatus?: string,
   ): Promise<PresenceResponseDto> {
-    const p = await this.presenceRepository.upsert(userId, status, customStatus);
+    const p = await this.presenceRepository.upsert(
+      userId,
+      status,
+      customStatus,
+    );
     return this.mapToDto(p);
   }
 

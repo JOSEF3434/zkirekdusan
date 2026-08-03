@@ -1,5 +1,9 @@
 // src/modules/video-comments/video-comments.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { VideoCommentsRepository } from './video-comments.repository.js';
 import { CreateVideoCommentDto } from './dto/create-video-comment.dto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -13,7 +17,9 @@ export class VideoCommentsService {
   ) {}
 
   async create(videoId: string, userId: string, dto: CreateVideoCommentDto) {
-    const video = await this.prisma.video.findUnique({ where: { id: videoId } });
+    const video = await this.prisma.video.findUnique({
+      where: { id: videoId },
+    });
     if (!video) throw new NotFoundException('Video not found');
 
     return this.repo.create(videoId, userId, dto.content, dto.parentId);
@@ -43,8 +49,13 @@ export class VideoCommentsService {
         where: { id: userId },
         include: { role: true },
       });
-      if (user?.role.name !== AppRole.SUPER_ADMIN && user?.role.name !== AppRole.ADMIN) {
-        throw new ForbiddenException('Insufficient permissions to delete this comment');
+      if (
+        user?.role.name !== AppRole.SUPER_ADMIN &&
+        user?.role.name !== AppRole.ADMIN
+      ) {
+        throw new ForbiddenException(
+          'Insufficient permissions to delete this comment',
+        );
       }
     }
 
@@ -63,13 +74,18 @@ export class VideoCommentsService {
     if (!comment) throw new NotFoundException('Comment not found');
 
     // Video uploader or admin can pin
-    const video = await this.prisma.video.findUnique({ where: { id: comment.videoId } });
+    const video = await this.prisma.video.findUnique({
+      where: { id: comment.videoId },
+    });
     if (video?.uploadedById !== userId) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: { role: true },
       });
-      if (user?.role.name !== AppRole.SUPER_ADMIN && user?.role.name !== AppRole.ADMIN) {
+      if (
+        user?.role.name !== AppRole.SUPER_ADMIN &&
+        user?.role.name !== AppRole.ADMIN
+      ) {
         throw new ForbiddenException('Only video uploader can pin comments');
       }
     }

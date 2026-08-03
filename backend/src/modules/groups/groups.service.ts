@@ -20,10 +20,15 @@ export class GroupsService {
    * NOTE: New groups start with status PENDING_APPROVAL.
    * They must be approved by an ADMIN or SUPER_ADMIN before full functionality is enabled.
    */
-  async createGroup(dto: CreateGroupDto, creatorId: string): Promise<GroupResponseDto> {
+  async createGroup(
+    dto: CreateGroupDto,
+    creatorId: string,
+  ): Promise<GroupResponseDto> {
     const slugExists = await this.groupsRepository.findBySlug(dto.slug);
     if (slugExists) {
-      throw new BadRequestException(`Group with slug '${dto.slug}' already exists`);
+      throw new BadRequestException(
+        `Group with slug '${dto.slug}' already exists`,
+      );
     }
 
     const group = await this.groupsRepository.createGroup({
@@ -49,7 +54,10 @@ export class GroupsService {
   /**
    * Approve a pending group — ADMIN / SUPER_ADMIN only
    */
-  async approveGroup(groupId: string, adminId: string): Promise<GroupResponseDto> {
+  async approveGroup(
+    groupId: string,
+    adminId: string,
+  ): Promise<GroupResponseDto> {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) {
       throw new NotFoundException('Group not found');
@@ -117,14 +125,20 @@ export class GroupsService {
     };
   }
 
-  async updateGroup(groupId: string, dto: UpdateGroupDto): Promise<GroupResponseDto> {
+  async updateGroup(
+    groupId: string,
+    dto: UpdateGroupDto,
+  ): Promise<GroupResponseDto> {
     await this.groupsRepository.updateGroup(groupId, dto);
     return this.getGroupById(groupId);
   }
 
   async listPublicActiveGroups(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.groupsRepository.findPublicActiveGroups(skip, limit);
+    const { items, total } = await this.groupsRepository.findPublicActiveGroups(
+      skip,
+      limit,
+    );
 
     const data: GroupResponseDto[] = items.map((g) => ({
       id: g.id,
@@ -153,7 +167,10 @@ export class GroupsService {
 
   async listPendingGroups(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.groupsRepository.findPendingGroups(skip, limit);
+    const { items, total } = await this.groupsRepository.findPendingGroups(
+      skip,
+      limit,
+    );
 
     const data = items.map((g) => ({
       id: g.id,
@@ -179,18 +196,31 @@ export class GroupsService {
     };
   }
 
-  async inviteUser(groupId: string, senderId: string, recipientId: string, role = GroupRole.MEMBER) {
+  async inviteUser(
+    groupId: string,
+    senderId: string,
+    recipientId: string,
+    role = GroupRole.MEMBER,
+  ) {
     const group = await this.groupsRepository.findById(groupId);
     if (!group || group.status !== 'ACTIVE') {
       throw new ForbiddenException('Group must be active to invite members');
     }
 
-    const existingMember = await this.groupsRepository.getMember(groupId, recipientId);
+    const existingMember = await this.groupsRepository.getMember(
+      groupId,
+      recipientId,
+    );
     if (existingMember) {
       throw new BadRequestException('User is already a member of this group');
     }
 
-    const invite = await this.groupsRepository.createInvite(groupId, senderId, recipientId, role);
+    const invite = await this.groupsRepository.createInvite(
+      groupId,
+      senderId,
+      recipientId,
+      role,
+    );
     return {
       message: 'Invite sent successfully',
       inviteToken: invite.token,
@@ -200,7 +230,11 @@ export class GroupsService {
 
   async joinByInvite(token: string, userId: string) {
     const invite = await this.groupsRepository.findInviteByToken(token);
-    if (!invite || invite.status !== 'PENDING' || invite.expiresAt < new Date()) {
+    if (
+      !invite ||
+      invite.status !== 'PENDING' ||
+      invite.expiresAt < new Date()
+    ) {
       throw new BadRequestException('Invalid or expired invite token');
     }
 
@@ -208,7 +242,11 @@ export class GroupsService {
       throw new ForbiddenException('This invite token was not issued to you');
     }
 
-    await this.groupsRepository.addMember(invite.groupId, userId, invite.role as GroupRole);
+    await this.groupsRepository.addMember(
+      invite.groupId,
+      userId,
+      invite.role as GroupRole,
+    );
     await this.groupsRepository.acceptInvite(invite.id);
 
     return { message: 'Successfully joined group' };

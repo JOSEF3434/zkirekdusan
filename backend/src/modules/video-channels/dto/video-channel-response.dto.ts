@@ -1,6 +1,10 @@
 // src/modules/video-channels/dto/video-channel-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VideoChannelStatus, DownloadPermission, GroupRole } from '@prisma/client';
+import {
+  VideoChannelStatus,
+  DownloadPermission,
+  GroupRole,
+} from '@prisma/client';
 
 export class VideoChannelResponseDto {
   @ApiProperty() id!: string;
@@ -12,7 +16,8 @@ export class VideoChannelResponseDto {
   @ApiProperty({ enum: VideoChannelStatus }) status!: VideoChannelStatus;
   @ApiProperty() isVerified!: boolean;
   @ApiProperty({ enum: GroupRole }) uploadPermission!: GroupRole;
-  @ApiProperty({ enum: DownloadPermission }) downloadPermission!: DownloadPermission;
+  @ApiProperty({ enum: DownloadPermission })
+  downloadPermission!: DownloadPermission;
   @ApiProperty() subscribersCount!: number;
   @ApiProperty() videosCount!: number;
   @ApiProperty() totalViewsCount!: string;
@@ -27,7 +32,8 @@ export class VideoChannelResponseDto {
 }
 
 export class VideoChannelListResponseDto {
-  @ApiProperty({ type: [VideoChannelResponseDto] }) data!: VideoChannelResponseDto[];
+  @ApiProperty({ type: [VideoChannelResponseDto] })
+  data!: VideoChannelResponseDto[];
   @ApiProperty() total!: number;
   @ApiProperty() page!: number;
   @ApiProperty() limit!: number;

@@ -1,12 +1,5 @@
 // src/modules/group-join-requests/group-join-requests.controller.ts
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -40,7 +33,9 @@ export class GroupJoinRequestsController {
 
   // ── List pending requests (group admin) ───────────────────────────────────
   @Get('groups/:groupId/join-requests')
-  @ApiOperation({ summary: 'List pending join requests for a group (GROUP_ADMIN/MODERATOR)' })
+  @ApiOperation({
+    summary: 'List pending join requests for a group (GROUP_ADMIN/MODERATOR)',
+  })
   @ApiResponse({ status: 200, type: [JoinRequestResponseDto] })
   async getPendingRequests(
     @Param('groupId') groupId: string,

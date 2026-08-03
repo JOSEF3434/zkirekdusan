@@ -10,10 +10,17 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   constructor(private readonly configService: ConfigService) {}
 
   async upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult> {
-    this.logger.log(`Cloudinary provider uploading ${file.originalname} to folder ${subfolder}`);
+    this.logger.log(
+      `Cloudinary provider uploading ${file.originalname} to folder ${subfolder}`,
+    );
     // When Cloudinary API credentials are present, integration runs here.
     // Stub fallback logic returning provider structure:
     const fakeKey = `cloudinary_${subfolder}_${Date.now()}`;

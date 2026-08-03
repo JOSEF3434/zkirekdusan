@@ -10,7 +10,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ReelsService } from './reels.service.js';
 import { CreateReelDto } from './dto/create-reel.dto.js';
 import { ReelResponseDto } from './dto/reel-response.dto.js';

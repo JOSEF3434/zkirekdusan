@@ -1,5 +1,9 @@
 // src/modules/stories/stories.service.ts
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { StoriesRepository } from './stories.repository.js';
 import { CreateStoryDto } from './dto/create-story.dto.js';
 import { StoryResponseDto } from './dto/story-response.dto.js';
@@ -8,7 +12,10 @@ import { StoryResponseDto } from './dto/story-response.dto.js';
 export class StoriesService {
   constructor(private readonly storiesRepository: StoriesRepository) {}
 
-  async createStory(authorId: string, dto: CreateStoryDto): Promise<StoryResponseDto> {
+  async createStory(
+    authorId: string,
+    dto: CreateStoryDto,
+  ): Promise<StoryResponseDto> {
     const story = await this.storiesRepository.createStory(authorId, dto);
     return this.mapToDto(story);
   }
@@ -18,7 +25,10 @@ export class StoriesService {
     return stories.map((s) => this.mapToDto(s));
   }
 
-  async viewStory(storyId: string, viewerId: string): Promise<StoryResponseDto> {
+  async viewStory(
+    storyId: string,
+    viewerId: string,
+  ): Promise<StoryResponseDto> {
     const story = await this.storiesRepository.findById(storyId);
     if (!story) {
       throw new NotFoundException('Story not found');

@@ -1,6 +1,12 @@
 // src/modules/video-playlists/dto/create-playlist.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { PlaylistVisibility } from '@prisma/client';
 
 export class CreatePlaylistDto {
@@ -16,12 +22,17 @@ export class CreatePlaylistDto {
   @MaxLength(1000)
   description?: string;
 
-  @ApiPropertyOptional({ enum: PlaylistVisibility, default: PlaylistVisibility.PUBLIC })
+  @ApiPropertyOptional({
+    enum: PlaylistVisibility,
+    default: PlaylistVisibility.PUBLIC,
+  })
   @IsOptional()
   @IsEnum(PlaylistVisibility)
   visibility?: PlaylistVisibility;
 
-  @ApiPropertyOptional({ description: 'Optional Video Channel ID to associate playlist with' })
+  @ApiPropertyOptional({
+    description: 'Optional Video Channel ID to associate playlist with',
+  })
   @IsOptional()
   @IsString()
   videoChannelId?: string;

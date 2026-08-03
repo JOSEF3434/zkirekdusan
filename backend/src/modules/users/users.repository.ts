@@ -73,20 +73,26 @@ export class UsersRepository {
   async create(data: {
     email?: string;
     phoneNumber?: string;
-    username: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
     passwordHash: string;
     roleId: string;
   }) {
+    const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.username || 'User';
+
     return this.prisma.user.create({
       data: {
         email: data.email ?? null,
         phoneNumber: data.phoneNumber ?? null,
-        username: data.username,
+        username: data.username ?? null,
         passwordHash: data.passwordHash,
         roleId: data.roleId,
         profile: {
           create: {
-            displayName: data.username,
+            firstName: data.firstName ?? null,
+            lastName: data.lastName ?? null,
+            displayName,
           },
         },
       },
@@ -94,6 +100,13 @@ export class UsersRepository {
         role: true,
         profile: true,
       },
+    });
+  }
+
+  async updateUsername(userId: string, username: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
     });
   }
 

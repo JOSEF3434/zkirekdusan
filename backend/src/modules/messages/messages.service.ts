@@ -34,7 +34,9 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    const isMember = conversation.members.some((m: any) => m.userId === senderId);
+    const isMember = conversation.members.some(
+      (m: any) => m.userId === senderId,
+    );
     if (!isMember) {
       throw new ForbiddenException('You are not a member of this conversation');
     }
@@ -114,7 +116,10 @@ export class MessagesService {
       throw new ForbiddenException('Cannot edit a deleted message');
     }
 
-    const updated = await this.messagesRepository.update(messageId, dto.content);
+    const updated = await this.messagesRepository.update(
+      messageId,
+      dto.content,
+    );
     return this.mapToDto(updated);
   }
 
@@ -204,19 +209,28 @@ export class MessagesService {
     return { success: true };
   }
 
-  async getPinnedMessages(conversationId: string): Promise<MessageResponseDto[]> {
-    const pinned = await this.messagesRepository.getPinnedMessages(conversationId);
+  async getPinnedMessages(
+    conversationId: string,
+  ): Promise<MessageResponseDto[]> {
+    const pinned =
+      await this.messagesRepository.getPinnedMessages(conversationId);
     return pinned.map((p: any) => this.mapToDto(p.message));
   }
 
   // ── Star/Unstar ────────────────────────────────────────────────────────────
 
-  async starMessage(userId: string, messageId: string): Promise<{ success: boolean }> {
+  async starMessage(
+    userId: string,
+    messageId: string,
+  ): Promise<{ success: boolean }> {
     await this.messagesRepository.starMessage(userId, messageId);
     return { success: true };
   }
 
-  async unstarMessage(userId: string, messageId: string): Promise<{ success: boolean }> {
+  async unstarMessage(
+    userId: string,
+    messageId: string,
+  ): Promise<{ success: boolean }> {
     await this.messagesRepository.unstarMessage(userId, messageId);
     return { success: true };
   }
@@ -260,7 +274,8 @@ export class MessagesService {
             sender: {
               id: message.replyTo.sender.id,
               username: message.replyTo.sender.username,
-              displayName: message.replyTo.sender.profile?.displayName ?? undefined,
+              displayName:
+                message.replyTo.sender.profile?.displayName ?? undefined,
             },
           }
         : undefined,

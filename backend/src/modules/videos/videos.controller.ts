@@ -27,7 +27,10 @@ import {
 import { VideosService } from './videos.service.js';
 import { UploadVideoDto } from './dto/upload-video.dto.js';
 import { UpdateVideoDto } from './dto/update-video.dto.js';
-import { VideoListResponseDto, VideoResponseDto } from './dto/video-response.dto.js';
+import {
+  VideoListResponseDto,
+  VideoResponseDto,
+} from './dto/video-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { VideoReportReason, VideoStatus } from '@prisma/client';
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
@@ -36,7 +39,10 @@ import { UploadsService } from '../uploads/uploads.service.js';
 import { Type } from 'class-transformer';
 
 class WatchProgressBodyDto {
-  @ApiPropertyOptional({ example: 125.5, description: 'Current position in seconds' })
+  @ApiPropertyOptional({
+    example: 125.5,
+    description: 'Current position in seconds',
+  })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
@@ -105,13 +111,21 @@ export class VideosController {
   ) {
     // Get the video's group ID for file ownership
     const video = await this.videosService.findById(videoId);
-    const groupId = (video as any).videoChannel?.groupId;
+    const groupId = video.videoChannel?.groupId;
 
     // Upload the file to storage
-    const uploadedFile = await this.uploadsService.uploadGroupFile(groupId, userId, file);
+    const uploadedFile = await this.uploadsService.uploadGroupFile(
+      groupId,
+      userId,
+      file,
+    );
 
     // Attach the file to the video
-    return this.videosService.attachSourceFile(videoId, uploadedFile.id, userId);
+    return this.videosService.attachSourceFile(
+      videoId,
+      uploadedFile.id,
+      userId,
+    );
   }
 
   @Get()
@@ -119,7 +133,11 @@ export class VideosController {
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiQuery({ name: 'cursor', required: false, description: 'Cursor for pagination' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: 'Cursor for pagination',
+  })
   @ApiQuery({ name: 'status', required: false, enum: VideoStatus })
   @ApiQuery({ name: 'search', required: false })
   @ApiResponse({ status: 200, type: VideoListResponseDto })
@@ -234,7 +252,8 @@ export class VideosController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update watch progress for a video',
-    description: 'Syncs playback position across devices. Auto-marks as completed at ≥90%.',
+    description:
+      'Syncs playback position across devices. Auto-marks as completed at ≥90%.',
   })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   async updateProgress(
@@ -242,7 +261,11 @@ export class VideosController {
     @CurrentUser('sub') userId: string,
     @Body() body: WatchProgressBodyDto,
   ) {
-    return this.videosService.updateWatchProgress(videoId, userId, body.watchedSeconds);
+    return this.videosService.updateWatchProgress(
+      videoId,
+      userId,
+      body.watchedSeconds,
+    );
   }
 
   @Get(':videoId/progress')
@@ -295,7 +318,12 @@ export class VideosController {
     @CurrentUser('sub') userId: string,
     @Body() dto: ReportVideoDto,
   ) {
-    return this.videosService.reportVideo(videoId, userId, dto.reason, dto.details);
+    return this.videosService.reportVideo(
+      videoId,
+      userId,
+      dto.reason,
+      dto.details,
+    );
   }
 }
 
@@ -308,7 +336,9 @@ export class VideosPublicController {
   constructor(private readonly videosService: VideosService) {}
 
   @Get('trending')
-  @ApiOperation({ summary: 'Get trending videos (last 7 days, sorted by views)' })
+  @ApiOperation({
+    summary: 'Get trending videos (last 7 days, sorted by views)',
+  })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getTrending(@Query('limit') limit = 20) {
     return this.videosService.getTrending(+limit);
@@ -326,7 +356,12 @@ export class VideosPublicController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    return this.videosService.searchVideos({ search, category, page: +page, limit: +limit });
+    return this.videosService.searchVideos({
+      search,
+      category,
+      page: +page,
+      limit: +limit,
+    });
   }
 
   @Get('slug/:slug')
@@ -340,7 +375,9 @@ export class VideosPublicController {
   }
 
   @Get('watch-history')
-  @ApiOperation({ summary: 'Get current user watch history (continue watching)' })
+  @ApiOperation({
+    summary: 'Get current user watch history (continue watching)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getWatchHistory(

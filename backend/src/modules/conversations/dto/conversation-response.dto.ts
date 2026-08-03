@@ -7,12 +7,15 @@ export class ConversationMemberDto {
   userId!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiPropertyOptional({ example: 'John Doe', nullable: true })
   displayName?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/avatar.jpg',
+    nullable: true,
+  })
   avatarUrl?: string | null;
 
   @ApiProperty({ example: 0 })

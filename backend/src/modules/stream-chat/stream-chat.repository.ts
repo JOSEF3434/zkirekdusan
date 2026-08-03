@@ -6,7 +6,9 @@ import { StreamChatMessage, StreamChatRoom, Prisma } from '@prisma/client';
 export class StreamChatRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getChatRoomByStreamId(liveStreamId: string): Promise<StreamChatRoom | null> {
+  async getChatRoomByStreamId(
+    liveStreamId: string,
+  ): Promise<StreamChatRoom | null> {
     return this.prisma.streamChatRoom.findUnique({
       where: { liveStreamId },
     });
@@ -21,12 +23,21 @@ export class StreamChatRepository {
     });
   }
 
-  async saveMessage(data: Prisma.StreamChatMessageUncheckedCreateInput): Promise<StreamChatMessage> {
+  async saveMessage(
+    data: Prisma.StreamChatMessageUncheckedCreateInput,
+  ): Promise<StreamChatMessage> {
     return this.prisma.streamChatMessage.create({
       data,
       include: {
         sender: {
-          select: { id: true, username: true, profile: { select: { avatarUrl: true } }, role: { select: { name: true } } },
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
+            role: { select: { name: true } },
+          },
         },
       },
     });
@@ -43,7 +54,13 @@ export class StreamChatRepository {
       orderBy: { createdAt: 'desc' },
       include: {
         sender: {
-          select: { id: true, username: true, profile: { select: { avatarUrl: true } } },
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
+          },
         },
       },
     };
@@ -70,7 +87,10 @@ export class StreamChatRepository {
     });
   }
 
-  async pinMessage(messageId: string, isPinned: boolean): Promise<StreamChatMessage> {
+  async pinMessage(
+    messageId: string,
+    isPinned: boolean,
+  ): Promise<StreamChatMessage> {
     return this.prisma.streamChatMessage.update({
       where: { id: messageId },
       data: { isPinned, pinnedAt: isPinned ? new Date() : null },

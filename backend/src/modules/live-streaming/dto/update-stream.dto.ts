@@ -4,7 +4,7 @@ import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { LiveStreamStatus } from '@prisma/client';
 
 export class UpdateStreamDto extends PartialType(
-  OmitType(CreateStreamDto, ['protocol'] as const)
+  OmitType(CreateStreamDto, ['protocol'] as const),
 ) {
   @IsOptional()
   @IsEnum(LiveStreamStatus)

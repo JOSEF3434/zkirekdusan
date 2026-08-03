@@ -6,7 +6,9 @@ import { NotificationResponseDto } from './dto/notification-response.dto.js';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly notificationsRepository: NotificationsRepository) {}
+  constructor(
+    private readonly notificationsRepository: NotificationsRepository,
+  ) {}
 
   // ── Create (used internally by other services) ─────────────────────────────
   async create(payload: {
@@ -22,7 +24,12 @@ export class NotificationsService {
 
   // ── Factory helpers ────────────────────────────────────────────────────────
 
-  async notifyMessage(recipientId: string, senderName: string, preview: string, conversationId: string) {
+  async notifyMessage(
+    recipientId: string,
+    senderName: string,
+    preview: string,
+    conversationId: string,
+  ) {
     return this.create({
       userId: recipientId,
       type: NotificationType.MESSAGE,
@@ -32,7 +39,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyGroupInvite(recipientId: string, groupName: string, groupId: string) {
+  async notifyGroupInvite(
+    recipientId: string,
+    groupName: string,
+    groupId: string,
+  ) {
     return this.create({
       userId: recipientId,
       type: NotificationType.GROUP_INVITE,
@@ -42,7 +53,11 @@ export class NotificationsService {
     });
   }
 
-  async notifyGroupJoinRequest(adminId: string, requesterName: string, groupId: string) {
+  async notifyGroupJoinRequest(
+    adminId: string,
+    requesterName: string,
+    groupId: string,
+  ) {
     return this.create({
       userId: adminId,
       type: NotificationType.GROUP_JOIN_REQUEST,
@@ -62,7 +77,12 @@ export class NotificationsService {
     });
   }
 
-  async notifyMention(recipientId: string, senderName: string, context: string, conversationId: string) {
+  async notifyMention(
+    recipientId: string,
+    senderName: string,
+    context: string,
+    conversationId: string,
+  ) {
     return this.create({
       userId: recipientId,
       type: NotificationType.MENTION,
@@ -72,7 +92,12 @@ export class NotificationsService {
     });
   }
 
-  async notifyReaction(recipientId: string, senderName: string, emoji: string, messageId: string) {
+  async notifyReaction(
+    recipientId: string,
+    senderName: string,
+    emoji: string,
+    messageId: string,
+  ) {
     return this.create({
       userId: recipientId,
       type: NotificationType.REACTION,
@@ -89,8 +114,13 @@ export class NotificationsService {
     return notifications.map((n) => this.mapToDto(n));
   }
 
-  async getUnreadNotifications(userId: string): Promise<NotificationResponseDto[]> {
-    const notifications = await this.notificationsRepository.findByUser(userId, true);
+  async getUnreadNotifications(
+    userId: string,
+  ): Promise<NotificationResponseDto[]> {
+    const notifications = await this.notificationsRepository.findByUser(
+      userId,
+      true,
+    );
     return notifications.map((n) => this.mapToDto(n));
   }
 

@@ -8,7 +8,10 @@ export class CreateCommentDto {
   @IsNotEmpty({ message: 'Comment content cannot be empty' })
   content!: string;
 
-  @ApiPropertyOptional({ example: 'parent-comment-uuid', description: 'Pass parentId if this is a reply to an existing comment' })
+  @ApiPropertyOptional({
+    example: 'parent-comment-uuid',
+    description: 'Pass parentId if this is a reply to an existing comment',
+  })
   @IsOptional()
   @IsUUID()
   parentId?: string;

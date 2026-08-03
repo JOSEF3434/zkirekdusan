@@ -6,12 +6,15 @@ export class FollowUserSummaryDto {
   id!: string;
 
   @ApiProperty({ example: 'johndoe' })
-  username!: string;
+  username!: string | null;
 
   @ApiProperty({ example: 'John Doe', nullable: true })
   displayName?: string | null;
 
-  @ApiProperty({ example: 'https://cdn.example.com/avatar.jpg', nullable: true })
+  @ApiProperty({
+    example: 'https://cdn.example.com/avatar.jpg',
+    nullable: true,
+  })
   avatarUrl?: string | null;
 }
 

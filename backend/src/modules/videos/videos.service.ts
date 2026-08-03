@@ -41,7 +41,10 @@ export class VideosService {
     if (!user) throw new NotFoundException('User not found');
 
     // SUPER_ADMIN bypasses all checks
-    if (user.role.name === AppRole.SUPER_ADMIN || user.role.name === AppRole.ADMIN) {
+    if (
+      user.role.name === AppRole.SUPER_ADMIN ||
+      user.role.name === AppRole.ADMIN
+    ) {
       const channel = await this.prisma.videoChannel.findUnique({
         where: { id: videoChannelId, deletedAt: null },
         select: { id: true, groupId: true },
@@ -73,7 +76,8 @@ export class VideosService {
       select: { role: true },
     });
 
-    if (!membership) throw new ForbiddenException('You are not a member of this group');
+    if (!membership)
+      throw new ForbiddenException('You are not a member of this group');
 
     const roleHierarchy: Record<string, number> = {
       GROUP_ADMIN: 4,
@@ -139,8 +143,14 @@ export class VideosService {
         where: { id: userId },
         include: { role: true },
       });
-      if (!user || (user.role.name !== AppRole.SUPER_ADMIN && user.role.name !== AppRole.ADMIN)) {
-        throw new ForbiddenException('Only the video uploader can attach files');
+      if (
+        !user ||
+        (user.role.name !== AppRole.SUPER_ADMIN &&
+          user.role.name !== AppRole.ADMIN)
+      ) {
+        throw new ForbiddenException(
+          'Only the video uploader can attach files',
+        );
       }
     }
 
@@ -177,14 +187,22 @@ export class VideosService {
   async findByChannel(
     videoChannelId: string,
     userId: string,
-    opts: { page?: number; limit?: number; cursor?: string; status?: VideoStatus; search?: string },
+    opts: {
+      page?: number;
+      limit?: number;
+      cursor?: string;
+      status?: VideoStatus;
+      search?: string;
+    },
   ) {
     // For non-admins, restrict to READY + PUBLIC/GROUP_ONLY
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
     });
-    const isAdmin = user?.role.name === AppRole.SUPER_ADMIN || user?.role.name === AppRole.ADMIN;
+    const isAdmin =
+      user?.role.name === AppRole.SUPER_ADMIN ||
+      user?.role.name === AppRole.ADMIN;
 
     const result = await this.repo.findByChannel(videoChannelId, {
       ...opts,
@@ -207,7 +225,10 @@ export class VideosService {
     if (!video) throw new NotFoundException('Video not found');
 
     const canEdit = await this.canModifyVideo(video, userId);
-    if (!canEdit) throw new ForbiddenException('Insufficient permissions to edit this video');
+    if (!canEdit)
+      throw new ForbiddenException(
+        'Insufficient permissions to edit this video',
+      );
 
     const data: Record<string, any> = { ...dto };
     if (dto.scheduledAt) {
@@ -240,7 +261,10 @@ export class VideosService {
     if (!video) throw new NotFoundException('Video not found');
 
     const canEdit = await this.canModifyVideo(video, userId);
-    if (!canEdit) throw new ForbiddenException('Insufficient permissions to delete this video');
+    if (!canEdit)
+      throw new ForbiddenException(
+        'Insufficient permissions to delete this video',
+      );
 
     await this.repo.softDelete(id);
     return { message: 'Video deleted successfully' };
@@ -281,7 +305,8 @@ export class VideosService {
     if (!video) throw new NotFoundException('Video not found');
 
     const duration = video.duration ?? 0;
-    const watchedPercent = duration > 0 ? Math.min((watchedSeconds / duration) * 100, 100) : 0;
+    const watchedPercent =
+      duration > 0 ? Math.min((watchedSeconds / duration) * 100, 100) : 0;
     const isCompleted = watchedPercent >= 90;
 
     return this.repo.upsertWatchProgress({
@@ -358,7 +383,11 @@ export class VideosService {
       include: { role: true },
     });
     if (!user) return false;
-    if (user.role.name === AppRole.SUPER_ADMIN || user.role.name === AppRole.ADMIN) return true;
+    if (
+      user.role.name === AppRole.SUPER_ADMIN ||
+      user.role.name === AppRole.ADMIN
+    )
+      return true;
     if (video.uploadedById === userId) return true;
 
     // Check group MODERATOR or higher
@@ -369,7 +398,10 @@ export class VideosService {
       },
       select: { role: true },
     });
-    return membership?.role === GroupRole.GROUP_ADMIN || membership?.role === GroupRole.MODERATOR;
+    return (
+      membership?.role === GroupRole.GROUP_ADMIN ||
+      membership?.role === GroupRole.MODERATOR
+    );
   }
 
   private mapVideoToDto(video: any) {

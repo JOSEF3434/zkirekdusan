@@ -14,11 +14,17 @@ export class LocalStorageProvider implements IStorageProvider {
 
   constructor(private readonly configService: ConfigService) {
     this.uploadDir = path.resolve(process.cwd(), 'uploads');
-    this.baseUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+    this.baseUrl =
+      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
   }
 
   async upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult> {
     const folderPath = path.join(this.uploadDir, subfolder);

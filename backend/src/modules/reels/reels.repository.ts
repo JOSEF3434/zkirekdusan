@@ -22,7 +22,9 @@ export class ReelsRepository {
           select: {
             id: true,
             username: true,
-            profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
           },
         },
         file: { select: { url: true } },
@@ -38,7 +40,9 @@ export class ReelsRepository {
           select: {
             id: true,
             username: true,
-            profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
           },
         },
         file: { select: { url: true } },
@@ -77,7 +81,12 @@ export class ReelsRepository {
             select: {
               id: true,
               username: true,
-              profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+              profile: {
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
+              },
             },
           },
           file: { select: { url: true } },

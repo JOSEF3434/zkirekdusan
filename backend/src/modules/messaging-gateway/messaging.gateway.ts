@@ -227,7 +227,8 @@ export class MessagingGateway
   @SubscribeMessage(WS_EVENTS.ADD_REACTION)
   async handleAddReaction(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string; conversationId: string; emoji: string },
+    @MessageBody()
+    data: { messageId: string; conversationId: string; emoji: string },
   ) {
     const userId = (client as any).userId as string;
     try {
@@ -249,11 +250,16 @@ export class MessagingGateway
   @SubscribeMessage(WS_EVENTS.REMOVE_REACTION)
   async handleRemoveReaction(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: string; conversationId: string; emoji: string },
+    @MessageBody()
+    data: { messageId: string; conversationId: string; emoji: string },
   ) {
     const userId = (client as any).userId as string;
     try {
-      await this.messagesService.removeReaction(data.messageId, userId, data.emoji);
+      await this.messagesService.removeReaction(
+        data.messageId,
+        userId,
+        data.emoji,
+      );
       this.server
         .to(`conversation:${data.conversationId}`)
         .emit(WS_EVENTS.REACTION_REMOVED, {

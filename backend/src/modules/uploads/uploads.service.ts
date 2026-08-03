@@ -60,7 +60,10 @@ export class UploadsService {
     const fileType = this.resolveFileType(file.mimetype);
 
     // 3. Compute SHA-256 checksum
-    const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const checksum = crypto
+      .createHash('sha256')
+      .update(file.buffer)
+      .digest('hex');
 
     // 4. Upload via storage provider
     const subfolder = `groups/${groupId}/${fileType.toLowerCase()}`;
@@ -76,7 +79,7 @@ export class UploadsService {
       extension: ext,
       size: file.size,
       fileType,
-      provider: result.provider as FileProvider,
+      provider: result.provider,
       storageKey: result.storageKey,
       url: result.url,
       uploadedById: uploaderId,
@@ -101,7 +104,11 @@ export class UploadsService {
 
   async listGroupFiles(groupId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.uploadsRepository.findByGroup(groupId, skip, limit);
+    const { items, total } = await this.uploadsRepository.findByGroup(
+      groupId,
+      skip,
+      limit,
+    );
 
     const data: FileResponseDto[] = items.map((f) => ({
       id: f.id,
@@ -157,7 +164,11 @@ export class UploadsService {
     ) {
       return FileType.DOCUMENT;
     }
-    if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('gzip')) {
+    if (
+      mimeType.includes('zip') ||
+      mimeType.includes('tar') ||
+      mimeType.includes('gzip')
+    ) {
       return FileType.ARCHIVE;
     }
     return FileType.OTHER;

@@ -9,7 +9,13 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { StreamChatService } from './stream-chat.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
@@ -33,7 +39,12 @@ export class StreamChatController {
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('cursor') cursor?: string,
   ) {
-    return this.streamChatService.getChatHistory(userId, streamId, limit, cursor);
+    return this.streamChatService.getChatHistory(
+      userId,
+      streamId,
+      limit,
+      cursor,
+    );
   }
 
   @Delete(':messageId')
@@ -69,6 +80,11 @@ export class StreamChatController {
     @Param('streamId') streamId: string,
     @Param('messageId') messageId: string,
   ) {
-    return this.streamChatService.pinMessage(userId, streamId, messageId, false);
+    return this.streamChatService.pinMessage(
+      userId,
+      streamId,
+      messageId,
+      false,
+    );
   }
 }

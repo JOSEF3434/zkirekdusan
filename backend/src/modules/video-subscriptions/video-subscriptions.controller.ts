@@ -1,6 +1,12 @@
 // src/modules/video-subscriptions/video-subscriptions.controller.ts
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { VideoSubscriptionsService } from './video-subscriptions.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -23,7 +29,9 @@ export class VideoSubscriptionsController {
   }
 
   @Get('feed')
-  @ApiOperation({ summary: 'Get subscription feed (latest videos from subscribed channels)' })
+  @ApiOperation({
+    summary: 'Get subscription feed (latest videos from subscribed channels)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getSubscriptionFeed(

@@ -1,4 +1,8 @@
-import { LiveStreamStatus, LiveStreamVisibility, StreamProtocol } from '@prisma/client';
+import {
+  LiveStreamStatus,
+  LiveStreamVisibility,
+  StreamProtocol,
+} from '@prisma/client';
 
 export class StreamResponseDto {
   id!: string;
@@ -41,7 +45,7 @@ export class StreamResponseDto {
   updatedAt!: Date;
 
   // Optional relations
-  createdBy?: { id: string; username: string; avatarUrl: string | null };
+  createdBy?: { id: string; username: string | null; avatarUrl: string | null };
   group?: { id: string; name: string };
   videoChannel?: { id: string; name: string; avatarUrl: string | null };
 }

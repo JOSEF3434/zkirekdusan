@@ -18,7 +18,10 @@ export class ChannelResponseDto {
   @ApiProperty({ enum: ChannelType })
   type!: ChannelType;
 
-  @ApiPropertyOptional({ example: 'General discussion channel', nullable: true })
+  @ApiPropertyOptional({
+    example: 'General discussion channel',
+    nullable: true,
+  })
   description?: string | null;
 
   @ApiProperty({ example: false })

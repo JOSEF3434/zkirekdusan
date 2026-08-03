@@ -1,6 +1,10 @@
 // src/modules/videos/dto/video-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VideoStatus, VideoVisibility, DownloadPermission } from '@prisma/client';
+import {
+  VideoStatus,
+  VideoVisibility,
+  DownloadPermission,
+} from '@prisma/client';
 
 export class VideoRenditionDto {
   @ApiProperty() id!: string;
@@ -41,7 +45,8 @@ export class VideoResponseDto {
   @ApiProperty({ type: [String] }) categories!: string[];
   @ApiProperty({ type: [String] }) tags!: string[];
   @ApiProperty({ type: [String] }) hashtags!: string[];
-  @ApiProperty({ enum: DownloadPermission }) downloadPermission!: DownloadPermission;
+  @ApiProperty({ enum: DownloadPermission })
+  downloadPermission!: DownloadPermission;
   @ApiProperty() isDownloadable!: boolean;
   @ApiProperty() viewsCount!: string;
   @ApiProperty() likesCount!: number;
@@ -54,8 +59,10 @@ export class VideoResponseDto {
   @ApiPropertyOptional() scheduledAt?: Date | null;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
-  @ApiPropertyOptional({ type: [VideoRenditionDto] }) renditions?: VideoRenditionDto[];
-  @ApiPropertyOptional({ type: [VideoChapterDto] }) chapters?: VideoChapterDto[];
+  @ApiPropertyOptional({ type: [VideoRenditionDto] })
+  renditions?: VideoRenditionDto[];
+  @ApiPropertyOptional({ type: [VideoChapterDto] })
+  chapters?: VideoChapterDto[];
 }
 
 export class VideoListResponseDto {
@@ -71,14 +78,16 @@ export class VideoQueryDto {
   @ApiPropertyOptional({ example: 20 }) limit?: number;
   @ApiPropertyOptional({ enum: VideoStatus }) status?: VideoStatus;
   @ApiPropertyOptional({ enum: VideoVisibility }) visibility?: VideoVisibility;
-  @ApiPropertyOptional({ description: 'Cursor-based pagination cursor' }) cursor?: string;
+  @ApiPropertyOptional({ description: 'Cursor-based pagination cursor' })
+  cursor?: string;
   @ApiPropertyOptional({ description: 'Search query' }) search?: string;
   @ApiPropertyOptional({ description: 'Filter by category' }) category?: string;
 }
 
 export class WatchProgressDto {
   @ApiProperty() videoId!: string;
-  @ApiProperty({ description: 'Current position in seconds' }) watchedSeconds!: number;
+  @ApiProperty({ description: 'Current position in seconds' })
+  watchedSeconds!: number;
   @ApiProperty({ description: 'Percentage (0-100)' }) watchedPercent!: number;
   @ApiProperty() isCompleted!: boolean;
 }

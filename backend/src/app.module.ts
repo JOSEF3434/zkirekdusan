@@ -3,6 +3,9 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { CacheModule } from '@nestjs/cache-manager';
+import { createKeyv } from '@keyv/redis';
 
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -47,6 +50,22 @@ import { VideoCommentsModule } from './modules/video-comments/video-comments.mod
 import { VideoSubscriptionsModule } from './modules/video-subscriptions/video-subscriptions.module.js';
 import { DownloadsModule } from './modules/downloads/downloads.module.js';
 
+// Phase 5 — Live Streaming Platform
+import { LiveStreamingModule } from './modules/live-streaming/live-streaming.module.js';
+import { StreamChatModule } from './modules/stream-chat/stream-chat.module.js';
+import { StreamAnalyticsModule } from './modules/stream-analytics/stream-analytics.module.js';
+import { StreamProcessingModule } from './modules/stream-processing/stream-processing.module.js';
+import { LiveGatewayModule } from './modules/live-gateway/live-gateway.module.js';
+
+// Phase 6 — Discovery
+import { SearchModule } from './modules/search/search.module.js';
+import { RecommendationsModule } from './modules/recommendations/recommendations.module.js';
+import { TrendingModule } from './modules/trending/trending.module.js';
+import { ExploreModule } from './modules/explore/explore.module.js';
+
+// Phase 7 — Admin Platform
+import { AdminModule } from './modules/admin/admin.module.js';
+
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -70,6 +89,26 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
           port: config.get<number>('REDIS_PORT') || 6379,
         },
       }),
+      inject: [ConfigService],
+    }),
+
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
+
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => {
+        const host = config.get<string>('REDIS_HOST') || 'localhost';
+        const port = config.get<number>('REDIS_PORT') || 6379;
+        return {
+          store: createKeyv(`redis://${host}:${port}`),
+        };
+      },
       inject: [ConfigService],
     }),
 
@@ -113,6 +152,22 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     VideoCommentsModule,
     VideoSubscriptionsModule,
     DownloadsModule,
+
+    // Phase 5 — Live Streaming Platform
+    LiveStreamingModule,
+    StreamChatModule,
+    StreamAnalyticsModule,
+    StreamProcessingModule,
+    LiveGatewayModule,
+
+    // Phase 6 — Discovery
+    SearchModule,
+    RecommendationsModule,
+    TrendingModule,
+    ExploreModule,
+
+    // Phase 7 — Admin Platform
+    AdminModule,
   ],
 
   controllers: [AppController],
@@ -121,6 +176,10 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     AppService,
 
     // Global Guards (evaluated in top-to-bottom order)
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

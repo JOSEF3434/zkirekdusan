@@ -18,8 +18,7 @@ export class PrismaService
       );
     }
 
-    neonConfig.webSocketConstructor =
-      ws as unknown as typeof neonConfig.webSocketConstructor;
+    neonConfig.webSocketConstructor = ws;
     super({ adapter: new PrismaNeon({ connectionString }) });
   }
 

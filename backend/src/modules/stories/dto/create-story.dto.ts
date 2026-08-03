@@ -8,7 +8,10 @@ export class CreateStoryDto {
   @IsEnum(StoryType)
   type!: StoryType;
 
-  @ApiPropertyOptional({ example: 'file-uuid', description: 'File ID for IMAGE or VIDEO story' })
+  @ApiPropertyOptional({
+    example: 'file-uuid',
+    description: 'File ID for IMAGE or VIDEO story',
+  })
   @IsOptional()
   @IsUUID()
   fileId?: string;
@@ -18,7 +21,10 @@ export class CreateStoryDto {
   @IsString()
   content?: string;
 
-  @ApiPropertyOptional({ example: '#ff0055', description: 'Hex background color for text story' })
+  @ApiPropertyOptional({
+    example: '#ff0055',
+    description: 'Hex background color for text story',
+  })
   @IsOptional()
   @IsString()
   backgroundColor?: string;

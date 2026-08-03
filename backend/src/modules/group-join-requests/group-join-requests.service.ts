@@ -40,7 +40,10 @@ export class GroupJoinRequestsService {
     }
 
     // Check if already a member
-    const existingMember = await this.groupsRepository.getMember(groupId, userId);
+    const existingMember = await this.groupsRepository.getMember(
+      groupId,
+      userId,
+    );
     if (existingMember) {
       throw new BadRequestException('You are already a member of this group');
     }
@@ -68,7 +71,7 @@ export class GroupJoinRequestsService {
       groupAdmins.map((adminId) =>
         this.notificationsService.notifyGroupJoinRequest(
           adminId,
-          request.user.username,
+          request.user.username ?? 'A user',
           groupId,
         ),
       ),
@@ -86,12 +89,16 @@ export class GroupJoinRequestsService {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) throw new NotFoundException('Group not found');
 
-    const member = await this.groupsRepository.getMember(groupId, requestingUserId);
+    const member = await this.groupsRepository.getMember(
+      groupId,
+      requestingUserId,
+    );
     if (!member || !['GROUP_ADMIN', 'MODERATOR'].includes(member.role)) {
       throw new ForbiddenException('Only group admins can view join requests');
     }
 
-    const requests = await this.joinRequestsRepository.findPendingByGroup(groupId);
+    const requests =
+      await this.joinRequestsRepository.findPendingByGroup(groupId);
     return requests.map((r) => this.mapToDto(r));
   }
 
@@ -120,7 +127,9 @@ export class GroupJoinRequestsService {
       approverId,
     );
     if (!member || !['GROUP_ADMIN', 'MODERATOR'].includes(member.role)) {
-      throw new ForbiddenException('Only group admins can approve join requests');
+      throw new ForbiddenException(
+        'Only group admins can approve join requests',
+      );
     }
 
     // Add user to the group
@@ -157,7 +166,9 @@ export class GroupJoinRequestsService {
       rejecterId,
     );
     if (!member || !['GROUP_ADMIN', 'MODERATOR'].includes(member.role)) {
-      throw new ForbiddenException('Only group admins can reject join requests');
+      throw new ForbiddenException(
+        'Only group admins can reject join requests',
+      );
     }
 
     const rejected = await this.joinRequestsRepository.reject(requestId);
