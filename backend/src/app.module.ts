@@ -87,6 +87,11 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
         connection: {
           host: config.get<string>('REDIS_HOST') || 'localhost',
           port: config.get<number>('REDIS_PORT') || 6379,
+          // null = keep retrying in background without throwing (prevents process crash)
+          maxRetriesPerRequest: null,
+          enableOfflineQueue: false,
+          lazyConnect: true,
+          connectTimeout: 5000,
         },
       }),
       inject: [ConfigService],
@@ -105,9 +110,14 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
       useFactory: (config: ConfigService) => {
         const host = config.get<string>('REDIS_HOST') || 'localhost';
         const port = config.get<number>('REDIS_PORT') || 6379;
-        return {
-          store: createKeyv(`redis://${host}:${port}`),
-        };
+        try {
+          return {
+            store: createKeyv(`redis://${host}:${port}`),
+          };
+        } catch {
+          // Fall back to default in-memory cache if Redis is unavailable
+          return {};
+        }
       },
       inject: [ConfigService],
     }),

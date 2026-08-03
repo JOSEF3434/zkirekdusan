@@ -10,6 +10,38 @@ import { RedisIoAdapter } from './common/adapters/redis-io.adapter.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  // ── Graceful Redis-error handling ──────────────────────────────────────────
+  // BullMQ / ioredis can emit MaxRetriesPerRequestError as an unhandled rejection
+  // when Redis is unavailable. Catch it here so the process stays alive.
+  process.on('unhandledRejection', (reason: unknown) => {
+    const msg = String(reason);
+    if (
+      msg.includes('MaxRetriesPerRequest') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('Redis')
+    ) {
+      logger.warn(`[Redis] Unhandled rejection (non-fatal): ${msg}`);
+    } else {
+      logger.error(`Unhandled Promise Rejection: ${msg}`);
+    }
+  });
+
+  process.on('uncaughtException', (err: Error) => {
+    const msg = err.message ?? String(err);
+    if (
+      msg.includes('MaxRetriesPerRequest') ||
+      msg.includes('ECONNREFUSED') ||
+      msg.includes('Redis')
+    ) {
+      logger.warn(`[Redis] Uncaught exception (non-fatal): ${msg}`);
+    } else {
+      logger.error(`Uncaught Exception: ${msg}`, err.stack);
+      process.exit(1);
+    }
+  });
+  // ───────────────────────────────────────────────────────────────────────────
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Security Hardening (Phase 8)
@@ -31,7 +63,7 @@ async function bootstrap() {
     }),
   );
 
-  // Setup Redis Adapter for Socket.IO
+  // Setup Redis Adapter for Socket.IO (optional — falls back to default in-process adapter)
   const redisIoAdapter = new RedisIoAdapter(app);
   await redisIoAdapter.connectToRedis();
   app.useWebSocketAdapter(redisIoAdapter);
