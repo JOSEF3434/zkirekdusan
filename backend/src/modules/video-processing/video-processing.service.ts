@@ -199,11 +199,10 @@ export class VideoProcessingService {
         `Error processing video [${videoId}]: ${err.message}`,
         err.stack,
       );
-      // Soft fallback to READY so system keeps working even if FFmpeg is missing / fails
-      await this.prisma.video.update({
-        where: { id: videoId },
-        data: { status: VideoStatus.READY },
-      });
+      // Throw the error so BullMQ knows the job failed and can retry it.
+      // The @OnWorkerEvent('failed') hook in the processor will set the status to FAILED
+      // if retries are exhausted.
+      throw err;
     }
   }
 
@@ -242,7 +241,7 @@ export class VideoProcessingService {
     sourcePath: string,
     outputPath: string,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       ffmpeg(sourcePath)
         .screenshots({
           timestamps: ['10%'],

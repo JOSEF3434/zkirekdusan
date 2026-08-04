@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import { StreamChatRepository } from './stream-chat.repository.js';
 import { LiveStreamingRepository } from '../live-streaming/live-streaming.repository.js';

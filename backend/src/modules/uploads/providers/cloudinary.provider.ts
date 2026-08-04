@@ -9,7 +9,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
 
   constructor(private readonly configService: ConfigService) {}
 
-  async upload(
+  upload(
     file: {
       buffer: Buffer;
       originalname: string;
@@ -24,15 +24,16 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     // When Cloudinary API credentials are present, integration runs here.
     // Stub fallback logic returning provider structure:
     const fakeKey = `cloudinary_${subfolder}_${Date.now()}`;
-    return {
+    return Promise.resolve({
       storageKey: fakeKey,
       url: `https://res.cloudinary.com/demo/image/upload/${fakeKey}`,
       provider: 'CLOUDINARY',
-    };
+    });
   }
 
-  async delete(storageKey: string): Promise<void> {
+  delete(storageKey: string): Promise<void> {
     this.logger.log(`Cloudinary file delete requested: ${storageKey}`);
+    return Promise.resolve();
   }
 
   getUrl(storageKey: string): string {

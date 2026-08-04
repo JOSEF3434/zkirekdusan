@@ -79,7 +79,10 @@ export class UsersRepository {
     passwordHash: string;
     roleId: string;
   }) {
-    const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.username || 'User';
+    const displayName =
+      [data.firstName, data.lastName].filter(Boolean).join(' ') ||
+      data.username ||
+      'User';
 
     return this.prisma.user.create({
       data: {

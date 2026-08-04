@@ -45,7 +45,7 @@ export class AuthorizationService {
     const user = await this.getUserWithRole(userId);
 
     // SUPER_ADMIN gets wildcard access
-    if (user.role.name === AppRole.SUPER_ADMIN) {
+    if ((user.role.name as AppRole) === AppRole.SUPER_ADMIN) {
       return ['*'];
     }
 
@@ -54,7 +54,7 @@ export class AuthorizationService {
 
   async hasRole(userId: string, role: string): Promise<boolean> {
     const userRole = await this.getUserRole(userId);
-    return userRole === AppRole.SUPER_ADMIN || userRole === role;
+    return (userRole as AppRole) === AppRole.SUPER_ADMIN || userRole === role;
   }
 
   async hasPermission(userId: string, permission: string): Promise<boolean> {
@@ -83,7 +83,10 @@ export class AuthorizationService {
     requiredRole: GroupRole,
   ): Promise<boolean> {
     const globalRole = await this.getUserRole(userId);
-    if (globalRole === AppRole.SUPER_ADMIN || globalRole === AppRole.ADMIN) {
+    if (
+      (globalRole as AppRole) === AppRole.SUPER_ADMIN ||
+      (globalRole as AppRole) === AppRole.ADMIN
+    ) {
       return true;
     }
 

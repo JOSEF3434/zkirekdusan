@@ -53,7 +53,9 @@ export class LocalStorageProvider implements IStorageProvider {
       await fs.unlink(filePath);
       this.logger.log(`Local file deleted: ${filePath}`);
     } catch (err) {
-      this.logger.warn(`Could not delete local file ${filePath}: ${err}`);
+      this.logger.warn(
+        `Could not delete local file ${filePath}: ${String(err)}`,
+      );
     }
   }
 

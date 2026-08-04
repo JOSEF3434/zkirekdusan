@@ -5,11 +5,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MessagingGateway } from './messaging.gateway.js';
 import { MessagesModule } from '../messages/messages.module.js';
 import { ConversationsModule } from '../conversations/conversations.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
 
 @Module({
   imports: [
     MessagesModule,
     ConversationsModule,
+    PresenceModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

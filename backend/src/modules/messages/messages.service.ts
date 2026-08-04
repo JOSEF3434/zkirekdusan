@@ -251,7 +251,7 @@ export class MessagesService {
         reactionsMap[r.emoji] = { count: 0, userIds: [] };
       }
       reactionsMap[r.emoji].count++;
-      reactionsMap[r.emoji].userIds.push(r.userId);
+      reactionsMap[r.emoji].userIds.push(r.userId as string);
     }
 
     return {

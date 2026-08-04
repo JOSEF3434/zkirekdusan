@@ -47,8 +47,7 @@ export class LoginDto {
 
   @ApiPropertyOptional({
     example: 'johndoe',
-    description:
-      'Username (provide either email, phoneNumber, or username)',
+    description: 'Username (provide either email, phoneNumber, or username)',
   })
   @IsOptional()
   @IsString()
@@ -66,19 +65,25 @@ export class LoginDto {
    * Custom validator: at least one of email, phoneNumber, or username must be present.
    */
   @ValidateIf((o: LoginDto) => !o.phoneNumber && !o.username)
-  @IsNotEmpty({ message: 'Provide either email, phoneNumber, or username to login' })
+  @IsNotEmpty({
+    message: 'Provide either email, phoneNumber, or username to login',
+  })
   get _emailRequired(): string | undefined {
     return this.email;
   }
 
   @ValidateIf((o: LoginDto) => !o.email && !o.username)
-  @IsNotEmpty({ message: 'Provide either email, phoneNumber, or username to login' })
+  @IsNotEmpty({
+    message: 'Provide either email, phoneNumber, or username to login',
+  })
   get _phoneRequired(): string | undefined {
     return this.phoneNumber;
   }
 
   @ValidateIf((o: LoginDto) => !o.email && !o.phoneNumber)
-  @IsNotEmpty({ message: 'Provide either email, phoneNumber, or username to login' })
+  @IsNotEmpty({
+    message: 'Provide either email, phoneNumber, or username to login',
+  })
   get _usernameRequired(): string | undefined {
     return this.username;
   }

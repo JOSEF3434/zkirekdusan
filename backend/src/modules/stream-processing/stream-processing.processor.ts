@@ -16,7 +16,11 @@ export class StreamProcessingProcessor extends WorkerHost {
   }
 
   async process(job: Job<ProcessRecordingJobData>): Promise<void> {
-    const { liveStreamId, recordingId, recordingPath } = job.data;
+    const {
+      liveStreamId,
+      recordingId,
+      recordingPath: _recordingPath,
+    } = job.data;
 
     this.logger.log(
       `Processing recording for stream ${liveStreamId} (Job: ${job.id})`,

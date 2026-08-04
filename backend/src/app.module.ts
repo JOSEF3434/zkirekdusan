@@ -110,14 +110,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
       useFactory: (config: ConfigService) => {
         const host = config.get<string>('REDIS_HOST') || 'localhost';
         const port = config.get<number>('REDIS_PORT') || 6379;
-        try {
-          return {
-            store: createKeyv(`redis://${host}:${port}`),
-          };
-        } catch {
-          // Fall back to default in-memory cache if Redis is unavailable
-          return {};
-        }
+        return {
+          store: createKeyv(`redis://${host}:${port}`),
+        };
       },
       inject: [ConfigService],
     }),

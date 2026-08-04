@@ -4,7 +4,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { VideosRepository } from './videos.repository.js';
 import { UploadVideoDto } from './dto/upload-video.dto.js';
@@ -12,12 +15,16 @@ import { UpdateVideoDto } from './dto/update-video.dto.js';
 import { VideoStatus, VideoVisibility, GroupRole } from '@prisma/client';
 import { AppRole } from '../../common/constants/roles.js';
 import { v4 as uuidv4 } from 'uuid';
+import { VIDEO_PROCESSING_QUEUE } from '../video-processing/video-processing.processor.js';
 
 @Injectable()
 export class VideosService {
+  private readonly logger = new Logger(VideosService.name);
+
   constructor(
     private readonly repo: VideosRepository,
     private readonly prisma: PrismaService,
+    @InjectQueue(VIDEO_PROCESSING_QUEUE) private readonly videoQueue: Queue,
   ) {}
 
   private generateSlug(title: string): string {
@@ -42,8 +49,8 @@ export class VideosService {
 
     // SUPER_ADMIN bypasses all checks
     if (
-      user.role.name === AppRole.SUPER_ADMIN ||
-      user.role.name === AppRole.ADMIN
+      (user.role.name as AppRole) === AppRole.SUPER_ADMIN ||
+      (user.role.name as AppRole) === AppRole.ADMIN
     ) {
       const channel = await this.prisma.videoChannel.findUnique({
         where: { id: videoChannelId, deletedAt: null },
@@ -145,8 +152,8 @@ export class VideosService {
       });
       if (
         !user ||
-        (user.role.name !== AppRole.SUPER_ADMIN &&
-          user.role.name !== AppRole.ADMIN)
+        ((user.role.name as AppRole) !== AppRole.SUPER_ADMIN &&
+          (user.role.name as AppRole) !== AppRole.ADMIN)
       ) {
         throw new ForbiddenException(
           'Only the video uploader can attach files',
@@ -158,7 +165,33 @@ export class VideosService {
       throw new BadRequestException('Video is not in UPLOADING state');
     }
 
-    return this.repo.setSourceFile(videoId, fileId);
+    // 1. Update DB — sets status → QUEUED and links source file
+    const updated = await this.repo.setSourceFile(videoId, fileId);
+
+    // 2. Resolve source file path from the attached file record
+    const fileRecord = await this.prisma.file.findUnique({
+      where: { id: fileId },
+      select: { storageKey: true },
+    });
+    const sourceFilePath =
+      fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
+
+    // 3. Enqueue BullMQ transcode job
+    await this.videoQueue.add(
+      'transcode',
+      { videoId, sourceFilePath, storageKey: sourceFilePath },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
+
+    this.logger.log(
+      `Video [${videoId}] queued for transcoding (file: ${sourceFilePath})`,
+    );
+    return updated;
   }
 
   async findById(id: string, userId?: string) {
@@ -216,7 +249,7 @@ export class VideosService {
 
     return {
       ...result,
-      data: result.data.map(this.mapVideoToDto),
+      data: result.data.map((v) => this.mapVideoToDto(v)),
     };
   }
 
@@ -346,12 +379,12 @@ export class VideosService {
 
   async getTrending(limit = 20) {
     const videos = await this.repo.getTrending(limit);
-    return videos.map(this.mapVideoToDto);
+    return videos.map((v) => this.mapVideoToDto(v));
   }
 
   async getRecommended(videoId: string, userId: string, limit = 10) {
     const videos = await this.repo.getRecommended(userId, videoId, limit);
-    return videos.map(this.mapVideoToDto);
+    return videos.map((v) => this.mapVideoToDto(v));
   }
 
   async searchVideos(opts: {
@@ -362,7 +395,7 @@ export class VideosService {
     cursor?: string;
   }) {
     const result = await this.repo.findPublicVideos(opts);
-    return { ...result, data: result.data.map(this.mapVideoToDto) };
+    return { ...result, data: result.data.map((v) => this.mapVideoToDto(v)) };
   }
 
   async reportVideo(
@@ -384,8 +417,8 @@ export class VideosService {
     });
     if (!user) return false;
     if (
-      user.role.name === AppRole.SUPER_ADMIN ||
-      user.role.name === AppRole.ADMIN
+      (user.role.name as AppRole) === AppRole.SUPER_ADMIN ||
+      (user.role.name as AppRole) === AppRole.ADMIN
     )
       return true;
     if (video.uploadedById === userId) return true;

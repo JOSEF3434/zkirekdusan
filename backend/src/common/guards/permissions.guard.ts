@@ -44,7 +44,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // SUPER_ADMIN bypasses all permission checks
-    if (user.role === AppRole.SUPER_ADMIN) {
+    if ((user.role as AppRole) === AppRole.SUPER_ADMIN) {
       return true;
     }
 

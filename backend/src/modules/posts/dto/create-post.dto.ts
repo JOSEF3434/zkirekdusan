@@ -1,13 +1,6 @@
 // src/modules/posts/dto/create-post.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsArray,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PostType, PostVisibility } from '@prisma/client';
 
 export class CreatePostDto {

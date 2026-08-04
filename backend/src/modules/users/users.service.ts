@@ -1,5 +1,9 @@
 // src/modules/users/users.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { UsersRepository } from './users.repository.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 
@@ -48,23 +52,26 @@ export class UsersService {
 
   async checkUsernameAvailability(username: string): Promise<boolean> {
     if (!username || username.trim() === '') return false;
-    const existing = await this.usersRepository.findByUsername(username.toLowerCase().trim());
+    const existing = await this.usersRepository.findByUsername(
+      username.toLowerCase().trim(),
+    );
     return !existing;
   }
 
   async updateUsername(userId: string, newUsername: string) {
     const normalizedUsername = newUsername.toLowerCase().trim();
-    const isAvailable = await this.checkUsernameAvailability(normalizedUsername);
-    
+    const isAvailable =
+      await this.checkUsernameAvailability(normalizedUsername);
+
     if (!isAvailable) {
       throw new BadRequestException('Username is already taken');
     }
-    
+
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     return this.usersRepository.updateUsername(userId, normalizedUsername);
   }
 

@@ -18,6 +18,9 @@ import slugify from 'slugify';
 import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { StreamProcessingService } from '../stream-processing/stream-processing.service.js';
+import { LiveGateway } from '../live-gateway/live.gateway.js';
+import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
 export class LiveStreamingService {
@@ -29,6 +32,9 @@ export class LiveStreamingService {
     private readonly authorizationService: AuthorizationService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly streamProcessingService: StreamProcessingService,
+    @Inject(forwardRef(() => LiveGateway))
+    private readonly liveGateway: LiveGateway,
   ) {}
 
   private generateSlug(title: string): string {
@@ -340,6 +346,10 @@ export class LiveStreamingService {
     }
 
     this.logger.log(`Stream ${streamId} started by user ${userId}`);
+
+    // Broadcast stream started to LiveGateway
+    this.liveGateway.broadcastStreamStarted(streamId, updatedStream);
+
     return updatedStream;
   }
 
@@ -372,12 +382,23 @@ export class LiveStreamingService {
 
     // If recording was enabled, create a recording record for processing
     if (stream.isRecordingEnabled) {
-      await this.repository.createRecording(streamId);
+      const recording = await this.repository.createRecording(streamId);
+
+      // Enqueue job to process recording
+      await this.streamProcessingService.enqueueRecording({
+        liveStreamId: streamId,
+        recordingId: recording.id,
+        recordingPath: `streams/${streamId}/recording.mp4`, // In a real system, this would come from the media server
+      });
     }
 
     this.logger.log(
       `Stream ${streamId} ended by user ${userId}, duration: ${duration?.toFixed(0)}s`,
     );
+
+    // Broadcast stream ended to LiveGateway
+    this.liveGateway.broadcastStreamEnded(streamId, undefined, duration);
+
     return updatedStream;
   }
 

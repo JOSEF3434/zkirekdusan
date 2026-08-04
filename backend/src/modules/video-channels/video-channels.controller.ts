@@ -45,7 +45,7 @@ export class VideoChannelsController {
     description: 'Insufficient permissions (requires GROUP_ADMIN)',
   })
   @ApiResponse({ status: 409, description: 'Slug or handle already taken' })
-  async createChannel(
+  createChannel(
     @Param('groupId') groupId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateVideoChannelDto,
@@ -63,7 +63,7 @@ export class VideoChannelsController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiResponse({ status: 200, type: VideoChannelListResponseDto })
-  async listChannels(
+  listChannels(
     @Param('groupId') groupId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
@@ -76,7 +76,7 @@ export class VideoChannelsController {
   @ApiParam({ name: 'groupId', description: 'Group ID' })
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiResponse({ status: 200, type: VideoChannelResponseDto })
-  async getChannel(
+  getChannel(
     @Param('channelId') channelId: string,
   ): Promise<VideoChannelResponseDto> {
     return this.service.findById(channelId) as any;
@@ -90,7 +90,7 @@ export class VideoChannelsController {
   @ApiParam({ name: 'groupId', description: 'Group ID' })
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiResponse({ status: 200, type: VideoChannelResponseDto })
-  async updateChannel(
+  updateChannel(
     @Param('channelId') channelId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: UpdateVideoChannelDto,
@@ -178,7 +178,7 @@ export class VideoChannelsPublicController {
   @ApiOperation({ summary: 'Find video channel by @handle' })
   @ApiParam({ name: 'handle', example: '@techtutorials' })
   @ApiResponse({ status: 200, type: VideoChannelResponseDto })
-  async findByHandle(
+  findByHandle(
     @Param('handle') handle: string,
   ): Promise<VideoChannelResponseDto> {
     return this.service.findById(handle) as any;

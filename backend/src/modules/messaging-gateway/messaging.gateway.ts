@@ -8,16 +8,16 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  WsException,
 } from '@nestjs/websockets';
-import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MessagesService } from '../messages/messages.service.js';
 import { ConversationsRepository } from '../conversations/conversations.repository.js';
+import { PresenceService } from '../presence/presence.service.js';
 import { SendMessageDto } from '../messages/dto/send-message.dto.js';
-import { AddReactionDto } from '../messages/dto/add-reaction.dto.js';
+import { PresenceStatus } from '@prisma/client';
 
 // ── WS Event Names ────────────────────────────────────────────────────────────
 export const WS_EVENTS = {
@@ -66,9 +66,10 @@ export class MessagingGateway
     private readonly configService: ConfigService,
     private readonly messagesService: MessagesService,
     private readonly conversationsRepository: ConversationsRepository,
+    private readonly presenceService: PresenceService,
   ) {}
 
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
     this.logger.log('🔌 MessagingGateway initialized');
   }
 
@@ -95,26 +96,33 @@ export class MessagingGateway
 
       this.logger.log(`Client connected: ${client.id} (user: ${userId})`);
 
+      // Update DB presence
+      await this.presenceService.setStatus(userId, PresenceStatus.ONLINE);
+
       // Notify others of online presence
       this.server.emit(WS_EVENTS.PRESENCE_CHANGED, {
         userId,
-        status: 'ONLINE',
+        status: PresenceStatus.ONLINE,
       });
     } catch {
       client.disconnect(true);
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     const userId = this.socketUserMap.get(client.id);
     if (userId) {
       const sockets = this.userSocketMap.get(userId);
       sockets?.delete(client.id);
       if (!sockets?.size) {
         this.userSocketMap.delete(userId);
+
+        // Update DB presence
+        await this.presenceService.setOffline(userId).catch(() => {});
+
         this.server.emit(WS_EVENTS.PRESENCE_CHANGED, {
           userId,
-          status: 'OFFLINE',
+          status: PresenceStatus.OFFLINE,
           lastSeenAt: new Date(),
         });
       }

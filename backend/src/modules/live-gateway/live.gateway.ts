@@ -97,7 +97,7 @@ export class LiveGateway
     this.logger.log('📡 LiveGateway initialized on /live namespace');
   }
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     try {
       const userId = this.authenticateSocket(client);
       client.data.userId = userId ?? null;
@@ -135,7 +135,7 @@ export class LiveGateway
     }
 
     // Clean up rate limits
-    this.cleanupRateLimits(client.data.userId);
+    this.cleanupRateLimits(client.data.userId as string | null);
   }
 
   // ─── Auth ────────────────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ export class LiveGateway
       try {
         const viewer = await this.streamAnalyticsService.trackViewerJoin(
           streamId,
-          client.data.userId,
+          client.data.userId as string,
         );
         this.viewerSessions.set(client.id, {
           userId: client.data.userId as string,
@@ -529,7 +529,7 @@ export class LiveGateway
   }
 
   @SubscribeMessage(LIVE_EVENTS.QUALITY_REPORT)
-  async handleQualityReport(
+  handleQualityReport(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     payload: { streamId: string; quality: string; bandwidth: number },

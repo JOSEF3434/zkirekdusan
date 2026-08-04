@@ -47,7 +47,9 @@ export class AuthService {
     }
 
     if (dto.username) {
-      const usernameExists = await this.usersService.findByUsername(dto.username);
+      const usernameExists = await this.usersService.findByUsername(
+        dto.username,
+      );
       if (usernameExists) {
         throw new BadRequestException('Username already taken');
       }
@@ -104,7 +106,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    let user;
+    let user: Awaited<ReturnType<typeof this.usersService.findByEmail>> | null = null;
 
     if (dto.email) {
       user = await this.usersService.findByEmail(dto.email);

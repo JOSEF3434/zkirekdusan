@@ -78,7 +78,7 @@ export class VideosController {
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiResponse({ status: 201, type: VideoResponseDto })
   @ApiResponse({ status: 403, description: 'Insufficient upload permissions' })
-  async initiateUpload(
+  initiateUpload(
     @Param('channelId') channelId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: UploadVideoDto,
@@ -115,7 +115,7 @@ export class VideosController {
 
     // Upload the file to storage
     const uploadedFile = await this.uploadsService.uploadGroupFile(
-      groupId,
+      groupId as string,
       userId,
       file,
     );
@@ -141,7 +141,7 @@ export class VideosController {
   @ApiQuery({ name: 'status', required: false, enum: VideoStatus })
   @ApiQuery({ name: 'search', required: false })
   @ApiResponse({ status: 200, type: VideoListResponseDto })
-  async listVideos(
+  listVideos(
     @Param('channelId') channelId: string,
     @CurrentUser('sub') userId: string,
     @Query('page') page = 1,
@@ -164,7 +164,7 @@ export class VideosController {
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   @ApiResponse({ status: 200, type: VideoResponseDto })
-  async getVideo(
+  getVideo(
     @Param('videoId') videoId: string,
     @CurrentUser('sub') userId: string,
   ): Promise<VideoResponseDto> {
@@ -176,7 +176,7 @@ export class VideosController {
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   @ApiResponse({ status: 200, type: VideoResponseDto })
-  async updateVideo(
+  updateVideo(
     @Param('videoId') videoId: string,
     @CurrentUser('sub') userId: string,
     @Body() dto: UpdateVideoDto,

@@ -38,7 +38,7 @@ export class SearchService {
           posts: await this.searchRepository.searchPosts(q, limit, skip),
         };
         break;
-      default:
+      default: {
         // Unified search
         const [users, groups, posts] = await Promise.all([
           this.searchRepository.searchUsers(q, 5, 0),
@@ -46,6 +46,7 @@ export class SearchService {
           this.searchRepository.searchPosts(q, 5, 0),
         ]);
         results = { users, groups, posts };
+      }
     }
 
     return { results, page, limit };

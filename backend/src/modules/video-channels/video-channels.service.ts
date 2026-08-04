@@ -33,8 +33,8 @@ export class VideoChannelsService {
 
     // SUPER_ADMIN bypasses all checks
     if (
-      user.role.name === AppRole.SUPER_ADMIN ||
-      user.role.name === AppRole.ADMIN
+      (user.role.name as AppRole) === AppRole.SUPER_ADMIN ||
+      (user.role.name as AppRole) === AppRole.ADMIN
     ) {
       return true;
     }

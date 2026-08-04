@@ -24,7 +24,7 @@ export class VideoProcessingController {
   })
   @ApiParam({ name: 'videoId', description: 'ID of video to transcode' })
   @ApiResponse({ status: 200, description: 'Processing triggered' })
-  async triggerProcessing(@Param('videoId') videoId: string) {
+  triggerProcessing(@Param('videoId') videoId: string) {
     // Synchronously trigger processing fallback for admin manual request
     void this.processingService.processVideo({
       videoId,

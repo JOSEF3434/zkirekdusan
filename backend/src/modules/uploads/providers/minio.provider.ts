@@ -13,7 +13,7 @@ export class MinioStorageProvider implements IStorageProvider {
       this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
   }
 
-  async upload(
+  upload(
     file: {
       buffer: Buffer;
       originalname: string;
@@ -26,15 +26,16 @@ export class MinioStorageProvider implements IStorageProvider {
       `[MinIO Provider Ready] Simulating MinIO upload for ${file.originalname} into ${subfolder}`,
     );
     const key = `${subfolder}/${Date.now()}-${file.originalname}`;
-    return {
+    return Promise.resolve({
       storageKey: key,
       url: `http://${this.endpoint}:9000/media/${key}`,
       provider: 'MINIO',
-    };
+    });
   }
 
-  async delete(storageKey: string): Promise<void> {
+  delete(storageKey: string): Promise<void> {
     this.logger.log(`[MinIO Provider] Deleting ${storageKey}`);
+    return Promise.resolve();
   }
 
   getUrl(storageKey: string): string {

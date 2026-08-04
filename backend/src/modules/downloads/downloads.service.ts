@@ -16,7 +16,6 @@ import {
   DownloadPermission,
   VideoResolution,
   DownloadStatus,
-  GroupRole,
 } from '@prisma/client';
 import { AppRole } from '../../common/constants/roles.js';
 import crypto from 'crypto';
@@ -62,7 +61,6 @@ export class DownloadsService {
 
     const appUrl =
       this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
-    const relativePath = rendition ? rendition.storageKey : video.hlsUrl;
 
     // Generate signed download URL token
     const token = crypto.randomBytes(32).toString('hex');
@@ -99,7 +97,7 @@ export class DownloadsService {
       data: { downloadsCount: { increment: 1 } },
     });
 
-    const safeTitle = video.title.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const safeTitle = video.title.replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `${safeTitle}_${targetRes.toLowerCase()}.mp4`;
 
     return {
@@ -191,7 +189,7 @@ export class DownloadsService {
         ? rendition.storageKey
         : `videos/${record.videoId}/master.m3u8`;
       filePath = path.resolve(process.cwd(), 'uploads', relativeKey);
-      filename = `${record.video.title.replace(/[^a-zA-Z0-9_\-]/g, '_')}_${targetRes.toLowerCase()}.mp4`;
+      filename = `${record.video.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${targetRes.toLowerCase()}.mp4`;
     } else if (record.fileId && record.file) {
       filePath = path.resolve(process.cwd(), 'uploads', record.file.storageKey);
       filename = record.file.originalName;

@@ -41,7 +41,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Check if a username is available' })
   @ApiQuery({ name: 'username', required: true, example: 'johndoe' })
   async checkUsernameAvailability(@Query('username') username: string) {
-    const isAvailable = await this.usersService.checkUsernameAvailability(username);
+    const isAvailable =
+      await this.usersService.checkUsernameAvailability(username);
     return { available: isAvailable };
   }
 

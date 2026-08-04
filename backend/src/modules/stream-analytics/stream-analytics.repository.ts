@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { StreamAnalytics, Prisma } from '@prisma/client';
+import { Prisma, StreamAnalytics } from '@prisma/client';
 
 @Injectable()
 export class StreamAnalyticsRepository {

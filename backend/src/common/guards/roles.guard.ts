@@ -40,7 +40,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // SUPER_ADMIN bypasses all role checks
-    if (user.role === AppRole.SUPER_ADMIN) {
+    if ((user.role as AppRole) === AppRole.SUPER_ADMIN) {
       return true;
     }
 

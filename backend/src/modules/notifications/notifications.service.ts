@@ -1,13 +1,16 @@
 // src/modules/notifications/notifications.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, forwardRef, Inject } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { NotificationsRepository } from './notifications.repository.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
+import { NotificationsGateway } from './notifications.gateway.js';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
+    @Inject(forwardRef(() => NotificationsGateway))
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   // ── Create (used internally by other services) ─────────────────────────────
@@ -19,7 +22,12 @@ export class NotificationsService {
     data?: Record<string, any>;
   }): Promise<NotificationResponseDto> {
     const notif = await this.notificationsRepository.create(payload);
-    return this.mapToDto(notif);
+    const dto = this.mapToDto(notif);
+
+    // Push real-time notification
+    this.notificationsGateway.emitNotification(payload.userId, dto);
+
+    return dto;
   }
 
   // ── Factory helpers ────────────────────────────────────────────────────────
