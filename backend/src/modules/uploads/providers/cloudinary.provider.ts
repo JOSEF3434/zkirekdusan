@@ -6,6 +6,7 @@ import { IStorageProvider, StorageUploadResult } from './storage.interface.js';
 
 @Injectable()
 export class CloudinaryStorageProvider implements IStorageProvider {
+  readonly providerType = 'CLOUDINARY';
   private readonly logger = new Logger(CloudinaryStorageProvider.name);
   private readonly isConfigured: boolean;
 

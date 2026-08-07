@@ -29,6 +29,7 @@ export class StreamProcessingService {
         delay: 5000, // 5s, 25s, 125s
       },
       removeOnComplete: true,
+      removeOnFail: { count: 50 },
     });
   }
 }

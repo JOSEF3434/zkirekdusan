@@ -8,6 +8,7 @@ import { IStorageProvider, StorageUploadResult } from './storage.interface.js';
 
 @Injectable()
 export class LocalStorageProvider implements IStorageProvider {
+  readonly providerType = 'LOCAL';
   private readonly logger = new Logger(LocalStorageProvider.name);
   private readonly uploadDir: string;
   private readonly baseUrl: string;

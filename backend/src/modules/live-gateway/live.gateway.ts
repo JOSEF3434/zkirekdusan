@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Logger, UsePipes, ValidationPipe, OnModuleDestroy } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -74,7 +74,7 @@ const REACTION_RATE_LIMIT = { max: 20, windowMs: 5_000 }; // 20 reactions per 5 
   namespace: '/live',
 })
 export class LiveGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
 {
   @WebSocketServer() declare server: Server;
   private readonly logger = new Logger(LiveGateway.name);
@@ -104,6 +104,12 @@ export class LiveGateway
     this.healthBroadcastInterval = setInterval(() => {
       this.broadcastStreamHealth();
     }, 30000);
+  }
+
+  onModuleDestroy() {
+    if (this.healthBroadcastInterval) {
+      clearInterval(this.healthBroadcastInterval);
+    }
   }
 
   private broadcastStreamHealth() {
@@ -244,6 +250,7 @@ export class LiveGateway
       vodUrl,
       duration,
     });
+    this.qualityReports.delete(streamId);
   }
 
   /** Broadcast stream updated metadata */

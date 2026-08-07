@@ -122,6 +122,7 @@ export class VideoProcessingService {
         { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200, audioBitrate: 128 },
         { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500, audioBitrate: 128 },
         { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000, audioBitrate: 192 },
+        { res: VideoResolution.R_4K, height: 2160, width: 3840, bitrate: 15000, audioBitrate: 192 },
       ].filter((t) => t.height <= videoHeight || t.height === 240);
 
       // Transcode HLS renditions
@@ -147,7 +148,7 @@ export class VideoProcessingService {
 
       // Upload all HLS files if using remote storage
       let masterUrl = '';
-      const isRemoteStorage = this.storageProvider.constructor.name !== 'LocalStorageProvider';
+      const isRemoteStorage = this.storageProvider.providerType !== 'LOCAL';
       
       if (isRemoteStorage) {
         this.logger.log(`Uploading HLS files to remote storage...`);
@@ -323,7 +324,7 @@ export class VideoProcessingService {
     fps: number
   ): Promise<void> {
     const gop = fps * 2; // 2 seconds GOP size
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       ffmpeg(sourcePath)
         .outputOptions([
           `-vf scale=${width}:${height}`,
@@ -348,7 +349,7 @@ export class VideoProcessingService {
           this.logger.warn(
             `HLS Transcoding for ${height}p failed: ${err.message}`,
           );
-          resolve();
+          reject(err);
         })
         .run();
     });
@@ -359,7 +360,7 @@ export class VideoProcessingService {
     targets: { height: number; width: number; bitrate: number; audioBitrate: number }[],
     fps: number
   ): Promise<void> {
-    let content = '#EXTM3U\n#EXT-X-VERSION:3\n';
+    let content = '#EXTM3U\n#EXT-X-VERSION:6\n';
     for (const t of targets) {
       const bandwidth = (t.bitrate + t.audioBitrate) * 1000;
       // Provide robust CODECS tag for Flutter video_player and HLS.js

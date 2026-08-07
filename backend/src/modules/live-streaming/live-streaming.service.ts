@@ -434,6 +434,20 @@ export class LiveStreamingService {
       );
     }
 
+    const existingVideo = await this.prisma.video.findFirst({
+      where: { hlsUrl: recording.hlsUrl },
+    });
+
+    if (existingVideo) {
+      this.logger.log(`VOD already exists for stream ${streamId}`);
+      return {
+        message: 'VOD already published',
+        recordingId: recording.id,
+        videoId: existingVideo.id,
+        hlsUrl: existingVideo.hlsUrl,
+      };
+    }
+
     // Create a Video entity from the recording
     const video = await this.prisma.video.create({
       data: {
@@ -441,7 +455,7 @@ export class LiveStreamingService {
         uploadedById: userId,
         title: stream.title,
         description: stream.description ?? `VOD for stream ${stream.title}`,
-        slug: `vod-${stream.id}-${Date.now()}`,
+        slug: `vod-${stream.id}-${nanoid(8)}`,
         status: 'READY',
         visibility: 'PUBLIC',
         duration: recording.duration,
@@ -540,8 +554,6 @@ export class LiveStreamingService {
         // Start the stream
         await this.startStream(activeLiveStream.createdById, activeLiveStream.id);
         
-        // Also record session
-        await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
         this.logger.log(`Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`);
       } catch (err: any) {
         if (err instanceof ConflictException) {

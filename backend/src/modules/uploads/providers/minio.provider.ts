@@ -6,6 +6,7 @@ import { IStorageProvider, StorageUploadResult } from './storage.interface.js';
 
 @Injectable()
 export class MinioStorageProvider implements IStorageProvider, OnModuleInit {
+  readonly providerType = 'MINIO';
   private readonly logger = new Logger(MinioStorageProvider.name);
   private minioClient: Minio.Client;
   private readonly bucketName: string;

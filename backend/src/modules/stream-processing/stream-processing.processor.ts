@@ -11,6 +11,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
+import { nanoid } from 'nanoid';
 
 export const STREAM_PROCESSING_QUEUE = 'stream-processing';
 
@@ -83,6 +84,7 @@ export class StreamProcessingProcessor extends WorkerHost {
         { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200, audioBitrate: 128 },
         { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500, audioBitrate: 128 },
         { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000, audioBitrate: 192 },
+        { res: VideoResolution.R_4K, height: 2160, width: 3840, bitrate: 15000, audioBitrate: 192 },
       ].filter((t) => t.height <= videoHeight || t.height === 240);
 
       const hlsMasterPlaylistPath = path.join(outputFolder, 'master.m3u8');
@@ -107,7 +109,7 @@ export class StreamProcessingProcessor extends WorkerHost {
 
       // Upload to storage provider
       let masterUrl = '';
-      const isRemoteStorage = this.storageProvider.constructor.name !== 'LocalStorageProvider';
+      const isRemoteStorage = this.storageProvider.providerType !== 'LOCAL';
       
       if (isRemoteStorage) {
         this.logger.log(`Uploading Live VOD HLS files to remote storage...`);
@@ -154,20 +156,28 @@ export class StreamProcessingProcessor extends WorkerHost {
       });
       
       if (stream) {
-        await this.prisma.video.create({
-          data: {
-            videoChannelId: stream.videoChannelId,
-            uploadedById: stream.createdById,
-            title: stream.title,
-            description: stream.description ?? `VOD for stream ${stream.title}`,
-            slug: `vod-${stream.id}-${Date.now()}`,
-            status: 'READY',
-            visibility: 'PUBLIC',
-            duration: duration,
-            hlsUrl: masterUrl,
-          }
+        const existingVideo = await this.prisma.video.findFirst({
+          where: { hlsUrl: masterUrl }
         });
-        this.logger.log(`Auto-published VOD for stream ${liveStreamId}`);
+        
+        if (!existingVideo) {
+          await this.prisma.video.create({
+            data: {
+              videoChannelId: stream.videoChannelId,
+              uploadedById: stream.createdById,
+              title: stream.title,
+              description: stream.description ?? `VOD for stream ${stream.title}`,
+              slug: `vod-${stream.id}-${nanoid(8)}`,
+              status: 'READY',
+              visibility: 'PUBLIC',
+              duration: duration,
+              hlsUrl: masterUrl,
+            }
+          });
+          this.logger.log(`Auto-published VOD for stream ${liveStreamId}`);
+        } else {
+          this.logger.log(`VOD already exists for stream ${liveStreamId}`);
+        }
       }
 
       this.logger.log(`Finished processing recording ${recordingId}`);
@@ -260,7 +270,7 @@ export class StreamProcessingProcessor extends WorkerHost {
     targets: { height: number; width: number; bitrate: number; audioBitrate: number }[],
     fps: number
   ): Promise<void> {
-    let content = '#EXTM3U\n#EXT-X-VERSION:3\n';
+    let content = '#EXTM3U\n#EXT-X-VERSION:6\n';
     for (const t of targets) {
       const bandwidth = (t.bitrate + t.audioBitrate) * 1000;
       content += `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},AVERAGE-BANDWIDTH=${bandwidth},RESOLUTION=${t.width}x${t.height},FRAME-RATE=${fps.toFixed(3)},CODECS="avc1.4d401f,mp4a.40.2"\n${t.height}p.m3u8\n`;

@@ -9,6 +9,7 @@ export interface StorageUploadResult {
 }
 
 export interface IStorageProvider {
+  readonly providerType: 'LOCAL' | 'CLOUDINARY' | 'S3' | 'MINIO';
   /**
    * Save a buffer/file to storage
    */
