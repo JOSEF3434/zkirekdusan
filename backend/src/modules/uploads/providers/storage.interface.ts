@@ -31,4 +31,9 @@ export interface IStorageProvider {
    * Public URL of stored object
    */
   getUrl(storageKey: string): string;
+
+  /**
+   * Secure, time-limited signed URL for private objects
+   */
+  getSignedUrl(storageKey: string, expiresIn?: number): Promise<string>;
 }

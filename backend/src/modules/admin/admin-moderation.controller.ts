@@ -5,6 +5,7 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('Admin Moderation')
 @Controller('admin/moderation')
@@ -26,6 +27,7 @@ export class AdminModerationController {
   @Patch('cases/:id/resolve')
   @ApiOperation({ summary: 'Resolve a moderation case' })
   async resolveCase(
+    @CurrentUser('sub') actorId: string,
     @Param('id') id: string,
     @Body() dto: { action: string; reason?: string },
   ) {
@@ -37,7 +39,7 @@ export class AdminModerationController {
       await tx.moderationAction.create({
         data: {
           caseId: id,
-          actorId: 'admin-system', // Should come from @CurrentUser
+          actorId,
           action: dto.action,
           reason: dto.reason,
         },

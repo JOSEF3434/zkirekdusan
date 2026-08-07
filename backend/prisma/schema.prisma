@@ -335,6 +335,7 @@ model User {
   // Phase 6/7 Relations
   searchHistory SearchHistory[] @relation("UserSearchHistory")
   reports       Report[]        @relation("UserReports")
+  deviceTokens  DeviceToken[]   @relation("UserDeviceTokens")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2472,3 +2473,23 @@ model AnalyticsAggregate {
 // We also need to add relation names back to User. We can just run a Prisma migration for these models.
 // NOTE: I will manually add the relation for User->Report and User->SearchHistory in the User model later if needed, 
 // but Prisma allows omitting the back-relation on User if not strictly required, though it's best practice.
+
+// ─────────────────────────────────────────────
+// MOBILE PUSH — DEVICE TOKENS
+// ─────────────────────────────────────────────
+
+model DeviceToken {
+  id        String @id @default(uuid())
+  userId    String
+  token     String @unique // FCM registration token
+  platform  String // "ANDROID" | "IOS" | "WEB"
+  deviceId  String? // Optional device fingerprint
+
+  user User @relation("UserDeviceTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  lastSeenAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("device_tokens")
+}

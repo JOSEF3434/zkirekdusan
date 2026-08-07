@@ -56,6 +56,7 @@ import { StreamChatModule } from './modules/stream-chat/stream-chat.module.js';
 import { StreamAnalyticsModule } from './modules/stream-analytics/stream-analytics.module.js';
 import { StreamProcessingModule } from './modules/stream-processing/stream-processing.module.js';
 import { LiveGatewayModule } from './modules/live-gateway/live-gateway.module.js';
+import { StreamHighlightsModule } from './modules/stream-highlights/stream-highlights.module.js';
 
 // Phase 6 — Discovery
 import { SearchModule } from './modules/search/search.module.js';
@@ -65,6 +66,9 @@ import { ExploreModule } from './modules/explore/explore.module.js';
 
 // Phase 7 — Admin Platform
 import { AdminModule } from './modules/admin/admin.module.js';
+
+// Health Check
+import { HealthModule } from './modules/health/health.module.js';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
@@ -119,6 +123,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 
     PrismaModule,
     CommonModule,
+    HealthModule,
 
     // Phase 1 — Foundation
     AuthModule,
@@ -164,6 +169,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     StreamAnalyticsModule,
     StreamProcessingModule,
     LiveGatewayModule,
+    StreamHighlightsModule,
 
     // Phase 6 — Discovery
     SearchModule,

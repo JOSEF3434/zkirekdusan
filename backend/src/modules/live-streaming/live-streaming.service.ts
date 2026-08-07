@@ -434,12 +434,27 @@ export class LiveStreamingService {
       );
     }
 
-    // Here we could create a Video entity from the recording
-    this.logger.log(`VOD published for stream ${streamId} by user ${userId}`);
+    // Create a Video entity from the recording
+    const video = await this.prisma.video.create({
+      data: {
+        videoChannelId: stream.videoChannelId,
+        uploadedById: userId,
+        title: stream.title,
+        description: stream.description ?? `VOD for stream ${stream.title}`,
+        slug: `vod-${stream.id}-${Date.now()}`,
+        status: 'READY',
+        visibility: 'PUBLIC',
+        duration: recording.duration,
+        hlsUrl: recording.hlsUrl,
+      },
+    });
+
+    this.logger.log(`VOD published for stream ${streamId} by user ${userId}. Video ID: ${video.id}`);
     return {
       message: 'VOD published successfully',
       recordingId: recording.id,
-      hlsUrl: recording.hlsUrl,
+      videoId: video.id,
+      hlsUrl: video.hlsUrl,
     };
   }
 
@@ -507,22 +522,45 @@ export class LiveStreamingService {
     };
   }
 
-  /** Internal method for RTMP server webhook validation */
-  async validateStreamKey(
-    key: string,
-  ): Promise<{ streamId: string | null; channelId: string | null }> {
-    const keyHash = createHash('sha256').update(key).digest('hex');
+  /** Nginx-RTMP on_publish webhook handler */
+  async handleRtmpOnPublish(streamKeyName: string): Promise<void> {
+    const keyHash = createHash('sha256').update(streamKeyName).digest('hex');
     const streamKey = await this.repository.getStreamKeyByHash(keyHash);
 
-    if (!streamKey || !streamKey.isActive)
-      return { streamId: null, channelId: null };
+    if (!streamKey || !streamKey.isActive) {
+      this.logger.warn(`Invalid or inactive stream key used: ${streamKeyName.substring(0, 8)}...`);
+      throw new ForbiddenException('Invalid stream key');
+    }
 
     await this.repository.updateStreamKeyUsedAt(streamKey.id);
 
     const activeLiveStream = streamKey.videoChannel?.liveStreams?.[0];
-    return {
-      streamId: activeLiveStream?.id ?? null,
-      channelId: streamKey.videoChannelId,
-    };
+    if (activeLiveStream) {
+      // Start the stream
+      await this.startStream(activeLiveStream.createdById, activeLiveStream.id);
+      
+      // Also record session
+      await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
+      this.logger.log(`Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`);
+    } else {
+      this.logger.warn(`Valid stream key but no active LIVE stream configured for channel ${streamKey.videoChannelId}`);
+      // In a real system you might auto-create a stream, but here we require one to be created first
+      throw new ForbiddenException('No active stream configured for this channel');
+    }
+  }
+
+  /** Nginx-RTMP on_done webhook handler */
+  async handleRtmpOnDone(streamKeyName: string): Promise<void> {
+    const keyHash = createHash('sha256').update(streamKeyName).digest('hex');
+    const streamKey = await this.repository.getStreamKeyByHash(keyHash);
+
+    if (!streamKey) return;
+
+    const activeLiveStream = streamKey.videoChannel?.liveStreams?.[0];
+    if (activeLiveStream) {
+      // End the stream securely
+      await this.endStream(activeLiveStream.createdById, activeLiveStream.id);
+      this.logger.log(`Nginx-RTMP on_done handled for stream ${activeLiveStream.id}`);
+    }
   }
 }

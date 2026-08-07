@@ -12,6 +12,7 @@ import {
   DefaultValuePipe,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -210,14 +211,32 @@ export class StreamsController {
     return this.liveStreamingService.publishVod(userId, streamId);
   }
 
-  @Post('rtmp/webhook/validate-key')
+  @Post('rtmp/webhook/on_publish')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Internal RTMP server webhook: validate stream key',
+    summary: 'Nginx-RTMP webhook: Triggered when a stream starts publishing',
   })
-  async validateStreamKey(@Body('key') key: string) {
-    if (!key) return { valid: false };
-    const result = await this.liveStreamingService.validateStreamKey(key);
-    return { valid: result.streamId !== null, ...result };
+  async onPublish(@Body() body: any) {
+    // Nginx-RTMP sends stream key in the 'name' field
+    const streamKey = body.name;
+    if (!streamKey) {
+      throw new BadRequestException('Stream key missing');
+    }
+    await this.liveStreamingService.handleRtmpOnPublish(streamKey);
+    return 'OK'; // 200 OK tells Nginx to allow the stream
+  }
+
+  @Post('rtmp/webhook/on_done')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Nginx-RTMP webhook: Triggered when a stream ends',
+  })
+  async onDone(@Body() body: any) {
+    const streamKey = body.name;
+    if (!streamKey) {
+      return 'OK';
+    }
+    await this.liveStreamingService.handleRtmpOnDone(streamKey);
+    return 'OK';
   }
 }

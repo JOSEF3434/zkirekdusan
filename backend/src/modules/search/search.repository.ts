@@ -74,6 +74,73 @@ export class SearchRepository {
     });
   }
 
+  async searchVideos(query: string, limit: number, skip: number) {
+    // Implementing PostgreSQL FTS query for videos as requested
+    const searchTerms = query.trim().split(/\s+/).join(' | ');
+    if (!searchTerms) return [];
+
+    // Using raw query for FTS on title and description
+    // to_tsvector('english', title || ' ' || coalesce(description, '')) @@ to_tsquery('english', $1)
+    const videos = await this.prisma.$queryRaw`
+      SELECT id, title, description, slug, "thumbnailUrl", "viewsCount"
+      FROM videos
+      WHERE 
+        status = 'READY' AND 
+        visibility = 'PUBLIC' AND
+        (to_tsvector('english', title || ' ' || coalesce(description, '')) @@ to_tsquery('english', ${searchTerms})
+         OR title ILIKE ${'%' + query + '%'})
+      ORDER BY "viewsCount" DESC, "createdAt" DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `;
+
+    return videos;
+  }
+
+  async searchReels(query: string, limit: number, skip: number) {
+    return this.prisma.reel.findMany({
+      where: {
+        description: { contains: query, mode: 'insensitive' },
+        visibility: 'PUBLIC',
+      },
+      select: {
+        id: true,
+        description: true,
+        thumbnailUrl: true,
+        viewsCount: true,
+        author: {
+          select: { username: true }
+        }
+      },
+      take: limit,
+      skip,
+      orderBy: { viewsCount: 'desc' },
+    });
+  }
+
+  async searchLiveStreams(query: string, limit: number, skip: number) {
+    return this.prisma.liveStream.findMany({
+      where: {
+        title: { contains: query, mode: 'insensitive' },
+        visibility: 'PUBLIC',
+        status: { in: ['LIVE', 'SCHEDULED'] }
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        currentViewerCount: true,
+        scheduledAt: true,
+        createdBy: { select: { username: true } }
+      },
+      take: limit,
+      skip,
+      orderBy: [
+        { status: 'asc' }, // LIVE before SCHEDULED
+        { currentViewerCount: 'desc' }
+      ]
+    });
+  }
+
   async recordSearchHistory(
     userId: string,
     query: string,

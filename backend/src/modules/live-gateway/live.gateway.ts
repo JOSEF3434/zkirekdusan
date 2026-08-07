@@ -145,13 +145,14 @@ export class LiveGateway
     if (!token) return null;
     try {
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       });
       return payload.sub as string;
     } catch {
       return null;
     }
   }
+
 
   private extractToken(client: Socket): string | null {
     const authHeader = client.handshake.headers.authorization;

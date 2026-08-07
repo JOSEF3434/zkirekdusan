@@ -62,4 +62,10 @@ export class LocalStorageProvider implements IStorageProvider {
   getUrl(storageKey: string): string {
     return `${this.baseUrl}/uploads/${storageKey}`;
   }
+
+  async getSignedUrl(storageKey: string, expiresIn?: number): Promise<string> {
+    // For local development, signed URLs just return the public URL
+    // In a real local production scenario, we'd add JWT query parameters
+    return Promise.resolve(`${this.baseUrl}/uploads/${storageKey}`);
+  }
 }

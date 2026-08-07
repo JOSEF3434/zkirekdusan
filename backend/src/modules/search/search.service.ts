@@ -38,14 +38,32 @@ export class SearchService {
           posts: await this.searchRepository.searchPosts(q, limit, skip),
         };
         break;
+      case SearchEntityType.VIDEOS:
+        results = {
+          videos: await this.searchRepository.searchVideos(q, limit, skip),
+        };
+        break;
+      case SearchEntityType.REELS:
+        results = {
+          reels: await this.searchRepository.searchReels(q, limit, skip),
+        };
+        break;
+      case SearchEntityType.STREAMS:
+        results = {
+          streams: await this.searchRepository.searchLiveStreams(q, limit, skip),
+        };
+        break;
       default: {
         // Unified search
-        const [users, groups, posts] = await Promise.all([
+        const [users, groups, posts, videos, reels, streams] = await Promise.all([
           this.searchRepository.searchUsers(q, 5, 0),
           this.searchRepository.searchGroups(q, 5, 0),
           this.searchRepository.searchPosts(q, 5, 0),
+          this.searchRepository.searchVideos(q, 5, 0),
+          this.searchRepository.searchReels(q, 5, 0),
+          this.searchRepository.searchLiveStreams(q, 5, 0),
         ]);
-        results = { users, groups, posts };
+        results = { users, groups, posts, videos, reels, streams };
       }
     }
 

@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import path from 'path';
 import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './app.module.js';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter.js';
 
@@ -44,13 +45,27 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Graceful shutdown for container environments (Kubernetes, Docker, Render)
+  app.enableShutdownHooks();
+
   // Security Hardening (Phase 8)
   app.use(helmet());
 
-  // Enable CORS
+  // Gzip compression for all HTTP responses
+  app.use(compression());
+
+  // CORS — read allowed origins from env (comma-separated list)
+  // Falls back to allowing all origins in non-production environments
+  const corsOrigins = process.env.CORS_ORIGINS;
   app.enableCors({
-    origin: true,
+    origin: corsOrigins
+      ? corsOrigins.split(',').map((o) => o.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false // block all in production if not configured
+        : true, // allow all in development
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Global Validation Pipe with automatic payload transformation

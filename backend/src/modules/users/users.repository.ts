@@ -124,12 +124,22 @@ export class UsersRepository {
   }
 
   async incrementFailedLogin(userId: string) {
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         failedLoginAttempts: { increment: 1 },
       },
     });
+
+    if (user.failedLoginAttempts >= 5) {
+      const lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+      return this.prisma.user.update({
+        where: { id: userId },
+        data: { lockedUntil },
+      });
+    }
+
+    return user;
   }
 
   async saveRefreshToken(userId: string, tokenHash: string, expiresAt: Date) {

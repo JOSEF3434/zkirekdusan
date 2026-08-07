@@ -4,6 +4,8 @@ import { NotificationType } from '@prisma/client';
 import { NotificationsRepository } from './notifications.repository.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
 import { NotificationsGateway } from './notifications.gateway.js';
+import { FirebaseService } from './firebase.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 export class NotificationsService {
@@ -11,6 +13,8 @@ export class NotificationsService {
     private readonly notificationsRepository: NotificationsRepository,
     @Inject(forwardRef(() => NotificationsGateway))
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly firebaseService: FirebaseService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ── Create (used internally by other services) ─────────────────────────────
@@ -24,10 +28,26 @@ export class NotificationsService {
     const notif = await this.notificationsRepository.create(payload);
     const dto = this.mapToDto(notif);
 
-    // Push real-time notification
+    // 1. Push real-time Socket.IO notification
     this.notificationsGateway.emitNotification(payload.userId, dto);
 
+    // 2. Push FCM mobile notification (fire-and-forget)
+    this.sendPushToUser(payload.userId, payload.title, payload.body).catch(() => null);
+
     return dto;
+  }
+
+  private async sendPushToUser(userId: string, title: string, body: string): Promise<void> {
+    const tokens = await this.prisma.deviceToken.findMany({
+      where: { userId },
+      select: { token: true },
+    });
+    if (tokens.length === 0) return;
+    await this.firebaseService.sendMulticast({
+      tokens: tokens.map((t) => t.token),
+      title,
+      body,
+    });
   }
 
   // ── Factory helpers ────────────────────────────────────────────────────────

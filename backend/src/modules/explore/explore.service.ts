@@ -6,15 +6,26 @@ export class ExploreService {
   constructor(private readonly trendingService: TrendingService) {}
 
   async getExploreContent() {
-    const [trendingPosts, trendingVideos] = await Promise.all([
+    const [
+      trendingPosts,
+      trendingVideos,
+      trendingReels,
+      trendingStreams,
+      trendingChannels,
+    ] = await Promise.all([
       this.trendingService.getTrending('POSTS', 1, 5),
       this.trendingService.getTrending('VIDEOS', 1, 5),
+      this.trendingService.getTrending('REELS', 1, 5),
+      this.trendingService.getTrending('STREAMS', 1, 5),
+      this.trendingService.getTrending('CHANNELS', 1, 5),
     ]);
 
     return {
       trendingPosts: trendingPosts.data,
       trendingVideos: trendingVideos.data,
-      // In a real app we'd fetch categories, hashtags, live streams, etc.
+      trendingReels: trendingReels.data,
+      trendingStreams: trendingStreams.data,
+      trendingChannels: trendingChannels.data,
     };
   }
 }
