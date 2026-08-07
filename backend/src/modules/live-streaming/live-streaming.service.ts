@@ -536,12 +536,22 @@ export class LiveStreamingService {
 
     const activeLiveStream = streamKey.videoChannel?.liveStreams?.[0];
     if (activeLiveStream) {
-      // Start the stream
-      await this.startStream(activeLiveStream.createdById, activeLiveStream.id);
-      
-      // Also record session
-      await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
-      this.logger.log(`Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`);
+      try {
+        // Start the stream
+        await this.startStream(activeLiveStream.createdById, activeLiveStream.id);
+        
+        // Also record session
+        await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
+        this.logger.log(`Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`);
+      } catch (err: any) {
+        if (err instanceof ConflictException) {
+          this.logger.log(`Stream ${activeLiveStream.id} is already LIVE (Reconnect detected)`);
+          // Record a new session for the reconnect
+          await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
+        } else {
+          throw err;
+        }
+      }
     } else {
       this.logger.warn(`Valid stream key but no active LIVE stream configured for channel ${streamKey.videoChannelId}`);
       // In a real system you might auto-create a stream, but here we require one to be created first

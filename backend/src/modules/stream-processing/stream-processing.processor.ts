@@ -1,18 +1,32 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ProcessRecordingJobData } from './stream-processing.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { StreamRecordingStatus } from '@prisma/client';
+import { StreamRecordingStatus, VideoResolution, FileProvider } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import type { IStorageProvider } from '../uploads/providers/storage.interface.js';
+import { STORAGE_PROVIDER_TOKEN } from '../uploads/providers/storage.factory.js';
+import path from 'path';
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
+import ffmpeg from 'fluent-ffmpeg';
 
 export const STREAM_PROCESSING_QUEUE = 'stream-processing';
 
 @Processor(STREAM_PROCESSING_QUEUE)
 export class StreamProcessingProcessor extends WorkerHost {
   private readonly logger = new Logger(StreamProcessingProcessor.name);
+  private readonly uploadsDir: string;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+    @Inject(STORAGE_PROVIDER_TOKEN)
+    private readonly storageProvider: IStorageProvider,
+  ) {
     super();
+    this.uploadsDir = path.resolve(process.cwd(), 'uploads');
   }
 
   async process(job: Job<ProcessRecordingJobData>): Promise<void> {
@@ -36,83 +50,222 @@ export class StreamProcessingProcessor extends WorkerHost {
     });
 
     try {
-      // 2. Real FFmpeg HLS Transcoding
-      // Assume the input recording is a standard MP4 or FLV dropped by Nginx-RTMP
-      // We will transcode it to HLS (360p, 720p)
+      // 2. Real FFmpeg HLS Transcoding for ABR ladder
+      const absoluteSourcePath = path.isAbsolute(_recordingPath)
+        ? _recordingPath
+        : path.join(this.uploadsDir, _recordingPath);
+
+      if (!existsSync(absoluteSourcePath)) {
+        throw new Error(`Recording file not found at ${absoluteSourcePath}`);
+      }
+
+      // Output directory
+      const outputFolder = path.join(this.uploadsDir, `hls_${recordingId}`);
+      await fs.mkdir(outputFolder, { recursive: true });
+
+      // Probe meta for duration, resolution and fps
+      const meta = await this.probeMetadata(absoluteSourcePath);
+      const videoWidth = meta.width || 1280;
+      const videoHeight = meta.height || 720;
+      const duration = meta.duration || 0;
+      const fps = meta.fps || 30;
+
+      // Target resolutions
+      const targets: {
+        res: VideoResolution;
+        height: number;
+        width: number;
+        bitrate: number;
+        audioBitrate: number;
+      }[] = [
+        { res: VideoResolution.R_240P, height: 240, width: 426, bitrate: 400, audioBitrate: 64 },
+        { res: VideoResolution.R_360P, height: 360, width: 640, bitrate: 800, audioBitrate: 96 },
+        { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200, audioBitrate: 128 },
+        { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500, audioBitrate: 128 },
+        { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000, audioBitrate: 192 },
+      ].filter((t) => t.height <= videoHeight || t.height === 240);
+
+      const hlsMasterPlaylistPath = path.join(outputFolder, 'master.m3u8');
       
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      const ffmpeg = (await import('fluent-ffmpeg')).default;
+      for (const target of targets) {
+        const resFileName = `${target.height}p.m3u8`;
+        const resPath = path.join(outputFolder, resFileName);
+
+        await this.transcodeToHLS(
+          absoluteSourcePath,
+          resPath,
+          target.width,
+          target.height,
+          target.bitrate,
+          target.audioBitrate,
+          fps
+        );
+      }
+
+      // Build Master Playlist
+      await this.buildMasterPlaylist(hlsMasterPlaylistPath, targets, fps);
+
+      // Upload to storage provider
+      let masterUrl = '';
+      const isRemoteStorage = this.storageProvider.constructor.name !== 'LocalStorageProvider';
       
-      // Resolve paths (in a real scenario, this would pull from storage provider to local tmp, process, then upload back)
-      // For this implementation, we assume local file system access to recordings
-      const inputPath = path.resolve(process.cwd(), 'uploads', _recordingPath);
-      const outputDir = path.resolve(process.cwd(), 'uploads', `hls_${recordingId}`);
-      const masterPlaylistPath = path.join(outputDir, 'master.m3u8');
-      
-      // Ensure output directory exists
-      await fs.mkdir(outputDir, { recursive: true });
+      if (isRemoteStorage) {
+        this.logger.log(`Uploading Live VOD HLS files to remote storage...`);
+        const files: string[] = await fs.readdir(outputFolder);
+        for (const file of files) {
+          if (file.endsWith('.m3u8') || file.endsWith('.ts')) {
+            const filePath = path.join(outputFolder, file);
+            const buffer = await fs.readFile(filePath);
+            const mimeType = file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/MP2T';
+            
+            const res = await this.storageProvider.upload({
+              buffer,
+              originalname: file,
+              mimetype: mimeType,
+              size: buffer.length,
+            }, `recordings/${recordingId}`);
+            
+            if (file === 'master.m3u8') {
+              masterUrl = res.url;
+            }
+            await fs.unlink(filePath).catch(() => {});
+          }
+        }
+      } else {
+        const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+        const masterRelPath = `hls_${recordingId}/master.m3u8`.replace(/\\/g, '/');
+        masterUrl = `${appUrl}/uploads/${masterRelPath}`;
+      }
 
-      // Run FFmpeg to generate HLS
-      await new Promise<void>((resolve, reject) => {
-        ffmpeg(inputPath)
-          // Video settings
-          .videoCodec('libx264')
-          .audioCodec('aac')
-          .outputOptions([
-            '-profile:v main',
-            '-sc_threshold 0',
-            '-g 48',
-            '-keyint_min 48',
-            '-hls_time 4',
-            '-hls_playlist_type vod',
-            '-b:v 2500k',
-            '-maxrate 2675k',
-            '-bufsize 3750k',
-            '-b:a 128k',
-            '-hls_segment_filename',
-            path.join(outputDir, '720p_%03d.ts')
-          ])
-          .output(path.join(outputDir, '720p.m3u8'))
-          .on('end', () => resolve())
-          .on('error', (err) => {
-            this.logger.error('FFmpeg HLS error', err);
-            reject(err);
-          })
-          .run();
-      });
-
-      // Write master playlist
-      const masterContent = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8\n`;
-      await fs.writeFile(masterPlaylistPath, masterContent);
-
-      // (We would normally upload the outputDir to S3/MinIO here using StorageProvider)
-
-      const mockHlsUrl = `/uploads/hls_${recordingId}/master.m3u8`;
-
-      // 3. Mark as READY
+      // 3. Mark Recording as READY
       await this.prisma.streamRecording.update({
         where: { id: recordingId },
         data: {
           status: StreamRecordingStatus.READY,
-          hlsUrl: mockHlsUrl,
-          // Extract actual duration in a full implementation via ffprobe
-          duration: 3600, 
+          hlsUrl: masterUrl,
+          duration: duration,
           completedAt: new Date(),
         },
       });
+
+      // 4. Auto-publish VOD
+      const stream = await this.prisma.liveStream.findUnique({
+        where: { id: liveStreamId }
+      });
+      
+      if (stream) {
+        await this.prisma.video.create({
+          data: {
+            videoChannelId: stream.videoChannelId,
+            uploadedById: stream.createdById,
+            title: stream.title,
+            description: stream.description ?? `VOD for stream ${stream.title}`,
+            slug: `vod-${stream.id}-${Date.now()}`,
+            status: 'READY',
+            visibility: 'PUBLIC',
+            duration: duration,
+            hlsUrl: masterUrl,
+          }
+        });
+        this.logger.log(`Auto-published VOD for stream ${liveStreamId}`);
+      }
 
       this.logger.log(`Finished processing recording ${recordingId}`);
     } catch (error) {
       this.logger.error(`Failed to process recording ${recordingId}`, error);
 
-      // 4. Mark as FAILED on error
       await this.prisma.streamRecording.update({
         where: { id: recordingId },
         data: { status: StreamRecordingStatus.FAILED },
       });
       throw error;
     }
+  }
+
+  private probeMetadata(filePath: string): Promise<{
+    duration?: number;
+    width?: number;
+    height?: number;
+    bitrate?: number;
+    fps?: number;
+  }> {
+    return new Promise((resolve) => {
+      ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err || !metadata) {
+          return resolve({ duration: 0, width: 1280, height: 720, bitrate: 2000, fps: 30 });
+        }
+        const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
+        let fps = 30;
+        if (videoStream?.r_frame_rate) {
+          const parts = videoStream.r_frame_rate.split('/');
+          if (parts.length === 2 && parseInt(parts[1]) > 0) {
+            fps = Math.round(parseInt(parts[0]) / parseInt(parts[1]));
+          }
+        }
+        resolve({
+          duration: metadata.format.duration || 0,
+          width: videoStream?.width || 1280,
+          height: videoStream?.height || 720,
+          bitrate: metadata.format.bit_rate ? Math.round(metadata.format.bit_rate / 1000) : 2000,
+          fps: isNaN(fps) ? 30 : fps,
+        });
+      });
+    });
+  }
+
+  private transcodeToHLS(
+    sourcePath: string,
+    outputPath: string,
+    width: number,
+    height: number,
+    bitrateKbps: number,
+    audioBitrateKbps: number,
+    fps: number
+  ): Promise<void> {
+    const gop = fps * 2;
+    return new Promise((resolve, reject) => {
+      ffmpeg(sourcePath)
+        .outputOptions([
+          `-vf scale=${width}:${height}`,
+          `-b:v ${bitrateKbps}k`,
+          '-maxrate ' + Math.round(bitrateKbps * 1.07) + 'k',
+          '-bufsize ' + Math.round(bitrateKbps * 1.5) + 'k',
+          '-c:v libx264',
+          '-preset faster',
+          '-crf 23',
+          `-g ${gop}`,
+          `-keyint_min ${gop}`,
+          '-sc_threshold 0',
+          '-c:a aac',
+          `-b:a ${audioBitrateKbps}k`,
+          // LL-HLS flags for live recordings
+          '-hls_time 2',
+          '-hls_list_size 0',
+          '-hls_flags independent_segments+delete_segments',
+          '-hls_playlist_type vod',
+          `-hls_segment_filename ${path.dirname(outputPath)}/${height}p_%06d.ts`,
+        ])
+        .output(outputPath)
+        .on('end', () => resolve())
+        .on('error', (err) => {
+          this.logger.warn(`HLS Transcoding for ${height}p failed: ${err.message}`);
+          reject(err);
+        })
+        .run();
+    });
+  }
+
+  private async buildMasterPlaylist(
+    masterPath: string,
+    targets: { height: number; width: number; bitrate: number; audioBitrate: number }[],
+    fps: number
+  ): Promise<void> {
+    let content = '#EXTM3U\n#EXT-X-VERSION:3\n';
+    for (const t of targets) {
+      const bandwidth = (t.bitrate + t.audioBitrate) * 1000;
+      content += `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},AVERAGE-BANDWIDTH=${bandwidth},RESOLUTION=${t.width}x${t.height},FRAME-RATE=${fps.toFixed(3)},CODECS="avc1.4d401f,mp4a.40.2"\n${t.height}p.m3u8\n`;
+    }
+    await fs.writeFile(masterPath, content);
   }
 
   @OnWorkerEvent('failed')

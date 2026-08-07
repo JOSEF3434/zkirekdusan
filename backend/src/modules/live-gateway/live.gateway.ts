@@ -83,6 +83,10 @@ export class LiveGateway
   private readonly viewerSessions = new Map<string, ViewerSession>();
   // Rate limiting: userId:type → RateLimit
   private readonly rateLimits = new Map<string, RateLimit>();
+  
+  // Quality reports aggregation: streamId -> bandwidth array
+  private readonly qualityReports = new Map<string, number[]>();
+  private healthBroadcastInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly jwtService: JwtService,
@@ -95,6 +99,40 @@ export class LiveGateway
 
   afterInit(_server: Server) {
     this.logger.log('📡 LiveGateway initialized on /live namespace');
+    
+    // Broadcast stream health every 30 seconds
+    this.healthBroadcastInterval = setInterval(() => {
+      this.broadcastStreamHealth();
+    }, 30000);
+  }
+
+  private broadcastStreamHealth() {
+    for (const [streamId, bandwidths] of this.qualityReports.entries()) {
+      if (bandwidths.length === 0) continue;
+      
+      const avgBandwidth = bandwidths.reduce((a, b) => a + b, 0) / bandwidths.length;
+      const sorted = [...bandwidths].sort((a, b) => a - b);
+      const p50 = sorted[Math.floor(sorted.length * 0.5)];
+      const p95 = sorted[Math.floor(sorted.length * 0.95)];
+      
+      let health = 'GOOD';
+      if (p50 < 1000) health = 'POOR';
+      else if (p50 < 2500) health = 'FAIR';
+
+      // Emit to stream room (frontend should restrict this view to mods/broadcaster)
+      this.server.to(`stream:${streamId}`).emit('stream:health', {
+        streamId,
+        health,
+        avgBandwidth,
+        p50,
+        p95,
+        reportsCount: bandwidths.length,
+        timestamp: Date.now(),
+      });
+      
+      // Clear reports for next window
+      this.qualityReports.set(streamId, []);
+    }
   }
 
   handleConnection(client: Socket) {
@@ -535,13 +573,18 @@ export class LiveGateway
     @MessageBody()
     payload: { streamId: string; quality: string; bandwidth: number },
   ) {
-    // ABR quality feedback loop — currently logged for analytics
-    // Future: aggregate and push quality:recommend to viewer
+    // ABR quality feedback loop
     if (payload.bandwidth < 500) {
       // Low bandwidth — recommend lower quality
       client.emit(LIVE_EVENTS.QUALITY_RECOMMEND, { quality: '240p' });
     } else if (payload.bandwidth > 4000) {
       client.emit(LIVE_EVENTS.QUALITY_RECOMMEND, { quality: '1080p' });
     }
+    
+    // Aggregate for health dashboard
+    if (!this.qualityReports.has(payload.streamId)) {
+      this.qualityReports.set(payload.streamId, []);
+    }
+    this.qualityReports.get(payload.streamId)!.push(payload.bandwidth);
   }
 }
