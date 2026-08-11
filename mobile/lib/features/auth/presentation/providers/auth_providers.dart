@@ -72,13 +72,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final isAuth = await _repository.isAuthenticated();
       if (isAuth) {
-        final user = await _repository.getCachedUser();
-        state = AuthState(status: AuthStatus.authenticated, user: user);
+        // Fallback to cached user immediately for fast UI
+        final cachedUser = await _repository.getCachedUser();
+        state = AuthState(status: AuthStatus.authenticated, user: cachedUser);
+        
+        // Then verify with backend (silently refreshes if needed due to interceptor)
+        final freshUser = await _repository.fetchMe();
+        state = AuthState(status: AuthStatus.authenticated, user: freshUser);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (_) {
-      state = const AuthState(status: AuthStatus.unauthenticated);
+      // If fetchMe fails (e.g. refresh failed, network error), we drop to unauthenticated.
+      // Or we could stay authenticated if it's just a network error, but the interceptor 
+      // will clear the session if the refresh token is invalid.
+      final isAuthNow = await _repository.isAuthenticated();
+      if (isAuthNow) {
+        final cachedUser = await _repository.getCachedUser();
+        state = AuthState(status: AuthStatus.authenticated, user: cachedUser);
+      } else {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
 // Concrete implementation: delegates to datasource + manages token storage
+// ignore_for_file: prefer_initializing_formals
 
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -23,9 +24,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required AuthRemoteDatasource remote,
     required StorageService storage,
-  })  // ignore: prefer_initializing_formals
-      : _remote = remote,
-        // ignore: prefer_initializing_formals
+  })  : _remote = remote,
         _storage = storage;
 
   @override
@@ -88,6 +87,20 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthUser> fetchMe() async {
+    final model = await _remote.me();
+    // Update local cache with fresh data
+    await Future.wait([
+      _storage.saveToken(model.id, key: _kUserId),
+      _storage.saveToken(model.role, key: _kUserRole),
+      if (model.email != null) _storage.saveToken(model.email!, key: _kUserEmail),
+      if (model.phoneNumber != null) _storage.saveToken(model.phoneNumber!, key: _kUserPhone),
+      if (model.username != null) _storage.saveToken(model.username!, key: _kUsername),
+    ]);
+    return _modelToEntity(model);
+  }
+
+  @override
   Future<bool> isAuthenticated() async {
     final token = await _storage.getToken(key: _kAccessToken);
     return token != null && token.isNotEmpty;
@@ -112,7 +125,8 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> _persistSession(AuthResponseModel response) async {
     await Future.wait([
       _storage.saveToken(response.accessToken, key: _kAccessToken),
-      _storage.saveToken(response.refreshToken, key: _kRefreshToken),
+      if (response.refreshToken != null && response.refreshToken!.isNotEmpty)
+        _storage.saveToken(response.refreshToken!, key: _kRefreshToken),
       _storage.saveToken(response.user.id, key: _kUserId),
       _storage.saveToken(response.user.role, key: _kUserRole),
       if (response.user.email != null)

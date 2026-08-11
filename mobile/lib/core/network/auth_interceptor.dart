@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/utils/logger.dart';
 import 'package:mobile/app/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 
 const _kAccessToken = 'access_token';
 const _kRefreshToken = 'refresh_token';
@@ -94,8 +95,9 @@ class AuthInterceptor extends Interceptor {
     await storage.deleteToken(key: _kRefreshToken);
 
     try {
-      final router = _ref.read(routerProvider);
-      router.go('/login');
+      if (rootNavigatorKey.currentContext != null) {
+        rootNavigatorKey.currentContext!.go('/login');
+      }
     } catch (_) {
       // Router may not be ready (e.g., during startup)
     }

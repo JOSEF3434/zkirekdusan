@@ -9,12 +9,19 @@ import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
 import 'package:mobile/features/home/presentation/home_screen.dart';
 import 'package:mobile/features/profile/presentation/profile_screen.dart';
+import 'package:mobile/features/explore/presentation/explore_screen.dart';
+import 'package:mobile/features/upload/presentation/upload_screen.dart';
+import 'package:mobile/features/chats/presentation/chats_screen.dart';
+import 'package:mobile/features/player/presentation/video_player_screen.dart';
+import 'package:mobile/core/presentation/app_shell.dart';
+import 'package:flutter/material.dart';
+
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
-    // Redirect logic: prevents logged-in users from seeing Auth screens
-    // and logged-out users from seeing Home/Profile screens.
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       
@@ -23,19 +30,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       final isSplashRoute = state.matchedLocation == '/';
       
-      // If we are still checking auth, stay on splash
       if (authState.status == AuthStatus.unknown) {
         return isSplashRoute ? null : '/';
       }
       
-      // If authenticated and trying to access auth/splash screens, go home
       if (authState.status == AuthStatus.authenticated) {
         if (isAuthRoute || isSplashRoute) {
           return '/home';
         }
       }
       
-      // If unauthenticated and trying to access protected screens, go to login
       if (authState.status == AuthStatus.unauthenticated) {
         if (!isAuthRoute && !isSplashRoute) {
           return '/login';
@@ -58,12 +62,58 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomeScreen(),
+        path: '/video/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return VideoPlayerScreen(videoId: id);
+        },
       ),
-      GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return AppShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/explore',
+                builder: (context, state) => const ExploreScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/upload',
+                builder: (context, state) => const UploadScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/chats',
+                builder: (context, state) => const ChatsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );

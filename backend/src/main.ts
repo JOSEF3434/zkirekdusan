@@ -56,16 +56,52 @@ async function bootstrap() {
 
   // CORS — read allowed origins from env (comma-separated list)
   // Falls back to allowing all origins in non-production environments
-  const corsOrigins = process.env.CORS_ORIGINS;
+  // CORS
+  const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = new Set(configuredOrigins);
+
   app.enableCors({
-    origin: corsOrigins
-      ? corsOrigins.split(',').map((o) => o.trim())
-      : process.env.NODE_ENV === 'production'
-        ? false // block all in production if not configured
-        : true, // allow all in development
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+
+      if (
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error(`CORS: Origin ${origin} is not allowed`),
+        false,
+      );
+    },
+
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
+
+    exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
+
+    optionsSuccessStatus: 204,
   });
 
   // Global Validation Pipe with automatic payload transformation

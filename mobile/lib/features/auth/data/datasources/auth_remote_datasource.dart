@@ -29,7 +29,7 @@ class AuthRemoteDatasource {
       if (lastName != null && lastName.isNotEmpty) body['lastName'] = lastName;
 
       final response = await _dio.post('/auth/register', data: body);
-      return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
+      return AuthResponseModel.fromJson(_parseEnvelope(response.data));
     } on DioException catch (e) {
       throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
     }
@@ -50,7 +50,7 @@ class AuthRemoteDatasource {
       if (username != null && username.isNotEmpty) body['username'] = username;
 
       final response = await _dio.post('/auth/login', data: body);
-      return AuthResponseModel.fromJson(response.data as Map<String, dynamic>);
+      return AuthResponseModel.fromJson(_parseEnvelope(response.data));
     } on DioException catch (e) {
       throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
     }
@@ -65,7 +65,7 @@ class AuthRemoteDatasource {
         data: {'refreshToken': refreshToken},
         options: Options(extra: {'skipAuth': true}), // skip auth interceptor on this call
       );
-      final data = response.data as Map<String, dynamic>;
+      final data = _parseEnvelope(response.data);
       return {
         'accessToken': data['accessToken'] as String,
         'refreshToken': data['refreshToken'] as String,
@@ -87,6 +87,18 @@ class AuthRemoteDatasource {
     }
   }
 
+  /// GET /auth/me
+  /// Retrieves the current user's details
+  Future<AuthUserModel> me() async {
+    try {
+      final response = await _dio.get('/auth/me');
+      final data = _parseEnvelope(response.data);
+      return AuthUserModel.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
+    }
+  }
+
   String _parseDioError(DioException e) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
@@ -103,5 +115,29 @@ class AuthRemoteDatasource {
       default:
         return 'An unexpected error occurred.';
     }
+  }
+
+  Map<String, dynamic> _parseEnvelope(dynamic data) {
+    Map<String, dynamic> map;
+    if (data is Map<String, dynamic>) {
+      map = data;
+    } else if (data is Map) {
+      map = data.cast<String, dynamic>();
+    } else {
+      throw AppException('Unexpected response format from server (not JSON map).');
+    }
+
+    if (map.containsKey('success') && map.containsKey('data')) {
+      if (map['success'] != true) {
+        throw AppException(map['message']?.toString() ?? 'Request failed');
+      }
+      final payload = map['data'];
+      if (payload is Map<String, dynamic>) return payload;
+      if (payload is Map) return payload.cast<String, dynamic>();
+      throw AppException('Unexpected payload format in envelope (data is not a JSON map).');
+    }
+
+    // Fallback if the backend stops using the envelope format
+    return map;
   }
 }

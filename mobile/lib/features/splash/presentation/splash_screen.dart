@@ -27,14 +27,25 @@ class SplashScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.stream_rounded,
-              size: 72,
-              color: Theme.of(context).colorScheme.primary,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/images/logo.jpg',
+                width: 120,
+                height: 120,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.stream_rounded,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary,
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 24),
             Text(
-              'StreamHub',
+              'ዝክረ ክዱሳን',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,

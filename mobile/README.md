@@ -1,6 +1,7 @@
 # mobile
 
-A new Flutter project.
+## flutter run -d emulator-5554
+### flutter run -d emulator-5554
 
 ## Getting Started
 

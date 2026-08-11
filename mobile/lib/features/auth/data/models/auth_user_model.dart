@@ -38,19 +38,19 @@ class AuthUserModel {
 class AuthResponseModel {
   final AuthUserModel user;
   final String accessToken;
-  final String refreshToken;
+  final String? refreshToken;
 
   const AuthResponseModel({
     required this.user,
     required this.accessToken,
-    required this.refreshToken,
+    this.refreshToken,
   });
 
   factory AuthResponseModel.fromJson(Map<String, dynamic> json) {
     return AuthResponseModel(
       user: AuthUserModel.fromJson(json['user'] as Map<String, dynamic>),
       accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
+      refreshToken: json['refreshToken'] as String?,
     );
   }
 }

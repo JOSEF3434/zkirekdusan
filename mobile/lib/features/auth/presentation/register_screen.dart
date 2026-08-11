@@ -85,6 +85,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/logo.jpg',
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.stream_rounded, size: 48, color: cs.primary);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 // Error banner
                 if (authState.error != null) ...[
                   Container(

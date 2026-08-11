@@ -24,6 +24,9 @@ abstract class AuthRepository {
 
   Future<void> refreshTokens();
 
+  /// Fetches the current user from the backend
+  Future<AuthUser> fetchMe();
+
   /// Returns true if a valid access token is stored
   Future<bool> isAuthenticated();
 
