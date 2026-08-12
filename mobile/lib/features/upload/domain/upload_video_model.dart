@@ -34,3 +34,43 @@ class UploadVideoFormData {
     };
   }
 }
+
+class UploadInitRequest {
+  final String title;
+  final String description;
+  final String visibility;
+  final String channelId;
+  final int sizeBytes;
+
+  const UploadInitRequest({
+    required this.title,
+    this.description = '',
+    this.visibility = 'PUBLIC',
+    required this.channelId,
+    required this.sizeBytes,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'description': description,
+      'visibility': visibility,
+      'channelId': channelId,
+      'sizeBytes': sizeBytes,
+    };
+  }
+}
+
+class UploadInitResponse {
+  final String videoId;
+  final String uploadUrl;
+
+  const UploadInitResponse({required this.videoId, required this.uploadUrl});
+
+  factory UploadInitResponse.fromJson(Map<String, dynamic> json) {
+    return UploadInitResponse(
+      videoId: json['videoId'] as String? ?? '',
+      uploadUrl: json['uploadUrl'] as String? ?? '',
+    );
+  }
+}

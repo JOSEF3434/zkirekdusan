@@ -13,7 +13,7 @@ class AppException implements Exception {
 
 class Failure {
   final String message;
-  
+
   Failure(this.message);
 
   factory Failure.fromException(dynamic exception) {
@@ -21,7 +21,7 @@ class Failure {
       return Failure(exception.message);
     } else if (exception is DioException) {
       // Handle standard Dio errors
-      if (exception.type == DioExceptionType.connectionTimeout || 
+      if (exception.type == DioExceptionType.connectionTimeout ||
           exception.type == DioExceptionType.receiveTimeout) {
         return Failure('Connection timeout');
       } else if (exception.type == DioExceptionType.badResponse) {

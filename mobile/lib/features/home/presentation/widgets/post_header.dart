@@ -15,10 +15,18 @@ class PostHeader extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final diff = DateTime.now().difference(date);
-    if (diff.inDays > 7) return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    if (diff.inDays > 0) return '${diff.inDays}d';
-    if (diff.inHours > 0) return '${diff.inHours}h';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m';
+    if (diff.inDays > 7) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+    if (diff.inDays > 0) {
+      return '${diff.inDays}d';
+    }
+    if (diff.inHours > 0) {
+      return '${diff.inHours}h';
+    }
+    if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}m';
+    }
     return 'Just now';
   }
 
@@ -35,9 +43,11 @@ class PostHeader extends StatelessWidget {
                 ? NetworkImage(author.avatarUrl!)
                 : null,
             child: author.avatarUrl == null
-                ? Text(author.displayName?.isNotEmpty == true
-                    ? author.displayName![0].toUpperCase()
-                    : '?')
+                ? Text(
+                    author.displayName?.isNotEmpty == true
+                        ? author.displayName![0].toUpperCase()
+                        : '?',
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
@@ -50,9 +60,8 @@ class PostHeader extends StatelessWidget {
                     Expanded(
                       child: Text(
                         author.displayName ?? author.username ?? 'Unknown',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

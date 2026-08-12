@@ -10,7 +10,10 @@ class ChatsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Chats'),
         actions: [
-          IconButton(icon: const Icon(Icons.video_call_outlined), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.video_call_outlined),
+            onPressed: () {},
+          ),
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
         ],
       ),
@@ -18,7 +21,10 @@ class ChatsScreen extends StatelessWidget {
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search chats...',
@@ -32,7 +38,7 @@ class ChatsScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Filter Chips
           SizedBox(
             height: 48,
@@ -52,7 +58,7 @@ class ChatsScreen extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Chat List Placeholder
           Expanded(
             child: ListView(
@@ -106,7 +112,11 @@ class _FilterChip extends StatelessWidget {
   final bool isSelected;
   final int? badgeCount;
 
-  const _FilterChip({required this.label, this.isSelected = false, this.badgeCount});
+  const _FilterChip({
+    required this.label,
+    this.isSelected = false,
+    this.badgeCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -125,10 +135,14 @@ class _FilterChip extends StatelessWidget {
               ),
               child: Text(
                 '$badgeCount',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ]
+          ],
         ],
       ),
       selected: isSelected,
@@ -169,8 +183,14 @@ class _ChatTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Icon(isGroup ? Icons.group : Icons.person, size: 32, color: Colors.grey),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+            child: Icon(
+              isGroup ? Icons.group : Icons.person,
+              size: 32,
+              color: Colors.grey,
+            ),
           ),
           if (isOnline)
             Positioned(
@@ -182,7 +202,10 @@ class _ChatTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.green,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -194,7 +217,7 @@ class _ChatTile extends StatelessWidget {
           if (isVerified) ...[
             const SizedBox(width: 4),
             const Icon(Icons.verified, size: 16, color: Colors.blue),
-          ]
+          ],
         ],
       ),
       subtitle: Column(
@@ -204,7 +227,9 @@ class _ChatTile extends StatelessWidget {
           Text(
             message,
             style: TextStyle(
-              color: unreadCount > 0 ? Theme.of(context).colorScheme.primary : Colors.grey,
+              color: unreadCount > 0
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
               fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
             ),
             maxLines: 1,
@@ -213,17 +238,32 @@ class _ChatTile extends StatelessWidget {
           if (languages.isNotEmpty) ...[
             const SizedBox(height: 4),
             Row(
-              children: languages.map((l) => Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(l, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.primary)),
-              )).toList(),
+              children: languages
+                  .map(
+                    (l) => Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        l,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
-          ]
+          ],
         ],
       ),
       trailing: Column(
@@ -241,7 +281,11 @@ class _ChatTile extends StatelessWidget {
               ),
               child: Text(
                 '$unreadCount',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             )
           else if (isMuted)

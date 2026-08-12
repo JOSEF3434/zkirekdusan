@@ -1,32 +1,132 @@
+// lib/core/presentation/app_shell.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
-  const AppShell({
-    super.key,
-    required this.navigationShell,
-  });
+  const AppShell({super.key, required this.navigationShell});
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  // Track previous connectivity to only show banner on transitions
+  ConnectivityStatus? _previousStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initial state — don't show banner on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _previousStatus = ref.read(connectivityProvider).status;
+    });
+  }
 
   void _onItemTapped(int index, BuildContext context) {
-    navigationShell.goBranch(
+    if (index == 2) {
+      // Create button → show options
+      showModalBottomSheet(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('Upload Video'),
+                onTap: () {
+                  context.pop(); // close sheet
+                  context.push('/upload');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.live_tv),
+                title: const Text('Go Live'),
+                onTap: () {
+                  context.pop(); // close sheet
+                  // The user must pick a channel, for MVP assume first channel or pass ID later.
+                  // For now, let's navigate to a setup route. We need auth/channel context.
+                  // We'll push to a generic '/live/studio' route which handles channel selection or passes user channel ID.
+                  context.push('/live/studio');
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Adjust index for shell branches (branch 2 is now a placeholder;
+    // tapping 3 → chats at branch index 3, etc.)
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = ref.watch(connectivityProvider);
     final isWideScreen = MediaQuery.of(context).size.width > 600;
     final theme = Theme.of(context);
+
+    // Show connectivity banner on state transition
+    if (_previousStatus != null && connectivity.isInitialized) {
+      final current = connectivity.status;
+      if (current != _previousStatus) {
+        _previousStatus = current;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          if (current == ConnectivityStatus.offline) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text("You're offline. Some content may be unavailable."),
+                  ],
+                ),
+                backgroundColor: Colors.grey[800],
+                duration: const Duration(seconds: 6),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else {
+            messenger.showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.wifi, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text("You're back online."),
+                  ],
+                ),
+                backgroundColor: Colors.green[700],
+                duration: const Duration(seconds: 3),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        });
+      }
+    } else if (_previousStatus == null && connectivity.isInitialized) {
+      _previousStatus = connectivity.status;
+    }
 
     if (isWideScreen) {
       return Scaffold(
         body: Row(
           children: [
             NavigationRail(
-              selectedIndex: navigationShell.currentIndex,
+              selectedIndex: _adjustedSelectedIndex,
               onDestinationSelected: (index) => _onItemTapped(index, context),
               labelType: NavigationRailLabelType.all,
               destinations: const [
@@ -58,14 +158,14 @@ class AppShell extends StatelessWidget {
               ],
             ),
             const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: navigationShell),
+            Expanded(child: widget.navigationShell),
           ],
         ),
       );
     }
 
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -81,7 +181,7 @@ class AppShell extends StatelessWidget {
           elevation: 0,
           backgroundColor: theme.colorScheme.surface,
           indicatorColor: theme.colorScheme.primaryContainer,
-          selectedIndex: navigationShell.currentIndex,
+          selectedIndex: _adjustedSelectedIndex,
           onDestinationSelected: (index) => _onItemTapped(index, context),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
           destinations: [
@@ -122,5 +222,12 @@ class AppShell extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Maps shell branch index to nav bar index.
+  /// Branch 2 is the placeholder; we never highlight it.
+  int get _adjustedSelectedIndex {
+    final idx = widget.navigationShell.currentIndex;
+    return idx; // branches 0,1,2(placeholder),3,4 map 1:1 to nav items
   }
 }

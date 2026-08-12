@@ -2,22 +2,22 @@
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/domain/feed_response.dart';
 
-enum VideoStatus {
-  uploading,
-  queued,
-  processing,
-  ready,
-  failed,
-}
+enum VideoStatus { uploading, queued, processing, ready, failed }
 
 VideoStatus _parseStatus(String status) {
   switch (status.toUpperCase()) {
-    case 'UPLOADING': return VideoStatus.uploading;
-    case 'QUEUED': return VideoStatus.queued;
-    case 'PROCESSING': return VideoStatus.processing;
-    case 'READY': return VideoStatus.ready;
-    case 'FAILED': return VideoStatus.failed;
-    default: return VideoStatus.failed;
+    case 'UPLOADING':
+      return VideoStatus.uploading;
+    case 'QUEUED':
+      return VideoStatus.queued;
+    case 'PROCESSING':
+      return VideoStatus.processing;
+    case 'READY':
+      return VideoStatus.ready;
+    case 'FAILED':
+      return VideoStatus.failed;
+    default:
+      return VideoStatus.failed;
   }
 }
 
@@ -51,8 +51,8 @@ class VideoRenditionDto {
       format: json['format'] as String? ?? '',
       status: json['status'] as String? ?? '',
       url: json['url'] as String? ?? '',
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
     );
   }
@@ -115,18 +115,24 @@ class VideoResponseDto {
       viewsCount: json['viewsCount'] as int? ?? 0,
       likesCount: json['likesCount'] as int? ?? 0,
       commentsCount: json['commentsCount'] as int? ?? 0,
-      author: PostAuthorDto.fromJson(json['author'] as Map<String, dynamic>? ?? {}),
+      author: PostAuthorDto.fromJson(
+        json['author'] as Map<String, dynamic>? ?? {},
+      ),
       channelId: json['videoChannelId'] as String?,
-      renditions: (json['renditions'] as List<dynamic>?)
-          ?.map((e) => VideoRenditionDto.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      renditions:
+          (json['renditions'] as List<dynamic>?)
+              ?.map(
+                (e) => VideoRenditionDto.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
       isLiked: json['isLiked'] as bool?,
       isSaved: json['isSaved'] as bool?,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt']) 
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'])
           : DateTime.now(),
     );
   }
@@ -136,51 +142,65 @@ class VideoListResponseDto {
   final List<VideoResponseDto> data;
   final FeedMetaDto meta;
 
-  const VideoListResponseDto({
-    required this.data,
-    required this.meta,
-  });
+  const VideoListResponseDto({required this.data, required this.meta});
 
   factory VideoListResponseDto.fromJson(Map<String, dynamic> json) {
     return VideoListResponseDto(
-      data: (json['data'] as List<dynamic>?)
-          ?.map((e) => VideoResponseDto.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      data:
+          (json['data'] as List<dynamic>?)
+              ?.map((e) => VideoResponseDto.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       meta: FeedMetaDto.fromJson(json['meta'] as Map<String, dynamic>? ?? {}),
     );
   }
 }
 
 enum VideoFeedCategory {
+  recommended,
   all,
   trending,
   latest,
   education,
   music,
   gaming,
-  live
+  live,
 }
 
 extension VideoFeedCategoryExt on VideoFeedCategory {
   String get label {
     switch (this) {
-      case VideoFeedCategory.all: return 'All';
-      case VideoFeedCategory.trending: return 'Trending';
-      case VideoFeedCategory.latest: return 'Latest';
-      case VideoFeedCategory.education: return 'Education';
-      case VideoFeedCategory.music: return 'Music';
-      case VideoFeedCategory.gaming: return 'Gaming';
-      case VideoFeedCategory.live: return 'Live';
+      case VideoFeedCategory.recommended:
+        return 'Recommended';
+      case VideoFeedCategory.all:
+        return 'All';
+      case VideoFeedCategory.trending:
+        return 'Trending';
+      case VideoFeedCategory.latest:
+        return 'Latest';
+      case VideoFeedCategory.education:
+        return 'Education';
+      case VideoFeedCategory.music:
+        return 'Music';
+      case VideoFeedCategory.gaming:
+        return 'Gaming';
+      case VideoFeedCategory.live:
+        return 'Live';
     }
   }
 
   String? get apiCategory {
     switch (this) {
-      case VideoFeedCategory.education: return 'EDUCATION';
-      case VideoFeedCategory.music: return 'MUSIC';
-      case VideoFeedCategory.gaming: return 'GAMING';
-      case VideoFeedCategory.live: return 'LIVE';
-      default: return null;
+      case VideoFeedCategory.education:
+        return 'EDUCATION';
+      case VideoFeedCategory.music:
+        return 'MUSIC';
+      case VideoFeedCategory.gaming:
+        return 'GAMING';
+      case VideoFeedCategory.live:
+        return 'LIVE';
+      default:
+        return null;
     }
   }
 }

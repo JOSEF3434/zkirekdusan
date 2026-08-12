@@ -47,9 +47,9 @@ class SplashScreen extends ConsumerWidget {
             Text(
               'ዝክረ ክዱሳን',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 48),
             CircularProgressIndicator(

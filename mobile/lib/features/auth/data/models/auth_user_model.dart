@@ -27,12 +27,12 @@ class AuthUserModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'email': email,
-        'phoneNumber': phoneNumber,
-        'username': username,
-        'role': role,
-      };
+    'id': id,
+    'email': email,
+    'phoneNumber': phoneNumber,
+    'username': username,
+    'role': role,
+  };
 }
 
 class AuthResponseModel {

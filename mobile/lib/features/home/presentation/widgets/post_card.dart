@@ -7,19 +7,14 @@ import 'package:mobile/features/home/presentation/widgets/post_action_bar.dart';
 class PostCard extends StatelessWidget {
   final PostResponseDto post;
 
-  const PostCard({
-    super.key,
-    required this.post,
-  });
+  const PostCard({super.key, required this.post});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       elevation: 0, // Flat design is common for social feeds
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -30,7 +25,10 @@ class PostCard extends StatelessWidget {
           ),
           if (post.content != null && post.content!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
               child: Text(
                 post.content!,
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -42,13 +40,15 @@ class PostCard extends StatelessWidget {
               child: Wrap(
                 spacing: 4.0,
                 children: post.hashtags
-                    .map((tag) => Text(
-                          tag,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ))
+                    .map(
+                      (tag) => Text(
+                        tag,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )
                     .toList(),
               ),
             ),

@@ -22,7 +22,8 @@ class UploadScreen extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            if (state.step == UploadStep.uploading || state.step == UploadStep.processing) {
+            if (state.step == UploadStep.uploading ||
+                state.step == UploadStep.processing) {
               ref.read(uploadProvider.notifier).cancelUpload();
             }
             context.pop();
@@ -33,7 +34,12 @@ class UploadScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, UploadState state, ThemeData theme) {
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    UploadState state,
+    ThemeData theme,
+  ) {
     switch (state.step) {
       case UploadStep.selectVideo:
         return _VideoPickerWidget();
@@ -61,7 +67,11 @@ class _VideoPickerWidget extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.video_library, size: 80, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+          Icon(
+            Icons.video_library,
+            size: 80,
+            color: theme.colorScheme.primary.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 24),
           Text('Select a video to upload', style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
@@ -70,13 +80,14 @@ class _VideoPickerWidget extends ConsumerWidget {
           FilledButton.icon(
             onPressed: () async {
               final picker = ImagePicker();
-              final pickedFile = await picker.pickVideo(source: ImageSource.gallery);
+              final pickedFile = await picker.pickVideo(
+                source: ImageSource.gallery,
+              );
 
               if (pickedFile != null && pickedFile.path.isNotEmpty) {
-                ref.read(uploadProvider.notifier).selectVideo(
-                  pickedFile.path,
-                  pickedFile.name,
-                );
+                ref
+                    .read(uploadProvider.notifier)
+                    .selectVideo(pickedFile.path, pickedFile.name);
               }
             },
             icon: const Icon(Icons.upload_file),
@@ -90,10 +101,12 @@ class _VideoPickerWidget extends ConsumerWidget {
 
 class _ChannelSelectorWidget extends ConsumerStatefulWidget {
   @override
-  ConsumerState<_ChannelSelectorWidget> createState() => _ChannelSelectorWidgetState();
+  ConsumerState<_ChannelSelectorWidget> createState() =>
+      _ChannelSelectorWidgetState();
 }
 
-class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> {
+class _ChannelSelectorWidgetState
+    extends ConsumerState<_ChannelSelectorWidget> {
   List<GroupDto>? _groups;
   Map<String, List<VideoChannelDto>> _channels = {};
   bool _isLoading = true;
@@ -109,12 +122,12 @@ class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> 
     try {
       final repo = ref.read(uploadRepositoryProvider);
       final groups = await repo.getMyGroups();
-      
+
       final Map<String, List<VideoChannelDto>> channels = {};
       for (final g in groups) {
         channels[g.id] = await repo.getGroupChannels(g.id);
       }
-      
+
       if (mounted) {
         setState(() {
           _groups = groups;
@@ -135,8 +148,31 @@ class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text('Error: $_error'));
-    
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Error: $_error', textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _error = null;
+                });
+                _loadData();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_groups == null || _groups!.isEmpty) {
       return Center(
         child: Padding(
@@ -146,7 +182,10 @@ class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> 
             children: [
               const Icon(Icons.group_off, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              const Text('No Groups Found', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                'No Groups Found',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'You need to be part of a group with a video channel to upload videos.',
@@ -156,7 +195,7 @@ class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> 
               ElevatedButton(
                 onPressed: () => context.pop(),
                 child: const Text('Go Back'),
-              )
+              ),
             ],
           ),
         ),
@@ -169,31 +208,38 @@ class _ChannelSelectorWidgetState extends ConsumerState<_ChannelSelectorWidget> 
       itemBuilder: (context, index) {
         final group = _groups![index];
         final groupChannels = _channels[group.id] ?? [];
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(group.name, style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                group.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             if (groupChannels.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 16.0),
                 child: Text('No upload channels available in this group.'),
               ),
-            ...groupChannels.map((channel) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: const Icon(Icons.video_camera_front),
-                title: Text(channel.name),
-                subtitle: Text('Type: ${channel.type}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  ref.read(uploadProvider.notifier).selectChannel(group, channel);
-                },
+            ...groupChannels.map(
+              (channel) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.video_camera_front),
+                  title: Text(channel.name),
+                  subtitle: Text('Type: ${channel.type}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    ref
+                        .read(uploadProvider.notifier)
+                        .selectChannel(group, channel);
+                  },
+                ),
               ),
-            )),
+            ),
             const SizedBox(height: 16),
           ],
         );
@@ -221,14 +267,21 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
         padding: const EdgeInsets.all(16),
         children: [
           TextFormField(
-            decoration: const InputDecoration(labelText: 'Title', hintText: 'Add a video title'),
+            decoration: const InputDecoration(
+              labelText: 'Title',
+              hintText: 'Add a video title',
+            ),
             maxLength: 300,
-            validator: (v) => v == null || v.isEmpty ? 'Title is required' : null,
+            validator: (v) =>
+                v == null || v.isEmpty ? 'Title is required' : null,
             onSaved: (v) => _title = v ?? '',
           ),
           const SizedBox(height: 16),
           TextFormField(
-            decoration: const InputDecoration(labelText: 'Description', hintText: 'Add a description'),
+            decoration: const InputDecoration(
+              labelText: 'Description',
+              hintText: 'Add a description',
+            ),
             maxLines: 4,
             maxLength: 10000,
             onSaved: (v) => _description = v ?? '',
@@ -282,9 +335,16 @@ class _UploadProgressWidget extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_upload, size: 64, color: Colors.grey),
             const SizedBox(height: 24),
-            Text('Uploading Video...', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Uploading Video...',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(value: progress, minHeight: 8, borderRadius: BorderRadius.circular(4)),
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
             const SizedBox(height: 16),
             Text('${(progress * 100).toStringAsFixed(1)}%'),
           ],
@@ -303,7 +363,10 @@ class _ProcessingStatusWidget extends StatelessWidget {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 24),
-          Text('Processing Video...', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Processing Video...',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           const Text('This may take a few minutes depending on the file size.'),
         ],
@@ -325,7 +388,10 @@ class _UploadCompletedWidget extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 80, color: Colors.green),
           const SizedBox(height: 24),
-          Text('Upload Complete!', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Upload Complete!',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 32),
           if (videoId != null)
             FilledButton(
@@ -345,13 +411,13 @@ class _UploadCompletedWidget extends StatelessWidget {
   }
 }
 
-class _UploadFailedWidget extends StatelessWidget {
+class _UploadFailedWidget extends ConsumerWidget {
   final String? error;
 
   const _UploadFailedWidget({this.error});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -360,13 +426,26 @@ class _UploadFailedWidget extends StatelessWidget {
           children: [
             const Icon(Icons.error, size: 80, color: Colors.red),
             const SizedBox(height: 24),
-            Text('Upload Failed', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Upload Failed',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 16),
-            Text(error ?? 'An unknown error occurred.', textAlign: TextAlign.center),
+            Text(
+              error ?? 'An unknown error occurred.',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => context.pop(),
-              child: const Text('Close'),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Pop back to the beginning of the flow or allow retry
+                // For a proper retry, we'd need the provider to support it.
+                // For now, we cancel and let them start over.
+                ref.read(uploadProvider.notifier).cancelUpload();
+                context.pop();
+              },
+              icon: const Icon(Icons.close),
+              label: const Text('Close'),
             ),
           ],
         ),

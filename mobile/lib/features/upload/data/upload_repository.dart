@@ -1,10 +1,11 @@
 // lib/features/upload/data/upload_repository.dart
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
-import 'package:mobile/features/home/domain/video_model.dart';
 
 final uploadRepositoryProvider = Provider<UploadRepository>((ref) {
   return UploadRepository(ref.watch(apiClientProvider));
@@ -16,54 +17,64 @@ class UploadRepository {
   UploadRepository(this._dio);
 
   Future<List<GroupDto>> getMyGroups() async {
-    // Note: Assuming /groups?memberOf=true returns groups the user is part of.
-    // If not, it falls back to public groups for the sake of F3.
+    // Assuming backend returns {success: true, data: [ {id, name...} ]}
     final response = await _dio.get('/groups');
-    final data = response.data['data'] as List<dynamic>? ?? [];
-    return data.map((e) => GroupDto.fromJson(e as Map<String, dynamic>)).toList();
+    final data = parseEnvelopeList(response.data);
+    return data.map((json) => GroupDto.fromJson(json)).toList();
   }
 
   Future<List<VideoChannelDto>> getGroupChannels(String groupId) async {
-    final response = await _dio.get('/groups/$groupId/video-channels');
-    final data = response.data as List<dynamic>? ?? [];
-    return data.map((e) => VideoChannelDto.fromJson(e as Map<String, dynamic>)).toList();
+    final response = await _dio.get('/groups/$groupId/channels');
+    final data = parseEnvelopeList(response.data);
+    return data.map((json) => VideoChannelDto.fromJson(json)).toList();
   }
 
-  Future<VideoResponseDto> initiateUpload(String channelId, UploadVideoFormData data) async {
+  Future<UploadInitResponse> initiateUpload(UploadInitRequest request) async {
     final response = await _dio.post(
-      '/video-channels/$channelId/videos',
-      data: data.toJson(),
+      '/videos/upload/init',
+      data: request.toJson(),
     );
-    return VideoResponseDto.fromJson(response.data);
+    final data = parseEnvelope(response.data);
+    return UploadInitResponse.fromJson(data);
   }
 
-  Future<void> attachFile({
-    required String channelId,
-    required String videoId,
-    required String filePath,
-    required String fileName,
-    ProgressCallback? onSendProgress,
-    CancelToken? cancelToken,
+  Future<void> uploadChunk({
+    required String uploadUrl,
+    required File file,
+    required int start,
+    required int end,
+    required int totalSize,
+    required CancelToken cancelToken,
+    void Function(int sent, int total)? onProgress,
   }) async {
-    final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath, filename: fileName),
-    });
+    final stream = file.openRead(start, end + 1);
+    final length = end - start + 1;
 
-    await _dio.post(
-      '/video-channels/$channelId/videos/$videoId/file',
-      data: formData,
-      onSendProgress: onSendProgress,
+    // Direct PUT to upload URL (no envelope processing needed here typically, as it might be S3/GCS directly)
+    // If it's your own backend, it might return an envelope.
+    await _dio.put(
+      uploadUrl,
+      data: stream,
       cancelToken: cancelToken,
       options: Options(
-        // Typically timeout should be larger for big file uploads
-        sendTimeout: const Duration(minutes: 30),
-        receiveTimeout: const Duration(minutes: 30),
+        headers: {
+          'Content-Length': length,
+          'Content-Range': 'bytes $start-$end/$totalSize',
+        },
       ),
+      onSendProgress: onProgress,
     );
   }
 
-  Future<VideoResponseDto> getStatus(String channelId, String videoId) async {
-    final response = await _dio.get('/video-channels/$channelId/videos/$videoId');
-    return VideoResponseDto.fromJson(response.data);
+  Future<void> completeUpload(String videoId) async {
+    // Envelope parsed but we don't necessarily need the payload if it's just a 200 OK
+    final response = await _dio.post('/videos/$videoId/upload/complete');
+    parseEnvelope(response.data);
+  }
+
+  Future<VideoResponseDto> getStatus(String videoId) async {
+    final response = await _dio.get('/videos/$videoId/status');
+    final data = parseEnvelope(response.data);
+    return VideoResponseDto.fromJson(data);
   }
 }

@@ -5,7 +5,9 @@ final connectivityProvider = Provider<Connectivity>((ref) {
   return Connectivity();
 });
 
-final connectivityStatusProvider = StreamProvider<List<ConnectivityResult>>((ref) {
+final connectivityStatusProvider = StreamProvider<List<ConnectivityResult>>((
+  ref,
+) {
   final connectivity = ref.watch(connectivityProvider);
   return connectivity.onConnectivityChanged;
 });

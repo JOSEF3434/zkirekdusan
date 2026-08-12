@@ -1,3 +1,4 @@
+// lib/features/home/data/feed_repository.dart
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
@@ -25,13 +26,28 @@ class FeedRepository {
       queryParameters: {
         'page': page,
         'limit': limit,
-        'authorId': ?authorId,
-        'groupId': ?groupId,
-        'hashtag': ?hashtag,
+        if (authorId != null) 'authorId': authorId,
+        if (groupId != null) 'groupId': groupId,
+        if (hashtag != null) 'hashtag': hashtag,
       },
       cancelToken: cancelToken,
     );
 
-    return FeedResponseDto.fromJson(response.data);
+    final data = parsePaginatedEnvelope(response.data);
+    return FeedResponseDto.fromJson(data);
+  }
+
+  Future<FeedResponseDto> getRecommendations({
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/recommendations/home',
+      queryParameters: {'page': page, 'limit': limit},
+      cancelToken: cancelToken,
+    );
+    final data = parsePaginatedEnvelope(response.data);
+    return FeedResponseDto.fromJson(data);
   }
 }

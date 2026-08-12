@@ -17,8 +17,7 @@ class AuthUser {
   });
 
   /// Display name derived from available identity fields
-  String get displayIdentifier =>
-      username ?? email ?? phoneNumber ?? id;
+  String get displayIdentifier => username ?? email ?? phoneNumber ?? id;
 
   bool get hasUsername => username != null && username!.isNotEmpty;
 }

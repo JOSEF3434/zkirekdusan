@@ -41,7 +41,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final username = _usernameCtrl.text.trim();
 
-    ref.read(authProvider.notifier).register(
+    ref
+        .read(authProvider.notifier)
+        .register(
           email: _emailCtrl.text.trim(),
           username: username.isNotEmpty ? username : null,
           firstName: _firstNameCtrl.text.trim().isNotEmpty
@@ -95,7 +97,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       height: 80,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.stream_rounded, size: 48, color: cs.primary);
+                        return Icon(
+                          Icons.stream_rounded,
+                          size: 48,
+                          color: cs.primary,
+                        );
                       },
                     ),
                   ),
@@ -193,7 +199,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   autocorrect: false,
                   decoration: InputDecoration(
                     labelText: 'Username (optional)',
-                    helperText: 'Can be set or changed later in Profile Settings',
+                    helperText:
+                        'Can be set or changed later in Profile Settings',
                     prefixIcon: const Icon(Icons.alternate_email),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -221,9 +228,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     labelText: 'Password *',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
@@ -251,9 +260,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     labelText: 'Confirm Password *',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
@@ -284,10 +295,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Text('Create Account',
-                          style: TextStyle(fontSize: 16)),
+                      : const Text(
+                          'Create Account',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
                 const SizedBox(height: 24),
 

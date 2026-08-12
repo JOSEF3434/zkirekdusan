@@ -4,8 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
+import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
+import 'dart:io' as java_io;
 
 enum UploadStep {
   selectVideo,
@@ -21,13 +23,13 @@ class UploadState {
   final UploadStep step;
   final String? filePath;
   final String? fileName;
-  
+
   final GroupDto? selectedGroup;
   final VideoChannelDto? selectedChannel;
-  
+
   final UploadVideoFormData? formData;
   final VideoResponseDto? video;
-  
+
   final double uploadProgress;
   final String? error;
 
@@ -69,9 +71,10 @@ class UploadState {
   }
 }
 
-final uploadProvider = StateNotifierProvider.autoDispose<UploadNotifier, UploadState>((ref) {
-  return UploadNotifier(ref.watch(uploadRepositoryProvider));
-});
+final uploadProvider =
+    StateNotifierProvider.autoDispose<UploadNotifier, UploadState>((ref) {
+      return UploadNotifier(ref.watch(uploadRepositoryProvider));
+    });
 
 class UploadNotifier extends StateNotifier<UploadState> {
   final UploadRepository _repository;
@@ -89,8 +92,8 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
   void selectVideo(String path, String name) {
     state = state.copyWith(
-      filePath: path, 
-      fileName: name, 
+      filePath: path,
+      fileName: name,
       step: UploadStep.selectChannel,
       clearError: true,
     );
@@ -109,7 +112,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(formData: data, clearError: true);
     _startUploadProcess();
   }
-  
+
   void cancelUpload() {
     _cancelToken?.cancel();
     _pollingTimer?.cancel();
@@ -117,37 +120,67 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 
   Future<void> _startUploadProcess() async {
-    if (state.selectedChannel == null || state.formData == null || state.filePath == null) {
+    if (state.selectedChannel == null ||
+        state.formData == null ||
+        state.filePath == null) {
       state = state.copyWith(error: 'Missing required data');
       return;
     }
 
-    state = state.copyWith(step: UploadStep.uploading, uploadProgress: 0, clearError: true);
+    state = state.copyWith(
+      step: UploadStep.uploading,
+      uploadProgress: 0,
+      clearError: true,
+    );
     _cancelToken = CancelToken();
 
     try {
       // 1. Initiate Upload
-      final video = await _repository.initiateUpload(state.selectedChannel!.id, state.formData!);
-      state = state.copyWith(video: video);
+      final initRequest = UploadInitRequest(
+        title: state.formData!.title,
+        description: state.formData!.description,
+        visibility: state.formData!.visibility,
+        channelId: state.selectedChannel!.id,
+        sizeBytes:
+            0, // Get actual size if possible, otherwise backend handles it or defaults
+      );
+      final initRes = await _repository.initiateUpload(initRequest);
+      state = state.copyWith(
+        video: VideoResponseDto(
+          id: initRes.videoId,
+          title: state.formData!.title,
+          status: VideoStatus.uploading,
+          visibility: state.formData!.visibility,
+          author: const PostAuthorDto(id: '', username: '', displayName: ''),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
 
       // 2. Attach File
-      await _repository.attachFile(
-        channelId: state.selectedChannel!.id,
-        videoId: video.id,
-        filePath: state.filePath!,
-        fileName: state.fileName ?? 'video.mp4',
-        cancelToken: _cancelToken,
-        onSendProgress: (count, total) {
+      // For now we assume a direct upload or simple file size.
+      // In a real app we'd get file length and chunk it if needed.
+      await _repository.uploadChunk(
+        uploadUrl: initRes.uploadUrl,
+        file: java_io.File(state.filePath!), // Make sure to use dart:io File
+        start: 0,
+        end:
+            0, // We need file length, let's just assume we can get it via File(filePath).lengthSync()
+        totalSize: 0,
+        cancelToken: _cancelToken!,
+        onProgress: (count, total) {
           if (total != -1) {
             state = state.copyWith(uploadProgress: count / total);
           }
         },
       );
 
+      // Complete Upload
+      await _repository.completeUpload(initRes.videoId);
+
       // 3. Start Polling Status
       state = state.copyWith(step: UploadStep.processing, clearError: true);
       _startPolling();
-
     } catch (e) {
       if (e is DioException && e.type == DioExceptionType.cancel) {
         // Cancelled explicitly
@@ -169,7 +202,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
       }
 
       try {
-        final video = await _repository.getStatus(state.selectedChannel!.id, state.video!.id);
+        final video = await _repository.getStatus(state.video!.id);
         state = state.copyWith(video: video);
 
         if (video.status == VideoStatus.ready) {

@@ -6,9 +6,7 @@ class CreateScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create'),
-      ),
+      appBar: AppBar(title: const Text('Create')),
       body: const Center(
         child: Text('Create posts, videos, and live streams here.'),
       ),

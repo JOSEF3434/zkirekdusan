@@ -86,7 +86,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -94,7 +97,9 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       ),
@@ -103,7 +108,9 @@ class AppTheme {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       ),
@@ -181,7 +188,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryDarkColor, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -189,7 +199,9 @@ class AppTheme {
           foregroundColor: Colors.black,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       ),
@@ -198,7 +210,9 @@ class AppTheme {
           backgroundColor: primaryDarkColor,
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       ),
@@ -207,43 +221,72 @@ class AppTheme {
   }
 
   static TextTheme _buildTextTheme(Brightness brightness) {
-    final color = brightness == Brightness.light ? Colors.black87 : Colors.white;
+    final color = brightness == Brightness.light
+        ? Colors.black87
+        : Colors.white;
     final subtitleColor = brightness == Brightness.light
         ? Colors.black54
         : Colors.white70;
     return TextTheme(
       displayLarge: TextStyle(
-        fontSize: 57, fontWeight: FontWeight.w300, color: color, letterSpacing: -1.5,
+        fontSize: 57,
+        fontWeight: FontWeight.w300,
+        color: color,
+        letterSpacing: -1.5,
       ),
       headlineLarge: TextStyle(
-        fontSize: 32, fontWeight: FontWeight.w700, color: color, letterSpacing: -0.5,
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+        color: color,
+        letterSpacing: -0.5,
       ),
       headlineMedium: TextStyle(
-        fontSize: 28, fontWeight: FontWeight.w600, color: color,
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+        color: color,
       ),
       titleLarge: TextStyle(
-        fontSize: 22, fontWeight: FontWeight.w700, color: color,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: color,
       ),
       titleMedium: TextStyle(
-        fontSize: 16, fontWeight: FontWeight.w600, color: color, letterSpacing: 0.15,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: color,
+        letterSpacing: 0.15,
       ),
       titleSmall: TextStyle(
-        fontSize: 14, fontWeight: FontWeight.w600, color: subtitleColor, letterSpacing: 0.1,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: subtitleColor,
+        letterSpacing: 0.1,
       ),
       bodyLarge: TextStyle(
-        fontSize: 16, fontWeight: FontWeight.w400, color: color,
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        color: color,
       ),
       bodyMedium: TextStyle(
-        fontSize: 14, fontWeight: FontWeight.w400, color: color,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: color,
       ),
       bodySmall: TextStyle(
-        fontSize: 12, fontWeight: FontWeight.w400, color: subtitleColor,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: subtitleColor,
       ),
       labelLarge: TextStyle(
-        fontSize: 14, fontWeight: FontWeight.w600, color: color, letterSpacing: 0.1,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: color,
+        letterSpacing: 0.1,
       ),
       labelSmall: TextStyle(
-        fontSize: 11, fontWeight: FontWeight.w500, color: subtitleColor,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: subtitleColor,
       ),
     );
   }

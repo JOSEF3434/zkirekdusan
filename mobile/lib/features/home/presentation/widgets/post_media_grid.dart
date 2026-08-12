@@ -21,12 +21,20 @@ class PostMediaGrid extends StatelessWidget {
           Image.network(
             firstMedia.url,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                Container(color: Colors.grey[300], child: const Icon(Icons.broken_image)),
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: Colors.grey[300],
+              child: const Icon(Icons.broken_image),
+            ),
           ),
-          if (firstMedia.fileType == 'VIDEO' || firstMedia.fileType == 'LIVE' || firstMedia.fileType == 'REEL')
+          if (firstMedia.fileType == 'VIDEO' ||
+              firstMedia.fileType == 'LIVE' ||
+              firstMedia.fileType == 'REEL')
             const Center(
-              child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
+              child: Icon(
+                Icons.play_circle_fill,
+                size: 64,
+                color: Colors.white70,
+              ),
             ),
           if (media.length > 1)
             Positioned(

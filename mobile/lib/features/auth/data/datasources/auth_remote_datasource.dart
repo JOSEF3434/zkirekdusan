@@ -22,16 +22,29 @@ class AuthRemoteDatasource {
   }) async {
     try {
       final body = <String, dynamic>{'password': password};
-      if (email != null && email.isNotEmpty) body['email'] = email;
-      if (phoneNumber != null && phoneNumber.isNotEmpty) body['phoneNumber'] = phoneNumber;
-      if (username != null && username.isNotEmpty) body['username'] = username;
-      if (firstName != null && firstName.isNotEmpty) body['firstName'] = firstName;
-      if (lastName != null && lastName.isNotEmpty) body['lastName'] = lastName;
+      if (email != null && email.isNotEmpty) {
+        body['email'] = email;
+      }
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        body['phoneNumber'] = phoneNumber;
+      }
+      if (username != null && username.isNotEmpty) {
+        body['username'] = username;
+      }
+      if (firstName != null && firstName.isNotEmpty) {
+        body['firstName'] = firstName;
+      }
+      if (lastName != null && lastName.isNotEmpty) {
+        body['lastName'] = lastName;
+      }
 
       final response = await _dio.post('/auth/register', data: body);
       return AuthResponseModel.fromJson(_parseEnvelope(response.data));
     } on DioException catch (e) {
-      throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
     }
   }
 
@@ -45,14 +58,23 @@ class AuthRemoteDatasource {
   }) async {
     try {
       final body = <String, dynamic>{'password': password};
-      if (email != null && email.isNotEmpty) body['email'] = email;
-      if (phoneNumber != null && phoneNumber.isNotEmpty) body['phoneNumber'] = phoneNumber;
-      if (username != null && username.isNotEmpty) body['username'] = username;
+      if (email != null && email.isNotEmpty) {
+        body['email'] = email;
+      }
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        body['phoneNumber'] = phoneNumber;
+      }
+      if (username != null && username.isNotEmpty) {
+        body['username'] = username;
+      }
 
       final response = await _dio.post('/auth/login', data: body);
       return AuthResponseModel.fromJson(_parseEnvelope(response.data));
     } on DioException catch (e) {
-      throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
     }
   }
 
@@ -63,7 +85,9 @@ class AuthRemoteDatasource {
       final response = await _dio.post(
         '/auth/refresh',
         data: {'refreshToken': refreshToken},
-        options: Options(extra: {'skipAuth': true}), // skip auth interceptor on this call
+        options: Options(
+          extra: {'skipAuth': true},
+        ), // skip auth interceptor on this call
       );
       final data = _parseEnvelope(response.data);
       return {
@@ -71,7 +95,10 @@ class AuthRemoteDatasource {
         'refreshToken': data['refreshToken'] as String,
       };
     } on DioException catch (e) {
-      throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
     }
   }
 
@@ -95,7 +122,10 @@ class AuthRemoteDatasource {
       final data = _parseEnvelope(response.data);
       return AuthUserModel.fromJson(data);
     } on DioException catch (e) {
-      throw AppException(_parseDioError(e), code: e.response?.statusCode?.toString());
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
     }
   }
 
@@ -124,7 +154,9 @@ class AuthRemoteDatasource {
     } else if (data is Map) {
       map = data.cast<String, dynamic>();
     } else {
-      throw AppException('Unexpected response format from server (not JSON map).');
+      throw AppException(
+        'Unexpected response format from server (not JSON map).',
+      );
     }
 
     if (map.containsKey('success') && map.containsKey('data')) {
@@ -134,7 +166,9 @@ class AuthRemoteDatasource {
       final payload = map['data'];
       if (payload is Map<String, dynamic>) return payload;
       if (payload is Map) return payload.cast<String, dynamic>();
-      throw AppException('Unexpected payload format in envelope (data is not a JSON map).');
+      throw AppException(
+        'Unexpected payload format in envelope (data is not a JSON map).',
+      );
     }
 
     // Fallback if the backend stops using the envelope format

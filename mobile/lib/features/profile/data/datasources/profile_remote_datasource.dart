@@ -2,8 +2,16 @@
 // Calls real backend profile endpoints from profiles.controller.ts
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/error/exceptions.dart';
+import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
+
+final profileRemoteDataSourceProvider = Provider<ProfileRemoteDatasource>((
+  ref,
+) {
+  return ProfileRemoteDatasource(ref.read(apiClientProvider));
+});
 
 class ProfileRemoteDatasource {
   final Dio _dio;
@@ -14,14 +22,14 @@ class ProfileRemoteDatasource {
   Future<ProfileModel> getMyProfile() async {
     try {
       final response = await _dio.get('/profiles/me');
-      return ProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }
   }
 
   /// PATCH /profiles/me  (requires Bearer token)
-  /// Fields: firstName, lastName, displayName, bio, website, country, language, gender, visibility
   Future<ProfileModel> updateMyProfile({
     String? firstName,
     String? lastName,
@@ -46,7 +54,8 @@ class ProfileRemoteDatasource {
       if (visibility != null) body['visibility'] = visibility;
 
       final response = await _dio.patch('/profiles/me', data: body);
-      return ProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }
@@ -56,7 +65,8 @@ class ProfileRemoteDatasource {
   Future<ProfileModel> getProfileByUsername(String username) async {
     try {
       final response = await _dio.get('/profiles/$username');
-      return ProfileModel.fromJson(response.data as Map<String, dynamic>);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }

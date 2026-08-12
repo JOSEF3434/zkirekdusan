@@ -24,7 +24,7 @@ class CategoryTabBar extends StatelessWidget {
         itemBuilder: (context, index) {
           final category = VideoFeedCategory.values[index];
           final isSelected = category == selectedCategory;
-          
+
           return ChoiceChip(
             label: Text(category.label),
             selected: isSelected,

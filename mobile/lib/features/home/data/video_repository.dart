@@ -20,13 +20,11 @@ class VideoRepository {
   }) async {
     final response = await _dio.get(
       '/videos/trending',
-      queryParameters: {
-        'page': page,
-        'limit': limit,
-      },
+      queryParameters: {'page': page, 'limit': limit},
       cancelToken: cancelToken,
     );
-    return VideoListResponseDto.fromJson(response.data);
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
   }
 
   Future<VideoListResponseDto> searchVideos({
@@ -46,7 +44,8 @@ class VideoRepository {
       },
       cancelToken: cancelToken,
     );
-    return VideoListResponseDto.fromJson(response.data);
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
   }
 
   Future<VideoListResponseDto> getWatchHistory({
@@ -56,13 +55,11 @@ class VideoRepository {
   }) async {
     final response = await _dio.get(
       '/videos/watch-history',
-      queryParameters: {
-        'page': page,
-        'limit': limit,
-      },
+      queryParameters: {'page': page, 'limit': limit},
       cancelToken: cancelToken,
     );
-    return VideoListResponseDto.fromJson(response.data);
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
   }
 
   Future<VideoListResponseDto> getBookmarks({
@@ -72,12 +69,10 @@ class VideoRepository {
   }) async {
     final response = await _dio.get(
       '/videos/bookmarks',
-      queryParameters: {
-        'page': page,
-        'limit': limit,
-      },
+      queryParameters: {'page': page, 'limit': limit},
       cancelToken: cancelToken,
     );
-    return VideoListResponseDto.fromJson(response.data);
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
   }
 }

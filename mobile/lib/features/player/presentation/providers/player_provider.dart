@@ -45,9 +45,10 @@ class PlayerState {
   }
 }
 
-final playerProvider = StateNotifierProvider.autoDispose.family<PlayerNotifier, PlayerState, String>((ref, videoId) {
-  return PlayerNotifier(ref.watch(playerRepositoryProvider), videoId);
-});
+final playerProvider = StateNotifierProvider.autoDispose
+    .family<PlayerNotifier, PlayerState, String>((ref, videoId) {
+      return PlayerNotifier(ref.watch(playerRepositoryProvider), videoId);
+    });
 
 class PlayerNotifier extends StateNotifier<PlayerState> {
   final PlayerRepository _repository;
@@ -68,13 +69,18 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   Future<void> _initialize() async {
     try {
       final video = await _repository.getVideo(_videoId);
-      
+
       // Setup Controller with HLS URL if available, else standard URL
       // If renditions are used manually, we would use them, but HLS master playlist handles it automatically.
-      final url = video.hlsUrl ?? (video.renditions.isNotEmpty ? video.renditions.first.url : null);
-      
+      final url =
+          video.hlsUrl ??
+          (video.renditions.isNotEmpty ? video.renditions.first.url : null);
+
       if (url == null) {
-        state = state.copyWith(isLoading: false, error: 'No video stream available.');
+        state = state.copyWith(
+          isLoading: false,
+          error: 'No video stream available.',
+        );
         return;
       }
 
@@ -98,7 +104,6 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         controller: controller,
         isLoading: false,
       );
-
     } catch (e) {
       if (mounted) {
         state = state.copyWith(isLoading: false, error: e.toString());
@@ -129,10 +134,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     // Standard HLS handles quality automatically, but if users manually select:
     final currentPosition = state.controller?.value.position ?? Duration.zero;
     final isPlaying = state.controller?.value.isPlaying ?? false;
-    
+
     state.controller?.dispose();
-    
-    final newController = VideoPlayerController.networkUrl(Uri.parse(rendition.url));
+
+    final newController = VideoPlayerController.networkUrl(
+      Uri.parse(rendition.url),
+    );
     await newController.initialize();
     await newController.seekTo(currentPosition);
     if (isPlaying) {
@@ -148,7 +155,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void _saveProgress() {
     final ctrl = state.controller;
     if (ctrl == null || !ctrl.value.isInitialized) return;
-    
+
     _repository.saveProgress(_videoId, ctrl.value.position.inSeconds);
   }
 }

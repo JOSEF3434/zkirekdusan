@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
+import 'package:mobile/features/social/presentation/widgets/like_button.dart';
+import 'package:mobile/features/social/presentation/widgets/save_button.dart';
+import 'package:mobile/features/social/presentation/widgets/share_button.dart';
+import 'package:mobile/features/social/presentation/comments_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class VideoCard extends StatelessWidget {
   final VideoResponseDto video;
 
-  const VideoCard({
-    super.key,
-    required this.video,
-  });
+  const VideoCard({super.key, required this.video});
 
   String _formatDuration(int seconds) {
     final duration = Duration(seconds: seconds);
@@ -37,7 +38,7 @@ class VideoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return InkWell(
       onTap: () {
         context.push('/video/${video.id}');
@@ -55,7 +56,9 @@ class VideoCard extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: video.thumbnailUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(color: theme.colorScheme.surfaceContainerHighest),
+                    placeholder: (context, url) => Container(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                    ),
                     errorWidget: (context, url, error) => Container(
                       color: theme.colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.broken_image, color: Colors.grey),
@@ -64,16 +67,23 @@ class VideoCard extends StatelessWidget {
                 else
                   Container(
                     color: theme.colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.video_library, color: Colors.grey, size: 48),
+                    child: const Icon(
+                      Icons.video_library,
+                      color: Colors.grey,
+                      size: 48,
+                    ),
                   ),
-                
+
                 // Duration Badge
                 if (video.duration > 0)
                   Positioned(
                     bottom: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
@@ -91,7 +101,7 @@ class VideoCard extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Video Info
           Padding(
             padding: const EdgeInsets.all(12),
@@ -102,19 +112,21 @@ class VideoCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  backgroundImage: video.author.avatarUrl != null 
-                    ? CachedNetworkImageProvider(video.author.avatarUrl!)
-                    : null,
+                  backgroundImage: video.author.avatarUrl != null
+                      ? CachedNetworkImageProvider(video.author.avatarUrl!)
+                      : null,
                   child: video.author.avatarUrl == null
-                    ? Text(
-                        video.author.displayName?.isNotEmpty == true 
-                            ? video.author.displayName![0].toUpperCase()
-                            : (video.author.username?.isNotEmpty == true ? video.author.username![0].toUpperCase() : '?'),
-                      )
-                    : null,
+                      ? Text(
+                          video.author.displayName?.isNotEmpty == true
+                              ? video.author.displayName![0].toUpperCase()
+                              : (video.author.username?.isNotEmpty == true
+                                    ? video.author.username![0].toUpperCase()
+                                    : '?'),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
-                
+
                 // Title and details
                 Expanded(
                   child: Column(
@@ -139,15 +151,99 @@ class VideoCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // More button
                 IconButton(
                   icon: const Icon(Icons.more_vert),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: () {
-                    // Show options bottom sheet
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (context) {
+                        return SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.download_outlined),
+                                title: const Text('Download Offline'),
+                                onTap: () {
+                                  context.pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Open the video to start download',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
                   },
+                ),
+              ],
+            ),
+          ),
+
+          // Action Row
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                LikeButton(
+                  postId: video.id,
+                  initialLikesCount: video.likesCount,
+                  initialIsLiked: video.isLiked ?? false,
+                  iconSize: 24,
+                  defaultColor: theme.colorScheme.onSurfaceVariant,
+                ),
+                GestureDetector(
+                  onTap: () {
+                    CommentsSheet.show(context, video.id);
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.comment_outlined,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatViews(
+                          video.commentsCount,
+                        ).replaceAll(' views', ''),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SaveButton(
+                  postId: video.id,
+                  initialIsSaved: video.isSaved ?? false,
+                  iconSize: 24,
+                  defaultColor: theme.colorScheme.onSurfaceVariant,
+                ),
+                ShareButton(
+                  postId: video.id,
+                  title: video.title,
+                  iconSize: 24,
+                  defaultColor: theme.colorScheme.onSurfaceVariant,
                 ),
               ],
             ),

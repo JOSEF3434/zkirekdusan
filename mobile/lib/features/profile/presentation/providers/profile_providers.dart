@@ -1,17 +1,9 @@
 // lib/features/profile/presentation/providers/profile_providers.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/profile/data/datasources/profile_remote_datasource.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
-
-// ── Datasource ──────────────────────────────────────────────────────────────
-
-final profileRemoteDatasourceProvider =
-    Provider<ProfileRemoteDatasource>((ref) {
-  return ProfileRemoteDatasource(ref.watch(apiClientProvider));
-});
 
 // ── Profile State ───────────────────────────────────────────────────────────
 
@@ -100,7 +92,8 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   void clearError() => state = state.copyWith(clearError: true);
 }
 
-final profileProvider =
-    StateNotifierProvider<ProfileNotifier, ProfileState>((ref) {
-  return ProfileNotifier(ref.watch(profileRemoteDatasourceProvider));
+final profileProvider = StateNotifierProvider<ProfileNotifier, ProfileState>((
+  ref,
+) {
+  return ProfileNotifier(ref.watch(profileRemoteDataSourceProvider));
 });

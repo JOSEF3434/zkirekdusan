@@ -11,9 +11,7 @@ class FeedSkeleton extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8.0),
           elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-          ),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -64,11 +62,7 @@ class FeedSkeleton extends StatelessWidget {
                       color: Colors.grey[300],
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      width: 250,
-                      height: 14,
-                      color: Colors.grey[300],
-                    ),
+                    Container(width: 250, height: 14, color: Colors.grey[300]),
                   ],
                 ),
               ),

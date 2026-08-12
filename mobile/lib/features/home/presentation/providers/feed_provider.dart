@@ -46,13 +46,17 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     ref.onDispose(() {
       _cancelToken?.cancel();
     });
-    
+
     return _fetchInitial();
   }
 
   Future<FeedState> _fetchInitial() async {
     final repo = ref.read(feedRepositoryProvider);
-    final response = await repo.getFeed(page: 1, limit: 10, cancelToken: _cancelToken);
+    final response = await repo.getFeed(
+      page: 1,
+      limit: 10,
+      cancelToken: _cancelToken,
+    );
     return FeedState(posts: response.data, meta: response.meta);
   }
 
@@ -60,7 +64,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     state = const AsyncValue.loading();
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
-    
+
     try {
       final newState = await _fetchInitial();
       state = AsyncValue.data(newState);
@@ -75,12 +79,14 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     if (currentState.meta != null && !currentState.meta!.hasNext) return;
 
     // Set loading more state
-    state = AsyncValue.data(currentState.copyWith(isLoadingMore: true, error: null));
+    state = AsyncValue.data(
+      currentState.copyWith(isLoadingMore: true, error: null),
+    );
 
     try {
       final repo = ref.read(feedRepositoryProvider);
       final nextPage = (currentState.meta?.page ?? 0) + 1;
-      
+
       final response = await repo.getFeed(
         page: nextPage,
         limit: 10,
@@ -96,10 +102,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       );
     } catch (e) {
       state = AsyncValue.data(
-        currentState.copyWith(
-          isLoadingMore: false,
-          error: e.toString(),
-        ),
+        currentState.copyWith(isLoadingMore: false, error: e.toString()),
       );
     }
   }

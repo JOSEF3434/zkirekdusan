@@ -24,8 +24,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required AuthRemoteDatasource remote,
     required StorageService storage,
-  })  : _remote = remote,
-        _storage = storage;
+  }) : _remote = remote,
+       _storage = storage;
 
   @override
   Future<AuthUser> register({
@@ -93,9 +93,12 @@ class AuthRepositoryImpl implements AuthRepository {
     await Future.wait([
       _storage.saveToken(model.id, key: _kUserId),
       _storage.saveToken(model.role, key: _kUserRole),
-      if (model.email != null) _storage.saveToken(model.email!, key: _kUserEmail),
-      if (model.phoneNumber != null) _storage.saveToken(model.phoneNumber!, key: _kUserPhone),
-      if (model.username != null) _storage.saveToken(model.username!, key: _kUsername),
+      if (model.email != null)
+        _storage.saveToken(model.email!, key: _kUserEmail),
+      if (model.phoneNumber != null)
+        _storage.saveToken(model.phoneNumber!, key: _kUserPhone),
+      if (model.username != null)
+        _storage.saveToken(model.username!, key: _kUsername),
     ]);
     return _modelToEntity(model);
   }
@@ -151,10 +154,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   AuthUser _modelToEntity(AuthUserModel model) => AuthUser(
-        id: model.id,
-        email: model.email,
-        phoneNumber: model.phoneNumber,
-        username: model.username,
-        role: model.role,
-      );
+    id: model.id,
+    email: model.email,
+    phoneNumber: model.phoneNumber,
+    username: model.username,
+    role: model.role,
+  );
 }

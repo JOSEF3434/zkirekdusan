@@ -1,9 +1,12 @@
 // lib/core/network/auth_interceptor.dart
 // Attaches Bearer token to requests.
-// On 401: attempts silent token refresh. On second 401: clears session + redirects.
+// On 401: attempts silent token refresh using the backend envelope format.
+// On second 401 / missing refresh token: clears session and redirects to /login.
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/utils/logger.dart';
 import 'package:mobile/app/router/app_router.dart';
@@ -22,7 +25,6 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Skip token injection for requests tagged with skipAuth
     if (options.extra['skipAuth'] == true) {
       return handler.next(options);
     }
@@ -46,7 +48,6 @@ class AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
 
-    // Skip refresh retry for the refresh endpoint itself to avoid loops
     final path = err.requestOptions.path;
     if (path.contains('/auth/refresh') || path.contains('/auth/login')) {
       await _clearSessionAndRedirect();
@@ -62,25 +63,39 @@ class AuthInterceptor extends Interceptor {
         return handler.next(err);
       }
 
-      // Use a separate Dio instance (no interceptors) to avoid recursion
-      final refreshDio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
+      // Use a dedicated Dio (no interceptors) to avoid recursive 401 loops
+      final refreshDio = Dio(
+        BaseOptions(
+          baseUrl: Env.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
       final refreshResponse = await refreshDio.post(
         '/auth/refresh',
         data: {'refreshToken': refreshToken},
       );
 
-      final data = refreshResponse.data as Map<String, dynamic>;
-      final newAccessToken = data['accessToken'] as String;
-      final newRefreshToken = data['refreshToken'] as String;
+      // Unwrap envelope – backend wraps tokens inside {success, data:{accessToken,refreshToken}}
+      final data = parseEnvelope(refreshResponse.data);
+      final newAccessToken = data['accessToken'] as String?;
+      final newRefreshToken = data['refreshToken'] as String?;
+
+      if (newAccessToken == null || newAccessToken.isEmpty) {
+        throw Exception('Refresh response missing accessToken');
+      }
 
       await storage.saveToken(newAccessToken, key: _kAccessToken);
-      await storage.saveToken(newRefreshToken, key: _kRefreshToken);
+      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+        await storage.saveToken(newRefreshToken, key: _kRefreshToken);
+      }
 
       appLogger.d('Token refreshed silently');
 
       // Retry original request with new token
       err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-      final retryResponse = await Dio().fetch(err.requestOptions);
+      final retryResponse = await refreshDio.fetch(err.requestOptions);
       return handler.resolve(retryResponse);
     } catch (e) {
       appLogger.w('Silent refresh failed: $e — redirecting to login');

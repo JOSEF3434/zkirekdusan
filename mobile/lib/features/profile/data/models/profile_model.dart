@@ -83,7 +83,8 @@ class ProfileModel {
       stats: ProfileStatsModel.fromJson(
         json['stats'] as Map<String, dynamic>? ?? {},
       ),
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
     );
   }

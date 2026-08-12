@@ -33,11 +33,7 @@ class PostActionBar extends StatelessWidget {
             label: _formatCount(commentsCount),
             onPressed: () {},
           ),
-          _ActionButton(
-            icon: Icons.repeat,
-            label: '',
-            onPressed: () {},
-          ),
+          _ActionButton(icon: Icons.repeat, label: '', onPressed: () {}),
           const Spacer(),
           _ActionButton(
             icon: Icons.remove_red_eye_outlined,
@@ -84,14 +80,22 @@ class _ActionButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color ?? Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
+            Icon(
+              icon,
+              size: 20,
+              color:
+                  color ??
+                  Theme.of(context).iconTheme.color?.withValues(alpha: 0.7),
+            ),
             if (label != null && label!.isNotEmpty) ...[
               const SizedBox(width: 4),
               Text(
                 label!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ],
           ],
