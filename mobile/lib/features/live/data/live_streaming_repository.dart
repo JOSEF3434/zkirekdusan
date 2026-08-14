@@ -8,8 +8,9 @@ import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/home/domain/feed_response.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 
-final liveStreamingRepositoryProvider =
-    Provider<LiveStreamingRepository>((ref) {
+final liveStreamingRepositoryProvider = Provider<LiveStreamingRepository>((
+  ref,
+) {
   return LiveStreamingRepository(ref.read(apiClientProvider));
 });
 
@@ -21,7 +22,7 @@ class LiveStreamingRepository {
   // ─── Discovery ─────────────────────────────────────────────────────────────
 
   /// GET /streams/live — paginated list of all currently LIVE public streams.
-  Future<_PaginatedStreams> getLiveStreams({
+  Future<PaginatedStreams> getLiveStreams({
     int page = 1,
     int limit = 20,
     CancelToken? cancelToken,
@@ -39,7 +40,7 @@ class LiveStreamingRepository {
   }
 
   /// GET /streams/scheduled — upcoming scheduled streams.
-  Future<_PaginatedStreams> getScheduledStreams({
+  Future<PaginatedStreams> getScheduledStreams({
     int page = 1,
     int limit = 20,
     CancelToken? cancelToken,
@@ -72,7 +73,7 @@ class LiveStreamingRepository {
   // ─── Channel Streams ───────────────────────────────────────────────────────
 
   /// GET /video-channels/:channelId/streams
-  Future<_PaginatedStreams> getChannelStreams(
+  Future<PaginatedStreams> getChannelStreams(
     String channelId, {
     int page = 1,
     int limit = 20,
@@ -170,8 +171,7 @@ class LiveStreamingRepository {
   /// GET /video-channels/:channelId/streams/key
   Future<StreamKeyDto> getStreamKey(String channelId) async {
     try {
-      final response =
-          await _dio.get('/video-channels/$channelId/streams/key');
+      final response = await _dio.get('/video-channels/$channelId/streams/key');
       final data = parseEnvelope(response.data);
       return StreamKeyDto.fromJson(data);
     } on DioException catch (e) {
@@ -182,8 +182,9 @@ class LiveStreamingRepository {
   /// POST /video-channels/:channelId/streams/key/regenerate
   Future<StreamKeyDto> regenerateStreamKey(String channelId) async {
     try {
-      final response = await _dio
-          .post('/video-channels/$channelId/streams/key/regenerate');
+      final response = await _dio.post(
+        '/video-channels/$channelId/streams/key/regenerate',
+      );
       final data = parseEnvelope(response.data);
       return StreamKeyDto.fromJson(data);
     } on DioException catch (e) {
@@ -193,7 +194,7 @@ class LiveStreamingRepository {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  _PaginatedStreams _parsePaginatedStreams(dynamic raw) {
+  PaginatedStreams _parsePaginatedStreams(dynamic raw) {
     final map = parsePaginatedEnvelope(raw);
     final itemsJson = (map['data'] as List?) ?? [];
     final items = itemsJson
@@ -203,7 +204,7 @@ class LiveStreamingRepository {
     if (map['meta'] != null) {
       meta = FeedMetaDto.fromJson(map['meta'] as Map<String, dynamic>);
     }
-    return _PaginatedStreams(items: items, meta: meta);
+    return PaginatedStreams(items: items, meta: meta);
   }
 
   String _parseDioError(DioException e) {
@@ -215,20 +216,18 @@ class LiveStreamingRepository {
     }
     return switch (e.type) {
       DioExceptionType.connectionTimeout ||
-      DioExceptionType.receiveTimeout =>
-        'Connection timed out.',
-      DioExceptionType.connectionError =>
-        'Could not connect to the server.',
+      DioExceptionType.receiveTimeout => 'Connection timed out.',
+      DioExceptionType.connectionError => 'Could not connect to the server.',
       _ => 'An unexpected error occurred.',
     };
   }
 }
 
-class _PaginatedStreams {
+class PaginatedStreams {
   final List<LiveStreamDto> items;
   final FeedMetaDto? meta;
 
-  const _PaginatedStreams({required this.items, this.meta});
+  const PaginatedStreams({required this.items, this.meta});
 
   bool get hasNext => meta?.hasNext ?? false;
   int get total => meta?.total ?? items.length;

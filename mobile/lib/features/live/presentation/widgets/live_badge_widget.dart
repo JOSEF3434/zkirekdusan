@@ -23,9 +23,10 @@ class _LiveBadgeWidgetState extends State<LiveBadgeWidget>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _pulse = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -42,8 +43,7 @@ class _LiveBadgeWidgetState extends State<LiveBadgeWidget>
     final double vPad = widget.small ? 2 : 3;
 
     return Container(
-      padding:
-          EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         color: const Color(0xFFE53935),
         borderRadius: BorderRadius.circular(4),
@@ -53,7 +53,7 @@ class _LiveBadgeWidgetState extends State<LiveBadgeWidget>
         children: [
           AnimatedBuilder(
             animation: _pulse,
-            builder: (_, __) => Opacity(
+            builder: (_, _) => Opacity(
               opacity: _pulse.value,
               child: Container(
                 width: dotSize,

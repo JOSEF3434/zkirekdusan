@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/broadcaster_provider.dart';
-import 'package:mobile/features/live/presentation/providers/chat_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/stream_health_indicator.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
@@ -140,7 +139,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.live_tv),
                 label: const Text('Create Stream'),
@@ -192,8 +193,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // ─── Studio page (after stream created) ───────────────────────────────────
 
   Widget _buildStudioPage(BuildContext context, String streamId) {
-    final bState =
-        ref.watch(broadcasterProvider((streamId, widget.channelId)));
+    final bState = ref.watch(broadcasterProvider((streamId, widget.channelId)));
     final theme = Theme.of(context);
     final stream = bState.stream;
 
@@ -217,17 +217,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           // Stream health
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: StreamHealthIndicator(
-              health: bState.health,
-              compact: true,
-            ),
+            child: StreamHealthIndicator(health: bState.health, compact: true),
           ),
           // Viewer count
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: Center(
-              child: ViewerCountWidget(count: bState.viewerCount),
-            ),
+            child: Center(child: ViewerCountWidget(count: bState.viewerCount)),
           ),
         ],
       ),
@@ -253,9 +248,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                           onToggleVisible: () =>
                               setState(() => _keyVisible = !_keyVisible),
                           onRegenerate: () => ref
-                              .read(broadcasterProvider(
-                                      (streamId, widget.channelId))
-                                  .notifier)
+                              .read(
+                                broadcasterProvider((
+                                  streamId,
+                                  widget.channelId,
+                                )).notifier,
+                              )
                               .regenerateStreamKey(),
                         ),
                         const SizedBox(height: 16),
@@ -267,14 +265,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         ],
 
                         // Stream info
-                        Text(stream.title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 16)),
+                        Text(
+                          stream.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
                         if (stream.description != null) ...[
                           const SizedBox(height: 4),
-                          Text(stream.description!,
-                              style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant)),
+                          Text(
+                            stream.description!,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
 
                         const SizedBox(height: 16),
@@ -314,16 +319,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   isGoingLive: bState.isGoingLive,
                   isEndingStream: bState.isEndingStream,
                   onGoLive: () => ref
-                      .read(broadcasterProvider(
-                              (streamId, widget.channelId))
-                          .notifier)
+                      .read(
+                        broadcasterProvider((
+                          streamId,
+                          widget.channelId,
+                        )).notifier,
+                      )
                       .goLive(),
-                  onEndStream: () =>
-                      _confirmEndStream(context, streamId),
+                  onEndStream: () => _confirmEndStream(context, streamId),
                   onPublishVod: () => ref
-                      .read(broadcasterProvider(
-                              (streamId, widget.channelId))
-                          .notifier)
+                      .read(
+                        broadcasterProvider((
+                          streamId,
+                          widget.channelId,
+                        )).notifier,
+                      )
                       .publishVod(),
                 ),
               ],
@@ -331,8 +341,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
-  Future<void> _confirmEndStream(
-      BuildContext context, String streamId) async {
+  Future<void> _confirmEndStream(BuildContext context, String streamId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -348,8 +357,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('End Stream'),
           ),
         ],
@@ -357,22 +365,24 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
     if (confirm == true && mounted) {
       await ref
-          .read(broadcasterProvider(
-                  (streamId, widget.channelId))
-              .notifier)
+          .read(broadcasterProvider((streamId, widget.channelId)).notifier)
           .endStream();
     }
   }
 
   Future<void> _confirmLeave(
-      BuildContext context, LiveStreamDto? stream) async {
+    BuildContext context,
+    LiveStreamDto? stream,
+  ) async {
     if (stream?.status == LiveStreamStatus.live) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Leave Studio?'),
-          content: const Text('Your stream is still live. '
-              'It will continue running in the background.'),
+          content: const Text(
+            'Your stream is still live. '
+            'It will continue running in the background.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -385,7 +395,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           ],
         ),
       );
-      if (confirm == true && mounted) context.pop();
+      if (confirm == true && mounted) {
+        // ignore: use_build_context_synchronously
+        context.pop();
+      }
     } else {
       context.pop();
     }
@@ -401,12 +414,24 @@ class _StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, label, icon) = switch (status) {
-      LiveStreamStatus.draft => (Colors.grey, 'Draft — Not live yet', Icons.edit_outlined),
+      LiveStreamStatus.draft => (
+        Colors.grey,
+        'Draft — Not live yet',
+        Icons.edit_outlined,
+      ),
       LiveStreamStatus.scheduled => (Colors.blue, 'Scheduled', Icons.schedule),
       LiveStreamStatus.live => (Colors.red, 'LIVE', Icons.live_tv),
       LiveStreamStatus.ended => (Colors.orange, 'Stream Ended', Icons.stop),
-      LiveStreamStatus.processing => (Colors.purple, 'Processing Recording...', Icons.autorenew),
-      LiveStreamStatus.vodReady => (Colors.green, 'VOD Ready', Icons.video_library),
+      LiveStreamStatus.processing => (
+        Colors.purple,
+        'Processing Recording...',
+        Icons.autorenew,
+      ),
+      LiveStreamStatus.vodReady => (
+        Colors.green,
+        'VOD Ready',
+        Icons.video_library,
+      ),
       LiveStreamStatus.cancelled => (Colors.grey, 'Cancelled', Icons.cancel),
       LiveStreamStatus.failed => (Colors.red, 'Failed', Icons.error),
     };
@@ -423,9 +448,10 @@ class _StatusBanner extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -460,20 +486,26 @@ class _StreamKeyCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('RTMP Stream Setup',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const Text(
+              'RTMP Stream Setup',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
             const SizedBox(height: 12),
 
             if (sk?.rtmpUrl != null) ...[
-              const Text('Server URL',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                'Server URL',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
               Row(
                 children: [
                   Expanded(
                     child: SelectableText(
                       sk!.rtmpUrl!,
                       style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 13),
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -491,58 +523,63 @@ class _StreamKeyCard extends StatelessWidget {
               const SizedBox(height: 8),
             ],
 
-            const Text('Stream Key',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              'Stream Key',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             isLoading
                 ? const LinearProgressIndicator()
                 : sk == null
-                    ? const Text('No key available',
-                        style: TextStyle(color: Colors.grey))
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              keyVisible
-                                  ? (sk.rawKey ?? sk.keyPrefix ?? '****')
-                                  : '••••••••••••••••',
-                              style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 13),
-                            ),
+                ? const Text(
+                    'No key available',
+                    style: TextStyle(color: Colors.grey),
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          keyVisible
+                              ? (sk.rawKey ?? sk.keyPrefix ?? '****')
+                              : '••••••••••••••••',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
                           ),
-                          IconButton(
-                            icon: Icon(
-                                keyVisible
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                size: 18),
-                            onPressed: onToggleVisible,
-                          ),
-                          if (sk.rawKey != null)
-                            IconButton(
-                              icon: const Icon(Icons.copy, size: 18),
-                              onPressed: () {
-                                Clipboard.setData(
-                                    ClipboardData(text: sk.rawKey!));
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(
-                                  const SnackBar(
-                                      content:
-                                          Text('Stream key copied')),
-                                );
-                              },
-                            ),
-                        ],
+                        ),
                       ),
+                      IconButton(
+                        icon: Icon(
+                          keyVisible ? Icons.visibility_off : Icons.visibility,
+                          size: 18,
+                        ),
+                        onPressed: onToggleVisible,
+                      ),
+                      if (sk.rawKey != null)
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: sk.rawKey!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Stream key copied'),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
 
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: isLoading ? null : onRegenerate,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Regenerate Key',
-                  style: TextStyle(fontSize: 12)),
+              label: const Text(
+                'Regenerate Key',
+                style: TextStyle(fontSize: 12),
+              ),
               style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error),
+                foregroundColor: theme.colorScheme.error,
+              ),
             ),
           ],
         ),
@@ -586,69 +623,72 @@ class _ActionBar extends StatelessWidget {
       ),
       child: switch (status) {
         LiveStreamStatus.draft || LiveStreamStatus.scheduled => SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: isGoingLive ? null : onGoLive,
-              icon: isGoingLive
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.live_tv),
-              label: const Text('Go Live'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE53935),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: isGoingLive ? null : onGoLive,
+            icon: isGoingLive
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.live_tv),
+            label: const Text('Go Live'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE53935),
+              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
+        ),
         LiveStreamStatus.live => SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: isEndingStream ? null : onEndStream,
-              icon: isEndingStream
-                  ? const SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: isEndingStream ? null : onEndStream,
+            icon: isEndingStream
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.stop_circle_outlined),
+            label: const Text('End Stream'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        LiveStreamStatus.ended || LiveStreamStatus.processing => Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          alignment: Alignment.center,
+          child: Column(
+            children: [
+              if (status == LiveStreamStatus.processing)
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.stop_circle_outlined),
-              label: const Text('End Stream'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Processing recording…'),
+                  ],
+                )
+              else
+                FilledButton.icon(
+                  onPressed: onPublishVod,
+                  icon: const Icon(Icons.video_library),
+                  label: const Text('Publish VOD'),
+                ),
+            ],
           ),
-        LiveStreamStatus.ended || LiveStreamStatus.processing => Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            alignment: Alignment.center,
-            child: Column(
-              children: [
-                if (status == LiveStreamStatus.processing)
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 8),
-                      Text('Processing recording…'),
-                    ],
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: onPublishVod,
-                    icon: const Icon(Icons.video_library),
-                    label: const Text('Publish VOD'),
-                  ),
-              ],
-            ),
-          ),
+        ),
         _ => const SizedBox.shrink(),
       },
     );

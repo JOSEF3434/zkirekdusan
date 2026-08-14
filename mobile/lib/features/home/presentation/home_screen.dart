@@ -112,17 +112,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Consumer(
               builder: (context, ref, _) {
                 final liveState = ref.watch(liveStreamsProvider);
-                if (liveState.streams.isEmpty) return const SliverToBoxAdapter();
+                if (liveState.streams.isEmpty) {
+                  return const SliverToBoxAdapter();
+                }
 
                 return SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Row(
                           children: [
-                            const Icon(Icons.live_tv, color: Colors.red, size: 18),
+                            const Icon(
+                              Icons.live_tv,
+                              color: Colors.red,
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             const Text(
                               'LIVE NOW',

@@ -44,6 +44,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         title: const Text('Explore'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.live_tv, color: Colors.red),
+            tooltip: 'Live Streams',
+            onPressed: () => context.push('/live/discover'),
+          ),
+          IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => context.push('/search'),
           ),

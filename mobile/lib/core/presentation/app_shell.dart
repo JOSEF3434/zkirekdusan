@@ -40,7 +40,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 title: const Text('Upload Video'),
                 onTap: () {
                   context.pop(); // close sheet
-                  context.push('/upload');
+                  context.push('/creator/workspace'); // F6: Upload video uses Creator Workspace
                 },
               ),
               ListTile(
@@ -48,10 +48,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                 title: const Text('Go Live'),
                 onTap: () {
                   context.pop(); // close sheet
-                  // The user must pick a channel, for MVP assume first channel or pass ID later.
-                  // For now, let's navigate to a setup route. We need auth/channel context.
-                  // We'll push to a generic '/live/studio' route which handles channel selection or passes user channel ID.
                   context.push('/live/studio');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.group_add),
+                title: const Text('Create Group'),
+                onTap: () {
+                  context.pop(); // close sheet
+                  context.push('/creator/create-group');
                 },
               ),
             ],

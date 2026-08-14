@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/live_room_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
@@ -47,8 +46,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
   Future<void> _initPlayer(String hlsUrl) async {
     if (_playerInitialized) return;
     try {
-      final ctrl =
-          VideoPlayerController.networkUrl(Uri.parse(hlsUrl));
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl));
       await ctrl.initialize();
       await ctrl.play();
       if (mounted) {
@@ -97,15 +95,15 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
         child: roomState.isLoading
             ? const Center(child: CircularProgressIndicator())
             : roomState.error != null
-                ? _buildError(roomState.error!, theme)
-                : _buildRoom(roomState, theme),
+            ? _buildError(roomState.error!, theme)
+            : _buildRoom(roomState, theme),
       ),
     );
   }
 
   Widget _buildRoom(LiveRoomState state, ThemeData theme) {
-    final isLandscape = MediaQuery.of(context).orientation ==
-        Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (isLandscape || _isFullscreen) {
       return _buildLandscapeLayout(state, theme);
@@ -117,10 +115,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
     return Column(
       children: [
         // Player section (16:9)
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: _buildPlayer(state),
-        ),
+        AspectRatio(aspectRatio: 16 / 9, child: _buildPlayer(state)),
 
         // Stream info
         _StreamInfoBar(state: state),
@@ -129,8 +124,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
         Expanded(
           child: state.stream?.isChatEnabled != false
               ? LiveChatWidget(streamId: widget.streamId)
-              : const Center(
-                  child: Text('Chat is disabled for this stream.')),
+              : const Center(child: Text('Chat is disabled for this stream.')),
         ),
       ],
     );
@@ -140,10 +134,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
     return Row(
       children: [
         // Player (left side)
-        Expanded(
-          flex: _chatVisible ? 3 : 5,
-          child: _buildPlayer(state),
-        ),
+        Expanded(flex: _chatVisible ? 3 : 5, child: _buildPlayer(state)),
         // Chat (right side)
         if (_chatVisible && state.stream?.isChatEnabled != false)
           Expanded(
@@ -179,13 +170,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
           if (_controlsVisible) _buildControls(state),
 
           // Reaction animations
-          ReactionAnimationWidget(
-            reactionStream: socket.onReactionBroadcast,
-          ),
+          ReactionAnimationWidget(reactionStream: socket.onReactionBroadcast),
 
           // Reconnect overlay
-          if (state.connectionState ==
-              SocketConnectionState.reconnecting)
+          if (state.connectionState == SocketConnectionState.reconnecting)
             _buildReconnectBanner(),
         ],
       ),
@@ -217,13 +205,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
                         if (_isFullscreen) _toggleFullscreen();
                         context.pop();
                       },
-                      icon: const Icon(Icons.arrow_back,
-                          color: Colors.white),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
                     const LiveBadgeWidget(small: true),
                     const SizedBox(width: 8),
-                    ViewerCountWidget(
-                        count: state.viewerCount, light: true),
+                    ViewerCountWidget(count: state.viewerCount, light: true),
                     const Spacer(),
                     // Toggle chat visibility in landscape
                     IconButton(
@@ -270,8 +256,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
                     IconButton(
                       onPressed: () {
                         final v = _playerCtrl?.value.volume ?? 1.0;
-                        _playerCtrl
-                            ?.setVolume(v > 0 ? 0.0 : 1.0);
+                        _playerCtrl?.setVolume(v > 0 ? 0.0 : 1.0);
                         setState(() {});
                       },
                       icon: Icon(
@@ -298,8 +283,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
         children: [
           CircularProgressIndicator(color: Colors.white),
           SizedBox(height: 12),
-          Text('Connecting to stream…',
-              style: TextStyle(color: Colors.white70)),
+          Text(
+            'Connecting to stream…',
+            style: TextStyle(color: Colors.white70),
+          ),
         ],
       ),
     );
@@ -312,8 +299,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
         children: [
           const Icon(Icons.error_outline, color: Colors.white54, size: 48),
           const SizedBox(height: 12),
-          const Text('Unable to load stream',
-              style: TextStyle(color: Colors.white70)),
+          const Text(
+            'Unable to load stream',
+            style: TextStyle(color: Colors.white70),
+          ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () {
@@ -323,8 +312,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
               });
             },
             style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white30)),
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white30),
+            ),
             child: const Text('Retry'),
           ),
         ],
@@ -339,22 +329,28 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
         children: [
           const Icon(Icons.live_tv_outlined, color: Colors.white54, size: 64),
           const SizedBox(height: 16),
-          const Text('Stream has ended',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700)),
+          const Text(
+            'Stream has ended',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           if (state.vodUrl != null) ...[
             const SizedBox(height: 12),
-            const Text('Recording is processing...',
-                style: TextStyle(color: Colors.white70)),
+            const Text(
+              'Recording is processing...',
+              style: TextStyle(color: Colors.white70),
+            ),
           ],
           const SizedBox(height: 24),
           OutlinedButton(
             onPressed: () => context.pop(),
             style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white30)),
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white30),
+            ),
             child: const Text('Go Back'),
           ),
         ],
@@ -382,8 +378,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
               ),
             ),
             SizedBox(width: 8),
-            Text('Reconnecting…',
-                style: TextStyle(color: Colors.white, fontSize: 12)),
+            Text(
+              'Reconnecting…',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -399,26 +397,34 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen> {
           children: [
             const Icon(Icons.error_outline, color: Colors.red, size: 64),
             const SizedBox(height: 16),
-            const Text('Failed to load stream',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600)),
+            const Text(
+              'Failed to load stream',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(error,
-                style: const TextStyle(color: Colors.white60),
-                textAlign: TextAlign.center),
+            Text(
+              error,
+              style: const TextStyle(color: Colors.white60),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () =>
-                  ref.read(liveRoomProvider(widget.streamId).notifier).refresh(),
+              onPressed: () => ref
+                  .read(liveRoomProvider(widget.streamId).notifier)
+                  .refresh(),
               child: const Text('Try Again'),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => context.pop(),
-              child: const Text('Go Back',
-                  style: TextStyle(color: Colors.white60)),
+              child: const Text(
+                'Go Back',
+                style: TextStyle(color: Colors.white60),
+              ),
             ),
           ],
         ),
@@ -451,7 +457,9 @@ class _StreamInfoBar extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 15),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
                 ),
                 if (stream.videoChannel?.name != null)
                   Text(

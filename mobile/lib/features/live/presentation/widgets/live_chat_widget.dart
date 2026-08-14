@@ -89,30 +89,30 @@ class _LiveChatWidgetState extends ConsumerState<LiveChatWidget> {
           child: chatState.isLoadingHistory
               ? const Center(child: CircularProgressIndicator())
               : chatState.messages.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Be the first to say something!',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      itemCount: chatState.messages.length,
-                      itemBuilder: (_, i) {
-                        final msg = chatState.messages[i];
-                        return _MessageTile(
-                          message: msg,
-                          isModerator: widget.isModerator,
-                          onDelete: () => ref
-                              .read(chatProvider(widget.streamId).notifier)
-                              .sendReaction('🗑️'), // stub
-                        );
-                      },
-                    ),
+              ? Center(
+                  child: Text(
+                    'Be the first to say something!',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  itemCount: chatState.messages.length,
+                  itemBuilder: (_, i) {
+                    final msg = chatState.messages[i];
+                    return _MessageTile(
+                      message: msg,
+                      isModerator: widget.isModerator,
+                      onDelete: () => ref
+                          .read(chatProvider(widget.streamId).notifier)
+                          .sendReaction('🗑️'), // stub
+                    );
+                  },
+                ),
         ),
 
         // Send error
@@ -120,25 +120,20 @@ class _LiveChatWidgetState extends ConsumerState<LiveChatWidget> {
           Container(
             width: double.infinity,
             color: Colors.orange.shade100,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Text(
               chatState.sendError!,
-              style:
-                  const TextStyle(fontSize: 12, color: Colors.deepOrange),
+              style: const TextStyle(fontSize: 12, color: Colors.deepOrange),
             ),
           ),
 
         // Input bar
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
             border: Border(
-              top: BorderSide(
-                color: theme.colorScheme.outlineVariant,
-              ),
+              top: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
           child: Row(
@@ -159,9 +154,8 @@ class _LiveChatWidgetState extends ConsumerState<LiveChatWidget> {
                   maxLength: 500,
                   maxLines: 1,
                   textInputAction: TextInputAction.send,
-                  buildCounter: (_, {required count, required isFocused, maxLength}) =>
-                      null,
                   decoration: InputDecoration(
+                    counterText: '',
                     hintText: 'Say something…',
                     isDense: true,
                     filled: true,
@@ -171,7 +165,9 @@ class _LiveChatWidgetState extends ConsumerState<LiveChatWidget> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                   ),
                   onSubmitted: (_) => _send(),
                 ),
@@ -225,10 +221,9 @@ class _MessageTile extends StatelessWidget {
         child: Text(
           '[Message deleted]',
           style: TextStyle(
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withValues(alpha: 0.5),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             fontStyle: FontStyle.italic,
             fontSize: 12,
           ),

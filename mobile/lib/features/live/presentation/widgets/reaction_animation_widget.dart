@@ -49,12 +49,14 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
         duration: const Duration(milliseconds: 1500),
       );
       particle.controller = ctrl;
-      particle.opacity = Tween<double>(begin: 1, end: 0).animate(
-        CurvedAnimation(parent: ctrl, curve: const Interval(0.6, 1.0)),
-      );
-      particle.yOffset = Tween<double>(begin: 0, end: -180).animate(
-        CurvedAnimation(parent: ctrl, curve: Curves.easeOut),
-      );
+      particle.opacity = Tween<double>(
+        begin: 1,
+        end: 0,
+      ).animate(CurvedAnimation(parent: ctrl, curve: const Interval(0.6, 1.0)));
+      particle.yOffset = Tween<double>(
+        begin: 0,
+        end: -180,
+      ).animate(CurvedAnimation(parent: ctrl, curve: Curves.easeOut));
       setState(() => _particles.add(particle));
       ctrl.forward().then((_) {
         if (mounted) {
@@ -83,14 +85,11 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
             right: 20 + p.xOffset,
             child: AnimatedBuilder(
               animation: p.controller,
-              builder: (_, __) => Transform.translate(
+              builder: (_, _) => Transform.translate(
                 offset: Offset(p.xOffset * 0.3, p.yOffset.value),
                 child: Opacity(
                   opacity: p.opacity.value,
-                  child: Text(
-                    p.emoji,
-                    style: const TextStyle(fontSize: 28),
-                  ),
+                  child: Text(p.emoji, style: const TextStyle(fontSize: 28)),
                 ),
               ),
             ),

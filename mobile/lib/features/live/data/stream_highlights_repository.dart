@@ -7,10 +7,11 @@ import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/live/domain/stream_highlight_model.dart';
 
-final streamHighlightsRepositoryProvider =
-    Provider<StreamHighlightsRepository>((ref) {
-  return StreamHighlightsRepository(ref.read(apiClientProvider));
-});
+final streamHighlightsRepositoryProvider = Provider<StreamHighlightsRepository>(
+  (ref) {
+    return StreamHighlightsRepository(ref.read(apiClientProvider));
+  },
+);
 
 class StreamHighlightsRepository {
   final Dio _dio;
@@ -30,7 +31,7 @@ class StreamHighlightsRepository {
         '/live-streams/$streamId/highlights',
         data: {
           'title': title,
-          if (description != null) 'description': description,
+          'description': ?description,
           'startTimeSec': startTimeSec,
           'endTimeSec': endTimeSec,
         },
@@ -45,14 +46,10 @@ class StreamHighlightsRepository {
   /// GET /live-streams/:streamId/highlights
   Future<List<StreamHighlightDto>> getHighlights(String streamId) async {
     try {
-      final response =
-          await _dio.get('/live-streams/$streamId/highlights');
+      final response = await _dio.get('/live-streams/$streamId/highlights');
       final list = parseEnvelopeList(response.data);
       return list
-          .map(
-            (e) =>
-                StreamHighlightDto.fromJson(e as Map<String, dynamic>),
-          )
+          .map((e) => StreamHighlightDto.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
@@ -60,14 +57,9 @@ class StreamHighlightsRepository {
   }
 
   /// DELETE /live-streams/:streamId/highlights/:highlightId
-  Future<void> deleteHighlight(
-    String streamId,
-    String highlightId,
-  ) async {
+  Future<void> deleteHighlight(String streamId, String highlightId) async {
     try {
-      await _dio.delete(
-        '/live-streams/$streamId/highlights/$highlightId',
-      );
+      await _dio.delete('/live-streams/$streamId/highlights/$highlightId');
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }
@@ -78,7 +70,7 @@ class StreamHighlightsRepository {
     if (data is Map<String, dynamic>) {
       final msg = data['message'];
       if (msg is String) return msg;
-      if (msg is List) return (msg as List).join(', ');
+      if (msg is List) return (msg).join(', ');
     }
     return 'An unexpected error occurred.';
   }

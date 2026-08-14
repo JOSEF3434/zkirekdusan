@@ -138,22 +138,17 @@ class LiveCardWidget extends StatelessWidget {
                   width: double.infinity,
                   height: height,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _fallbackThumb(height),
+                  errorWidget: (_, _, _) => _fallbackThumb(height),
                 )
               : _fallbackThumb(height),
         ),
         // LIVE badge + viewer count overlay
-        Positioned(
-          top: 8,
-          left: 8,
-          child: const LiveBadgeWidget(small: true),
-        ),
+        Positioned(top: 8, left: 8, child: const LiveBadgeWidget(small: true)),
         Positioned(
           bottom: 8,
           right: 8,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
               color: Colors.black54,
               borderRadius: BorderRadius.circular(6),
@@ -185,12 +180,15 @@ class LiveCardWidget extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 12,
-          backgroundImage:
-              avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null,
+          backgroundImage: avatarUrl != null
+              ? CachedNetworkImageProvider(avatarUrl)
+              : null,
           backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
           child: avatarUrl == null
-              ? Text(channelName[0].toUpperCase(),
-                  style: const TextStyle(fontSize: 10))
+              ? Text(
+                  channelName[0].toUpperCase(),
+                  style: const TextStyle(fontSize: 10),
+                )
               : null,
         ),
         const SizedBox(width: 6),

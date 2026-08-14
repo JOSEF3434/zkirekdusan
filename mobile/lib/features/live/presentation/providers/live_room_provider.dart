@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 // lib/features/live/presentation/providers/live_room_provider.dart
 // Manages the live room state: stream metadata, viewer count, health, socket events.
 
@@ -7,7 +8,7 @@ import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/domain/stream_health_model.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/core/storage/secure_storage.dart';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -42,17 +43,16 @@ class LiveRoomState {
     SocketConnectionState? connectionState,
     bool? isEnded,
     String? vodUrl,
-  }) =>
-      LiveRoomState(
-        stream: stream ?? this.stream,
-        isLoading: isLoading ?? this.isLoading,
-        error: clearError ? null : (error ?? this.error),
-        viewerCount: viewerCount ?? this.viewerCount,
-        health: health ?? this.health,
-        connectionState: connectionState ?? this.connectionState,
-        isEnded: isEnded ?? this.isEnded,
-        vodUrl: vodUrl ?? this.vodUrl,
-      );
+  }) => LiveRoomState(
+    stream: stream ?? this.stream,
+    isLoading: isLoading ?? this.isLoading,
+    error: clearError ? null : (error ?? this.error),
+    viewerCount: viewerCount ?? this.viewerCount,
+    health: health ?? this.health,
+    connectionState: connectionState ?? this.connectionState,
+    isEnded: isEnded ?? this.isEnded,
+    vodUrl: vodUrl ?? this.vodUrl,
+  );
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
   final String _streamId;
   final LiveStreamingRepository _repo;
   final LiveSocketService _socket;
-  final String? _token;
+  final StorageService _storage;
 
   final List<StreamSubscription> _subs = [];
 
@@ -69,12 +69,12 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
     required String streamId,
     required LiveStreamingRepository repo,
     required LiveSocketService socket,
-    required String? token,
-  })  : _streamId = streamId,
-        _repo = repo,
-        _socket = socket,
-        _token = token,
-        super(const LiveRoomState()) {
+    required StorageService storage,
+  }) : _streamId = streamId,
+       _repo = repo,
+       _socket = socket,
+       _storage = storage,
+       super(const LiveRoomState()) {
     _init();
   }
 
@@ -88,54 +88,65 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
       return;
     }
 
-    // 2. Connect socket if token available
-    if (_token != null) {
-      await _socket.connect(_token!);
+    // 2. Connect socket if token available (loaded from secure storage)
+    final token = await _storage.getToken();
+    if (token != null) {
+      await _socket.connect(token);
       _socket.joinStream(_streamId);
     }
 
     // 3. Subscribe to real-time events
-    _subs.add(_socket.connectionState.listen((cs) {
-      if (!mounted) return;
-      state = state.copyWith(connectionState: cs);
-      // Re-join room after reconnect
-      if (cs == SocketConnectionState.connected) {
-        _socket.joinStream(_streamId);
-      }
-    }));
+    _subs.add(
+      _socket.connectionState.listen((cs) {
+        if (!mounted) return;
+        state = state.copyWith(connectionState: cs);
+        // Re-join room after reconnect
+        if (cs == SocketConnectionState.connected) {
+          _socket.joinStream(_streamId);
+        }
+      }),
+    );
 
-    _subs.add(_socket.onViewerCount.listen((payload) {
-      if (!mounted) return;
-      final sid = payload['streamId'] as String?;
-      if (sid == _streamId) {
-        state = state.copyWith(viewerCount: payload['count'] as int? ?? 0);
-      }
-    }));
+    _subs.add(
+      _socket.onViewerCount.listen((payload) {
+        if (!mounted) return;
+        final sid = payload['streamId'] as String?;
+        if (sid == _streamId) {
+          state = state.copyWith(viewerCount: payload['count'] as int? ?? 0);
+        }
+      }),
+    );
 
-    _subs.add(_socket.onStreamUpdated.listen((updated) {
-      if (!mounted) return;
-      if (updated.id == _streamId) {
-        state = state.copyWith(stream: updated);
-      }
-    }));
+    _subs.add(
+      _socket.onStreamUpdated.listen((updated) {
+        if (!mounted) return;
+        if (updated.id == _streamId) {
+          state = state.copyWith(stream: updated);
+        }
+      }),
+    );
 
-    _subs.add(_socket.onStreamEnded.listen((event) {
-      if (!mounted) return;
-      if (event.streamId == _streamId) {
-        state = state.copyWith(
-          isEnded: true,
-          vodUrl: event.vodUrl,
-          stream: state.stream?.copyWith(status: LiveStreamStatus.ended),
-        );
-      }
-    }));
+    _subs.add(
+      _socket.onStreamEnded.listen((event) {
+        if (!mounted) return;
+        if (event.streamId == _streamId) {
+          state = state.copyWith(
+            isEnded: true,
+            vodUrl: event.vodUrl,
+            stream: state.stream?.copyWith(status: LiveStreamStatus.ended),
+          );
+        }
+      }),
+    );
 
-    _subs.add(_socket.onStreamHealth.listen((health) {
-      if (!mounted) return;
-      if (health.streamId == _streamId) {
-        state = state.copyWith(health: health);
-      }
-    }));
+    _subs.add(
+      _socket.onStreamHealth.listen((health) {
+        if (!mounted) return;
+        if (health.streamId == _streamId) {
+          state = state.copyWith(health: health);
+        }
+      }),
+    );
   }
 
   Future<void> refresh() async {
@@ -160,17 +171,19 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-final liveRoomProvider = StateNotifierProvider.family<LiveRoomNotifier,
-    LiveRoomState, String>((ref, streamId) {
-  final repo = ref.read(liveStreamingRepositoryProvider);
-  final socket = ref.read(liveSocketServiceProvider);
-  final authState = ref.read(authProvider);
-  final token = authState.token;
+final liveRoomProvider =
+    StateNotifierProvider.family<LiveRoomNotifier, LiveRoomState, String>((
+      ref,
+      streamId,
+    ) {
+      final repo = ref.read(liveStreamingRepositoryProvider);
+      final socket = ref.read(liveSocketServiceProvider);
+      final storage = ref.read(storageServiceProvider);
 
-  return LiveRoomNotifier(
-    streamId: streamId,
-    repo: repo,
-    socket: socket,
-    token: token,
-  );
-});
+      return LiveRoomNotifier(
+        streamId: streamId,
+        repo: repo,
+        socket: socket,
+        storage: storage,
+      );
+    });

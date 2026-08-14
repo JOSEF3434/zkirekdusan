@@ -24,10 +24,7 @@ class LiveDiscoveryScreen extends ConsumerWidget {
           ),
         ),
         body: const TabBarView(
-          children: [
-            _LiveStreamsList(),
-            _ScheduledStreamsList(),
-          ],
+          children: [_LiveStreamsList(), _ScheduledStreamsList()],
         ),
       ),
     );
@@ -50,8 +47,7 @@ class _LiveStreamsList extends ConsumerWidget {
     if (state.error != null && state.streams.isEmpty) {
       return _ErrorState(
         message: state.error!,
-        onRetry: () =>
-            ref.read(liveStreamsProvider.notifier).load(),
+        onRetry: () => ref.read(liveStreamsProvider.notifier).load(),
       );
     }
 
@@ -60,8 +56,7 @@ class _LiveStreamsList extends ConsumerWidget {
         icon: Icons.live_tv_outlined,
         message: 'No streams are live right now.',
         sub: 'Check back soon or browse scheduled streams.',
-        onRefresh: () =>
-            ref.read(liveStreamsProvider.notifier).refresh(),
+        onRefresh: () => ref.read(liveStreamsProvider.notifier).refresh(),
       );
     }
 
@@ -74,8 +69,7 @@ class _LiveStreamsList extends ConsumerWidget {
         return false;
       },
       child: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(liveStreamsProvider.notifier).refresh(),
+        onRefresh: () => ref.read(liveStreamsProvider.notifier).refresh(),
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
@@ -110,8 +104,7 @@ class _ScheduledStreamsList extends ConsumerWidget {
     if (state.error != null && state.streams.isEmpty) {
       return _ErrorState(
         message: state.error!,
-        onRetry: () =>
-            ref.read(scheduledStreamsProvider.notifier).load(),
+        onRetry: () => ref.read(scheduledStreamsProvider.notifier).load(),
       );
     }
 
@@ -120,8 +113,7 @@ class _ScheduledStreamsList extends ConsumerWidget {
         icon: Icons.schedule,
         message: 'No scheduled streams.',
         sub: 'When creators schedule streams, they appear here.',
-        onRefresh: () =>
-            ref.read(scheduledStreamsProvider.notifier).refresh(),
+        onRefresh: () => ref.read(scheduledStreamsProvider.notifier).refresh(),
       );
     }
 
@@ -134,8 +126,7 @@ class _ScheduledStreamsList extends ConsumerWidget {
         return false;
       },
       child: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(scheduledStreamsProvider.notifier).refresh(),
+        onRefresh: () => ref.read(scheduledStreamsProvider.notifier).refresh(),
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
@@ -164,7 +155,7 @@ class _Skeletons extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 6,
-      itemBuilder: (_, __) => _SkeletonCard(),
+      itemBuilder: (_, _) => _SkeletonCard(),
     );
   }
 }
@@ -184,8 +175,9 @@ class _SkeletonCard extends StatelessWidget {
           Container(
             height: 190,
             decoration: BoxDecoration(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
@@ -195,18 +187,16 @@ class _SkeletonCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                    height: 14,
-                    width: 200,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant),
+                  height: 14,
+                  width: 200,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 const SizedBox(height: 8),
                 Container(
-                    height: 12,
-                    width: 120,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant),
+                  height: 12,
+                  width: 120,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ],
             ),
           ),
@@ -239,13 +229,16 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(message,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
-            Text(sub,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              sub,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: onRefresh,
@@ -275,13 +268,16 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            const Text('Failed to load streams',
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              'Failed to load streams',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: onRetry,

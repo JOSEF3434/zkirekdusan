@@ -79,10 +79,8 @@ class StreamChannelDto with _$StreamChannelDto {
 
 @freezed
 class StreamGroupDto with _$StreamGroupDto {
-  const factory StreamGroupDto({
-    required String id,
-    required String name,
-  }) = _StreamGroupDto;
+  const factory StreamGroupDto({required String id, required String name}) =
+      _StreamGroupDto;
 
   factory StreamGroupDto.fromJson(Map<String, dynamic> json) =>
       _$StreamGroupDtoFromJson(json);
@@ -192,19 +190,16 @@ class CreateLiveStreamRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        if (description != null) 'description': description,
-        if (visibility != null)
-          'visibility': visibility!.name.toUpperCase(),
-        if (protocol != null) 'protocol': protocol!.name.toUpperCase(),
-        if (scheduledAt != null) 'scheduledAt': scheduledAt,
-        if (categories != null) 'categories': categories,
-        if (tags != null) 'tags': tags,
-        if (isRecordingEnabled != null)
-          'isRecordingEnabled': isRecordingEnabled,
-        if (isChatEnabled != null) 'isChatEnabled': isChatEnabled,
-        if (isChatSlowMode != null) 'isChatSlowMode': isChatSlowMode,
-        if (chatSlowModeSeconds != null)
-          'chatSlowModeSeconds': chatSlowModeSeconds,
-      };
+    'title': title,
+    if (description != null) 'description': description,
+    if (visibility != null) 'visibility': visibility!.name.toUpperCase(),
+    if (protocol != null) 'protocol': protocol!.name.toUpperCase(),
+    if (scheduledAt != null) 'scheduledAt': scheduledAt,
+    if (categories != null) 'categories': categories,
+    if (tags != null) 'tags': tags,
+    if (isRecordingEnabled != null) 'isRecordingEnabled': isRecordingEnabled,
+    if (isChatEnabled != null) 'isChatEnabled': isChatEnabled,
+    if (isChatSlowMode != null) 'isChatSlowMode': isChatSlowMode,
+    if (chatSlowModeSeconds != null) 'chatSlowModeSeconds': chatSlowModeSeconds,
+  };
 }

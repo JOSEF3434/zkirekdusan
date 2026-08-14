@@ -33,15 +33,14 @@ class LiveDiscoveryState {
     int? currentPage,
     String? error,
     bool clearError = false,
-  }) =>
-      LiveDiscoveryState(
-        streams: streams ?? this.streams,
-        isLoading: isLoading ?? this.isLoading,
-        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-        hasMore: hasMore ?? this.hasMore,
-        currentPage: currentPage ?? this.currentPage,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => LiveDiscoveryState(
+    streams: streams ?? this.streams,
+    isLoading: isLoading ?? this.isLoading,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    hasMore: hasMore ?? this.hasMore,
+    currentPage: currentPage ?? this.currentPage,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 // ─── Live Streams Notifier ────────────────────────────────────────────────────
@@ -84,8 +83,9 @@ class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
       final next = state.currentPage + 1;
       final result = await _repo.getLiveStreams(page: next, limit: 20);
       final existing = {for (final s in state.streams) s.id};
-      final newItems =
-          result.items.where((s) => !existing.contains(s.id)).toList();
+      final newItems = result.items
+          .where((s) => !existing.contains(s.id))
+          .toList();
       state = state.copyWith(
         streams: [...state.streams, ...newItems],
         isLoadingMore: false,
@@ -107,8 +107,8 @@ class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
 
 final liveStreamsProvider =
     StateNotifierProvider<LiveStreamsNotifier, LiveDiscoveryState>((ref) {
-  return LiveStreamsNotifier(ref.read(liveStreamingRepositoryProvider));
-});
+      return LiveStreamsNotifier(ref.read(liveStreamingRepositoryProvider));
+    });
 
 // ─── Scheduled Streams Notifier ───────────────────────────────────────────────
 
@@ -125,8 +125,7 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     _isFetching = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final result =
-          await _repo.getScheduledStreams(page: 1, limit: 20);
+      final result = await _repo.getScheduledStreams(page: 1, limit: 20);
       final seen = <String>{};
       final unique = result.items.where((s) => seen.add(s.id)).toList();
       state = state.copyWith(
@@ -148,11 +147,11 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     state = state.copyWith(isLoadingMore: true);
     try {
       final next = state.currentPage + 1;
-      final result =
-          await _repo.getScheduledStreams(page: next, limit: 20);
+      final result = await _repo.getScheduledStreams(page: next, limit: 20);
       final existing = {for (final s in state.streams) s.id};
-      final newItems =
-          result.items.where((s) => !existing.contains(s.id)).toList();
+      final newItems = result.items
+          .where((s) => !existing.contains(s.id))
+          .toList();
       state = state.copyWith(
         streams: [...state.streams, ...newItems],
         isLoadingMore: false,
@@ -174,5 +173,7 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
 
 final scheduledStreamsProvider =
     StateNotifierProvider<ScheduledStreamsNotifier, LiveDiscoveryState>((ref) {
-  return ScheduledStreamsNotifier(ref.read(liveStreamingRepositoryProvider));
-});
+      return ScheduledStreamsNotifier(
+        ref.read(liveStreamingRepositoryProvider),
+      );
+    });

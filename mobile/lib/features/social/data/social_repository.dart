@@ -44,7 +44,7 @@ class SocialRepository {
   }) async {
     final response = await _dio.post(
       '/posts/$postId/comments',
-      data: {'content': content, if (parentId != null) 'parentId': parentId},
+      data: {'content': content, 'parentId': ?parentId},
     );
     final data = parseEnvelope(response.data);
     return CommentResponseDto.fromJson(data);

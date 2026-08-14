@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 // lib/features/live/presentation/providers/chat_provider.dart
 // Real-time chat state with history loading, deduplication, and send states.
 
@@ -39,17 +40,15 @@ class ChatState {
     bool? isSending,
     String? sendError,
     bool clearSendError = false,
-  }) =>
-      ChatState(
-        messages: messages ?? this.messages,
-        isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
-        hasMore: hasMore ?? this.hasMore,
-        nextCursor: nextCursor ?? this.nextCursor,
-        error: clearError ? null : (error ?? this.error),
-        isSending: isSending ?? this.isSending,
-        sendError:
-            clearSendError ? null : (sendError ?? this.sendError),
-      );
+  }) => ChatState(
+    messages: messages ?? this.messages,
+    isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
+    hasMore: hasMore ?? this.hasMore,
+    nextCursor: nextCursor ?? this.nextCursor,
+    error: clearError ? null : (error ?? this.error),
+    isSending: isSending ?? this.isSending,
+    sendError: clearSendError ? null : (sendError ?? this.sendError),
+  );
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
@@ -63,15 +62,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final List<StreamSubscription> _subs = [];
 
   ChatNotifier({
-    required String streamId,
+    required this._streamId,
     required StreamChatRepository chatRepo,
-    required LiveSocketService socket,
-    required bool isAuthenticated,
-  })  : _streamId = streamId,
-        _chatRepo = chatRepo,
-        _socket = socket,
-        _isAuthenticated = isAuthenticated,
-        super(const ChatState()) {
+    required this._socket,
+    required this._isAuthenticated,
+  }) : _chatRepo = chatRepo,
+       super(const ChatState()) {
     _init();
   }
 
@@ -104,10 +100,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         nextCursor: hist.nextCursor,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoadingHistory: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isLoadingHistory: false, error: e.toString());
     }
   }
 
@@ -165,11 +158,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Unpin all others then pin this one
     state = state.copyWith(
       messages: state.messages
-          .map(
-            (m) => m.id == pinned.id
-                ? pinned
-                : m.copyWith(isPinned: false),
-          )
+          .map((m) => m.id == pinned.id ? pinned : m.copyWith(isPinned: false))
           .toList(),
     );
   }
@@ -230,17 +219,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 final chatProvider =
-    StateNotifierProvider.family<ChatNotifier, ChatState, String>(
-  (ref, streamId) {
-    final chatRepo = ref.read(streamChatRepositoryProvider);
-    final socket = ref.read(liveSocketServiceProvider);
-    final auth = ref.read(authProvider);
+    StateNotifierProvider.family<ChatNotifier, ChatState, String>((
+      ref,
+      streamId,
+    ) {
+      final chatRepo = ref.read(streamChatRepositoryProvider);
+      final socket = ref.read(liveSocketServiceProvider);
+      final auth = ref.read(authProvider);
 
-    return ChatNotifier(
-      streamId: streamId,
-      chatRepo: chatRepo,
-      socket: socket,
-      isAuthenticated: auth.status == AuthStatus.authenticated,
-    );
-  },
-);
+      return ChatNotifier(
+        streamId: streamId,
+        chatRepo: chatRepo,
+        socket: socket,
+        isAuthenticated: auth.status == AuthStatus.authenticated,
+      );
+    });

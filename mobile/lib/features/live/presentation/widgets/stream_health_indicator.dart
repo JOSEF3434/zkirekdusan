@@ -21,25 +21,25 @@ class StreamHealthIndicator extends StatelessWidget {
 
     final (color, label, icon) = switch (health!.health) {
       StreamHealthLevel.good => (
-          const Color(0xFF4CAF50),
-          'Good',
-          Icons.signal_wifi_4_bar
-        ),
+        const Color(0xFF4CAF50),
+        'Good',
+        Icons.signal_wifi_4_bar,
+      ),
       StreamHealthLevel.fair => (
-          const Color(0xFFFFC107),
-          'Fair',
-          Icons.network_wifi_3_bar
-        ),
+        const Color(0xFFFFC107),
+        'Fair',
+        Icons.network_wifi_3_bar,
+      ),
       StreamHealthLevel.poor => (
-          const Color(0xFFE53935),
-          'Poor',
-          Icons.signal_wifi_bad
-        ),
+        const Color(0xFFE53935),
+        'Poor',
+        Icons.signal_wifi_bad,
+      ),
       StreamHealthLevel.unknown => (
-          Colors.grey,
-          'Unknown',
-          Icons.signal_wifi_off
-        ),
+        Colors.grey,
+        'Unknown',
+        Icons.signal_wifi_off,
+      ),
     };
 
     if (compact) {

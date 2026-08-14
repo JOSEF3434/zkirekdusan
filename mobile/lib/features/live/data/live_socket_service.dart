@@ -6,7 +6,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:mobile/app/env/env.dart';
-import 'package:mobile/core/network/auth_interceptor.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/domain/stream_health_model.dart';
@@ -50,11 +49,7 @@ class StreamEndedEvent {
   final String? vodUrl;
   final int? duration;
 
-  const StreamEndedEvent({
-    required this.streamId,
-    this.vodUrl,
-    this.duration,
-  });
+  const StreamEndedEvent({required this.streamId, this.vodUrl, this.duration});
 
   factory StreamEndedEvent.fromJson(Map<String, dynamic> json) =>
       StreamEndedEvent(
@@ -87,40 +82,31 @@ class LiveSocketService {
       _connectionStateCtrl.stream;
 
   // Typed event streams
-  final _chatMessageCtrl =
-      StreamController<ChatMessageDto>.broadcast();
+  final _chatMessageCtrl = StreamController<ChatMessageDto>.broadcast();
   Stream<ChatMessageDto> get onChatMessage => _chatMessageCtrl.stream;
 
-  final _chatDeletedCtrl =
-      StreamController<String>.broadcast(); // messageId
+  final _chatDeletedCtrl = StreamController<String>.broadcast(); // messageId
   Stream<String> get onChatDeleted => _chatDeletedCtrl.stream;
 
-  final _chatPinnedCtrl =
-      StreamController<ChatMessageDto>.broadcast();
+  final _chatPinnedCtrl = StreamController<ChatMessageDto>.broadcast();
   Stream<ChatMessageDto> get onChatPinned => _chatPinnedCtrl.stream;
 
-  final _chatReactionCtrl =
-      StreamController<ChatReactionEvent>.broadcast();
+  final _chatReactionCtrl = StreamController<ChatReactionEvent>.broadcast();
   Stream<ChatReactionEvent> get onChatReaction => _chatReactionCtrl.stream;
 
-  final _viewerCountCtrl =
-      StreamController<Map<String, dynamic>>.broadcast();
+  final _viewerCountCtrl = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onViewerCount => _viewerCountCtrl.stream;
 
-  final _streamStartedCtrl =
-      StreamController<LiveStreamDto>.broadcast();
+  final _streamStartedCtrl = StreamController<LiveStreamDto>.broadcast();
   Stream<LiveStreamDto> get onStreamStarted => _streamStartedCtrl.stream;
 
-  final _streamEndedCtrl =
-      StreamController<StreamEndedEvent>.broadcast();
+  final _streamEndedCtrl = StreamController<StreamEndedEvent>.broadcast();
   Stream<StreamEndedEvent> get onStreamEnded => _streamEndedCtrl.stream;
 
-  final _streamUpdatedCtrl =
-      StreamController<LiveStreamDto>.broadcast();
+  final _streamUpdatedCtrl = StreamController<LiveStreamDto>.broadcast();
   Stream<LiveStreamDto> get onStreamUpdated => _streamUpdatedCtrl.stream;
 
-  final _streamHealthCtrl =
-      StreamController<StreamHealthDto>.broadcast();
+  final _streamHealthCtrl = StreamController<StreamHealthDto>.broadcast();
   Stream<StreamHealthDto> get onStreamHealth => _streamHealthCtrl.stream;
 
   final _reactionBroadcastCtrl =
@@ -256,8 +242,9 @@ class LiveSocketService {
     // Reactions
     s.on(LiveEvents.reactionBroadcast, (data) {
       try {
-        _reactionBroadcastCtrl
-            .add(ReactionBroadcastEvent.fromJson(_toMap(data)));
+        _reactionBroadcastCtrl.add(
+          ReactionBroadcastEvent.fromJson(_toMap(data)),
+        );
       } catch (_) {}
     });
 

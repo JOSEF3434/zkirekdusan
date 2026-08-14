@@ -26,19 +26,14 @@ class StreamChatRepository {
     try {
       final response = await _dio.get(
         '/streams/$streamId/chat',
-        queryParameters: {
-          'limit': limit,
-          if (cursor != null) 'cursor': cursor,
-        },
+        queryParameters: {'limit': limit, 'cursor': ?cursor},
         cancelToken: cancelToken,
       );
       final raw = response.data;
       // Backend returns {success, data: {messages: [...], nextCursor, hasMore}}
       final envelope = parseEnvelope(raw);
       final messagesJson =
-          (envelope['messages'] as List?) ??
-          (envelope['data'] as List?) ??
-          [];
+          (envelope['messages'] as List?) ?? (envelope['data'] as List?) ?? [];
       final messages = messagesJson
           .map((e) => ChatMessageDto.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -83,14 +78,12 @@ class StreamChatRepository {
     if (data is Map<String, dynamic>) {
       final msg = data['message'];
       if (msg is String) return msg;
-      if (msg is List) return (msg as List).join(', ');
+      if (msg is List) return (msg).join(', ');
     }
     return switch (e.type) {
       DioExceptionType.connectionTimeout ||
-      DioExceptionType.receiveTimeout =>
-        'Connection timed out.',
-      DioExceptionType.connectionError =>
-        'Could not connect to the server.',
+      DioExceptionType.receiveTimeout => 'Connection timed out.',
+      DioExceptionType.connectionError => 'Could not connect to the server.',
       _ => 'An unexpected error occurred.',
     };
   }

@@ -25,10 +25,10 @@ class Env {
   static const _productionUrl = 'https://zikrekidusan.onrender.com/api';
 
   /// Android emulator loopback to host machine
-  static const _androidEmulatorUrl = 'http://10.0.2.2:3000/api';
+  static const _androidEmulatorUrl = 'https://zikrekidusan.onrender.com/api';
 
-  /// iOS simulator / Web / desktop loopback
-  static const _localUrl = 'http://localhost:3000/api';
+  /// iOS simulator / Web / desktop loopback  
+  static const _localUrl = 'https://zikrekidusan.onrender.com/api';
 
   static String get apiBaseUrl {
     // Allow explicit override via .env for CI / staging

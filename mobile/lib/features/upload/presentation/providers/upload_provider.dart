@@ -91,10 +91,14 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 
   void selectVideo(String path, String name) {
+    final nextStep = state.selectedChannel != null 
+        ? UploadStep.fillDetails 
+        : UploadStep.selectChannel;
+        
     state = state.copyWith(
       filePath: path,
       fileName: name,
-      step: UploadStep.selectChannel,
+      step: nextStep,
       clearError: true,
     );
   }
@@ -104,6 +108,15 @@ class UploadNotifier extends StateNotifier<UploadState> {
       selectedGroup: group,
       selectedChannel: channel,
       step: UploadStep.fillDetails,
+      clearError: true,
+    );
+  }
+
+  void preselectChannel(GroupDto group, VideoChannelDto channel) {
+    state = const UploadState().copyWith(
+      selectedGroup: group,
+      selectedChannel: channel,
+      step: UploadStep.selectVideo, // Still need to pick a video, but channel is preselected
       clearError: true,
     );
   }

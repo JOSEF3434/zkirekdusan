@@ -20,6 +20,12 @@ import 'package:mobile/features/live/presentation/screens/live_room_screen.dart'
 import 'package:mobile/features/live/presentation/screens/live_studio_screen.dart';
 import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/features/notifications/presentation/notifications_screen.dart';
+import 'package:mobile/features/social/presentation/followers_screen.dart';
+import 'package:mobile/features/creator/presentation/screens/creator_workspace_screen.dart';
+import 'package:mobile/features/creator/presentation/screens/create_group_screen.dart';
+import 'package:mobile/features/creator/presentation/screens/channel_selector_screen.dart';
+import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -85,7 +91,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           // or we can read auth state here. Let's pass 'default_channel' if we don't have it in state easily,
           // but better is getting it from AuthState or profile.
           // The backend usually creates a channel matching the user ID for new users.
-          return const LiveStudioScreen(channelId: 'default_channel'); // We'll fix channel id logic if needed.
+          return const LiveStudioScreen(
+            channelId: 'default_channel',
+          ); // We'll fix channel id logic if needed.
         },
       ),
       GoRoute(
@@ -111,6 +119,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/creator/workspace',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CreatorWorkspaceScreen(),
+      ),
+      GoRoute(
+        path: '/creator/create-group',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CreateGroupScreen(),
+      ),
+      GoRoute(
+        path: '/creator/groups/:id/channels',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final group = state.extra as CreatorGroupDto;
+          return ChannelSelectorScreen(group: group);
+        },
       ),
 
       // Shell with bottom nav / rail
