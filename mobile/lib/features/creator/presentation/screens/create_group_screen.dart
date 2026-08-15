@@ -17,7 +17,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
   final _slugController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   GroupVisibility _visibility = GroupVisibility.public;
   bool _isSubmitting = false;
 
@@ -41,7 +41,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     // we'll just auto-generate it if the slug is empty or matches the previous auto-generation.
     // A robust way: generate slug from name.
     final name = _nameController.text;
-    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+    final slug = name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
     _slugController.text = slug;
   }
 
@@ -51,16 +54,20 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      await ref.read(creatorWorkspaceProvider.notifier).createGroup(
-        name: _nameController.text,
-        slug: _slugController.text,
-        description: _descriptionController.text,
-        visibility: _visibility,
-      );
-      
+      await ref
+          .read(creatorWorkspaceProvider.notifier)
+          .createGroup(
+            name: _nameController.text,
+            slug: _slugController.text,
+            description: _descriptionController.text,
+            visibility: _visibility,
+          );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Group created! Waiting for admin approval.')),
+          const SnackBar(
+            content: Text('Group created! Waiting for admin approval.'),
+          ),
         );
         context.pop();
       }
@@ -83,9 +90,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Group'),
-      ),
+      appBar: AppBar(title: const Text('Create Group')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -131,9 +136,18 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: GroupVisibility.public, child: Text('Public')),
-                DropdownMenuItem(value: GroupVisibility.private, child: Text('Private')),
-                DropdownMenuItem(value: GroupVisibility.inviteOnly, child: Text('Invite Only')),
+                DropdownMenuItem(
+                  value: GroupVisibility.public,
+                  child: Text('Public'),
+                ),
+                DropdownMenuItem(
+                  value: GroupVisibility.private,
+                  child: Text('Private'),
+                ),
+                DropdownMenuItem(
+                  value: GroupVisibility.inviteOnly,
+                  child: Text('Invite Only'),
+                ),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _visibility = val);
@@ -146,7 +160,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Create Group'),
             ),

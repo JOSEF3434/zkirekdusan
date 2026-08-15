@@ -8,16 +8,12 @@ class CreatorGroupCard extends StatelessWidget {
   final CreatorGroupDto group;
   final VoidCallback onTap;
 
-  const CreatorGroupCard({
-    super.key,
-    required this.group,
-    required this.onTap,
-  });
+  const CreatorGroupCard({super.key, required this.group, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -33,7 +29,8 @@ class CreatorGroupCard extends StatelessWidget {
                 group.coverUrl!,
                 height: 100,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildFallbackCover(theme),
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildFallbackCover(theme),
               )
             else
               _buildFallbackCover(theme),
@@ -45,7 +42,8 @@ class CreatorGroupCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: theme.colorScheme.primaryContainer,
-                    backgroundImage: group.avatarUrl != null && group.avatarUrl!.isNotEmpty
+                    backgroundImage:
+                        group.avatarUrl != null && group.avatarUrl!.isNotEmpty
                         ? NetworkImage(group.avatarUrl!)
                         : null,
                     child: group.avatarUrl == null || group.avatarUrl!.isEmpty
@@ -73,7 +71,11 @@ class CreatorGroupCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.people_outline, size: 14, color: theme.colorScheme.outline),
+                            Icon(
+                              Icons.people_outline,
+                              size: 14,
+                              color: theme.colorScheme.outline,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${group.membersCount} members',
@@ -82,7 +84,11 @@ class CreatorGroupCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Icon(Icons.circle, size: 4, color: theme.colorScheme.outline),
+                            Icon(
+                              Icons.circle,
+                              size: 4,
+                              color: theme.colorScheme.outline,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               timeago.format(group.createdAt),
@@ -92,7 +98,8 @@ class CreatorGroupCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (group.description != null && group.description!.isNotEmpty) ...[
+                        if (group.description != null &&
+                            group.description!.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
                             group.description!,
@@ -114,7 +121,11 @@ class CreatorGroupCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GroupStatusBadge(status: group.status),
-                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: Colors.grey,
+                  ),
                 ],
               ),
             ),

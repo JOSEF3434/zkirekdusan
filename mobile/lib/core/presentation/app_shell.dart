@@ -40,7 +40,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                 title: const Text('Upload Video'),
                 onTap: () {
                   context.pop(); // close sheet
-                  context.push('/creator/workspace'); // F6: Upload video uses Creator Workspace
+                  context.push(
+                    '/creator/workspace',
+                  ); // F6: Upload video uses Creator Workspace
                 },
               ),
               ListTile(

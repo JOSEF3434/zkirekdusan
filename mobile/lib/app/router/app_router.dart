@@ -26,6 +26,13 @@ import 'package:mobile/features/creator/presentation/screens/creator_workspace_s
 import 'package:mobile/features/creator/presentation/screens/create_group_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/channel_selector_screen.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
+import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/admin_moderation_screen.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/creator_channel_dashboard_screen.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/creator_comment_moderation_screen.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/creator_dashboard_screen.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart';
+import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_management_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -137,6 +144,63 @@ final routerProvider = Provider<GoRouter>((ref) {
           final group = state.extra as CreatorGroupDto;
           return ChannelSelectorScreen(group: group);
         },
+      ),
+      GoRoute(
+        path: '/creator/dashboard',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CreatorDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/creator/dashboard/channel/:channelId/analytics',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          final extra = state.extra as Map<String, dynamic>;
+          return CreatorChannelDashboardScreen(
+            channelId: channelId,
+            groupId: extra['groupId'] as String,
+            channelName: extra['channelName'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/creator/dashboard/channel/:channelId/videos',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          return CreatorVideoManagementScreen(channelId: channelId);
+        },
+      ),
+      GoRoute(
+        path: '/creator/dashboard/video/:channelId/:videoId/edit',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          final videoId = state.pathParameters['videoId']!;
+          final initialVideo = state.extra as CreatorVideoDto?;
+          return CreatorVideoEditScreen(
+            channelId: channelId,
+            videoId: videoId,
+            initialVideo: initialVideo,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/creator/dashboard/video/:channelId/:videoId/comments',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final channelId = state.pathParameters['channelId']!;
+          final videoId = state.pathParameters['videoId']!;
+          return CreatorCommentModerationScreen(
+            channelId: channelId,
+            videoId: videoId,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/moderation',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminModerationScreen(),
       ),
 
       // Shell with bottom nav / rail

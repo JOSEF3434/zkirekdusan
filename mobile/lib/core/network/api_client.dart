@@ -117,7 +117,9 @@ List<dynamic> parseEnvelopeList(dynamic raw) {
 
   final map = _tryAsMap(raw);
   if (map == null) {
-    developer.log('[parseEnvelopeList] unexpected type ${raw.runtimeType} → []');
+    developer.log(
+      '[parseEnvelopeList] unexpected type ${raw.runtimeType} → []',
+    );
     return [];
   }
 
@@ -168,7 +170,9 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
 
   final map = _tryAsMap(raw);
   if (map == null) {
-    developer.log('[parsePaginatedEnvelope] unexpected type ${raw.runtimeType} → empty');
+    developer.log(
+      '[parsePaginatedEnvelope] unexpected type ${raw.runtimeType} → empty',
+    );
     return {'data': [], 'meta': {}};
   }
 
@@ -190,7 +194,9 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
     }
     final payloadMap = _tryAsMap(payload);
     if (payloadMap == null) {
-      developer.log('[parsePaginatedEnvelope] data is ${payload.runtimeType} → empty');
+      developer.log(
+        '[parsePaginatedEnvelope] data is ${payload.runtimeType} → empty',
+      );
       return {'data': [], 'meta': {}};
     }
     dataMap = payloadMap;
@@ -209,7 +215,9 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
   } else {
     items = [];
     if (rawData != null) {
-      developer.log('[parsePaginatedEnvelope] data field is ${rawData.runtimeType}, expected List → []');
+      developer.log(
+        '[parsePaginatedEnvelope] data field is ${rawData.runtimeType}, expected List → []',
+      );
     }
   }
 

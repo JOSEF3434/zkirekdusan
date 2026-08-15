@@ -6,14 +6,16 @@ import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 
 final channelSelectorProvider = StateNotifierProvider.autoDispose
-    .family<ChannelSelectorNotifier, ChannelSelectorState, CreatorGroupDto>(
-        (ref, group) {
-  return ChannelSelectorNotifier(
-    group,
-    ref.watch(creatorRepositoryProvider),
-    ref.watch(creatorPermissionServiceProvider),
-  );
-});
+    .family<ChannelSelectorNotifier, ChannelSelectorState, CreatorGroupDto>((
+      ref,
+      group,
+    ) {
+      return ChannelSelectorNotifier(
+        group,
+        ref.watch(creatorRepositoryProvider),
+        ref.watch(creatorPermissionServiceProvider),
+      );
+    });
 
 class ChannelSelectorState {
   final bool isLoading;
@@ -45,8 +47,11 @@ class ChannelSelectorNotifier extends StateNotifier<ChannelSelectorState> {
   final CreatorRepository _repository;
   final CreatorPermissionService _permissionService;
 
-  ChannelSelectorNotifier(this._group, this._repository, this._permissionService)
-      : super(const ChannelSelectorState()) {
+  ChannelSelectorNotifier(
+    this._group,
+    this._repository,
+    this._permissionService,
+  ) : super(const ChannelSelectorState()) {
     load();
   }
 
@@ -74,9 +79,11 @@ class ChannelSelectorNotifier extends StateNotifier<ChannelSelectorState> {
     String? description,
   }) async {
     if (!_permissionService.canCreateChannel(_group)) {
-      throw Exception("You don't have permission to create a channel in this group.");
+      throw Exception(
+        "You don't have permission to create a channel in this group.",
+      );
     }
-    
+
     final newChannel = await _repository.createVideoChannel(
       groupId: _group.id,
       name: name,
@@ -84,9 +91,7 @@ class ChannelSelectorNotifier extends StateNotifier<ChannelSelectorState> {
       handle: handle,
       description: description,
     );
-    
-    state = state.copyWith(
-      channels: [...state.channels, newChannel],
-    );
+
+    state = state.copyWith(channels: [...state.channels, newChannel]);
   }
 }

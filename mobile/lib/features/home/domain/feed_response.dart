@@ -36,12 +36,12 @@ class FeedMetaDto {
 
   /// Empty/default meta — used when the backend omits pagination info.
   const FeedMetaDto.empty()
-      : page = 1,
-        limit = 20,
-        total = 0,
-        totalPages = 0,
-        hasNext = false,
-        hasPrev = false;
+    : page = 1,
+      limit = 20,
+      total = 0,
+      totalPages = 0,
+      hasNext = false,
+      hasPrev = false;
 }
 
 /// Paginated feed response. Safe to construct with empty data.

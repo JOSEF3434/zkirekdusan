@@ -27,7 +27,7 @@ class Env {
   /// Android emulator loopback to host machine
   static const _androidEmulatorUrl = 'https://zikrekidusan.onrender.com/api';
 
-  /// iOS simulator / Web / desktop loopback  
+  /// iOS simulator / Web / desktop loopback
   static const _localUrl = 'https://zikrekidusan.onrender.com/api';
 
   static String get apiBaseUrl {

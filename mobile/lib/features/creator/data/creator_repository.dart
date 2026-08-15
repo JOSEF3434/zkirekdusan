@@ -20,22 +20,24 @@ class CreatorRepository {
     int page = 1,
     int limit = 20,
   }) async {
-    final response = await _dio.get('/groups', queryParameters: {
-      'page': page,
-      'limit': limit,
-    });
+    final response = await _dio.get(
+      '/groups',
+      queryParameters: {'page': page, 'limit': limit},
+    );
     final map = parsePaginatedEnvelope(response.data);
     final itemsJson = (map['data'] as List?) ?? [];
     final items = itemsJson
         .map((e) => CreatorGroupDto.fromJson(e as Map<String, dynamic>))
         .toList();
-    
+
     // Check if there's a next page from meta
     final meta = map['meta'] as Map<String, dynamic>?;
     final totalPages = meta?['totalPages'] as int?;
     final currentPage = meta?['currentPage'] as int? ?? page;
-    
-    final hasNextPage = totalPages != null ? currentPage < totalPages : items.length == limit;
+
+    final hasNextPage = totalPages != null
+        ? currentPage < totalPages
+        : items.length == limit;
 
     return PaginatedCreatorGroups(items: items, hasNextPage: hasNextPage);
   }
@@ -57,11 +59,12 @@ class CreatorRepository {
     final body = {
       'name': name,
       'slug': slug,
-      if (description != null && description.isNotEmpty) 'description': description,
+      if (description != null && description.isNotEmpty)
+        'description': description,
       // backend defaults to PUBLIC if not passed, but we pass the enum value correctly formatted
       'visibility': visibility.toString().split('.').last.toUpperCase(),
     };
-    
+
     final response = await _dio.post('/groups', data: body);
     final data = parseEnvelope(response.data);
     return CreatorGroupDto.fromJson(data);
@@ -75,18 +78,27 @@ class CreatorRepository {
     required String handle,
     String? description,
     UploadPermission uploadPermission = UploadPermission.member,
-    String downloadPermission = 'MEMBERS_ONLY', // We can hardcode or expose if needed
+    String downloadPermission =
+        'MEMBERS_ONLY', // We can hardcode or expose if needed
   }) async {
     final body = {
       'name': name,
       'slug': slug,
       'handle': handle,
-      if (description != null && description.isNotEmpty) 'description': description,
-      'uploadPermission': uploadPermission.toString().split('.').last.toUpperCase(),
+      if (description != null && description.isNotEmpty)
+        'description': description,
+      'uploadPermission': uploadPermission
+          .toString()
+          .split('.')
+          .last
+          .toUpperCase(),
       'downloadPermission': downloadPermission,
     };
-    
-    final response = await _dio.post('/groups/$groupId/video-channels', data: body);
+
+    final response = await _dio.post(
+      '/groups/$groupId/video-channels',
+      data: body,
+    );
     final data = parseEnvelope(response.data);
     return CreatorChannelDto.fromJson(data);
   }

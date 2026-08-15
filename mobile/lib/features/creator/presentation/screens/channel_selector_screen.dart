@@ -19,7 +19,7 @@ class ChannelSelectorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(channelSelectorProvider(group));
     final permissionService = ref.watch(creatorPermissionServiceProvider);
-    
+
     final canCreateChannel = permissionService.canCreateChannel(group);
 
     return Scaffold(
@@ -38,7 +38,12 @@ class ChannelSelectorScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, ChannelSelectorState state, CreatorPermissionService permissionService) {
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    ChannelSelectorState state,
+    CreatorPermissionService permissionService,
+  ) {
     if (state.isLoading) {
       return const CreatorLoadingSkeleton();
     }
@@ -46,7 +51,8 @@ class ChannelSelectorScreen extends ConsumerWidget {
     if (state.error != null) {
       return CreatorErrorState(
         error: state.error!,
-        onRetry: () => ref.read(channelSelectorProvider(group).notifier).refresh(),
+        onRetry: () =>
+            ref.read(channelSelectorProvider(group).notifier).refresh(),
       );
     }
 
@@ -60,7 +66,9 @@ class ChannelSelectorScreen extends ConsumerWidget {
             _showCreateChannelSheet(context, ref);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Only group admins can create channels.')),
+              const SnackBar(
+                content: Text('Only group admins can create channels.'),
+              ),
             );
           }
         },
@@ -68,13 +76,17 @@ class ChannelSelectorScreen extends ConsumerWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(channelSelectorProvider(group).notifier).refresh(),
+      onRefresh: () =>
+          ref.read(channelSelectorProvider(group).notifier).refresh(),
       child: ListView.builder(
         itemCount: state.channels.length,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemBuilder: (context, index) {
           final channel = state.channels[index];
-          final canUpload = permissionService.canUploadToChannel(group, channel);
+          final canUpload = permissionService.canUploadToChannel(
+            group,
+            channel,
+          );
           final theme = Theme.of(context);
 
           return Card(
@@ -87,9 +99,14 @@ class ChannelSelectorScreen extends ConsumerWidget {
                   style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
                 ),
               ),
-              title: Text(channel.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(
+                channel.name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               subtitle: Text(
-                canUpload ? 'Ready to upload' : 'Restricted (${channel.uploadPermission.name})',
+                canUpload
+                    ? 'Ready to upload'
+                    : 'Restricted (${channel.uploadPermission.name})',
                 style: TextStyle(
                   color: canUpload ? Colors.green : Colors.orange,
                   fontSize: 12,
@@ -112,15 +129,22 @@ class ChannelSelectorScreen extends ConsumerWidget {
                     name: channel.name,
                     description: channel.description,
                     type: 'VOD', // default
-                    uploadPermission: channel.uploadPermission.toString().split('.').last,
+                    uploadPermission: channel.uploadPermission
+                        .toString()
+                        .split('.')
+                        .last,
                   );
-                  
-                  ref.read(uploadProvider.notifier).preselectChannel(groupDto, channelDto);
+
+                  ref
+                      .read(uploadProvider.notifier)
+                      .preselectChannel(groupDto, channelDto);
                   context.push('/upload');
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('You do not have permission to upload to this channel. Requires: ${channel.uploadPermission.name}.'),
+                      content: Text(
+                        'You do not have permission to upload to this channel. Requires: ${channel.uploadPermission.name}.',
+                      ),
                     ),
                   );
                 }
@@ -137,9 +161,7 @@ class ChannelSelectorScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _CreateChannelForm(group: group),
       ),
     );
@@ -161,7 +183,7 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
   final _slugController = TextEditingController();
   final _handleController = TextEditingController();
   final _descController = TextEditingController();
-  
+
   bool _isSubmitting = false;
 
   @override
@@ -181,24 +203,29 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
 
   void _onNameChanged() {
     final name = _nameController.text;
-    final base = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+    final base = name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
     _slugController.text = base;
     _handleController.text = base.replaceAll('-', '');
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isSubmitting = true);
-    
+
     try {
-      await ref.read(channelSelectorProvider(widget.group).notifier).createChannel(
-        name: _nameController.text,
-        slug: _slugController.text,
-        handle: _handleController.text,
-        description: _descController.text,
-      );
-      
+      await ref
+          .read(channelSelectorProvider(widget.group).notifier)
+          .createChannel(
+            name: _nameController.text,
+            slug: _slugController.text,
+            handle: _handleController.text,
+            description: _descController.text,
+          );
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +260,9 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
           children: [
             Text(
               'Create Video Channel',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
             TextFormField(
@@ -242,7 +271,8 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
                 labelText: 'Channel Name',
                 border: OutlineInputBorder(),
               ),
-              validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -251,7 +281,8 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
                 labelText: 'Slug (URL friendly)',
                 border: OutlineInputBorder(),
               ),
-              validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -261,13 +292,21 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
                 border: OutlineInputBorder(),
                 prefixText: '@',
               ),
-              validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+              validator: (val) =>
+                  val == null || val.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _isSubmitting ? null : _submit,
               child: _isSubmitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text('Create Channel'),
             ),
             const SizedBox(height: 16),

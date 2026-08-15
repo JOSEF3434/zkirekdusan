@@ -5,7 +5,9 @@ import 'package:mobile/features/creator/domain/creator_enums.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/domain/creator_channel_dto.dart';
 
-final creatorPermissionServiceProvider = Provider<CreatorPermissionService>((ref) {
+final creatorPermissionServiceProvider = Provider<CreatorPermissionService>((
+  ref,
+) {
   final authUser = ref.watch(authProvider).user;
   return CreatorPermissionService(
     currentUserId: authUser?.id,
@@ -23,7 +25,8 @@ class CreatorPermissionService {
   });
 
   bool get isAuthenticated => currentUserId != null;
-  bool get isGlobalAdmin => currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
+  bool get isGlobalAdmin =>
+      currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
 
   /// Returns true if the user can view the workspace.
   bool canAccessWorkspace() {
@@ -65,9 +68,30 @@ class CreatorPermissionService {
   bool canCreateChannel(CreatorGroupDto group) {
     if (!isAuthenticated) return false;
     if (isGlobalAdmin) return true;
-    
+
     // Only the creator (or group admin) can create channels.
     // Since we only know createdById, we use that.
+    return group.createdById == currentUserId;
+  }
+
+  /// Checks if a user can edit or delete a video.
+  bool canManageVideo(String uploadedById) {
+    if (!isAuthenticated) return false;
+    if (isGlobalAdmin) return true;
+    return uploadedById == currentUserId;
+  }
+
+  /// Checks if a user can moderate comments on a video.
+  /// (Uploader or Admin)
+  bool canModerateComments(String uploadedById) {
+    return canManageVideo(uploadedById);
+  }
+
+  /// Checks if a user can view channel analytics (Moderator or Group Admin)
+  bool canViewChannelAnalytics(CreatorGroupDto group) {
+    if (!isAuthenticated) return false;
+    if (isGlobalAdmin) return true;
+    // We assume only the group creator can view analytics for now
     return group.createdById == currentUserId;
   }
 }

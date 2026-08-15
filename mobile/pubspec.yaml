@@ -46,13 +46,47 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.9
   freezed: ^2.5.2
+  mockito: ^5.4.4
   json_serializable: ^6.8.0
+
+  # App icon generator
+  flutter_launcher_icons: ^0.14.4
+
+  # Native splash screen generator
+  flutter_native_splash: ^2.4.7
 
 flutter:
   uses-material-design: true
 
+  # assets:
+  #   - .env
+  #   - assets/images/logo.jpg
+  #   - assets/images/ui.jpg
+  #   - assets/images/ui2.jpg
+
   assets:
     - .env
-    - assets/images/logo.jpg
-    - assets/images/ui.jpg
-    - assets/images/ui2.jpg
+    - assets/images/
+    
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/App_icon.jpg"
+
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/App_icon.jpg"
+
+  remove_alpha_ios: true
+
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "assets/images/App_icon.jpg"
+
+  android_12:
+    color: "#FFFFFF"
+    image: "assets/images/App_icon.jpg"
+
+  android: true
+  ios: true
+  web: true

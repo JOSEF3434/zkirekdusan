@@ -15,10 +15,12 @@ class CreatorWorkspaceScreen extends ConsumerStatefulWidget {
   const CreatorWorkspaceScreen({super.key});
 
   @override
-  ConsumerState<CreatorWorkspaceScreen> createState() => _CreatorWorkspaceScreenState();
+  ConsumerState<CreatorWorkspaceScreen> createState() =>
+      _CreatorWorkspaceScreenState();
 }
 
-class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen> {
+class _CreatorWorkspaceScreenState
+    extends ConsumerState<CreatorWorkspaceScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -51,6 +53,11 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
         title: const Text('Creator Workspace'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () => context.push('/creator/dashboard'),
+            tooltip: 'Creator Dashboard',
+          ),
+          IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => context.push('/creator/create-group'),
             tooltip: 'Create New Group',
@@ -62,11 +69,15 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
   }
 
   Widget _buildBody(CreatorWorkspaceState state, String? currentUserId) {
-    if (state.isLoading && state.activeGroups.isEmpty && state.pendingGroups.isEmpty) {
+    if (state.isLoading &&
+        state.activeGroups.isEmpty &&
+        state.pendingGroups.isEmpty) {
       return const CreatorLoadingSkeleton();
     }
 
-    if (state.error != null && state.activeGroups.isEmpty && state.pendingGroups.isEmpty) {
+    if (state.error != null &&
+        state.activeGroups.isEmpty &&
+        state.pendingGroups.isEmpty) {
       return CreatorErrorState(
         error: state.error!,
         onRetry: () => ref.read(creatorWorkspaceProvider.notifier).refresh(),
@@ -76,7 +87,8 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
     if (state.activeGroups.isEmpty && state.pendingGroups.isEmpty) {
       return CreatorEmptyState(
         title: 'No Groups Available',
-        message: 'Create a group to start uploading videos and building your audience.',
+        message:
+            'Create a group to start uploading videos and building your audience.',
         buttonText: 'Create Group',
         onAction: () => context.push('/creator/create-group'),
       );
@@ -84,11 +96,11 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
 
     // Categorize groups based on the plan
     final pendingGroups = state.pendingGroups;
-    
+
     // Categorize active groups
     final myGroups = <CreatorGroupDto>[];
     final otherActiveGroups = <CreatorGroupDto>[];
-    
+
     for (var group in state.activeGroups) {
       if (group.createdById == currentUserId) {
         myGroups.add(group);
@@ -103,17 +115,25 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
         controller: _scrollController,
         slivers: [
           if (pendingGroups.isNotEmpty) ...[
-            _buildSectionHeader('Pending Review', Icons.hourglass_empty, Colors.orange),
+            _buildSectionHeader(
+              'Pending Review',
+              Icons.hourglass_empty,
+              Colors.orange,
+            ),
             _buildGroupList(pendingGroups, isPending: true),
           ],
-          
+
           if (myGroups.isNotEmpty) ...[
             _buildSectionHeader('Your Groups', Icons.star, Colors.blue),
             _buildGroupList(myGroups),
           ],
 
           if (otherActiveGroups.isNotEmpty) ...[
-            _buildSectionHeader('Available to Upload', Icons.public, Colors.green),
+            _buildSectionHeader(
+              'Available to Upload',
+              Icons.public,
+              Colors.green,
+            ),
             _buildGroupList(otherActiveGroups),
           ],
 
@@ -124,7 +144,7 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
-            
+
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
@@ -141,9 +161,9 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
             const SizedBox(width: 8),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -151,38 +171,41 @@ class _CreatorWorkspaceScreenState extends ConsumerState<CreatorWorkspaceScreen>
     );
   }
 
-  Widget _buildGroupList(List<CreatorGroupDto> groups, {bool isPending = false}) {
+  Widget _buildGroupList(
+    List<CreatorGroupDto> groups, {
+    bool isPending = false,
+  }) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final group = groups[index];
-          return CreatorGroupCard(
-            group: group,
-            onTap: () {
-              if (isPending || group.status == GroupStatus.pendingApproval) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('This group is waiting for approval from a system administrator.'),
-                    duration: Duration(seconds: 3),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final group = groups[index];
+        return CreatorGroupCard(
+          group: group,
+          onTap: () {
+            if (isPending || group.status == GroupStatus.pendingApproval) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'This group is waiting for approval from a system administrator.',
                   ),
-                );
-                return;
-              }
-              if (group.status == GroupStatus.suspended || group.status == GroupStatus.archived) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('This group is no longer active.'),
-                  ),
-                );
-                return;
-              }
-              
-              context.push('/creator/groups/${group.id}/channels', extra: group);
-            },
-          );
-        },
-        childCount: groups.length,
-      ),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              return;
+            }
+            if (group.status == GroupStatus.suspended ||
+                group.status == GroupStatus.archived) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('This group is no longer active.'),
+                ),
+              );
+              return;
+            }
+
+            context.push('/creator/groups/${group.id}/channels', extra: group);
+          },
+        );
+      }, childCount: groups.length),
     );
   }
 }

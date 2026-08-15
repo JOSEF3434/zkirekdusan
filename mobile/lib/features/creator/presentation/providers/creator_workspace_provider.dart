@@ -7,13 +7,16 @@ import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 
 final creatorWorkspaceProvider =
-    StateNotifierProvider.autoDispose<CreatorWorkspaceNotifier, CreatorWorkspaceState>((ref) {
-  return CreatorWorkspaceNotifier(
-    ref.watch(creatorRepositoryProvider),
-    ref.watch(pendingGroupsStorageProvider),
-    ref.watch(creatorPermissionServiceProvider),
-  );
-});
+    StateNotifierProvider.autoDispose<
+      CreatorWorkspaceNotifier,
+      CreatorWorkspaceState
+    >((ref) {
+      return CreatorWorkspaceNotifier(
+        ref.watch(creatorRepositoryProvider),
+        ref.watch(pendingGroupsStorageProvider),
+        ref.watch(creatorPermissionServiceProvider),
+      );
+    });
 
 class CreatorWorkspaceState {
   final bool isLoading;
@@ -61,8 +64,11 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
   final PendingGroupsStorage _pendingStorage;
   final CreatorPermissionService _permissionService;
 
-  CreatorWorkspaceNotifier(this._repository, this._pendingStorage, this._permissionService)
-      : super(const CreatorWorkspaceState()) {
+  CreatorWorkspaceNotifier(
+    this._repository,
+    this._pendingStorage,
+    this._permissionService,
+  ) : super(const CreatorWorkspaceState()) {
     loadInitial();
   }
 
@@ -70,7 +76,9 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       if (!_permissionService.canAccessWorkspace()) {
-        throw Exception("You must be logged in to access the Creator Workspace.");
+        throw Exception(
+          "You must be logged in to access the Creator Workspace.",
+        );
       }
 
       // Load pending groups from local storage
@@ -82,7 +90,9 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
       // We might have groups in pending storage that have since been approved and returned in active list.
       // Let's filter out any pending groups that appear in the active list.
       final activeIds = result.items.map((e) => e.id).toSet();
-      final validPending = pending.where((p) => !activeIds.contains(p.id)).toList();
+      final validPending = pending
+          .where((p) => !activeIds.contains(p.id))
+          .toList();
 
       // Clean up storage if some were approved
       if (validPending.length < pending.length) {
@@ -121,7 +131,9 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
       final result = await _repository.getActiveGroups(page: nextPage);
 
       final activeIds = result.items.map((e) => e.id).toSet();
-      final validPending = state.pendingGroups.where((p) => !activeIds.contains(p.id)).toList();
+      final validPending = state.pendingGroups
+          .where((p) => !activeIds.contains(p.id))
+          .toList();
 
       state = state.copyWith(
         isPaginating: false,
@@ -147,7 +159,7 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
     if (!_permissionService.canCreateGroup()) {
       throw Exception("You don't have permission to create a group.");
     }
-    
+
     final newGroup = await _repository.createGroup(
       name: name,
       slug: slug,
@@ -159,8 +171,6 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
     await _pendingStorage.addPendingGroup(newGroup);
 
     // Update state to show the pending group immediately at the top
-    state = state.copyWith(
-      pendingGroups: [newGroup, ...state.pendingGroups],
-    );
+    state = state.copyWith(pendingGroups: [newGroup, ...state.pendingGroups]);
   }
 }

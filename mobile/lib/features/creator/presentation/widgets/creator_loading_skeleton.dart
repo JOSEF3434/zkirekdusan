@@ -41,14 +41,20 @@ class CreatorLoadingSkeleton extends StatelessWidget {
     );
   }
 
-  Widget _buildShimmerBlock(double width, double height, {BoxShape shape = BoxShape.rectangle}) {
+  Widget _buildShimmerBlock(
+    double width,
+    double height, {
+    BoxShape shape = BoxShape.rectangle,
+  }) {
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
         color: Colors.grey.withValues(alpha: 0.2),
         shape: shape,
-        borderRadius: shape == BoxShape.rectangle ? BorderRadius.circular(8) : null,
+        borderRadius: shape == BoxShape.rectangle
+            ? BorderRadius.circular(8)
+            : null,
       ),
     );
   }
