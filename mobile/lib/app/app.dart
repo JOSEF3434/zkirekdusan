@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/presentation/providers/preferences_provider.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class StreamHubApp extends ConsumerWidget {
   const StreamHubApp({super.key});
@@ -10,12 +11,16 @@ class StreamHubApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final prefsState = ref.watch(preferencesProvider);
+    final tr = ref.watch(trProvider);
 
     return MaterialApp.router(
-      title: Env.appName,
+      title: tr('app.name'),
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: prefsState.themeMode,
+      locale: Locale(prefsState.languageCode),
+
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

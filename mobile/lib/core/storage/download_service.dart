@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import 'package:mobile/core/storage/file_system.dart';
+import 'package:flutter/foundation.dart';
 
 class DownloadMetadata {
   final String videoId;
@@ -111,6 +111,16 @@ class DownloadNotifier extends StateNotifier<DownloadState> {
       return;
     }
 
+    if (kIsWeb) {
+      state = state.copyWith(
+        errors: {
+          ...state.errors,
+          videoId: 'Downloading to local storage is not supported on Web.',
+        },
+      );
+      return;
+    }
+
     try {
       state = state.copyWith(
         downloading: {...state.downloading, videoId},
@@ -118,9 +128,8 @@ class DownloadNotifier extends StateNotifier<DownloadState> {
         errors: {...state.errors}..remove(videoId),
       );
 
-      final dir = await getApplicationDocumentsDirectory();
-      final localPath = '${dir.path}/video_$videoId.mp4';
-      final file = File(localPath);
+      final dirPath = await FileSystemHelper.getApplicationDocumentsPath();
+      final localPath = '$dirPath/video_$videoId.mp4';
 
       await _dio.download(
         url,
@@ -133,7 +142,7 @@ class DownloadNotifier extends StateNotifier<DownloadState> {
         },
       );
 
-      final size = await file.length();
+      final size = await FileSystemHelper.getFileLength(localPath);
 
       final metadata = DownloadMetadata(
         videoId: videoId,
@@ -160,13 +169,12 @@ class DownloadNotifier extends StateNotifier<DownloadState> {
   }
 
   Future<void> deleteDownload(String videoId) async {
+    if (kIsWeb) return; // No downloads on Web
+
     final meta = state.downloads[videoId];
     if (meta != null) {
       try {
-        final file = File(meta.localPath);
-        if (await file.exists()) {
-          await file.delete();
-        }
+        await FileSystemHelper.deleteFile(meta.localPath);
       } catch (_) {}
 
       final newDownloads = Map<String, DownloadMetadata>.from(state.downloads)

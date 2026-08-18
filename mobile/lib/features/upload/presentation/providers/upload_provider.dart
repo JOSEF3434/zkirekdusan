@@ -7,7 +7,8 @@ import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
-import 'dart:io' as java_io;
+import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
+import 'package:image_picker/image_picker.dart';
 
 enum UploadStep {
   selectVideo,
@@ -21,8 +22,7 @@ enum UploadStep {
 
 class UploadState {
   final UploadStep step;
-  final String? filePath;
-  final String? fileName;
+  final XFile? file;
 
   final GroupDto? selectedGroup;
   final VideoChannelDto? selectedChannel;
@@ -35,8 +35,7 @@ class UploadState {
 
   const UploadState({
     this.step = UploadStep.selectVideo,
-    this.filePath,
-    this.fileName,
+    this.file,
     this.selectedGroup,
     this.selectedChannel,
     this.formData,
@@ -47,8 +46,7 @@ class UploadState {
 
   UploadState copyWith({
     UploadStep? step,
-    String? filePath,
-    String? fileName,
+    XFile? file,
     GroupDto? selectedGroup,
     VideoChannelDto? selectedChannel,
     UploadVideoFormData? formData,
@@ -59,8 +57,7 @@ class UploadState {
   }) {
     return UploadState(
       step: step ?? this.step,
-      filePath: filePath ?? this.filePath,
-      fileName: fileName ?? this.fileName,
+      file: file ?? this.file,
       selectedGroup: selectedGroup ?? this.selectedGroup,
       selectedChannel: selectedChannel ?? this.selectedChannel,
       formData: formData ?? this.formData,
@@ -73,15 +70,20 @@ class UploadState {
 
 final uploadProvider =
     StateNotifierProvider.autoDispose<UploadNotifier, UploadState>((ref) {
-      return UploadNotifier(ref.watch(uploadRepositoryProvider));
+      return UploadNotifier(
+        ref.watch(uploadRepositoryProvider),
+        ref.watch(playlistRepositoryProvider),
+      );
     });
 
 class UploadNotifier extends StateNotifier<UploadState> {
   final UploadRepository _repository;
+  final PlaylistRepository _playlistRepository;
   CancelToken? _cancelToken;
   Timer? _pollingTimer;
 
-  UploadNotifier(this._repository) : super(const UploadState());
+  UploadNotifier(this._repository, this._playlistRepository)
+    : super(const UploadState());
 
   @override
   void dispose() {
@@ -90,17 +92,12 @@ class UploadNotifier extends StateNotifier<UploadState> {
     super.dispose();
   }
 
-  void selectVideo(String path, String name) {
+  void selectVideo(XFile file) {
     final nextStep = state.selectedChannel != null
         ? UploadStep.fillDetails
         : UploadStep.selectChannel;
 
-    state = state.copyWith(
-      filePath: path,
-      fileName: name,
-      step: nextStep,
-      clearError: true,
-    );
+    state = state.copyWith(file: file, step: nextStep, clearError: true);
   }
 
   void selectChannel(GroupDto group, VideoChannelDto channel) {
@@ -136,7 +133,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
   Future<void> _startUploadProcess() async {
     if (state.selectedChannel == null ||
         state.formData == null ||
-        state.filePath == null) {
+        state.file == null) {
       state = state.copyWith(error: 'Missing required data');
       return;
     }
@@ -155,6 +152,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
         description: state.formData!.description,
         visibility: state.formData!.visibility,
         channelId: state.selectedChannel!.id,
+        playlistId: state.formData!.playlistId,
         sizeBytes:
             0, // Get actual size if possible, otherwise backend handles it or defaults
       );
@@ -172,15 +170,14 @@ class UploadNotifier extends StateNotifier<UploadState> {
       );
 
       // 2. Attach File
-      // For now we assume a direct upload or simple file size.
-      // In a real app we'd get file length and chunk it if needed.
+      final fileLength = await state.file!.length();
+
       await _repository.uploadChunk(
         uploadUrl: initRes.uploadUrl,
-        file: java_io.File(state.filePath!), // Make sure to use dart:io File
+        file: state.file!,
         start: 0,
-        end:
-            0, // We need file length, let's just assume we can get it via File(filePath).lengthSync()
-        totalSize: 0,
+        end: fileLength - 1,
+        totalSize: fileLength,
         cancelToken: _cancelToken!,
         onProgress: (count, total) {
           if (total != -1) {
@@ -221,6 +218,19 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
         if (video.status == VideoStatus.ready) {
           timer.cancel();
+
+          // If a playlist was selected, add the video to it now that it's ready.
+          if (state.formData?.playlistId != null) {
+            try {
+              await _playlistRepository.addVideoToPlaylist(
+                state.formData!.playlistId!,
+                state.video!.id,
+              );
+            } catch (_) {
+              // Non-fatal if playlist addition fails, but we could log it.
+            }
+          }
+
           state = state.copyWith(step: UploadStep.completed);
         } else if (video.status == VideoStatus.failed) {
           timer.cancel();

@@ -1,5 +1,5 @@
 // lib/features/upload/data/upload_repository.dart
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
@@ -40,7 +40,7 @@ class UploadRepository {
 
   Future<void> uploadChunk({
     required String uploadUrl,
-    required File file,
+    required XFile file,
     required int start,
     required int end,
     required int totalSize,

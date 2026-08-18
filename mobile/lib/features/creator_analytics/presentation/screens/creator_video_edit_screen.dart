@@ -138,15 +138,20 @@ class _CreatorVideoEditScreenState
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<CreatorVideoVisibility>(
-                initialValue: _visibility,
+              InputDecorator(
                 decoration: const InputDecoration(border: OutlineInputBorder()),
-                items: CreatorVideoVisibility.values.map((v) {
-                  return DropdownMenuItem(value: v, child: Text(v.value));
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _visibility = val);
-                },
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<CreatorVideoVisibility>(
+                    value: _visibility,
+                    isDense: true,
+                    items: CreatorVideoVisibility.values.map((v) {
+                      return DropdownMenuItem(value: v, child: Text(v.value));
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _visibility = val);
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -154,20 +159,25 @@ class _CreatorVideoEditScreenState
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _downloadPerm,
+              InputDecorator(
                 decoration: const InputDecoration(border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'MEMBERS_ONLY',
-                    child: Text('Members Only'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _downloadPerm,
+                    isDense: true,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'MEMBERS_ONLY',
+                        child: Text('Members Only'),
+                      ),
+                      DropdownMenuItem(value: 'ALL', child: Text('All Users')),
+                      DropdownMenuItem(value: 'NONE', child: Text('Disabled')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _downloadPerm = val);
+                    },
                   ),
-                  DropdownMenuItem(value: 'ALL', child: Text('All Users')),
-                  DropdownMenuItem(value: 'NONE', child: Text('Disabled')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _downloadPerm = val);
-                },
+                ),
               ),
             ],
           ),

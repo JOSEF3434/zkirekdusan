@@ -129,29 +129,34 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 24),
-            DropdownButtonFormField<GroupVisibility>(
-              initialValue: _visibility,
+            InputDecorator(
               decoration: const InputDecoration(
                 labelText: 'Visibility',
                 border: OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(
-                  value: GroupVisibility.public,
-                  child: Text('Public'),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<GroupVisibility>(
+                  value: _visibility,
+                  isDense: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: GroupVisibility.public,
+                      child: Text('Public'),
+                    ),
+                    DropdownMenuItem(
+                      value: GroupVisibility.private,
+                      child: Text('Private'),
+                    ),
+                    DropdownMenuItem(
+                      value: GroupVisibility.inviteOnly,
+                      child: Text('Invite Only'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _visibility = val);
+                  },
                 ),
-                DropdownMenuItem(
-                  value: GroupVisibility.private,
-                  child: Text('Private'),
-                ),
-                DropdownMenuItem(
-                  value: GroupVisibility.inviteOnly,
-                  child: Text('Invite Only'),
-                ),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _visibility = val);
-              },
+              ),
             ),
             const SizedBox(height: 32),
             FilledButton(

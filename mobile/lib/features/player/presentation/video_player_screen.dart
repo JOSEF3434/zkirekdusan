@@ -1,21 +1,44 @@
 // lib/features/player/presentation/video_player_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/home/presentation/widgets/video_card.dart';
 import 'package:mobile/features/player/presentation/providers/player_provider.dart';
 import 'package:video_player/video_player.dart';
-import 'package:mobile/features/home/presentation/widgets/video_card.dart';
-import 'package:mobile/core/storage/download_service.dart';
 
-class VideoPlayerScreen extends ConsumerWidget {
+import '../../media_experience/presentation/widgets/player_speed_sheet.dart';
+import '../../media_experience/presentation/widgets/player_quality_sheet.dart';
+
+class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String videoId;
 
   const VideoPlayerScreen({super.key, required this.videoId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(playerProvider(videoId));
+  ConsumerState<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
+  @override
+  void dispose() {
+    // Restore orientation when leaving player
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(playerProvider(widget.videoId));
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     if (state.isLoading) {
       return const Scaffold(
@@ -35,7 +58,7 @@ class VideoPlayerScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Playback Error', style: theme.textTheme.titleLarge),
+                Text(tr('state.error'), style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(
                   state.error!,
@@ -45,11 +68,10 @@ class VideoPlayerScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: () {
-                    // re-initialize by invalidating provider
-                    ref.invalidate(playerProvider(videoId));
+                    ref.invalidate(playerProvider(widget.videoId));
                   },
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(tr('common.retry')),
                 ),
               ],
             ),
@@ -60,52 +82,63 @@ class VideoPlayerScreen extends ConsumerWidget {
 
     final video = state.video!;
 
+    // Handle fullscreen
+    if (state.isFullscreen) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+
+    Widget playerWidget = AspectRatio(
+      aspectRatio: 16 / 9,
+      child: state.controller != null && state.controller!.value.isInitialized
+          ? GestureDetector(
+              onTap: () => ref
+                  .read(playerProvider(widget.videoId).notifier)
+                  .toggleControls(),
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  VideoPlayer(state.controller!),
+                  if (state.showControls)
+                    _PlayerControlsOverlay(
+                      controller: state.controller!,
+                      notifier: ref.read(
+                        playerProvider(widget.videoId).notifier,
+                      ),
+                      videoId: widget.videoId,
+                      isFullscreen: state.isFullscreen,
+                    ),
+                  if (state.isBuffering)
+                    const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                ],
+              ),
+            )
+          : const Center(child: CircularProgressIndicator()),
+    );
+
+    if (state.isFullscreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(child: Center(child: playerWidget)),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // Video Player Area
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child:
-                  state.controller != null &&
-                      state.controller!.value.isInitialized
-                  ? GestureDetector(
-                      onTap: () => ref
-                          .read(playerProvider(videoId).notifier)
-                          .toggleControls(),
-                      child: Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          VideoPlayer(state.controller!),
-                          if (state.showControls)
-                            _PlayerControlsOverlay(
-                              controller: state.controller!,
-                              notifier: ref.read(
-                                playerProvider(videoId).notifier,
-                              ),
-                            ),
-                          // Back button overlay
-                          if (state.showControls)
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: Colors.white,
-                                  size: 32,
-                                ),
-                                onPressed: () => context.pop(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    )
-                  : const Center(child: CircularProgressIndicator()),
-            ),
-
-            // Video Details and Recommendations
+            playerWidget,
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -119,8 +152,6 @@ class VideoPlayerScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Action Bar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -175,17 +206,10 @@ class VideoPlayerScreen extends ConsumerWidget {
                                 ref
                                     .read(downloadServiceProvider.notifier)
                                     .deleteDownload(video.id);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Download removed'),
-                                  ),
-                                );
                               },
                             );
                           }
 
-                          // Only enable download if we have a direct MP4 url (not HLS master playlist which requires m3u8 parser)
-                          // For now we check if renditions exist which implies direct urls are available
                           final canDownload = video.renditions.isNotEmpty;
 
                           return _ActionButton(
@@ -201,21 +225,8 @@ class VideoPlayerScreen extends ConsumerWidget {
                                           title: video.title,
                                           thumbnailUrl: video.thumbnailUrl,
                                         );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Download started'),
-                                      ),
-                                    );
                                   }
-                                : () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'This video cannot be downloaded offline.',
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                : () {},
                           );
                         },
                       ),
@@ -226,10 +237,7 @@ class VideoPlayerScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-
                   const Divider(height: 32),
-
-                  // Channel Info
                   Row(
                     children: [
                       CircleAvatar(
@@ -257,15 +265,15 @@ class VideoPlayerScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-
                   const Divider(height: 32),
                   if (video.description != null) ...[
                     Text(video.description!),
                     const Divider(height: 32),
                   ],
-
-                  // Recommendations
-                  Text('Up next', style: theme.textTheme.titleMedium),
+                  Text(
+                    tr('home.recommended'),
+                    style: theme.textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 16),
                   ...state.recommendations.map(
                     (rec) => Padding(
@@ -314,53 +322,115 @@ class _ActionButton extends StatelessWidget {
 class _PlayerControlsOverlay extends StatelessWidget {
   final VideoPlayerController controller;
   final PlayerNotifier notifier;
+  final String videoId;
+  final bool isFullscreen;
 
   const _PlayerControlsOverlay({
     required this.controller,
     required this.notifier,
+    required this.videoId,
+    required this.isFullscreen,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black45,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: Stack(
         children: [
-          // Play/Pause button in center
-          Expanded(
-            child: Center(
-              child: ValueListenableBuilder(
-                valueListenable: controller,
-                builder: (context, VideoPlayerValue value, child) {
-                  return IconButton(
-                    iconSize: 64,
+          // Top bar (Back button & Settings)
+          Positioned(
+            top: 8,
+            left: 8,
+            right: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
                     color: Colors.white,
-                    icon: Icon(
-                      value.isPlaying
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_fill,
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    if (isFullscreen) {
+                      notifier.toggleFullscreen();
+                    } else {
+                      context.pop();
+                    }
+                  },
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.speed, color: Colors.white),
+                      onPressed: () {
+                        PlayerSpeedSheet.show(context, videoId);
+                      },
                     ),
-                    onPressed: notifier.togglePlayPause,
-                  );
-                },
-              ),
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: () {
+                        PlayerQualitySheet.show(context, videoId);
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          // Progress bar
-          ValueListenableBuilder(
-            valueListenable: controller,
-            builder: (context, VideoPlayerValue value, child) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
+
+          // Center controls
+          Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  iconSize: 48,
+                  color: Colors.white,
+                  icon: const Icon(Icons.replay_10),
+                  onPressed: notifier.seekBackward,
                 ),
-                child: Row(
+                const SizedBox(width: 24),
+                ValueListenableBuilder(
+                  valueListenable: controller,
+                  builder: (context, VideoPlayerValue value, child) {
+                    return IconButton(
+                      iconSize: 64,
+                      color: Colors.white,
+                      icon: Icon(
+                        value.isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
+                      ),
+                      onPressed: notifier.togglePlayPause,
+                    );
+                  },
+                ),
+                const SizedBox(width: 24),
+                IconButton(
+                  iconSize: 48,
+                  color: Colors.white,
+                  icon: const Icon(Icons.forward_10),
+                  onPressed: notifier.seekForward,
+                ),
+              ],
+            ),
+          ),
+
+          // Bottom progress bar
+          Positioned(
+            bottom: 8,
+            left: 16,
+            right: 16,
+            child: ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (context, VideoPlayerValue value, child) {
+                return Row(
                   children: [
                     Text(
                       _formatDuration(value.position),
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                     Expanded(
                       child: VideoProgressIndicator(
@@ -376,18 +446,19 @@ class _PlayerControlsOverlay extends StatelessWidget {
                     ),
                     Text(
                       _formatDuration(value.duration),
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.fullscreen, color: Colors.white),
-                      onPressed: () {
-                        // Implement fullscreen
-                      },
+                      icon: Icon(
+                        isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                        color: Colors.white,
+                      ),
+                      onPressed: notifier.toggleFullscreen,
                     ),
                   ],
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ],
       ),

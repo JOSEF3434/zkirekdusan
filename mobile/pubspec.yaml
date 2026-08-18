@@ -38,6 +38,7 @@ dependencies:
   # F5: Live Streaming
   socket_io_client: ^2.0.3+1
   wakelock_plus: ^1.2.10
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +68,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/lang/
     
 flutter_launcher_icons:
   android: true

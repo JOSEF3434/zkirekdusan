@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
+import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -23,6 +26,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Initial state — don't show banner on first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _previousStatus = ref.read(connectivityProvider).status;
+      // Initialize notification socket lifecycle (connect/disconnect with auth)
+      ref.read(notificationLifecycleProvider);
     });
   }
 
@@ -79,7 +84,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final connectivity = ref.watch(connectivityProvider);
-    final isWideScreen = MediaQuery.of(context).size.width > 600;
+    final isWideScreen = !ResponsiveLayout.isMobile(context);
     final theme = Theme.of(context);
 
     // Show connectivity banner on state transition
@@ -129,13 +134,34 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     if (isWideScreen) {
+      final unreadCount = ref.watch(unreadNotificationCountProvider);
+      final isDesktop = ResponsiveLayout.isDesktop(context);
+      
       return Scaffold(
         body: Row(
           children: [
             NavigationRail(
+              extended: isDesktop,
               selectedIndex: _adjustedSelectedIndex,
               onDestinationSelected: (index) => _onItemTapped(index, context),
-              labelType: NavigationRailLabelType.all,
+              labelType: isDesktop 
+                  ? NavigationRailLabelType.none 
+                  : NavigationRailLabelType.all,
+              trailing: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: IconButton(
+                  icon: unreadCount > 0
+                      ? Badge(
+                          label: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                          ),
+                          child: const Icon(Icons.notifications_outlined),
+                        )
+                      : const Icon(Icons.notifications_outlined),
+                  tooltip: 'Notifications',
+                  onPressed: () => context.push('/notifications'),
+                ),
+              ),
               destinations: const [
                 NavigationRailDestination(
                   icon: Icon(Icons.home_outlined),
@@ -171,6 +197,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: Container(
@@ -215,10 +242,15 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               label: 'Create',
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              selectedIcon: Icon(Icons.chat_bubble),
-              label: 'Chats',
+            NavigationDestination(
+              icon: unreadCount > 0
+                  ? Badge(
+                      label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+                      child: const Icon(Icons.notifications_outlined),
+                    )
+                  : const Icon(Icons.notifications_outlined),
+              selectedIcon: const Icon(Icons.notifications_rounded),
+              label: 'Alerts',
             ),
             const NavigationDestination(
               icon: Icon(Icons.person_outline),

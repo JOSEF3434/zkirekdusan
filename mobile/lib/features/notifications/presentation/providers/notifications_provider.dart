@@ -1,11 +1,17 @@
+// lib/features/notifications/presentation/providers/notifications_provider.dart
+// Upgraded to: real-time Socket.IO integration, unread count tracking,
+// optimistic updates, rollback, and proper lifecycle management.
+
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/notifications/data/notifications_repository.dart';
+import 'package:mobile/features/notifications/data/notification_socket_service.dart';
 import 'package:mobile/features/notifications/domain/notification_model.dart';
 
 class NotificationsState {
   final List<NotificationResponseDto> notifications;
   final int unreadCount;
-  final bool isLoadingMore; // Future proofing if pagination is added
+  final bool isLoadingMore;
   final String? error;
 
   const NotificationsState({
@@ -20,12 +26,13 @@ class NotificationsState {
     int? unreadCount,
     bool? isLoadingMore,
     String? error,
+    bool clearError = false,
   }) {
     return NotificationsState(
       notifications: notifications ?? this.notifications,
       unreadCount: unreadCount ?? this.unreadCount,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -36,15 +43,42 @@ final notificationsProvider =
     });
 
 class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
+  StreamSubscription<NotificationResponseDto>? _socketSub;
+
   @override
   Future<NotificationsState> build() async {
     final repo = ref.read(notificationsRepositoryProvider);
     final notifications = await repo.getAll();
     final unreadCount = await repo.getUnreadCount();
 
+    // Subscribe to real-time notifications from the socket service
+    final socketService = ref.read(notificationSocketServiceProvider);
+    _socketSub?.cancel();
+    _socketSub = socketService.notificationStream.listen(_onSocketNotification);
+
+    ref.onDispose(() {
+      _socketSub?.cancel();
+    });
+
     return NotificationsState(
       notifications: notifications,
       unreadCount: unreadCount,
+    );
+  }
+
+  void _onSocketNotification(NotificationResponseDto notification) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    // Check for duplicates
+    final exists = current.notifications.any((n) => n.id == notification.id);
+    if (exists) return;
+
+    state = AsyncValue.data(
+      current.copyWith(
+        notifications: [notification, ...current.notifications],
+        unreadCount: current.unreadCount + 1,
+      ),
     );
   }
 
@@ -54,7 +88,6 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
       final repo = ref.read(notificationsRepositoryProvider);
       final notifications = await repo.getAll();
       final unreadCount = await repo.getUnreadCount();
-
       state = AsyncValue.data(
         NotificationsState(
           notifications: notifications,
@@ -70,12 +103,15 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
 
+    final target = currentState.notifications.firstWhere(
+      (n) => n.id == id,
+      orElse: () => currentState.notifications.first,
+    );
+    if (target.isRead) return;
+
     // Optimistic update
     final updatedNotifications = currentState.notifications.map((n) {
-      if (n.id == id && !n.isRead) {
-        return n.copyWith(isRead: true);
-      }
-      return n;
+      return n.id == id ? n.copyWith(isRead: true) : n;
     }).toList();
 
     state = AsyncValue.data(
@@ -88,8 +124,8 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     try {
       final repo = ref.read(notificationsRepositoryProvider);
       await repo.markAsRead(id);
-    } catch (e) {
-      // Ignore errors for mark-read or revert quietly
+    } catch (_) {
+      // Rollback on failure
       ref.invalidateSelf();
     }
   }
@@ -113,7 +149,8 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     try {
       final repo = ref.read(notificationsRepositoryProvider);
       await repo.markAllAsRead();
-    } catch (e) {
+    } catch (_) {
+      // Rollback on failure
       ref.invalidateSelf();
     }
   }
@@ -122,8 +159,9 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     final currentState = state.valueOrNull;
     if (currentState == null) return;
 
-    final target = currentState.notifications.firstWhere((n) => n.id == id);
-    final wasUnread = !target.isRead;
+    final target = currentState.notifications.where((n) => n.id == id).toList();
+    if (target.isEmpty) return;
+    final wasUnread = !target.first.isRead;
 
     // Optimistic update
     state = AsyncValue.data(
@@ -140,9 +178,9 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     try {
       final repo = ref.read(notificationsRepositoryProvider);
       await repo.deleteNotification(id);
-    } catch (e) {
+    } catch (_) {
+      // Rollback on failure
       ref.invalidateSelf();
-      rethrow;
     }
   }
 }

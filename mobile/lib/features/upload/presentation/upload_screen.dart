@@ -7,6 +7,7 @@ import 'package:mobile/features/upload/presentation/providers/upload_provider.da
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
+import 'package:mobile/features/library/presentation/playlists_screen.dart';
 
 class UploadScreen extends ConsumerWidget {
   const UploadScreen({super.key});
@@ -84,10 +85,8 @@ class _VideoPickerWidget extends ConsumerWidget {
                 source: ImageSource.gallery,
               );
 
-              if (pickedFile != null && pickedFile.path.isNotEmpty) {
-                ref
-                    .read(uploadProvider.notifier)
-                    .selectVideo(pickedFile.path, pickedFile.name);
+              if (pickedFile != null) {
+                ref.read(uploadProvider.notifier).selectVideo(pickedFile);
               }
             },
             icon: const Icon(Icons.upload_file),
@@ -219,27 +218,52 @@ class _ChannelSelectorWidgetState
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            if (groupChannels.isEmpty)
+            if (group.status == 'PENDING_APPROVAL')
+              Container(
+                margin: const EdgeInsets.only(bottom: 16.0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.pending_actions, color: Colors.orange),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'This group is pending admin approval. You cannot upload videos yet.',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (groupChannels.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 16.0),
                 child: Text('No upload channels available in this group.'),
               ),
-            ...groupChannels.map(
-              (channel) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.video_camera_front),
-                  title: Text(channel.name),
-                  subtitle: Text('Type: ${channel.type}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ref
-                        .read(uploadProvider.notifier)
-                        .selectChannel(group, channel);
-                  },
+            if (group.status != 'PENDING_APPROVAL')
+              ...groupChannels.map(
+                (channel) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.video_camera_front),
+                    title: Text(channel.name),
+                    subtitle: Text('Type: ${channel.type}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ref
+                          .read(uploadProvider.notifier)
+                          .selectChannel(group, channel);
+                    },
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 16),
           ],
         );
@@ -258,63 +282,109 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
   String _title = '';
   String _description = '';
   String _visibility = 'PUBLIC';
+  String? _playlistId;
 
   @override
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              hintText: 'Add a video title',
-            ),
-            maxLength: 300,
-            validator: (v) =>
-                v == null || v.isEmpty ? 'Title is required' : null,
-            onSaved: (v) => _title = v ?? '',
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              hintText: 'Add a description',
-            ),
-            maxLines: 4,
-            maxLength: 10000,
-            onSaved: (v) => _description = v ?? '',
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _visibility,
-            decoration: const InputDecoration(labelText: 'Visibility'),
-            items: const [
-              DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
-              DropdownMenuItem(value: 'PRIVATE', child: Text('Private')),
-              DropdownMenuItem(value: 'GROUP_ONLY', child: Text('Group Only')),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  hintText: 'Add a video title',
+                ),
+                maxLength: 300,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Title is required' : null,
+                onSaved: (v) => _title = v ?? '',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'Add a description',
+                ),
+                maxLines: 4,
+                maxLength: 10000,
+                onSaved: (v) => _description = v ?? '',
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _visibility,
+                decoration: const InputDecoration(labelText: 'Visibility'),
+                items: const [
+                  DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
+                  DropdownMenuItem(value: 'PRIVATE', child: Text('Private')),
+                  DropdownMenuItem(
+                    value: 'GROUP_ONLY',
+                    child: Text('Group Only'),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _visibility = v);
+                },
+              ),
+              const SizedBox(height: 16),
+              ref
+                  .watch(myPlaylistsProvider)
+                  .when(
+                    data: (playlists) {
+                      if (playlists.isEmpty) return const SizedBox.shrink();
+                      return InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Add to Playlist (Optional)',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _playlistId,
+                            isExpanded: true,
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('None'),
+                              ),
+                              ...playlists.map(
+                                (p) => DropdownMenuItem<String?>(
+                                  value: p.id,
+                                  child: Text(p.title),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) => setState(() => _playlistId = v),
+                          ),
+                        ),
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, _) => const SizedBox.shrink(),
+                  ),
+              const SizedBox(height: 32),
+              FilledButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _formKey.currentState!.save();
+                    final data = UploadVideoFormData(
+                      title: _title,
+                      description: _description,
+                      visibility: _visibility,
+                      playlistId: _playlistId,
+                    );
+                    ref.read(uploadProvider.notifier).submitDetails(data);
+                  }
+                },
+                child: const Text('Start Upload'),
+              ),
             ],
-            onChanged: (v) {
-              if (v != null) setState(() => _visibility = v);
-            },
           ),
-          const SizedBox(height: 32),
-          FilledButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                _formKey.currentState!.save();
-                final data = UploadVideoFormData(
-                  title: _title,
-                  description: _description,
-                  visibility: _visibility,
-                );
-                ref.read(uploadProvider.notifier).submitDetails(data);
-              }
-            },
-            child: const Text('Start Upload'),
-          ),
-        ],
+        ),
       ),
     );
   }

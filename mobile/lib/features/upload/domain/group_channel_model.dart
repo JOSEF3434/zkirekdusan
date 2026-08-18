@@ -38,6 +38,7 @@ class GroupDto {
   final String? description;
   final String? avatarUrl;
   final String? coverUrl;
+  final String status;
 
   const GroupDto({
     required this.id,
@@ -45,6 +46,7 @@ class GroupDto {
     this.description,
     this.avatarUrl,
     this.coverUrl,
+    this.status = 'ACTIVE',
   });
 
   factory GroupDto.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class GroupDto {
       description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       coverUrl: json['coverUrl'] as String?,
+      status: json['status'] as String? ?? 'ACTIVE',
     );
   }
 }

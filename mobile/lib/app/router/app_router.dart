@@ -4,17 +4,30 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/splash/presentation/splash_screen.dart';
+import 'package:mobile/features/splash/presentation/onboarding_screen.dart';
 import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
 import 'package:mobile/features/home/presentation/home_screen.dart';
 import 'package:mobile/features/profile/presentation/profile_screen.dart';
+import 'package:mobile/features/profile/presentation/edit_profile_screen.dart';
+import 'package:mobile/features/library/presentation/library_screen.dart';
+import 'package:mobile/features/library/presentation/continue_watching_screen.dart';
+import 'package:mobile/features/settings/presentation/settings_screen.dart';
+import 'package:mobile/features/settings/presentation/playback_preferences_screen.dart';
+import 'package:mobile/features/library/presentation/watch_history_screen.dart';
+import 'package:mobile/features/library/presentation/downloads_screen.dart';
+import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/settings/presentation/preferences_settings_screens.dart';
+import 'package:mobile/features/settings/presentation/admin_settings_screen.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
 import 'package:mobile/features/explore/presentation/search_screen.dart';
 import 'package:mobile/features/profile/presentation/public_profile_screen.dart';
 import 'package:mobile/features/player/presentation/video_player_screen.dart';
+import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/live/presentation/screens/live_discovery_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_room_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_studio_screen.dart';
@@ -37,39 +50,72 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_v
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    _ref.listen(authProvider, (_, __) => notifyListeners());
+    _ref.listen(preferencesProvider, (_, __) => notifyListeners());
+  }
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    final authState = _ref.read(authProvider);
+    final prefsState = _ref.read(preferencesProvider);
+
+    final isAuthRoute =
+        state.matchedLocation == '/login' ||
+        state.matchedLocation == '/register';
+
+    final isSplashRoute = state.matchedLocation == '/';
+    final isOnboardingRoute = state.matchedLocation == '/onboarding';
+
+    // 1. Onboarding is the absolute highest priority if first launch.
+    if (prefsState.isFirstLaunch) {
+      if (isOnboardingRoute) return null;
+      return '/onboarding';
+    }
+
+    // 2. If first launch is done, we shouldn't be on onboarding.
+    if (!prefsState.isFirstLaunch && isOnboardingRoute) {
+      return '/'; // Send to splash to evaluate auth state
+    }
+
+    // 3. Wait for auth status
+    if (authState.status == AuthStatus.unknown) {
+      return isSplashRoute ? null : '/';
+    }
+
+    // 4. Authenticated user behavior
+    if (authState.status == AuthStatus.authenticated) {
+      if (isAuthRoute || isSplashRoute || isOnboardingRoute) {
+        return '/home';
+      }
+    }
+
+    // 5. Unauthenticated user behavior
+    if (authState.status == AuthStatus.unauthenticated) {
+      if (!isAuthRoute && !isSplashRoute && !isOnboardingRoute) {
+        return '/login';
+      }
+    }
+
+    return null;
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
+  final notifier = RouterNotifier(ref);
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
-    redirect: (context, state) {
-      final authState = ref.read(authProvider);
-
-      final isAuthRoute =
-          state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
-
-      final isSplashRoute = state.matchedLocation == '/';
-
-      if (authState.status == AuthStatus.unknown) {
-        return isSplashRoute ? null : '/';
-      }
-
-      if (authState.status == AuthStatus.authenticated) {
-        if (isAuthRoute || isSplashRoute) {
-          return '/home';
-        }
-      }
-
-      if (authState.status == AuthStatus.unauthenticated) {
-        if (!isAuthRoute && !isSplashRoute) {
-          return '/login';
-        }
-      }
-
-      return null;
-    },
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
@@ -203,6 +249,64 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AdminModerationScreen(),
       ),
 
+      // Settings Routes
+      GoRoute(
+        path: '/settings',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'appearance',
+            builder: (context, state) => const AppearanceSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'language',
+            builder: (context, state) => const LanguageSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'playback',
+            builder: (context, state) => const PlaybackPreferencesScreen(),
+          ),
+          GoRoute(
+            path: 'admin',
+            redirect: (context, state) {
+              final authState = ref.read(authProvider);
+              final role = authState.user?.role;
+              if (role != 'ADMIN' && role != 'SUPER_ADMIN') {
+                return '/home';
+              }
+              return null;
+            },
+            builder: (context, state) => const AdminSettingsScreen(),
+          ),
+        ],
+      ),
+
+      // Library Routes
+      GoRoute(
+        path: '/library',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const LibraryScreen(),
+        routes: [
+          GoRoute(
+            path: 'history',
+            builder: (context, state) => const WatchHistoryScreen(),
+          ),
+          GoRoute(
+            path: 'downloads',
+            builder: (context, state) => const DownloadsScreen(),
+          ),
+          GoRoute(
+            path: 'playlists',
+            builder: (context, state) => const PlaylistsScreen(),
+          ),
+          GoRoute(
+            path: 'continue-watching',
+            builder: (context, state) => const ContinueWatchingScreen(),
+          ),
+        ],
+      ),
+
       // Shell with bottom nav / rail
       StatefulShellRoute.indexedStack(
         parentNavigatorKey: rootNavigatorKey,
@@ -251,6 +355,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'edit',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final profile = state.extra as ProfileModel?;
+                      return EditProfileScreen(initialProfile: profile);
+                    },
+                  ),
                   GoRoute(
                     path: 'user/:username',
                     parentNavigatorKey: rootNavigatorKey,

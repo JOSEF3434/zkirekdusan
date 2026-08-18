@@ -9,6 +9,7 @@ class UploadVideoFormData {
   final List<String> hashtags;
   final String downloadPermission;
   final bool isDownloadable;
+  final String? playlistId;
 
   const UploadVideoFormData({
     required this.title,
@@ -19,6 +20,7 @@ class UploadVideoFormData {
     this.hashtags = const [],
     this.downloadPermission = 'PUBLIC',
     this.isDownloadable = true,
+    this.playlistId,
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +33,7 @@ class UploadVideoFormData {
       'hashtags': hashtags,
       'downloadPermission': downloadPermission,
       'isDownloadable': isDownloadable,
+      if (playlistId != null) 'playlistId': playlistId,
     };
   }
 }
@@ -41,6 +44,7 @@ class UploadInitRequest {
   final String visibility;
   final String channelId;
   final int sizeBytes;
+  final String? playlistId;
 
   const UploadInitRequest({
     required this.title,
@@ -48,6 +52,7 @@ class UploadInitRequest {
     this.visibility = 'PUBLIC',
     required this.channelId,
     required this.sizeBytes,
+    this.playlistId,
   });
 
   Map<String, dynamic> toJson() {
@@ -57,6 +62,7 @@ class UploadInitRequest {
       'visibility': visibility,
       'channelId': channelId,
       'sizeBytes': sizeBytes,
+      if (playlistId != null) 'playlistId': playlistId,
     };
   }
 }
