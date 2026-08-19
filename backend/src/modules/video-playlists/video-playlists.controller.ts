@@ -103,3 +103,29 @@ export class VideoPlaylistsController {
     return this.service.removeItem(id, videoId, userId);
   }
 }
+
+// ─── Channel-scoped playlist listing (separate controller prefix) ────────────
+
+@ApiTags('Video Playlists')
+@ApiBearerAuth()
+@Controller('video-channels')
+export class VideoChannelPlaylistsController {
+  constructor(private readonly service: VideoPlaylistsService) {}
+
+  @Get(':channelId/playlists')
+  @ApiOperation({
+    summary: 'List playlists for a video channel',
+    description:
+      'Returns paginated playlists scoped to the specified channel. Only playlists belonging to this channel are returned.',
+  })
+  @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getChannelPlaylists(
+    @Param('channelId') channelId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.service.findByChannel(channelId, +page, +limit);
+  }
+}

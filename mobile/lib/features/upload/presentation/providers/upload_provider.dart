@@ -170,14 +170,10 @@ class UploadNotifier extends StateNotifier<UploadState> {
       );
 
       // 2. Attach File
-      final fileLength = await state.file!.length();
-
-      await _repository.uploadChunk(
-        uploadUrl: initRes.uploadUrl,
+      await _repository.uploadVideoFile(
+        channelId: state.selectedChannel!.id,
+        videoId: initRes.videoId,
         file: state.file!,
-        start: 0,
-        end: fileLength - 1,
-        totalSize: fileLength,
         cancelToken: _cancelToken!,
         onProgress: (count, total) {
           if (total != -1) {
@@ -185,9 +181,6 @@ class UploadNotifier extends StateNotifier<UploadState> {
           }
         },
       );
-
-      // Complete Upload
-      await _repository.completeUpload(initRes.videoId);
 
       // 3. Start Polling Status
       state = state.copyWith(step: UploadStep.processing, clearError: true);
@@ -213,7 +206,10 @@ class UploadNotifier extends StateNotifier<UploadState> {
       }
 
       try {
-        final video = await _repository.getStatus(state.video!.id);
+        final video = await _repository.getStatus(
+          state.video!.id,
+          channelId: state.selectedChannel?.id,
+        );
         state = state.copyWith(video: video);
 
         if (video.status == VideoStatus.ready) {

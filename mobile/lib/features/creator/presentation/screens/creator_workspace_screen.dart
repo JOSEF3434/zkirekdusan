@@ -9,6 +9,7 @@ import 'package:mobile/features/creator/presentation/widgets/creator_error_state
 import 'package:mobile/features/creator/presentation/widgets/creator_group_card.dart';
 import 'package:mobile/features/creator/presentation/widgets/creator_loading_skeleton.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
+import 'package:mobile/features/groups/presentation/widgets/group_management_sheet.dart';
 
 class CreatorWorkspaceScreen extends ConsumerStatefulWidget {
   const CreatorWorkspaceScreen({super.key});
@@ -200,38 +201,10 @@ class _CreatorWorkspaceScreenState
         return CreatorGroupCard(
           group: group,
           onTap: () {
-            if (isPending) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'This group is waiting for approval from a system administrator.',
-                  ),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-              return;
-            }
-            if (isRejected) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'This group was rejected. Please contact an administrator.',
-                  ),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-              return;
-            }
-            if (isSuspended) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('This group is no longer active.'),
-                ),
-              );
-              return;
-            }
-
-            context.push('/creator/groups/${group.id}/channels', extra: group);
+            context.push('/groups/${group.id}');
+          },
+          onLongPress: () {
+            GroupManagementSheet.show(context, group: group);
           },
         );
       }, childCount: groups.length),

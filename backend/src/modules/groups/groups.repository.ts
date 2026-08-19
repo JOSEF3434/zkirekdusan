@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
+import { VideoChannelStatus } from '@prisma/client';
 
 @Injectable()
 export class GroupsRepository {
@@ -31,7 +32,40 @@ export class GroupsRepository {
         },
       });
 
+      // Automatically provision the primary video channel for the group
+      const baseHandle = data.slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 30) : `channel_${group.id.substring(0, 8)}`;
+      await tx.videoChannel.create({
+        data: {
+          groupId: group.id,
+          name: `${data.name} Channel`,
+          slug: data.slug,
+          handle: channelHandle,
+          description: `Official video channel for ${data.name}`,
+          status: 'ACTIVE',
+          uploadPermission: 'MEMBER',
+          downloadPermission: 'PUBLIC',
+        },
+      });
+
       return group;
+    });
+  }
+
+  async createDefaultChannel(groupId: string, name: string, slug: string) {
+    const baseHandle = slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+    const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 30) : `channel_${groupId.substring(0, 8)}`;
+    return this.prisma.videoChannel.create({
+      data: {
+        groupId,
+        name: `${name} Channel`,
+        slug: `${slug}-${Date.now().toString().slice(-4)}`,
+        handle: `${channelHandle}_${Date.now().toString().slice(-4)}`.substring(0, 30),
+        description: `Official video channel for ${name}`,
+        status: 'ACTIVE',
+        uploadPermission: 'MEMBER',
+        downloadPermission: 'PUBLIC',
+      },
     });
   }
 
@@ -44,6 +78,38 @@ export class GroupsRepository {
       },
     });
   }
+  /**
+   * Fetch full group data including non-archived video channels and member count.
+   * Used exclusively by the Group Context endpoint.
+   */
+  async findWithChannels(id: string) {
+    return this.prisma.group.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        _count: { select: { members: { where: { removedAt: null } } } },
+        videoChannels: {
+          where: {
+            deletedAt: null,
+            status: { not: VideoChannelStatus.ARCHIVED },
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            handle: true,
+            description: true,
+            status: true,
+            uploadPermission: true,
+            subscribersCount: true,
+            videosCount: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'asc' }, // oldest first = primary
+        },
+      },
+    });
+  }
+
 
   async findBySlug(slug: string) {
     return this.prisma.group.findFirst({
@@ -147,8 +213,8 @@ export class GroupsRepository {
   }
 
   async getMember(groupId: string, userId: string) {
-    return this.prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId }, removedAt: null },
+    return this.prisma.groupMember.findFirst({
+      where: { groupId, userId, removedAt: null },
       include: { user: { select: { id: true, username: true } } },
     });
   }
@@ -162,20 +228,6 @@ export class GroupsRepository {
       where: { groupId_userId: { groupId, userId } },
       create: { groupId, userId, role },
       update: { role, removedAt: null, joinedAt: new Date() },
-    });
-  }
-
-  async removeMember(groupId: string, userId: string) {
-    return this.prisma.groupMember.update({
-      where: { groupId_userId: { groupId, userId } },
-      data: { removedAt: new Date() },
-    });
-  }
-
-  async updateMemberRole(groupId: string, userId: string, role: GroupRole) {
-    return this.prisma.groupMember.update({
-      where: { groupId_userId: { groupId, userId } },
-      data: { role },
     });
   }
 
@@ -209,4 +261,63 @@ export class GroupsRepository {
       data: { status: 'ACCEPTED', respondedAt: new Date() },
     });
   }
+
+  // ─── Member Management ─────────────────────────────────────────────────────
+
+  async findMembers(
+    groupId: string,
+    skip = 0,
+    take = 30,
+  ) {
+    const where = { groupId, removedAt: null };
+    const [items, total] = await Promise.all([
+      this.prisma.groupMember.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              profile: { select: { displayName: true, avatarFileId: true } },
+            },
+          },
+        },
+        orderBy: { joinedAt: 'asc' },
+      }),
+      this.prisma.groupMember.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  async updateMemberRole(groupId: string, userId: string, role: GroupRole) {
+    return this.prisma.groupMember.update({
+      where: { groupId_userId: { groupId, userId } },
+      data: { role },
+    });
+  }
+
+  async removeMember(groupId: string, userId: string) {
+    return this.prisma.groupMember.update({
+      where: { groupId_userId: { groupId, userId } },
+      data: { removedAt: new Date() },
+    });
+  }
+
+  async ensureCreatorMembership(groupId: string, createdById: string) {
+    const existing = await this.prisma.groupMember.findFirst({
+      where: { groupId, userId: createdById, removedAt: null },
+    });
+    if (!existing) {
+      await this.prisma.groupMember.create({
+        data: {
+          groupId,
+          userId: createdById,
+          role: 'GROUP_ADMIN',
+        },
+      });
+    }
+  }
 }
+

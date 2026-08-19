@@ -11,7 +11,19 @@ class SplashScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Listen to auth state and navigate when determined
+    // Handle already-resolved auth states on mount (e.g. Web fast reload)
+    final authState = ref.watch(authProvider);
+    if (authState.status == AuthStatus.authenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go('/home');
+      });
+    } else if (authState.status == AuthStatus.unauthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go('/login');
+      });
+    }
+
+    // Listen to future auth state transitions
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated) {
         context.go('/home');

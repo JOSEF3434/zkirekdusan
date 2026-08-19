@@ -399,4 +399,82 @@ export class VideosPublicController {
   ) {
     return this.videosService.getBookmarks(userId, +page, +limit);
   }
+
+  // ─── Direct video ID endpoints ─────────────────────────────────────────────
+
+  @Get(':videoId')
+  @ApiOperation({ summary: 'Get video details by ID' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  @ApiResponse({ status: 200, type: VideoResponseDto })
+  async getVideoById(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<VideoResponseDto> {
+    return this.videosService.findById(videoId, userId) as any;
+  }
+
+  @Get(':videoId/status')
+  @ApiOperation({ summary: 'Get video processing status' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async getVideoStatus(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.findById(videoId, userId);
+  }
+
+  @Patch(':videoId/progress')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update watch progress for a video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async updateProgress(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() body: WatchProgressBodyDto,
+  ) {
+    return this.videosService.updateWatchProgress(
+      videoId,
+      userId,
+      body.watchedSeconds,
+    );
+  }
+
+  @Post(':videoId/like')
+  @ApiOperation({ summary: 'Like a video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async likeVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.likeVideo(videoId, userId, true);
+  }
+
+  @Post(':videoId/dislike')
+  @ApiOperation({ summary: 'Dislike a video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async dislikeVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.likeVideo(videoId, userId, false);
+  }
+
+  @Delete(':videoId/like')
+  @ApiOperation({ summary: 'Remove like/dislike from a video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async removeLike(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.removeLike(videoId, userId);
+  }
+
+  @Get(':videoId/like-status')
+  @ApiOperation({ summary: 'Check current user like/dislike status on video' })
+  async getLikeStatus(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.getUserLikeStatus(videoId, userId);
+  }
 }

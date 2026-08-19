@@ -75,9 +75,10 @@ export class VideosService {
       throw new ForbiddenException('Group is not active');
     }
 
-    const membership = await this.prisma.groupMember.findUnique({
+    const membership = await this.prisma.groupMember.findFirst({
       where: {
-        groupId_userId: { groupId: channel.groupId, userId },
+        groupId: channel.groupId,
+        userId,
         removedAt: null,
       },
       select: { role: true },
@@ -424,9 +425,10 @@ export class VideosService {
     if (video.uploadedById === userId) return true;
 
     // Check group MODERATOR or higher
-    const membership = await this.prisma.groupMember.findUnique({
+    const membership = await this.prisma.groupMember.findFirst({
       where: {
-        groupId_userId: { groupId: video.videoChannel.groupId, userId },
+        groupId: video.videoChannel.groupId,
+        userId,
         removedAt: null,
       },
       select: { role: true },

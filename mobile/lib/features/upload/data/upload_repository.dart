@@ -17,64 +17,60 @@ class UploadRepository {
   UploadRepository(this._dio);
 
   Future<List<GroupDto>> getMyGroups() async {
-    // Assuming backend returns {success: true, data: [ {id, name...} ]}
-    final response = await _dio.get('/groups');
+    final response = await _dio.get('/groups/my-groups');
     final data = parseEnvelopeList(response.data);
     return data.map((json) => GroupDto.fromJson(json)).toList();
   }
 
   Future<List<VideoChannelDto>> getGroupChannels(String groupId) async {
-    final response = await _dio.get('/groups/$groupId/channels');
+    final response = await _dio.get('/groups/$groupId/video-channels');
     final data = parseEnvelopeList(response.data);
     return data.map((json) => VideoChannelDto.fromJson(json)).toList();
   }
 
   Future<UploadInitResponse> initiateUpload(UploadInitRequest request) async {
     final response = await _dio.post(
-      '/videos/upload/init',
+      '/video-channels/${request.channelId}/videos',
       data: request.toJson(),
     );
     final data = parseEnvelope(response.data);
-    return UploadInitResponse.fromJson(data);
+    final videoId = (data['id'] ?? data['videoId']) as String;
+    return UploadInitResponse(
+      videoId: videoId,
+      uploadUrl: '/video-channels/${request.channelId}/videos/$videoId/file',
+    );
   }
 
-  Future<void> uploadChunk({
-    required String uploadUrl,
+  Future<void> uploadVideoFile({
+    required String channelId,
+    required String videoId,
     required XFile file,
-    required int start,
-    required int end,
-    required int totalSize,
     required CancelToken cancelToken,
     void Function(int sent, int total)? onProgress,
   }) async {
-    final stream = file.openRead(start, end + 1);
-    final length = end - start + 1;
-
-    // Direct PUT to upload URL (no envelope processing needed here typically, as it might be S3/GCS directly)
-    // If it's your own backend, it might return an envelope.
-    await _dio.put(
-      uploadUrl,
-      data: stream,
-      cancelToken: cancelToken,
-      options: Options(
-        headers: {
-          'Content-Length': length,
-          'Content-Range': 'bytes $start-$end/$totalSize',
-        },
+    final bytes = await file.readAsBytes();
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: file.name.isNotEmpty ? file.name : 'video.mp4',
       ),
+    });
+
+    await _dio.post(
+      '/video-channels/$channelId/videos/$videoId/file',
+      data: formData,
+      cancelToken: cancelToken,
       onSendProgress: onProgress,
     );
   }
 
-  Future<void> completeUpload(String videoId) async {
-    // Envelope parsed but we don't necessarily need the payload if it's just a 200 OK
-    final response = await _dio.post('/videos/$videoId/upload/complete');
-    parseEnvelope(response.data);
-  }
-
-  Future<VideoResponseDto> getStatus(String videoId) async {
-    final response = await _dio.get('/videos/$videoId/status');
+  Future<VideoResponseDto> getStatus(String videoId, {String? channelId}) async {
+    final path = channelId != null
+        ? '/video-channels/$channelId/videos/$videoId'
+        : '/videos/$videoId/status';
+    final response = await _dio.get(path);
     final data = parseEnvelope(response.data);
     return VideoResponseDto.fromJson(data);
   }
 }
+

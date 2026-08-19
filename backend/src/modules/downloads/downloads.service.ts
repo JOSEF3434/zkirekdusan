@@ -241,8 +241,8 @@ export class DownloadsService {
 
     // Check Group RBAC
     const groupId = video.videoChannel.groupId;
-    const member = await this.prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId }, removedAt: null },
+    const member = await this.prisma.groupMember.findFirst({
+      where: { groupId, userId, removedAt: null },
     });
 
     if (!member) {
@@ -283,8 +283,8 @@ export class DownloadsService {
       return true;
     }
 
-    const member = await this.prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId }, removedAt: null },
+    const member = await this.prisma.groupMember.findFirst({
+      where: { groupId, userId, removedAt: null },
     });
 
     if (!member) {

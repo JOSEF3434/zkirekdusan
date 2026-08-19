@@ -47,6 +47,8 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_d
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_management_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
+import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
+import 'package:mobile/features/groups/presentation/screens/playlist_detail_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -95,7 +97,7 @@ class RouterNotifier extends ChangeNotifier {
 
     // 5. Unauthenticated user behavior
     if (authState.status == AuthStatus.unauthenticated) {
-      if (!isAuthRoute && !isSplashRoute && !isOnboardingRoute) {
+      if (isSplashRoute || isOnboardingRoute || !isAuthRoute) {
         return '/login';
       }
     }
@@ -253,6 +255,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/groups',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const GroupManagementScreen(),
+      ),
+      GoRoute(
+        path: '/groups/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final tab = state.uri.queryParameters['tab'];
+          return GroupChannelScreen(groupId: id, initialTab: tab);
+        },
+      ),
+      GoRoute(
+        path: '/playlists/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return PlaylistDetailScreen(playlistId: id);
+        },
       ),
 
       // Settings Routes

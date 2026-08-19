@@ -90,9 +90,10 @@ export class AuthorizationService {
       return true;
     }
 
-    const member = await this.prisma.groupMember.findUnique({
+    const member = await this.prisma.groupMember.findFirst({
       where: {
-        groupId_userId: { groupId, userId },
+        groupId,
+        userId,
         removedAt: null,
       },
       select: { role: true },

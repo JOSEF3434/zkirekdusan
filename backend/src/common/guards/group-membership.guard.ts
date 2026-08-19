@@ -63,35 +63,41 @@ export class GroupMembershipGuard implements CanActivate {
       return true;
     }
 
-    // Verify the group exists and is active
+    // Verify the group exists
     const group = await this.prisma.group.findUnique({
       where: { id: groupId, deletedAt: null },
-      select: { id: true, status: true },
+      select: { id: true, status: true, createdById: true },
     });
 
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    if (group.status !== 'ACTIVE') {
+    const isCreator = group.createdById === user.sub;
+
+    if (group.status !== 'ACTIVE' && !isCreator) {
       throw new ForbiddenException('This group is not active');
     }
 
     // Check membership
-    const membership = await this.prisma.groupMember.findUnique({
+    const membership = await this.prisma.groupMember.findFirst({
       where: {
-        groupId_userId: { groupId, userId: user.sub },
+        groupId,
+        userId: user.sub,
         removedAt: null,
       },
       select: { role: true },
     });
 
-    if (!membership) {
+    if (!membership && !isCreator) {
       throw new ForbiddenException('You are not a member of this group');
     }
 
+    // If creator is not yet in groupMember table, treat as GROUP_ADMIN
+    const effectiveRole = (membership?.role ?? (isCreator ? GroupRole.GROUP_ADMIN : null)) as GroupRole;
+
     // Attach membership to request for downstream use
-    request.groupMember = { role: membership.role as GroupRole };
+    request.groupMember = { role: effectiveRole };
 
     // Check group role requirement if @GroupRoles() is set
     const requiredGroupRoles = this.reflector.getAllAndOverride<GroupRole[]>(
@@ -100,7 +106,7 @@ export class GroupMembershipGuard implements CanActivate {
     );
 
     if (requiredGroupRoles && requiredGroupRoles.length > 0) {
-      const memberRole = membership.role as GroupRole;
+      const memberRole = effectiveRole;
       const hasRequiredRole = requiredGroupRoles.some((required) =>
         hasGroupRoleAtLeast(memberRole, required),
       );

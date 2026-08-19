@@ -55,6 +55,10 @@ export class VideoPlaylistsService {
     return { message: 'Item removed from playlist' };
   }
 
+  async findByChannel(videoChannelId: string, page = 1, limit = 20) {
+    return this.repo.findByChannel(videoChannelId, page, limit);
+  }
+
   private async verifyOwnership(playlistId: string, userId: string) {
     const playlist = await this.repo.findById(playlistId);
     if (!playlist) throw new NotFoundException('Playlist not found');

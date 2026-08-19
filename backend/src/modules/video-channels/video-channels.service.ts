@@ -47,8 +47,8 @@ export class VideoChannelsService {
     if (group.status !== 'ACTIVE')
       throw new ForbiddenException('Group is not active');
 
-    const membership = await this.prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId, userId }, removedAt: null },
+    const membership = await this.prisma.groupMember.findFirst({
+      where: { groupId, userId, removedAt: null },
       select: { role: true },
     });
     if (!membership)

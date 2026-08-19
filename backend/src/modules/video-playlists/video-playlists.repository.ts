@@ -121,4 +121,20 @@ export class VideoPlaylistsRepository {
       data: { videosCount: { decrement: 1 } },
     });
   }
+
+  async findByChannel(videoChannelId: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = { videoChannelId };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.videoPlaylist.findMany({
+        where,
+        include: PLAYLIST_INCLUDE,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.prisma.videoPlaylist.count({ where }),
+    ]);
+    return { data, total, page, limit };
+  }
 }

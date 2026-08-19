@@ -16,6 +16,9 @@ class Failure {
 
   Failure(this.message);
 
+  @override
+  String toString() => message;
+
   factory Failure.fromException(dynamic exception) {
     if (exception is AppException) {
       return Failure(exception.message);

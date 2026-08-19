@@ -2,13 +2,20 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/presentation/widgets/group_status_badge.dart';
+import 'package:mobile/features/groups/presentation/widgets/group_management_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class CreatorGroupCard extends StatelessWidget {
   final CreatorGroupDto group;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const CreatorGroupCard({super.key, required this.group, required this.onTap});
+  const CreatorGroupCard({
+    super.key,
+    required this.group,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +28,7 @@ class CreatorGroupCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress ?? () => GroupManagementSheet.show(context, group: group),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -60,13 +68,29 @@ class CreatorGroupCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          group.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                group.name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.more_vert),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Manage Group',
+                              onPressed: () => GroupManagementSheet.show(
+                                context,
+                                group: group,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -121,10 +145,22 @@ class CreatorGroupCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GroupStatusBadge(status: group.status),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: Colors.grey,
+                  Row(
+                    children: [
+                      Text(
+                        'Manage',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 12,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ],
                   ),
                 ],
               ),

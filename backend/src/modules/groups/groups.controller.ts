@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -22,7 +23,8 @@ import { GroupsService } from './groups.service.js';
 import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
-import { GroupResponseDto } from './dto/group-response.dto.js';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto.js';
+import { GroupResponseDto, GroupContextResponseDto } from './dto/group-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -31,6 +33,7 @@ import { GroupMembershipGuard } from '../../common/guards/group-membership.guard
 import { AppRole } from '../../common/constants/roles.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+
 
 @ApiTags('Groups')
 @ApiBearerAuth()
@@ -122,12 +125,41 @@ export class GroupsController {
   @Patch(':groupId')
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.GROUP_ADMIN)
-  @ApiOperation({ summary: 'Update group settings (GROUP_ADMIN only)' })
+  @ApiOperation({ summary: 'Update group settings (GROUP_ADMIN or Creator only)' })
   async updateGroup(
     @Param('groupId') groupId: string,
+    @CurrentUser() actor: JwtPayload,
     @Body() dto: UpdateGroupDto,
   ): Promise<GroupResponseDto> {
-    return this.groupsService.updateGroup(groupId, dto);
+    return this.groupsService.updateGroup(
+      groupId,
+      dto,
+      actor?.sub,
+      actor?.role as AppRole,
+    );
+  }
+
+  @Delete(':groupId')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.GROUP_ADMIN)
+  @ApiOperation({ summary: 'Delete group (GROUP_ADMIN, Creator, or Admin only)' })
+  async deleteGroup(
+    @Param('groupId') groupId: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.groupsService.deleteGroup(
+      groupId,
+      actor.sub,
+      actor.role as AppRole,
+    );
+  }
+
+  @Post(':groupId/repair')
+  @ApiOperation({ summary: 'Repair group creator membership and channels' })
+  async repairGroup(
+    @Param('groupId') groupId: string,
+  ) {
+    return this.groupsService.repairGroup(groupId);
   }
 
   @Post(':groupId/members/invite')
@@ -157,4 +189,81 @@ export class GroupsController {
   ) {
     return this.groupsService.joinByInvite(token, userId);
   }
+
+  // ─── Group Context ───────────────────────────────────────────────────────────
+
+  /**
+   * Returns the full group context needed to render the Group Channel screen.
+   * Public groups: any authenticated or unauthenticated caller may request.
+   * Private groups: caller must be a member.
+   * Non-ACTIVE groups: only ADMIN/SUPER_ADMIN.
+   */
+  @Get(':groupId/context')
+  @ApiOperation({
+    summary: 'Get full group context (channels, caller capabilities)',
+    description:
+      'Single call that provides group metadata, available video channels, default channel, caller role, and capability flags. Enforces visibility/status rules on the backend.',
+  })
+  @ApiResponse({ status: 200, type: GroupContextResponseDto })
+  async getGroupContext(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: JwtPayload | null,
+  ): Promise<GroupContextResponseDto> {
+    // callerId may be undefined if the route is accessed without a token
+    const callerId = user?.sub ?? undefined;
+    return this.groupsService.getGroupContext(groupId, callerId);
+  }
+
+  // ─── Member Management ───────────────────────────────────────────────────────
+
+  @Get(':groupId/members')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.MODERATOR)
+  @ApiOperation({ summary: 'List group members (MODERATOR or higher)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 30 })
+  async listMembers(
+    @Param('groupId') groupId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit: number,
+  ) {
+    return this.groupsService.listMembers(groupId, page, limit);
+  }
+
+  @Patch(':groupId/members/:userId/role')
+  @ApiOperation({
+    summary: 'Update a member role (GROUP_ADMIN only). Prevents privilege escalation.',
+  })
+  async updateMemberRole(
+    @Param('groupId') groupId: string,
+    @Param('userId') targetUserId: string,
+    @CurrentUser() actor: JwtPayload,
+    @Body() dto: UpdateMemberRoleDto,
+  ) {
+    return this.groupsService.updateMemberRole(
+      groupId,
+      actor.sub,
+      targetUserId,
+      dto.role,
+      actor.role as AppRole,
+    );
+  }
+
+  @Delete(':groupId/members/:userId')
+  @ApiOperation({
+    summary: 'Remove a member from the group (GROUP_ADMIN only).',
+  })
+  async removeMember(
+    @Param('groupId') groupId: string,
+    @Param('userId') targetUserId: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.groupsService.removeMember(
+      groupId,
+      actor.sub,
+      targetUserId,
+      actor.role as AppRole,
+    );
+  }
 }
+
