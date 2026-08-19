@@ -19,7 +19,6 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _descriptionController = TextEditingController();
 
   GroupVisibility _visibility = GroupVisibility.public;
-  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -36,10 +35,6 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   }
 
   void _onNameChanged() {
-    // Auto-generate slug if the user hasn't manually edited it much,
-    // or just always update it until they touch it. For simplicity,
-    // we'll just auto-generate it if the slug is empty or matches the previous auto-generation.
-    // A robust way: generate slug from name.
     final name = _nameController.text;
     final slug = name
         .toLowerCase()
@@ -48,47 +43,60 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     _slugController.text = slug;
   }
 
-  Future<void> _submit() async {
+  void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSubmitting = true);
-
-    try {
-      await ref
-          .read(creatorWorkspaceProvider.notifier)
-          .createGroup(
-            name: _nameController.text,
-            slug: _slugController.text,
-            description: _descriptionController.text,
-            visibility: _visibility,
-          );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Group created! Waiting for admin approval.'),
-          ),
+    ref.read(creatorWorkspaceProvider.notifier).createGroup(
+          name: _nameController.text,
+          slug: _slugController.text,
+          description: _descriptionController.text,
+          visibility: _visibility,
         );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Listen for state changes on the create operation
+    ref.listen(
+      creatorWorkspaceProvider.select((s) => s.createGroupStatus),
+      (previous, status) {
+        if (status == CreateGroupStatus.success) {
+          final group = ref.read(creatorWorkspaceProvider).lastCreatedGroup;
+          if (group != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  group.status == GroupStatus.active
+                      ? 'Group created and is now active!'
+                      : 'Group created! Waiting for admin approval.',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          
+          ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
+          // Use context.go to replace the stack and land firmly on the workspace
+          context.go('/creator/workspace');
+        } else if (status == CreateGroupStatus.error) {
+          final error = ref.read(creatorWorkspaceProvider).createGroupError;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error ?? 'An error occurred'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
+        }
+      },
+    );
+
+    final isSubmitting = ref.watch(
+      creatorWorkspaceProvider.select(
+        (s) => s.createGroupStatus == CreateGroupStatus.loading,
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Create Group')),
       body: Form(
@@ -160,8 +168,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             ),
             const SizedBox(height: 32),
             FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
-              child: _isSubmitting
+              onPressed: isSubmitting ? null : _submit,
+              child: isSubmitting
                   ? const SizedBox(
                       height: 20,
                       width: 20,

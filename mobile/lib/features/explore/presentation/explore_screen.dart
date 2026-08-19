@@ -86,7 +86,7 @@ class ExploreScreen extends ConsumerWidget {
                 // Add more sections as needed
               ],
             ),
-          );
+          ),);
         },
       ),
     );

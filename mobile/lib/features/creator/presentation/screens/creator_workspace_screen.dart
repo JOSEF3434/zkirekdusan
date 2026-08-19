@@ -9,7 +9,6 @@ import 'package:mobile/features/creator/presentation/widgets/creator_error_state
 import 'package:mobile/features/creator/presentation/widgets/creator_group_card.dart';
 import 'package:mobile/features/creator/presentation/widgets/creator_loading_skeleton.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class CreatorWorkspaceScreen extends ConsumerStatefulWidget {
   const CreatorWorkspaceScreen({super.key});
@@ -27,6 +26,12 @@ class _CreatorWorkspaceScreenState
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    
+    // Refresh the workspace when this screen mounts to ensure we have the
+    // latest groups from the server (e.g. after returning from Create Group)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(creatorWorkspaceProvider.notifier).refresh();
+    });
   }
 
   @override
@@ -45,8 +50,6 @@ class _CreatorWorkspaceScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(creatorWorkspaceProvider);
-    final authUser = ref.watch(authProvider).user;
-    final currentUserId = authUser?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,27 +67,23 @@ class _CreatorWorkspaceScreenState
           ),
         ],
       ),
-      body: _buildBody(state, currentUserId),
+      body: _buildBody(state),
     );
   }
 
-  Widget _buildBody(CreatorWorkspaceState state, String? currentUserId) {
-    if (state.isLoading &&
-        state.activeGroups.isEmpty &&
-        state.pendingGroups.isEmpty) {
+  Widget _buildBody(CreatorWorkspaceState state) {
+    if (state.isLoading && state.groups.isEmpty) {
       return const CreatorLoadingSkeleton();
     }
 
-    if (state.error != null &&
-        state.activeGroups.isEmpty &&
-        state.pendingGroups.isEmpty) {
+    if (state.error != null && state.groups.isEmpty) {
       return CreatorErrorState(
         error: state.error!,
         onRetry: () => ref.read(creatorWorkspaceProvider.notifier).refresh(),
       );
     }
 
-    if (state.activeGroups.isEmpty && state.pendingGroups.isEmpty) {
+    if (state.groups.isEmpty) {
       return CreatorEmptyState(
         title: 'No Groups Available',
         message:
@@ -94,18 +93,27 @@ class _CreatorWorkspaceScreenState
       );
     }
 
-    // Categorize groups based on the plan
-    final pendingGroups = state.pendingGroups;
+    // Categorize groups based on status
+    final activeGroups = <CreatorGroupDto>[];
+    final pendingGroups = <CreatorGroupDto>[];
+    final rejectedGroups = <CreatorGroupDto>[];
+    final suspendedGroups = <CreatorGroupDto>[];
 
-    // Categorize active groups
-    final myGroups = <CreatorGroupDto>[];
-    final otherActiveGroups = <CreatorGroupDto>[];
-
-    for (var group in state.activeGroups) {
-      if (group.createdById == currentUserId) {
-        myGroups.add(group);
-      } else {
-        otherActiveGroups.add(group);
+    for (var group in state.groups) {
+      switch (group.status) {
+        case GroupStatus.active:
+          activeGroups.add(group);
+          break;
+        case GroupStatus.pendingApproval:
+          pendingGroups.add(group);
+          break;
+        case GroupStatus.rejected:
+          rejectedGroups.add(group);
+          break;
+        case GroupStatus.suspended:
+        case GroupStatus.archived:
+          suspendedGroups.add(group);
+          break;
       }
     }
 
@@ -114,6 +122,11 @@ class _CreatorWorkspaceScreenState
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
+          if (activeGroups.isNotEmpty) ...[
+            _buildSectionHeader('Active Groups', Icons.star, Colors.blue),
+            _buildGroupList(activeGroups),
+          ],
+
           if (pendingGroups.isNotEmpty) ...[
             _buildSectionHeader(
               'Pending Review',
@@ -123,18 +136,22 @@ class _CreatorWorkspaceScreenState
             _buildGroupList(pendingGroups, isPending: true),
           ],
 
-          if (myGroups.isNotEmpty) ...[
-            _buildSectionHeader('Your Groups', Icons.star, Colors.blue),
-            _buildGroupList(myGroups),
+          if (rejectedGroups.isNotEmpty) ...[
+            _buildSectionHeader(
+              'Rejected',
+              Icons.cancel,
+              Colors.red.shade900,
+            ),
+            _buildGroupList(rejectedGroups, isRejected: true),
           ],
 
-          if (otherActiveGroups.isNotEmpty) ...[
-            _buildSectionHeader(
-              'Available to Upload',
-              Icons.public,
-              Colors.green,
+          if (suspendedGroups.isNotEmpty) ...[
+             _buildSectionHeader(
+              'Suspended / Archived',
+              Icons.block,
+              Colors.red,
             ),
-            _buildGroupList(otherActiveGroups),
+            _buildGroupList(suspendedGroups, isSuspended: true),
           ],
 
           if (state.isPaginating)
@@ -174,6 +191,8 @@ class _CreatorWorkspaceScreenState
   Widget _buildGroupList(
     List<CreatorGroupDto> groups, {
     bool isPending = false,
+    bool isRejected = false,
+    bool isSuspended = false,
   }) {
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
@@ -181,7 +200,7 @@ class _CreatorWorkspaceScreenState
         return CreatorGroupCard(
           group: group,
           onTap: () {
-            if (isPending || group.status == GroupStatus.pendingApproval) {
+            if (isPending) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
@@ -192,8 +211,18 @@ class _CreatorWorkspaceScreenState
               );
               return;
             }
-            if (group.status == GroupStatus.suspended ||
-                group.status == GroupStatus.archived) {
+            if (isRejected) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'This group was rejected. Please contact an administrator.',
+                  ),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              return;
+            }
+            if (isSuspended) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('This group is no longer active.'),

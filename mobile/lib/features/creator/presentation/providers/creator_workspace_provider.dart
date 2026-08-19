@@ -1,74 +1,85 @@
 // lib/features/creator/presentation/providers/creator_workspace_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/creator/data/creator_repository.dart';
-import 'package:mobile/features/creator/data/pending_groups_storage.dart';
 import 'package:mobile/features/creator/domain/creator_enums.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 
-final creatorWorkspaceProvider =
-    StateNotifierProvider.autoDispose<
-      CreatorWorkspaceNotifier,
-      CreatorWorkspaceState
-    >((ref) {
-      return CreatorWorkspaceNotifier(
-        ref.watch(creatorRepositoryProvider),
-        ref.watch(pendingGroupsStorageProvider),
-        ref.watch(creatorPermissionServiceProvider),
-      );
-    });
+enum CreateGroupStatus { idle, loading, success, error }
+
+final creatorWorkspaceProvider = StateNotifierProvider<
+  CreatorWorkspaceNotifier,
+  CreatorWorkspaceState
+>((ref) {
+  return CreatorWorkspaceNotifier(
+    ref.watch(creatorRepositoryProvider),
+    ref.watch(creatorPermissionServiceProvider),
+  );
+});
 
 class CreatorWorkspaceState {
   final bool isLoading;
   final bool isPaginating;
   final String? error;
-  final List<CreatorGroupDto> activeGroups;
-  final List<CreatorGroupDto> pendingGroups;
+  final List<CreatorGroupDto> groups; // Replaces split active/pending lists
   final bool hasNextPage;
   final int currentPage;
+
+  // State for the create operation
+  final CreateGroupStatus createGroupStatus;
+  final String? createGroupError;
+  final CreatorGroupDto? lastCreatedGroup;
 
   const CreatorWorkspaceState({
     this.isLoading = true,
     this.isPaginating = false,
     this.error,
-    this.activeGroups = const [],
-    this.pendingGroups = const [],
+    this.groups = const [],
     this.hasNextPage = false,
     this.currentPage = 1,
+    this.createGroupStatus = CreateGroupStatus.idle,
+    this.createGroupError,
+    this.lastCreatedGroup,
   });
 
   CreatorWorkspaceState copyWith({
     bool? isLoading,
     bool? isPaginating,
     String? error,
-    List<CreatorGroupDto>? activeGroups,
-    List<CreatorGroupDto>? pendingGroups,
+    List<CreatorGroupDto>? groups,
     bool? hasNextPage,
     int? currentPage,
     bool clearError = false,
+    CreateGroupStatus? createGroupStatus,
+    String? createGroupError,
+    CreatorGroupDto? lastCreatedGroup,
+    bool clearCreateState = false,
   }) {
     return CreatorWorkspaceState(
       isLoading: isLoading ?? this.isLoading,
       isPaginating: isPaginating ?? this.isPaginating,
       error: clearError ? null : (error ?? this.error),
-      activeGroups: activeGroups ?? this.activeGroups,
-      pendingGroups: pendingGroups ?? this.pendingGroups,
+      groups: groups ?? this.groups,
       hasNextPage: hasNextPage ?? this.hasNextPage,
       currentPage: currentPage ?? this.currentPage,
+      createGroupStatus:
+          clearCreateState
+              ? CreateGroupStatus.idle
+              : (createGroupStatus ?? this.createGroupStatus),
+      createGroupError:
+          clearCreateState ? null : (createGroupError ?? this.createGroupError),
+      lastCreatedGroup:
+          clearCreateState ? null : (lastCreatedGroup ?? this.lastCreatedGroup),
     );
   }
 }
 
 class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
   final CreatorRepository _repository;
-  final PendingGroupsStorage _pendingStorage;
   final CreatorPermissionService _permissionService;
 
-  CreatorWorkspaceNotifier(
-    this._repository,
-    this._pendingStorage,
-    this._permissionService,
-  ) : super(const CreatorWorkspaceState()) {
+  CreatorWorkspaceNotifier(this._repository, this._permissionService)
+    : super(const CreatorWorkspaceState()) {
     loadInitial();
   }
 
@@ -81,36 +92,18 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
         );
       }
 
-      // Load pending groups from local storage
-      final pending = await _pendingStorage.getPendingGroups();
+      // Fetch first page of ALL user's groups
+      final result = await _repository.getMyGroups(page: 1);
 
-      // Fetch first page of active groups
-      final result = await _repository.getActiveGroups(page: 1);
-
-      // We might have groups in pending storage that have since been approved and returned in active list.
-      // Let's filter out any pending groups that appear in the active list.
-      final activeIds = result.items.map((e) => e.id).toSet();
-      final validPending = pending
-          .where((p) => !activeIds.contains(p.id))
-          .toList();
-
-      // Clean up storage if some were approved
-      if (validPending.length < pending.length) {
-        for (final p in pending) {
-          if (activeIds.contains(p.id)) {
-            await _pendingStorage.removePendingGroup(p.id);
-          }
-        }
-      }
-
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        activeGroups: result.items,
-        pendingGroups: validPending,
+        groups: result.items,
         hasNextPage: result.hasNextPage,
         currentPage: 1,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: e.toString().replaceFirst('Exception: ', ''),
@@ -128,21 +121,17 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
     state = state.copyWith(isPaginating: true, clearError: true);
     try {
       final nextPage = state.currentPage + 1;
-      final result = await _repository.getActiveGroups(page: nextPage);
+      final result = await _repository.getMyGroups(page: nextPage);
 
-      final activeIds = result.items.map((e) => e.id).toSet();
-      final validPending = state.pendingGroups
-          .where((p) => !activeIds.contains(p.id))
-          .toList();
-
+      if (!mounted) return;
       state = state.copyWith(
         isPaginating: false,
-        activeGroups: [...state.activeGroups, ...result.items],
-        pendingGroups: validPending,
+        groups: [...state.groups, ...result.items],
         hasNextPage: result.hasNextPage,
         currentPage: nextPage,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isPaginating: false,
         error: e.toString().replaceFirst('Exception: ', ''),
@@ -157,20 +146,44 @@ class CreatorWorkspaceNotifier extends StateNotifier<CreatorWorkspaceState> {
     required GroupVisibility visibility,
   }) async {
     if (!_permissionService.canCreateGroup()) {
-      throw Exception("You don't have permission to create a group.");
+      state = state.copyWith(
+        createGroupStatus: CreateGroupStatus.error,
+        createGroupError: "You don't have permission to create a group.",
+      );
+      return;
     }
 
-    final newGroup = await _repository.createGroup(
-      name: name,
-      slug: slug,
-      description: description,
-      visibility: visibility,
+    state = state.copyWith(
+      createGroupStatus: CreateGroupStatus.loading,
+      clearCreateState: false,
     );
 
-    // Save to local pending storage
-    await _pendingStorage.addPendingGroup(newGroup);
+    try {
+      final newGroup = await _repository.createGroup(
+        name: name,
+        slug: slug,
+        description: description,
+        visibility: visibility,
+      );
 
-    // Update state to show the pending group immediately at the top
-    state = state.copyWith(pendingGroups: [newGroup, ...state.pendingGroups]);
+      if (!mounted) return;
+
+      // Update state to show the new group immediately at the top
+      state = state.copyWith(
+        groups: [newGroup, ...state.groups],
+        createGroupStatus: CreateGroupStatus.success,
+        lastCreatedGroup: newGroup,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(
+        createGroupStatus: CreateGroupStatus.error,
+        createGroupError: e.toString().replaceFirst('Exception: ', ''),
+      );
+    }
+  }
+
+  void resetCreateState() {
+    state = state.copyWith(clearCreateState: true);
   }
 }

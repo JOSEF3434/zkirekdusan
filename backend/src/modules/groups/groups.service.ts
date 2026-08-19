@@ -10,19 +10,28 @@ import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { GroupResponseDto } from './dto/group-response.dto.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
+import { AppRole } from '../../common/constants/roles.js';
+import { PERMISSIONS } from '../../common/constants/permissions.js';
+import { AuthorizationService } from '../authorization/authorization.service.js';
 
 @Injectable()
 export class GroupsService {
-  constructor(private readonly groupsRepository: GroupsRepository) {}
+  constructor(
+    private readonly groupsRepository: GroupsRepository,
+    private readonly authorizationService: AuthorizationService,
+  ) {}
 
   /**
    * Create a new group.
-   * NOTE: New groups start with status PENDING_APPROVAL.
-   * They must be approved by an ADMIN or SUPER_ADMIN before full functionality is enabled.
+   * Status is determined by the backend based on authenticated user's role and permissions:
+   *  - SUPER_ADMIN → ACTIVE immediately
+   *  - ADMIN → ACTIVE immediately
+   *  - USER with 'groups.approve' permission → ACTIVE immediately
+   *  - All others → PENDING_APPROVAL
    */
   async createGroup(
     dto: CreateGroupDto,
-    creatorId: string,
+    user: any,
   ): Promise<GroupResponseDto> {
     const slugExists = await this.groupsRepository.findBySlug(dto.slug);
     if (slugExists) {
@@ -31,9 +40,31 @@ export class GroupsService {
       );
     }
 
+    const userId = user.sub ?? user.id;
+
+    // Determine status entirely on the backend — client cannot influence this
+    let status: 'ACTIVE' | 'PENDING_APPROVAL' = 'PENDING_APPROVAL';
+
+    if (
+      (user.role as AppRole) === AppRole.SUPER_ADMIN ||
+      (user.role as AppRole) === AppRole.ADMIN
+    ) {
+      status = 'ACTIVE';
+    } else {
+      // Check if user has the explicit auto-approve permission (via role-based permission system)
+      const canAutoApprove = await this.authorizationService.hasPermission(
+        userId,
+        PERMISSIONS.GROUPS.APPROVE,
+      );
+      if (canAutoApprove) {
+        status = 'ACTIVE';
+      }
+    }
+
     const group = await this.groupsRepository.createGroup({
       ...dto,
-      createdById: creatorId,
+      createdById: userId,
+      status,
     });
 
     return {
@@ -67,8 +98,54 @@ export class GroupsService {
       throw new BadRequestException('Group is already active');
     }
 
+    if (group.status === 'REJECTED') {
+      throw new BadRequestException(
+        'Cannot approve a rejected group. Please contact a Super Admin.',
+      );
+    }
+
     const updated = await this.groupsRepository.approveGroup(groupId, adminId);
     const count = group._count?.members ?? 1;
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      slug: updated.slug,
+      description: updated.description,
+      status: updated.status,
+      visibility: updated.visibility,
+      createdById: updated.createdById,
+      approvedById: updated.approvedById,
+      approvedAt: updated.approvedAt,
+      membersCount: count,
+      createdAt: updated.createdAt,
+    };
+  }
+
+  /**
+   * Reject a pending group — ADMIN / SUPER_ADMIN only
+   */
+  async rejectGroup(
+    groupId: string,
+    adminId: string,
+  ): Promise<GroupResponseDto> {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.status === 'ACTIVE') {
+      throw new BadRequestException(
+        'Cannot reject an already active group. Suspend it instead.',
+      );
+    }
+
+    if (group.status === 'REJECTED') {
+      throw new BadRequestException('Group is already rejected');
+    }
+
+    const updated = await this.groupsRepository.rejectGroup(groupId, adminId);
+    const count = group._count?.members ?? 0;
 
     return {
       id: updated.id,
@@ -180,6 +257,45 @@ export class GroupsService {
       status: g.status,
       createdById: g.createdById,
       createdByUsername: g.createdBy.username,
+      createdAt: g.createdAt,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Returns all groups created by the authenticated user, in all statuses.
+   * Used by the Flutter Creator Workspace to display accurate group state.
+   */
+  async listMyGroups(userId: string, page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+    const { items, total } = await this.groupsRepository.findMyGroups(
+      userId,
+      skip,
+      limit,
+    );
+
+    const data: GroupResponseDto[] = items.map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      description: g.description,
+      status: g.status,
+      visibility: g.visibility,
+      createdById: g.createdById,
+      approvedById: g.approvedById ?? undefined,
+      approvedAt: g.approvedAt ?? undefined,
+      membersCount: g._count.members,
       createdAt: g.createdAt,
     }));
 

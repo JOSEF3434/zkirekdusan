@@ -42,6 +42,32 @@ class CreatorRepository {
     return PaginatedCreatorGroups(items: items, hasNextPage: hasNextPage);
   }
 
+  /// Fetch user's own groups (all statuses).
+  Future<PaginatedCreatorGroups> getMyGroups({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _dio.get(
+      '/groups/my-groups',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    final map = parsePaginatedEnvelope(response.data);
+    final itemsJson = (map['data'] as List?) ?? [];
+    final items = itemsJson
+        .map((e) => CreatorGroupDto.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final meta = map['meta'] as Map<String, dynamic>?;
+    final totalPages = meta?['totalPages'] as int?;
+    final currentPage = meta?['currentPage'] as int? ?? page;
+
+    final hasNextPage = totalPages != null
+        ? currentPage < totalPages
+        : items.length == limit;
+
+    return PaginatedCreatorGroups(items: items, hasNextPage: hasNextPage);
+  }
+
   /// Get video channels for a group
   Future<List<CreatorChannelDto>> getGroupVideoChannels(String groupId) async {
     final response = await _dio.get('/groups/$groupId/video-channels');
@@ -61,8 +87,10 @@ class CreatorRepository {
       'slug': slug,
       if (description != null && description.isNotEmpty)
         'description': description,
-      // backend defaults to PUBLIC if not passed, but we pass the enum value correctly formatted
-      'visibility': visibility.toString().split('.').last.toUpperCase(),
+      // The backend expects specific enum string values (e.g., 'INVITE_ONLY')
+      'visibility': visibility == GroupVisibility.inviteOnly 
+          ? 'INVITE_ONLY' 
+          : visibility.name.toUpperCase(),
     };
 
     final response = await _dio.post('/groups', data: body);

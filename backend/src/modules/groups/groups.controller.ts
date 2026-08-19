@@ -30,6 +30,7 @@ import { GroupRoles } from '../../common/decorators/group-roles.decorator.js';
 import { GroupMembershipGuard } from '../../common/guards/group-membership.guard.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 @ApiTags('Groups')
 @ApiBearerAuth()
@@ -39,16 +40,28 @@ export class GroupsController {
 
   @Post()
   @ApiOperation({
-    summary: 'Create a new group (starts in PENDING_APPROVAL status)',
+    summary: 'Create a new group',
     description:
-      'Creates a new group. The group will remain in PENDING_APPROVAL status until approved by a platform ADMIN or SUPER_ADMIN.',
+      'Creates a new group. SUPER_ADMIN/ADMIN and users with groups.approve permission get ACTIVE status immediately. Others get PENDING_APPROVAL.',
   })
   @ApiResponse({ status: 201, type: GroupResponseDto })
   async createGroup(
-    @CurrentUser('sub') userId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateGroupDto,
   ): Promise<GroupResponseDto> {
-    return this.groupsService.createGroup(dto, userId);
+    return this.groupsService.createGroup(dto, user);
+  }
+
+  @Get('my-groups')
+  @ApiOperation({ summary: "List authenticated user's own groups (all statuses)" })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  async listMyGroups(
+    @CurrentUser('sub') userId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    return this.groupsService.listMyGroups(userId, page, limit);
   }
 
   @Public()
@@ -66,6 +79,8 @@ export class GroupsController {
   @Get('pending')
   @Roles(AppRole.ADMIN, AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'List groups awaiting approval (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
   async listPendingGroups(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -82,6 +97,17 @@ export class GroupsController {
     @CurrentUser('sub') adminId: string,
   ): Promise<GroupResponseDto> {
     return this.groupsService.approveGroup(groupId, adminId);
+  }
+
+  @Patch(':groupId/reject')
+  @Roles(AppRole.ADMIN, AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Reject a pending group (Admin only)' })
+  @ApiResponse({ status: 200, type: GroupResponseDto })
+  async rejectGroup(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') adminId: string,
+  ): Promise<GroupResponseDto> {
+    return this.groupsService.rejectGroup(groupId, adminId);
   }
 
   @Get(':groupId')

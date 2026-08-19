@@ -46,6 +46,7 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_c
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_dashboard_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_management_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -54,8 +55,8 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    _ref.listen(authProvider, (_, __) => notifyListeners());
-    _ref.listen(preferencesProvider, (_, __) => notifyListeners());
+    _ref.listen(authProvider, (_, _) => notifyListeners());
+    _ref.listen(preferencesProvider, (_, _) => notifyListeners());
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -247,6 +248,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/moderation',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AdminModerationScreen(),
+      ),
+      GoRoute(
+        path: '/admin/groups',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const GroupManagementScreen(),
       ),
 
       // Settings Routes

@@ -9,8 +9,8 @@ import { GroupRole } from '../../common/constants/group-roles.js';
 export class GroupsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createGroup(data: CreateGroupDto & { createdById: string }) {
-    // Create group with PENDING_APPROVAL status and add creator as GROUP_ADMIN
+  async createGroup(data: CreateGroupDto & { createdById: string; status?: import('@prisma/client').GroupStatus }) {
+    // Create group with provided status (or PENDING_APPROVAL) and add creator as GROUP_ADMIN
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.create({
         data: {
@@ -18,7 +18,7 @@ export class GroupsRepository {
           slug: data.slug,
           description: data.description,
           visibility: data.visibility ?? 'PUBLIC',
-          status: 'PENDING_APPROVAL',
+          status: data.status ?? 'PENDING_APPROVAL',
           createdById: data.createdById,
         },
       });
@@ -70,6 +70,35 @@ export class GroupsRepository {
         approvedAt: new Date(),
       },
     });
+  }
+
+  async rejectGroup(id: string, adminId: string) {
+    return this.prisma.group.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        approvedById: adminId,
+        approvedAt: new Date(),
+      },
+    });
+  }
+
+  async findMyGroups(userId: string, skip = 0, take = 50) {
+    const where = { createdById: userId, deletedAt: null };
+    const [items, total] = await Promise.all([
+      this.prisma.group.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          _count: { select: { members: { where: { removedAt: null } } } },
+          createdBy: { select: { id: true, username: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.group.count({ where }),
+    ]);
+    return { items, total };
   }
 
   async softDeleteGroup(id: string) {

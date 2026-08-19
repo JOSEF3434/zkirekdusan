@@ -1,4 +1,5 @@
 // lib/features/player/presentation/video_player_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,18 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
+  String? _seekFeedback;
+  Timer? _seekFeedbackTimer;
+
+  void _showSeekFeedback(String text) {
+    setState(() {
+      _seekFeedback = text;
+    });
+    _seekFeedbackTimer?.cancel();
+    _seekFeedbackTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _seekFeedback = null);
+    });
+  }
   @override
   void dispose() {
     // Restore orientation when leaving player
@@ -104,10 +117,43 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               onTap: () => ref
                   .read(playerProvider(widget.videoId).notifier)
                   .toggleControls(),
+              onDoubleTapDown: (details) {
+                final width = MediaQuery.of(context).size.width;
+                final dx = details.localPosition.dx;
+                final notifier = ref.read(playerProvider(widget.videoId).notifier);
+                
+                if (dx < width / 3) {
+                  notifier.seekBackward();
+                  _showSeekFeedback('-10s');
+                } else if (dx > 2 * width / 3) {
+                  notifier.seekForward();
+                  _showSeekFeedback('+10s');
+                } else {
+                  notifier.togglePlayPause();
+                }
+              },
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
                   VideoPlayer(state.controller!),
+                  if (_seekFeedback != null)
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Text(
+                          _seekFeedback!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (state.showControls)
                     _PlayerControlsOverlay(
                       controller: state.controller!,
