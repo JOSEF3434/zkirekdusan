@@ -30,9 +30,12 @@ class ResponsiveLayout extends StatelessWidget {
   static bool isWide(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= mobileBreakpoint;
 
-  /// A helper widget that constrains the maximum width of content 
+  /// A helper widget that constrains the maximum width of content
   /// and centers it, useful for reading layouts on wide screens.
-  static Widget maxReadingWidth({required Widget child, double maxWidth = 800}) {
+  static Widget maxReadingWidth({
+    required Widget child,
+    double maxWidth = 800,
+  }) {
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),

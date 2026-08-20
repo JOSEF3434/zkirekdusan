@@ -46,20 +46,22 @@ class GroupMembersState {
   }
 }
 
-final groupMembersProvider = StateNotifierProvider.family<
-    GroupMembersNotifier, GroupMembersState, String>(
-  (ref, groupId) => GroupMembersNotifier(
-    ref.watch(groupRepositoryProvider),
-    groupId,
-  ),
-);
+final groupMembersProvider =
+    StateNotifierProvider.family<
+      GroupMembersNotifier,
+      GroupMembersState,
+      String
+    >(
+      (ref, groupId) =>
+          GroupMembersNotifier(ref.watch(groupRepositoryProvider), groupId),
+    );
 
 class GroupMembersNotifier extends StateNotifier<GroupMembersState> {
   final GroupRepository _repository;
   final String _groupId;
 
   GroupMembersNotifier(this._repository, this._groupId)
-      : super(const GroupMembersState()) {
+    : super(const GroupMembersState()) {
     loadInitial();
   }
 
@@ -67,7 +69,11 @@ class GroupMembersNotifier extends StateNotifier<GroupMembersState> {
     if (state.isLoading) return;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final res = await _repository.getGroupMembers(_groupId, page: 1, limit: 30);
+      final res = await _repository.getGroupMembers(
+        _groupId,
+        page: 1,
+        limit: 30,
+      );
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
@@ -88,7 +94,11 @@ class GroupMembersNotifier extends StateNotifier<GroupMembersState> {
   Future<void> refresh() async {
     state = state.copyWith(clearError: true);
     try {
-      final res = await _repository.getGroupMembers(_groupId, page: 1, limit: 30);
+      final res = await _repository.getGroupMembers(
+        _groupId,
+        page: 1,
+        limit: 30,
+      );
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,

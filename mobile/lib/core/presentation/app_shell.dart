@@ -136,7 +136,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (isWideScreen) {
       final unreadCount = ref.watch(unreadNotificationCountProvider);
       final isDesktop = ResponsiveLayout.isDesktop(context);
-      
+
       return Scaffold(
         body: Row(
           children: [
@@ -144,8 +144,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               extended: isDesktop,
               selectedIndex: _adjustedSelectedIndex,
               onDestinationSelected: (index) => _onItemTapped(index, context),
-              labelType: isDesktop 
-                  ? NavigationRailLabelType.none 
+              labelType: isDesktop
+                  ? NavigationRailLabelType.none
                   : NavigationRailLabelType.all,
               trailing: Padding(
                 padding: const EdgeInsets.only(bottom: 8),

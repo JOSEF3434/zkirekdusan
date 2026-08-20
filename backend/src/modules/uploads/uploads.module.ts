@@ -32,6 +32,6 @@ import { storageProviderFactory, STORAGE_PROVIDER_TOKEN } from './providers/stor
     MinioStorageProvider,
     storageProviderFactory,
   ],
-  exports: [UploadsService, STORAGE_PROVIDER_TOKEN],
+  exports: [UploadsService, UploadsRepository, STORAGE_PROVIDER_TOKEN],
 })
 export class UploadsModule {}

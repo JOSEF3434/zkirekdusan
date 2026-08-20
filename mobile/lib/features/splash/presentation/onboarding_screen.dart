@@ -60,7 +60,8 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'English',
                                 isSelected: prefsState.languageCode == 'en',
-                                onTap: () => prefsNotifier.setLanguageCode('en'),
+                                onTap: () =>
+                                    prefsNotifier.setLanguageCode('en'),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -68,7 +69,8 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'አማርኛ',
                                 isSelected: prefsState.languageCode == 'am',
-                                onTap: () => prefsNotifier.setLanguageCode('am'),
+                                onTap: () =>
+                                    prefsNotifier.setLanguageCode('am'),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -76,7 +78,8 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'ግእዝ',
                                 isSelected: prefsState.languageCode == 'gez',
-                                onTap: () => prefsNotifier.setLanguageCode('gez'),
+                                onTap: () =>
+                                    prefsNotifier.setLanguageCode('gez'),
                               ),
                             ),
                           ],
@@ -95,8 +98,11 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'System',
                                 icon: Icons.brightness_auto,
-                                isSelected: prefsState.themeMode == ThemeMode.system,
-                                onTap: () => prefsNotifier.setThemeMode(ThemeMode.system),
+                                isSelected:
+                                    prefsState.themeMode == ThemeMode.system,
+                                onTap: () => prefsNotifier.setThemeMode(
+                                  ThemeMode.system,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -104,8 +110,10 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'Light',
                                 icon: Icons.light_mode,
-                                isSelected: prefsState.themeMode == ThemeMode.light,
-                                onTap: () => prefsNotifier.setThemeMode(ThemeMode.light),
+                                isSelected:
+                                    prefsState.themeMode == ThemeMode.light,
+                                onTap: () =>
+                                    prefsNotifier.setThemeMode(ThemeMode.light),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -113,8 +121,10 @@ class OnboardingScreen extends ConsumerWidget {
                               child: _SelectionCard(
                                 title: 'Dark',
                                 icon: Icons.dark_mode,
-                                isSelected: prefsState.themeMode == ThemeMode.dark,
-                                onTap: () => prefsNotifier.setThemeMode(ThemeMode.dark),
+                                isSelected:
+                                    prefsState.themeMode == ThemeMode.dark,
+                                onTap: () =>
+                                    prefsNotifier.setThemeMode(ThemeMode.dark),
                               ),
                             ),
                           ],
@@ -133,7 +143,10 @@ class OnboardingScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text('Continue', style: TextStyle(fontSize: 16)),
+                          child: const Text(
+                            'Continue',
+                            style: TextStyle(fontSize: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -164,20 +177,20 @@ class _SelectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? theme.colorScheme.primaryContainer 
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
               : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected 
-                ? theme.colorScheme.primary 
+            color: isSelected
+                ? theme.colorScheme.primary
                 : theme.colorScheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
@@ -188,8 +201,8 @@ class _SelectionCard extends StatelessWidget {
             if (icon != null) ...[
               Icon(
                 icon,
-                color: isSelected 
-                    ? theme.colorScheme.primary 
+                color: isSelected
+                    ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 8),
@@ -199,8 +212,8 @@ class _SelectionCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected 
-                    ? theme.colorScheme.onPrimaryContainer 
+                color: isSelected
+                    ? theme.colorScheme.onPrimaryContainer
                     : theme.colorScheme.onSurface,
               ),
             ),

@@ -67,9 +67,15 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _descController = TextEditingController(text: widget.initialDescription ?? '');
-    _websiteController = TextEditingController(text: widget.initialWebsite ?? '');
-    _countryController = TextEditingController(text: widget.initialCountry ?? '');
+    _descController = TextEditingController(
+      text: widget.initialDescription ?? '',
+    );
+    _websiteController = TextEditingController(
+      text: widget.initialWebsite ?? '',
+    );
+    _countryController = TextEditingController(
+      text: widget.initialCountry ?? '',
+    );
     _visibility = widget.initialVisibility ?? 'PUBLIC';
   }
 
@@ -95,10 +101,16 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
       await repo.updateGroup(
         widget.groupId,
         name: _nameController.text.trim(),
-        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+        description: _descController.text.trim().isEmpty
+            ? null
+            : _descController.text.trim(),
         visibility: _visibility,
-        website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
-        country: _countryController.text.trim().isEmpty ? null : _countryController.text.trim(),
+        website: _websiteController.text.trim().isEmpty
+            ? null
+            : _websiteController.text.trim(),
+        country: _countryController.text.trim().isEmpty
+            ? null
+            : _countryController.text.trim(),
       );
 
       // Invalidate relevant providers to force fresh data
@@ -159,11 +171,17 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.edit_note, color: theme.colorScheme.primary, size: 28),
+                  Icon(
+                    Icons.edit_note,
+                    color: theme.colorScheme.primary,
+                    size: 28,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Edit Group Settings',
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -177,7 +195,11 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: theme.colorScheme.error, size: 20),
+                      Icon(
+                        Icons.error_outline,
+                        color: theme.colorScheme.error,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -199,7 +221,8 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.group),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -220,9 +243,18 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                   prefixIcon: Icon(Icons.visibility),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'PUBLIC', child: Text('Public (Anyone can see)')),
-                  DropdownMenuItem(value: 'PRIVATE', child: Text('Private (Members only)')),
-                  DropdownMenuItem(value: 'INVITE_ONLY', child: Text('Invite Only')),
+                  DropdownMenuItem(
+                    value: 'PUBLIC',
+                    child: Text('Public (Anyone can see)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PRIVATE',
+                    child: Text('Private (Members only)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'INVITE_ONLY',
+                    child: Text('Invite Only'),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _visibility = v);
@@ -251,7 +283,9 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -263,7 +297,10 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text('Save Changes'),
                     ),

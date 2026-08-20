@@ -104,7 +104,10 @@ class GroupRepository {
       // Backend returns: { data: [...], nextCursor, hasMore, total }
       final rawList = (envelope['data'] as List?) ?? [];
       final items = rawList
-          .map((e) => ChannelVideoDto.fromJson(_mapVideo(e as Map<String, dynamic>)))
+          .map(
+            (e) =>
+                ChannelVideoDto.fromJson(_mapVideo(e as Map<String, dynamic>)),
+          )
           .toList();
       return PaginatedVideos(
         items: items,
@@ -131,8 +134,9 @@ class GroupRepository {
       );
       final envelope = parseEnvelope(response.data);
       final rawList = (envelope['data'] as List?) ?? [];
-      final items =
-          rawList.map((e) => _parsePlaylist(e as Map<String, dynamic>)).toList();
+      final items = rawList
+          .map((e) => _parsePlaylist(e as Map<String, dynamic>))
+          .toList();
       final meta = (envelope['meta'] as Map<String, dynamic>?) ?? {};
       final hasNext = meta['hasNext'] as bool? ?? (items.length == limit);
       return PaginatedPlaylists(
@@ -165,13 +169,16 @@ class GroupRepository {
     String visibility = 'PUBLIC',
   }) async {
     try {
-      final response = await _dio.post('/video-playlists', data: {
-        'title': title,
-        if (description != null && description.isNotEmpty)
-          'description': description,
-        'videoChannelId': ?videoChannelId,
-        'visibility': visibility,
-      });
+      final response = await _dio.post(
+        '/video-playlists',
+        data: {
+          'title': title,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+          'videoChannelId': ?videoChannelId,
+          'visibility': visibility,
+        },
+      );
       final data = parseEnvelope(response.data);
       return _parsePlaylist(data);
     } on DioException catch (e) {
@@ -181,15 +188,19 @@ class GroupRepository {
 
   Future<void> addVideoToPlaylist(String playlistId, String videoId) async {
     try {
-      await _dio.post('/video-playlists/$playlistId/items',
-          data: {'videoId': videoId});
+      await _dio.post(
+        '/video-playlists/$playlistId/items',
+        data: {'videoId': videoId},
+      );
     } on DioException catch (e) {
       throw Failure.fromException(e);
     }
   }
 
   Future<void> removeVideoFromPlaylist(
-      String playlistId, String videoId) async {
+    String playlistId,
+    String videoId,
+  ) async {
     try {
       await _dio.delete('/video-playlists/$playlistId/items/$videoId');
     } on DioException catch (e) {
@@ -235,7 +246,10 @@ class GroupRepository {
   }
 
   Future<void> updateMemberRole(
-      String groupId, String userId, GroupRole newRole) async {
+    String groupId,
+    String userId,
+    GroupRole newRole,
+  ) async {
     try {
       await _dio.patch(
         '/groups/$groupId/members/$userId/role',
@@ -265,13 +279,16 @@ class GroupRepository {
     String? country,
   }) async {
     try {
-      await _dio.patch('/groups/$groupId', data: {
-        'name': ?name,
-        'description': ?description,
-        'visibility': ?visibility,
-        'website': ?website,
-        'country': ?country,
-      });
+      await _dio.patch(
+        '/groups/$groupId',
+        data: {
+          'name': ?name,
+          'description': ?description,
+          'visibility': ?visibility,
+          'website': ?website,
+          'country': ?country,
+        },
+      );
     } on DioException catch (e) {
       throw Failure.fromException(e);
     }
@@ -303,11 +320,9 @@ class GroupRepository {
     }
   }
 
-  Future<void> unsubscribeFromChannel(
-      String groupId, String channelId) async {
+  Future<void> unsubscribeFromChannel(String groupId, String channelId) async {
     try {
-      await _dio
-          .delete('/groups/$groupId/video-channels/$channelId/subscribe');
+      await _dio.delete('/groups/$groupId/video-channels/$channelId/subscribe');
     } on DioException catch (e) {
       throw Failure.fromException(e);
     }
@@ -320,8 +335,7 @@ class GroupRepository {
   Map<String, dynamic> _mapVideo(Map<String, dynamic> raw) {
     final channel = raw['videoChannel'] as Map<String, dynamic>?;
     final uploader = raw['uploadedBy'] as Map<String, dynamic>?;
-    final uploaderProfile =
-        uploader?['profile'] as Map<String, dynamic>?;
+    final uploaderProfile = uploader?['profile'] as Map<String, dynamic>?;
     return {
       ...raw,
       'videoChannelId': raw['videoChannelId'] ?? channel?['id'],
@@ -355,8 +369,7 @@ class GroupRepository {
         videoThumbnailUrl: video?['thumbnailUrl'] as String?,
         videoViewsCount: video?['viewsCount'] as int?,
       );
-    }).toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
+    }).toList()..sort((a, b) => a.order.compareTo(b.order));
 
     return ChannelPlaylistDto(
       id: raw['id'] as String,
@@ -370,10 +383,12 @@ class GroupRepository {
           raw['videoChannelId'] as String? ?? channel?['id'] as String?,
       channelName: channel?['name'] as String?,
       items: items,
-      createdAt:
-          DateTime.parse(raw['createdAt'] as String? ?? DateTime.now().toIso8601String()),
-      updatedAt:
-          DateTime.parse(raw['updatedAt'] as String? ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+        raw['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        raw['updatedAt'] as String? ?? DateTime.now().toIso8601String(),
+      ),
     );
   }
 }

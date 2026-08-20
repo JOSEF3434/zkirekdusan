@@ -10,10 +10,7 @@ import 'package:mobile/features/groups/presentation/widgets/group_member_tile.da
 class GroupMembersTab extends ConsumerWidget {
   final GroupContextDto groupContext;
 
-  const GroupMembersTab({
-    super.key,
-    required this.groupContext,
-  });
+  const GroupMembersTab({super.key, required this.groupContext});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,8 +32,9 @@ class GroupMembersTab extends ConsumerWidget {
             Text(state.error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonal(
-              onPressed: () =>
-                  ref.read(groupMembersProvider(groupContext.id).notifier).refresh(),
+              onPressed: () => ref
+                  .read(groupMembersProvider(groupContext.id).notifier)
+                  .refresh(),
               child: const Text('Retry'),
             ),
           ],
@@ -54,7 +52,11 @@ class GroupMembersTab extends ConsumerWidget {
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.group_outlined, size: 64, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.group_outlined,
+                    size: 64,
+                    color: theme.colorScheme.outline,
+                  ),
                   const SizedBox(height: 16),
                   Text('No members found', style: theme.textTheme.titleMedium),
                 ],
@@ -70,7 +72,8 @@ class GroupMembersTab extends ConsumerWidget {
           ref.read(groupMembersProvider(groupContext.id).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification scrollInfo) {
-          if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+          if (scrollInfo.metrics.pixels >=
+              scrollInfo.metrics.maxScrollExtent - 200) {
             ref.read(groupMembersProvider(groupContext.id).notifier).loadMore();
           }
           return false;
@@ -99,13 +102,19 @@ class GroupMembersTab extends ConsumerWidget {
                       .updateMemberRole(member.userId, newRole);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Updated role to ${newRole.displayName}')),
+                      SnackBar(
+                        content: Text('Updated role to ${newRole.displayName}'),
+                      ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                      SnackBar(
+                        content: Text(
+                          e.toString().replaceFirst('Exception: ', ''),
+                        ),
+                      ),
                     );
                   }
                 }
@@ -125,7 +134,9 @@ class GroupMembersTab extends ConsumerWidget {
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
                         child: const Text('Remove'),
                       ),
                     ],
@@ -145,7 +156,11 @@ class GroupMembersTab extends ConsumerWidget {
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceFirst('Exception: ', ''),
+                          ),
+                        ),
                       );
                     }
                   }

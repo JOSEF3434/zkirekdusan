@@ -10,10 +10,7 @@ import 'package:mobile/features/groups/presentation/providers/group_detail_provi
 class GroupSettingsTab extends ConsumerStatefulWidget {
   final GroupContextDto groupContext;
 
-  const GroupSettingsTab({
-    super.key,
-    required this.groupContext,
-  });
+  const GroupSettingsTab({super.key, required this.groupContext});
 
   @override
   ConsumerState<GroupSettingsTab> createState() => _GroupSettingsTabState();
@@ -31,9 +28,15 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.groupContext.name);
-    _descController = TextEditingController(text: widget.groupContext.description ?? '');
-    _websiteController = TextEditingController(text: widget.groupContext.website ?? '');
-    _countryController = TextEditingController(text: widget.groupContext.country ?? '');
+    _descController = TextEditingController(
+      text: widget.groupContext.description ?? '',
+    );
+    _websiteController = TextEditingController(
+      text: widget.groupContext.website ?? '',
+    );
+    _countryController = TextEditingController(
+      text: widget.groupContext.country ?? '',
+    );
     _visibility = widget.groupContext.visibility;
   }
 
@@ -58,8 +61,12 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
         name: name,
         description: _descController.text.trim(),
         visibility: _visibility.name.toUpperCase(),
-        website: _websiteController.text.trim().isNotEmpty ? _websiteController.text.trim() : null,
-        country: _countryController.text.trim().isNotEmpty ? _countryController.text.trim() : null,
+        website: _websiteController.text.trim().isNotEmpty
+            ? _websiteController.text.trim()
+            : null,
+        country: _countryController.text.trim().isNotEmpty
+            ? _countryController.text.trim()
+            : null,
       );
 
       // Invalidate context provider so it refreshes everywhere
@@ -92,7 +99,9 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
         // Group Info Section
         Text(
           'Group Details',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
         TextField(
@@ -135,7 +144,9 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
         // Privacy / Visibility Section
         Text(
           'Privacy & Access',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<GroupVisibility>(
@@ -168,7 +179,10 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
                 ? const SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text('Save Changes'),
           ),
@@ -183,12 +197,18 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
               children: [
                 Text(
                   'About Group',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Text('Status: ${widget.groupContext.status.name.toUpperCase()}'),
+                Text(
+                  'Status: ${widget.groupContext.status.name.toUpperCase()}',
+                ),
                 const SizedBox(height: 4),
-                Text('Created: ${widget.groupContext.createdAt.toLocal().toString().split(" ")[0]}'),
+                Text(
+                  'Created: ${widget.groupContext.createdAt.toLocal().toString().split(" ")[0]}',
+                ),
                 const SizedBox(height: 4),
                 Text('Channels: ${widget.groupContext.videoChannels.length}'),
                 const SizedBox(height: 4),

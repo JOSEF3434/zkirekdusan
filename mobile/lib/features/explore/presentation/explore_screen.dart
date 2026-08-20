@@ -56,37 +56,38 @@ class ExploreScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 children: [
-                if (content.trendingStreams.isNotEmpty) ...[
-                  _SectionHeader(
-                    title: 'Live Now',
-                    icon: Icons.sensors,
-                    color: Colors.red,
-                  ),
-                  _buildLiveCarousel(content.trendingStreams),
-                  const SizedBox(height: 24),
+                  if (content.trendingStreams.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'Live Now',
+                      icon: Icons.sensors,
+                      color: Colors.red,
+                    ),
+                    _buildLiveCarousel(content.trendingStreams),
+                    const SizedBox(height: 24),
+                  ],
+                  if (content.trendingVideos.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'Trending Videos',
+                      icon: Icons.local_fire_department,
+                      color: Colors.orange,
+                    ),
+                    _buildVideoCarousel(content.trendingVideos, context),
+                    const SizedBox(height: 24),
+                  ],
+                  if (content.trendingChannels.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'Popular Channels',
+                      icon: Icons.star_rounded,
+                      color: Colors.amber,
+                    ),
+                    _buildChannelCarousel(content.trendingChannels, context),
+                    const SizedBox(height: 24),
+                  ],
+                  // Add more sections as needed
                 ],
-                if (content.trendingVideos.isNotEmpty) ...[
-                  _SectionHeader(
-                    title: 'Trending Videos',
-                    icon: Icons.local_fire_department,
-                    color: Colors.orange,
-                  ),
-                  _buildVideoCarousel(content.trendingVideos, context),
-                  const SizedBox(height: 24),
-                ],
-                if (content.trendingChannels.isNotEmpty) ...[
-                  _SectionHeader(
-                    title: 'Popular Channels',
-                    icon: Icons.star_rounded,
-                    color: Colors.amber,
-                  ),
-                  _buildChannelCarousel(content.trendingChannels, context),
-                  const SizedBox(height: 24),
-                ],
-                // Add more sections as needed
-              ],
+              ),
             ),
-          ),);
+          );
         },
       ),
     );

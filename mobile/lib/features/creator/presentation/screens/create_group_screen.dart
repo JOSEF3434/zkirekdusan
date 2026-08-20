@@ -46,7 +46,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    ref.read(creatorWorkspaceProvider.notifier).createGroup(
+    ref
+        .read(creatorWorkspaceProvider.notifier)
+        .createGroup(
           name: _nameController.text,
           slug: _slugController.text,
           description: _descriptionController.text,
@@ -57,39 +59,39 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   @override
   Widget build(BuildContext context) {
     // Listen for state changes on the create operation
-    ref.listen(
-      creatorWorkspaceProvider.select((s) => s.createGroupStatus),
-      (previous, status) {
-        if (status == CreateGroupStatus.success) {
-          final group = ref.read(creatorWorkspaceProvider).lastCreatedGroup;
-          if (group != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  group.status == GroupStatus.active
-                      ? 'Group created and is now active!'
-                      : 'Group created! Waiting for admin approval.',
-                ),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-          
-          ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
-          // Use context.go to replace the stack and land firmly on the workspace
-          context.go('/creator/workspace');
-        } else if (status == CreateGroupStatus.error) {
-          final error = ref.read(creatorWorkspaceProvider).createGroupError;
+    ref.listen(creatorWorkspaceProvider.select((s) => s.createGroupStatus), (
+      previous,
+      status,
+    ) {
+      if (status == CreateGroupStatus.success) {
+        final group = ref.read(creatorWorkspaceProvider).lastCreatedGroup;
+        if (group != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(error ?? 'An error occurred'),
-              backgroundColor: Colors.red,
+              content: Text(
+                group.status == GroupStatus.active
+                    ? 'Group created and is now active!'
+                    : 'Group created! Waiting for admin approval.',
+              ),
+              backgroundColor: Colors.green,
             ),
           );
-          ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
         }
-      },
-    );
+
+        ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
+        // Use context.go to replace the stack and land firmly on the workspace
+        context.go('/creator/workspace');
+      } else if (status == CreateGroupStatus.error) {
+        final error = ref.read(creatorWorkspaceProvider).createGroupError;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error ?? 'An error occurred'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        ref.read(creatorWorkspaceProvider.notifier).resetCreateState();
+      }
+    });
 
     final isSubmitting = ref.watch(
       creatorWorkspaceProvider.select(

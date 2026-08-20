@@ -106,7 +106,10 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
                         ),
                         if (group.callerRole != null) ...[
                           const SizedBox(width: 8),
-                          GroupRoleBadge(role: group.callerRole!, compact: true),
+                          GroupRoleBadge(
+                            role: group.callerRole!,
+                            compact: true,
+                          ),
                         ],
                       ],
                     ),
@@ -182,7 +185,9 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
                     height: 38,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -201,7 +206,8 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
                           );
                         }).toList(),
                         onChanged: (newCh) {
-                          if (newCh != null && widget.onChannelSelected != null) {
+                          if (newCh != null &&
+                              widget.onChannelSelected != null) {
                             widget.onChannelSelected!(newCh);
                           }
                         },

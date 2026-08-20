@@ -49,6 +49,8 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_v
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/playlist_detail_screen.dart';
+import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
+import 'package:mobile/features/stories/presentation/screens/story_creation_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -126,6 +128,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Full-screen routes above the shell
+      GoRoute(
+        path: '/story-viewer',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final args = state.extra as StoryViewerArgs;
+          return StoryViewerScreen(args: args);
+        },
+      ),
+      GoRoute(
+        path: '/story/create',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const StoryCreationScreen(),
+      ),
       GoRoute(
         path: '/live/discover',
         parentNavigatorKey: rootNavigatorKey,

@@ -126,7 +126,9 @@ export class DownloadsService {
     if (!file) throw new NotFoundException('File not found');
 
     // Group membership check for group files
-    await this.verifyGroupFileAccess(userId, file.groupId);
+    if (file.groupId) {
+      await this.verifyGroupFileAccess(userId, file.groupId);
+    }
 
     const appUrl =
       this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';

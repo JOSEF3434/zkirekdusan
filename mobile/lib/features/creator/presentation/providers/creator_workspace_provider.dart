@@ -7,15 +7,15 @@ import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 
 enum CreateGroupStatus { idle, loading, success, error }
 
-final creatorWorkspaceProvider = StateNotifierProvider<
-  CreatorWorkspaceNotifier,
-  CreatorWorkspaceState
->((ref) {
-  return CreatorWorkspaceNotifier(
-    ref.watch(creatorRepositoryProvider),
-    ref.watch(creatorPermissionServiceProvider),
-  );
-});
+final creatorWorkspaceProvider =
+    StateNotifierProvider<CreatorWorkspaceNotifier, CreatorWorkspaceState>((
+      ref,
+    ) {
+      return CreatorWorkspaceNotifier(
+        ref.watch(creatorRepositoryProvider),
+        ref.watch(creatorPermissionServiceProvider),
+      );
+    });
 
 class CreatorWorkspaceState {
   final bool isLoading;
@@ -62,14 +62,15 @@ class CreatorWorkspaceState {
       groups: groups ?? this.groups,
       hasNextPage: hasNextPage ?? this.hasNextPage,
       currentPage: currentPage ?? this.currentPage,
-      createGroupStatus:
-          clearCreateState
-              ? CreateGroupStatus.idle
-              : (createGroupStatus ?? this.createGroupStatus),
-      createGroupError:
-          clearCreateState ? null : (createGroupError ?? this.createGroupError),
-      lastCreatedGroup:
-          clearCreateState ? null : (lastCreatedGroup ?? this.lastCreatedGroup),
+      createGroupStatus: clearCreateState
+          ? CreateGroupStatus.idle
+          : (createGroupStatus ?? this.createGroupStatus),
+      createGroupError: clearCreateState
+          ? null
+          : (createGroupError ?? this.createGroupError),
+      lastCreatedGroup: clearCreateState
+          ? null
+          : (lastCreatedGroup ?? this.lastCreatedGroup),
     );
   }
 }

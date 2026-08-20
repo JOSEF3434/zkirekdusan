@@ -11,11 +11,10 @@ import 'package:mobile/features/groups/domain/group_context_dto.dart';
 
 final groupDetailProvider =
     AsyncNotifierProvider.family<GroupDetailNotifier, GroupContextDto, String>(
-  GroupDetailNotifier.new,
-);
+      GroupDetailNotifier.new,
+    );
 
-class GroupDetailNotifier
-    extends FamilyAsyncNotifier<GroupContextDto, String> {
+class GroupDetailNotifier extends FamilyAsyncNotifier<GroupContextDto, String> {
   @override
   Future<GroupContextDto> build(String arg) async {
     // Keep alive while any subscriber is active. The provider is invalidated

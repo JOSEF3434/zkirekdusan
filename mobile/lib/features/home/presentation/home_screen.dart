@@ -11,6 +11,8 @@ import 'package:mobile/features/profile/presentation/providers/profile_providers
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/media_experience/presentation/providers/continue_watching_provider.dart';
 import 'package:mobile/features/media_experience/presentation/widgets/continue_watching_card.dart';
+import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
+import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,7 +21,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _recScrollController = ScrollController();
   final ScrollController _subScrollController = ScrollController();
@@ -28,9 +31,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _recScrollController.addListener(() => _onScroll(_recScrollController, isRec: true));
-    _subScrollController.addListener(() => _onScroll(_subScrollController, isRec: false));
-    
+    _recScrollController.addListener(
+      () => _onScroll(_recScrollController, isRec: true),
+    );
+    _subScrollController.addListener(
+      () => _onScroll(_subScrollController, isRec: false),
+    );
+
     // Load profile silently if authenticated
     Future.microtask(() {
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
@@ -48,7 +55,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 
   void _onScroll(ScrollController controller, {required bool isRec}) {
-    if (controller.position.pixels >= controller.position.maxScrollExtent - 500) {
+    if (controller.position.pixels >=
+        controller.position.maxScrollExtent - 500) {
       if (isRec) {
         ref.read(videoFeedProvider.notifier).loadMore();
       } else {
@@ -61,7 +69,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
 
   Future<void> _onRefresh() async {
     if (_tabController.index == 0) {
-      ref.read(videoFeedProvider.notifier).refresh();
+      await Future.wait([
+        ref.read(videoFeedProvider.notifier).refresh(),
+        ref.read(storyFeedProvider.notifier).refresh(),
+      ]);
     } else {
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
         ref.read(subscriptionFeedProvider.notifier).refresh();
@@ -126,16 +137,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                         child: CircleAvatar(
                           radius: 14,
                           backgroundColor: theme.colorScheme.primaryContainer,
-                          backgroundImage: profileState.profile?.avatarUrl != null
+                          backgroundImage:
+                              profileState.profile?.avatarUrl != null
                               ? NetworkImage(profileState.profile!.avatarUrl!)
                               : null,
                           child: profileState.profile?.avatarUrl == null
                               ? Text(
-                                  (profileState.profile?.displayName?.isNotEmpty == true
-                                          ? profileState.profile!.displayName![0]
-                                          : (profileState.profile?.username?.isNotEmpty == true
-                                              ? profileState.profile!.username![0]
-                                              : '?'))
+                                  (profileState
+                                                  .profile
+                                                  ?.displayName
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? profileState
+                                                .profile!
+                                                .displayName![0]
+                                          : (profileState
+                                                        .profile
+                                                        ?.username
+                                                        ?.isNotEmpty ==
+                                                    true
+                                                ? profileState
+                                                      .profile!
+                                                      .username![0]
+                                                : '?'))
                                       .toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 12,
@@ -175,6 +199,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                 child: CustomScrollView(
                   controller: _recScrollController,
                   slivers: [
+                    // Stories section
+                    const SliverToBoxAdapter(child: StorySection()),
+                    const SliverToBoxAdapter(
+                      child: Divider(height: 1, thickness: 0.5),
+                    ),
                     if (continueWatchingState.items.isNotEmpty) ...[
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -210,9 +239,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                       builder: (context, ref, _) {
                         final feedStateAsync = ref.watch(videoFeedProvider);
                         return feedStateAsync.when(
-                          data: (feedState) => _buildFeedGrid(feedState.videos, feedState.isLoadingMore, feedState.error, true),
-                          loading: () => const SliverFillRemaining(child: FeedSkeleton()),
-                          error: (error, stack) => _buildErrorState(error.toString(), theme),
+                          data: (feedState) => _buildFeedGrid(
+                            feedState.videos,
+                            feedState.isLoadingMore,
+                            feedState.error,
+                            true,
+                          ),
+                          loading: () =>
+                              const SliverFillRemaining(child: FeedSkeleton()),
+                          error: (error, stack) =>
+                              _buildErrorState(error.toString(), theme),
                         );
                       },
                     ),
@@ -229,20 +265,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     slivers: [
                       Consumer(
                         builder: (context, ref, _) {
-                          final subStateAsync = ref.watch(subscriptionFeedProvider);
+                          final subStateAsync = ref.watch(
+                            subscriptionFeedProvider,
+                          );
                           return subStateAsync.when(
                             data: (state) {
                               if (state.videos.isEmpty) {
                                 return const SliverFillRemaining(
                                   child: Center(
-                                    child: Text('No recent videos from your subscriptions'),
+                                    child: Text(
+                                      'No recent videos from your subscriptions',
+                                    ),
                                   ),
                                 );
                               }
-                              return _buildFeedGrid(state.videos, false, null, false);
+                              return _buildFeedGrid(
+                                state.videos,
+                                false,
+                                null,
+                                false,
+                              );
                             },
-                            loading: () => const SliverFillRemaining(child: FeedSkeleton()),
-                            error: (error, stack) => _buildErrorState(error.toString(), theme),
+                            loading: () => const SliverFillRemaining(
+                              child: FeedSkeleton(),
+                            ),
+                            error: (error, stack) =>
+                                _buildErrorState(error.toString(), theme),
                           );
                         },
                       ),
@@ -256,7 +304,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildFeedGrid(List<dynamic> videos, bool isLoadingMore, String? error, bool isRec) {
+  Widget _buildFeedGrid(
+    List<dynamic> videos,
+    bool isLoadingMore,
+    String? error,
+    bool isRec,
+  ) {
     if (videos.isEmpty && !isLoadingMore) {
       return SliverFillRemaining(
         child: Center(
@@ -266,7 +319,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               Icon(
                 Icons.video_library_outlined,
                 size: 64,
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               const Text('No videos found'),
@@ -283,33 +338,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index < videos.length) {
-            return VideoCard(video: videos[index]);
-          } else if (error != null) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const Text('Failed to load more videos.'),
-                  TextButton(
-                    onPressed: () => ref.read(videoFeedProvider.notifier).loadMore(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          } else if (isLoadingMore) {
-            return const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-        childCount: videos.length + (isLoadingMore || error != null ? 1 : 0),
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index < videos.length) {
+          return VideoCard(video: videos[index]);
+        } else if (error != null) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                const Text('Failed to load more videos.'),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(videoFeedProvider.notifier).loadMore(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        } else if (isLoadingMore) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return const SizedBox.shrink();
+      }, childCount: videos.length + (isLoadingMore || error != null ? 1 : 0)),
     );
   }
 
@@ -325,7 +378,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
               const SizedBox(height: 16),
               Text('Something went wrong', style: theme.textTheme.titleLarge),
               const SizedBox(height: 8),
-              Text(error, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _onRefresh,

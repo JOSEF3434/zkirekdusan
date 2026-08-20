@@ -27,7 +27,7 @@ class _CreatorWorkspaceScreenState
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    
+
     // Refresh the workspace when this screen mounts to ensure we have the
     // latest groups from the server (e.g. after returning from Create Group)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -138,16 +138,12 @@ class _CreatorWorkspaceScreenState
           ],
 
           if (rejectedGroups.isNotEmpty) ...[
-            _buildSectionHeader(
-              'Rejected',
-              Icons.cancel,
-              Colors.red.shade900,
-            ),
+            _buildSectionHeader('Rejected', Icons.cancel, Colors.red.shade900),
             _buildGroupList(rejectedGroups, isRejected: true),
           ],
 
           if (suspendedGroups.isNotEmpty) ...[
-             _buildSectionHeader(
+            _buildSectionHeader(
               'Suspended / Archived',
               Icons.block,
               Colors.red,

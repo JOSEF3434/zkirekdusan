@@ -26,9 +26,16 @@ class GroupPlaylistsTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.playlist_play, size: 64, color: theme.colorScheme.outline),
+            Icon(
+              Icons.playlist_play,
+              size: 64,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 16),
-            Text('No video channel available', style: theme.textTheme.titleMedium),
+            Text(
+              'No video channel available',
+              style: theme.textTheme.titleMedium,
+            ),
           ],
         ),
       );
@@ -50,8 +57,9 @@ class GroupPlaylistsTab extends ConsumerWidget {
             Text(state.error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonal(
-              onPressed: () =>
-                  ref.read(channelPlaylistsProvider(channel.id).notifier).refresh(),
+              onPressed: () => ref
+                  .read(channelPlaylistsProvider(channel.id).notifier)
+                  .refresh(),
               child: const Text('Retry'),
             ),
           ],
@@ -69,18 +77,28 @@ class GroupPlaylistsTab extends ConsumerWidget {
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.playlist_play, size: 64, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.playlist_play,
+                    size: 64,
+                    color: theme.colorScheme.outline,
+                  ),
                   const SizedBox(height: 16),
-                  Text('No playlists created yet', style: theme.textTheme.titleMedium),
+                  Text(
+                    'No playlists created yet',
+                    style: theme.textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Group playlists help organize channel videos into collections.',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
                   if (groupContext.capabilities.canCreatePlaylist) ...[
                     const SizedBox(height: 24),
                     FilledButton.icon(
-                      onPressed: () => _showCreatePlaylistDialog(context, ref, channel),
+                      onPressed: () =>
+                          _showCreatePlaylistDialog(context, ref, channel),
                       icon: const Icon(Icons.add),
                       label: const Text('Create Playlist'),
                     ),
@@ -102,8 +120,11 @@ class GroupPlaylistsTab extends ConsumerWidget {
             ref.read(channelPlaylistsProvider(channel.id).notifier).refresh(),
         child: NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification scrollInfo) {
-            if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
-              ref.read(channelPlaylistsProvider(channel.id).notifier).loadMore();
+            if (scrollInfo.metrics.pixels >=
+                scrollInfo.metrics.maxScrollExtent - 200) {
+              ref
+                  .read(channelPlaylistsProvider(channel.id).notifier)
+                  .loadMore();
             }
             return false;
           },
@@ -194,13 +215,19 @@ class GroupPlaylistsTab extends ConsumerWidget {
                     );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Playlist created successfully')),
+                    const SnackBar(
+                      content: Text('Playlist created successfully'),
+                    ),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    SnackBar(
+                      content: Text(
+                        e.toString().replaceFirst('Exception: ', ''),
+                      ),
+                    ),
                   );
                 }
               }

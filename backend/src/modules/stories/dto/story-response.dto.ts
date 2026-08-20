@@ -1,6 +1,6 @@
 // src/modules/stories/dto/story-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { StoryType } from '@prisma/client';
+import { ReactionType, StoryType } from '@prisma/client';
 
 export class StoryAuthorDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -38,8 +38,23 @@ export class StoryResponseDto {
   @ApiPropertyOptional({ example: '#ff0055', nullable: true })
   backgroundColor?: string | null;
 
+  @ApiPropertyOptional({ example: '#ffffff', nullable: true })
+  textColor?: string | null;
+
   @ApiProperty({ example: 12 })
   viewsCount!: number;
+
+  @ApiProperty({ example: 5 })
+  reactionsCount!: number;
+
+  @ApiProperty({ example: 2 })
+  commentsCount!: number;
+
+  @ApiProperty({ example: false })
+  hasViewedByMe?: boolean;
+
+  @ApiPropertyOptional({ enum: ReactionType, nullable: true })
+  myReaction?: ReactionType | null;
 
   @ApiProperty({ type: StoryAuthorDto })
   author!: StoryAuthorDto;

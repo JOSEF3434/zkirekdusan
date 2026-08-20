@@ -19,6 +19,7 @@ class VideoChannelSummaryDto with _$VideoChannelSummaryDto {
     required String handle,
     String? description,
     required String status,
+
     /// Backend GroupRole string, controls who may upload
     required String uploadPermission,
     required int subscribersCount,

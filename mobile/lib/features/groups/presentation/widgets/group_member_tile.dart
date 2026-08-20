@@ -126,7 +126,10 @@ class GroupMemberTile extends StatelessWidget {
                     children: [
                       Icon(Icons.person_remove, color: Colors.red, size: 18),
                       SizedBox(width: 8),
-                      Text('Remove from Group', style: TextStyle(color: Colors.red)),
+                      Text(
+                        'Remove from Group',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ],
                   ),
                 ),

@@ -35,6 +35,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       if (mounted) setState(() => _seekFeedback = null);
     });
   }
+
   @override
   void dispose() {
     // Restore orientation when leaving player
@@ -120,8 +121,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               onDoubleTapDown: (details) {
                 final width = MediaQuery.of(context).size.width;
                 final dx = details.localPosition.dx;
-                final notifier = ref.read(playerProvider(widget.videoId).notifier);
-                
+                final notifier = ref.read(
+                  playerProvider(widget.videoId).notifier,
+                );
+
                 if (dx < width / 3) {
                   notifier.seekBackward();
                   _showSeekFeedback('-10s');
@@ -139,7 +142,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   if (_seekFeedback != null)
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(24),

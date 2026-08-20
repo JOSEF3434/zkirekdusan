@@ -88,8 +88,8 @@ class CreatorRepository {
       if (description != null && description.isNotEmpty)
         'description': description,
       // The backend expects specific enum string values (e.g., 'INVITE_ONLY')
-      'visibility': visibility == GroupVisibility.inviteOnly 
-          ? 'INVITE_ONLY' 
+      'visibility': visibility == GroupVisibility.inviteOnly
+          ? 'INVITE_ONLY'
           : visibility.name.toUpperCase(),
     };
 

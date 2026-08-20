@@ -16,10 +16,7 @@ import 'package:timeago/timeago.dart' as timeago;
 class GroupManagementSheet extends ConsumerStatefulWidget {
   final CreatorGroupDto group;
 
-  const GroupManagementSheet({
-    super.key,
-    required this.group,
-  });
+  const GroupManagementSheet({super.key, required this.group});
 
   static Future<void> show(
     BuildContext context, {
@@ -34,7 +31,8 @@ class GroupManagementSheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<GroupManagementSheet> createState() => _GroupManagementSheetState();
+  ConsumerState<GroupManagementSheet> createState() =>
+      _GroupManagementSheetState();
 }
 
 class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
@@ -81,14 +79,18 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Group "${widget.group.name}" was deleted successfully.'),
+            content: Text(
+              'Group "${widget.group.name}" was deleted successfully.',
+            ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isDeleting = false);
-        final msg = e is Failure ? e.message : e.toString().replaceFirst('Exception: ', '');
+        final msg = e is Failure
+            ? e.message
+            : e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete group: $msg'),
@@ -119,7 +121,9 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _isRepairing = false);
-        final msg = e is Failure ? e.message : e.toString().replaceFirst('Exception: ', '');
+        final msg = e is Failure
+            ? e.message
+            : e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Repair failed: $msg'),
@@ -179,7 +183,8 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: theme.colorScheme.primaryContainer,
-                  backgroundImage: (group.avatarUrl != null && group.avatarUrl!.isNotEmpty)
+                  backgroundImage:
+                      (group.avatarUrl != null && group.avatarUrl!.isNotEmpty)
                       ? NetworkImage(group.avatarUrl!)
                       : null,
                   child: (group.avatarUrl == null || group.avatarUrl!.isEmpty)
@@ -231,7 +236,9 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
           // Action: Open Group Channel
           ListTile(
             leading: Icon(Icons.open_in_new, color: theme.colorScheme.primary),
-            title: Text(isPending ? 'Open Group (Preview)' : 'Open Group Channel'),
+            title: Text(
+              isPending ? 'Open Group (Preview)' : 'Open Group Channel',
+            ),
             subtitle: Text(
               isPending
                   ? 'View pending group channel and details'
@@ -245,7 +252,10 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
 
           // Action: Edit Group Details
           ListTile(
-            leading: Icon(Icons.edit_outlined, color: theme.colorScheme.onSurfaceVariant),
+            leading: Icon(
+              Icons.edit_outlined,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             title: const Text('Edit Group Details'),
             subtitle: const Text('Change name, description, or visibility'),
             onTap: _handleEdit,
@@ -254,7 +264,10 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
           // Action: Upload Video (for active groups)
           if (isActive)
             ListTile(
-              leading: Icon(Icons.video_call_outlined, color: theme.colorScheme.primary),
+              leading: Icon(
+                Icons.video_call_outlined,
+                color: theme.colorScheme.primary,
+              ),
               title: const Text('Upload Video'),
               subtitle: const Text('Add new video content to this group'),
               onTap: () {
@@ -266,7 +279,10 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
           // Action: Manage Members (for active groups)
           if (isActive)
             ListTile(
-              leading: Icon(Icons.people_outline, color: theme.colorScheme.onSurfaceVariant),
+              leading: Icon(
+                Icons.people_outline,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               title: const Text('Manage Members'),
               subtitle: Text('${group.membersCount} members'),
               onTap: () {
@@ -285,7 +301,9 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                   )
                 : Icon(Icons.sync, color: theme.colorScheme.secondary),
             title: const Text('Repair & Sync Group'),
-            subtitle: const Text('Ensure creator permissions and channel setup'),
+            subtitle: const Text(
+              'Ensure creator permissions and channel setup',
+            ),
             onTap: _isRepairing ? null : _handleRepair,
           ),
 
@@ -297,18 +315,26 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.red,
+                    ),
                   )
                 : Icon(Icons.delete_outline, color: theme.colorScheme.error),
             title: Text(
               isPending ? 'Delete Pending Request' : 'Delete Group',
-              style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             subtitle: Text(
               isPending
                   ? 'Cancel this group request'
                   : 'Permanently remove this group and all its content',
-              style: TextStyle(color: theme.colorScheme.error.withValues(alpha: 0.8)),
+              style: TextStyle(
+                color: theme.colorScheme.error.withValues(alpha: 0.8),
+              ),
             ),
             onTap: _isDeleting ? null : _handleDelete,
           ),

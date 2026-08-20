@@ -5,6 +5,11 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
+import 'package:mobile/features/profile/presentation/widgets/profile_posts_list.dart';
+import 'package:mobile/features/stories/data/models/story_model.dart';
+import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
+import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
+import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -37,6 +42,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final tr = ref.watch(trProvider);
     final cs = Theme.of(context).colorScheme;
 
+    final feedAsync = ref.watch(storyFeedProvider);
+    final profile = state.profile;
+    final myStoriesGroup = (profile != null && feedAsync.valueOrNull != null)
+        ? feedAsync.valueOrNull!.firstWhere(
+            (g) => g.owner.id == profile.userId,
+            orElse: () => StoryFeedGroupModel(
+              owner: StoryAuthorModel(id: profile.userId),
+              stories: [],
+              hasUnseen: false,
+              latestStoryAt: DateTime.now(),
+              totalStories: 0,
+            ),
+          )
+        : null;
+    final hasActiveStories =
+        myStoriesGroup != null && myStoriesGroup.stories.isNotEmpty;
+
     if (state.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -65,7 +87,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       );
     }
 
-    final profile = state.profile;
     if (profile == null) {
       return Scaffold(body: Center(child: Text(tr('state.empty'))));
     }
@@ -102,22 +123,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundImage: profile.avatarUrl != null
-                          ? NetworkImage(profile.avatarUrl!)
+                    GestureDetector(
+                      onTap: hasActiveStories
+                          ? () {
+                              context.push(
+                                '/story-viewer',
+                                extra: StoryViewerArgs(
+                                  groups: [myStoriesGroup],
+                                  initialGroupIndex: 0,
+                                ),
+                              );
+                            }
                           : null,
-                      backgroundColor: cs.primaryContainer,
-                      child: profile.avatarUrl == null
-                          ? Text(
-                              _initials(profile),
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: cs.onPrimaryContainer,
-                              ),
-                            )
-                          : null,
+                      child: Container(
+                        padding: EdgeInsets.all(hasActiveStories ? 3.0 : 0.0),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: hasActiveStories
+                              ? LinearGradient(
+                                  colors: [cs.primary, cs.tertiary],
+                                )
+                              : null,
+                        ),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: profile.avatarUrl != null
+                              ? NetworkImage(profile.avatarUrl!)
+                              : null,
+                          backgroundColor: cs.primaryContainer,
+                          child: profile.avatarUrl == null
+                              ? Text(
+                                  _initials(profile),
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: cs.onPrimaryContainer,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -217,7 +262,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           children: [
             _buildEmptyState(tr('state.empty')), // Videos
             _buildEmptyState(tr('state.empty')), // Playlists
-            _buildEmptyState(tr('state.empty')), // Posts
+            ProfilePostsList(
+              userId: profile.userId,
+              isMyProfile: true,
+            ), // Posts
             _buildAboutTab(profile, authState, tr), // About
           ],
         ),

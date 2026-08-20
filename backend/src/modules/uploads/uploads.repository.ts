@@ -18,7 +18,7 @@ export class UploadsRepository {
     storageKey: string;
     url: string;
     uploadedById: string;
-    groupId: string;
+    groupId?: string | null;
     checksum?: string;
   }) {
     return this.prisma.file.create({
@@ -34,7 +34,7 @@ export class UploadsRepository {
         url: data.url,
         status: FileStatus.READY,
         uploadedById: data.uploadedById,
-        groupId: data.groupId,
+        groupId: data.groupId ?? null,
         checksum: data.checksum,
       },
     });

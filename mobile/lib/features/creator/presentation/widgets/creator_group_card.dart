@@ -28,7 +28,9 @@ class CreatorGroupCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onLongPress ?? () => GroupManagementSheet.show(context, group: group),
+        onLongPress:
+            onLongPress ??
+            () => GroupManagementSheet.show(context, group: group),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/groups/data/group_repository.dart';
 import 'package:mobile/features/groups/domain/channel_playlist_dto.dart';
 
-final playlistDetailProvider = AsyncNotifierProvider.family<
-    PlaylistDetailNotifier, ChannelPlaylistDto, String>(
-  PlaylistDetailNotifier.new,
-);
+final playlistDetailProvider =
+    AsyncNotifierProvider.family<
+      PlaylistDetailNotifier,
+      ChannelPlaylistDto,
+      String
+    >(PlaylistDetailNotifier.new);
 
 class PlaylistDetailNotifier
     extends FamilyAsyncNotifier<ChannelPlaylistDto, String> {

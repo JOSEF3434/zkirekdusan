@@ -291,8 +291,10 @@ model User {
   comments     Comment[]
   reelComments ReelComment[]
 
-  savedPosts SavedPost[]
-  storyViews StoryView[]
+  savedPosts     SavedPost[]
+  storyViews     StoryView[]
+  storyReactions StoryReaction[]
+  storyComments  StoryComment[]
 
   // Phase 3 Messaging Relations
   conversationMembers ConversationMember[]
@@ -581,9 +583,9 @@ model File {
   uploadedById String
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
-  /// Every file MUST belong to a group (group-scoped uploads only)
-  groupId String
-  group   Group  @relation(fields: [groupId], references: [id])
+  /// Group is optional (group-scoped uploads or standalone uploads such as stories/profiles)
+  groupId String?
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   /// Profiles using this file as avatar
   avatarOf Profile[] @relation("ProfileAvatar")
@@ -827,17 +829,24 @@ model Story {
   backgroundColor String?
   textColor       String?
 
-  viewsCount Int @default(0)
+  viewsCount     Int @default(0)
+  reactionsCount Int @default(0)
+  commentsCount  Int @default(0)
 
   expiresAt DateTime // set to createdAt + 24h at creation
 
-  views StoryView[]
+  views     StoryView[]
+  reactions StoryReaction[]
+  comments  StoryComment[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
 
+  @@index([authorId, expiresAt])
   @@index([authorId])
   @@index([expiresAt])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("stories")
 }
@@ -853,7 +862,45 @@ model StoryView {
 
   @@id([storyId, viewerId])
   @@index([storyId])
+  @@index([viewerId])
+  @@index([viewedAt(sort: Desc)])
   @@map("story_views")
+}
+
+model StoryReaction {
+  storyId  String
+  userId   String
+  reaction ReactionType @default(LIKE)
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([storyId, userId])
+  @@index([storyId])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("story_reactions")
+}
+
+model StoryComment {
+  id       String @id @default(uuid())
+  storyId  String
+  authorId String
+  content  String @db.Text
+
+  story  Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([storyId])
+  @@index([authorId])
+  @@index([createdAt(sort: Desc)])
+  @@map("story_comments")
 }
 
 // ─────────────────────────────────────────────

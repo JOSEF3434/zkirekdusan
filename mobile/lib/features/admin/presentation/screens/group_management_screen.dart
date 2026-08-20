@@ -10,9 +10,7 @@ class GroupManagementScreen extends ConsumerWidget {
     final pendingGroupsAsync = ref.watch(pendingGroupsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Group Management'),
-      ),
+      appBar: AppBar(title: const Text('Group Management')),
       body: pendingGroupsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
@@ -23,7 +21,9 @@ class GroupManagementScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               Text('Failed to load groups: $error'),
               TextButton(
-                onPressed: () => ref.read(pendingGroupsProvider.notifier).loadPendingGroups(),
+                onPressed: () => ref
+                    .read(pendingGroupsProvider.notifier)
+                    .loadPendingGroups(),
                 child: const Text('Retry'),
               ),
             ],
@@ -31,9 +31,7 @@ class GroupManagementScreen extends ConsumerWidget {
         ),
         data: (groups) {
           if (groups.isEmpty) {
-            return const Center(
-              child: Text('No groups pending approval.'),
-            );
+            return const Center(child: Text('No groups pending approval.'));
           }
 
           return ListView.builder(
@@ -43,20 +41,32 @@ class GroupManagementScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Slug: ${group.slug}\nVisibility: ${group.visibility.name}'),
+                  title: Text(
+                    group.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Slug: ${group.slug}\nVisibility: ${group.visibility.name}',
+                  ),
                   isThreeLine: true,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.check_circle, color: Colors.green),
+                        icon: const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                        ),
                         tooltip: 'Approve',
                         onPressed: () async {
-                          final success = await ref.read(pendingGroupsProvider.notifier).approveGroup(group.id);
+                          final success = await ref
+                              .read(pendingGroupsProvider.notifier)
+                              .approveGroup(group.id);
                           if (success && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Group ${group.name} approved.')),
+                              SnackBar(
+                                content: Text('Group ${group.name} approved.'),
+                              ),
                             );
                           }
                         },
@@ -65,10 +75,14 @@ class GroupManagementScreen extends ConsumerWidget {
                         icon: const Icon(Icons.cancel, color: Colors.red),
                         tooltip: 'Reject',
                         onPressed: () async {
-                          final success = await ref.read(pendingGroupsProvider.notifier).rejectGroup(group.id);
+                          final success = await ref
+                              .read(pendingGroupsProvider.notifier)
+                              .rejectGroup(group.id);
                           if (success && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Group ${group.name} rejected.')),
+                              SnackBar(
+                                content: Text('Group ${group.name} rejected.'),
+                              ),
                             );
                           }
                         },

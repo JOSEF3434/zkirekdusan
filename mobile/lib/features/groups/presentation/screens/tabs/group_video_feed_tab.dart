@@ -29,9 +29,16 @@ class GroupVideoFeedTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.video_library_outlined, size: 64, color: theme.colorScheme.outline),
+            Icon(
+              Icons.video_library_outlined,
+              size: 64,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 16),
-            Text('No video channel available', style: theme.textTheme.titleMedium),
+            Text(
+              'No video channel available',
+              style: theme.textTheme.titleMedium,
+            ),
           ],
         ),
       );
@@ -53,7 +60,9 @@ class GroupVideoFeedTab extends ConsumerWidget {
             Text(state.error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.tonal(
-              onPressed: () => ref.read(channelVideosProvider(channel.id).notifier).refresh(),
+              onPressed: () => ref
+                  .read(channelVideosProvider(channel.id).notifier)
+                  .refresh(),
               child: const Text('Retry'),
             ),
           ],
@@ -63,20 +72,30 @@ class GroupVideoFeedTab extends ConsumerWidget {
 
     if (state.videos.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => ref.read(channelVideosProvider(channel.id).notifier).refresh(),
+        onRefresh: () =>
+            ref.read(channelVideosProvider(channel.id).notifier).refresh(),
         child: ListView(
           children: [
             SizedBox(height: MediaQuery.of(context).size.height * 0.2),
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.video_library_outlined, size: 64, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.video_library_outlined,
+                    size: 64,
+                    color: theme.colorScheme.outline,
+                  ),
                   const SizedBox(height: 16),
-                  Text('No videos uploaded yet', style: theme.textTheme.titleMedium),
+                  Text(
+                    'No videos uploaded yet',
+                    style: theme.textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Videos published in this channel will appear here.',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
                   if (groupContext.capabilities.canUploadVideo) ...[
                     const SizedBox(height: 24),
@@ -100,10 +119,12 @@ class GroupVideoFeedTab extends ConsumerWidget {
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => ref.read(channelVideosProvider(channel.id).notifier).refresh(),
+        onRefresh: () =>
+            ref.read(channelVideosProvider(channel.id).notifier).refresh(),
         child: NotificationListener<ScrollNotification>(
           onNotification: (ScrollNotification scrollInfo) {
-            if (scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 200) {
+            if (scrollInfo.metrics.pixels >=
+                scrollInfo.metrics.maxScrollExtent - 200) {
               ref.read(channelVideosProvider(channel.id).notifier).loadMore();
             }
             return false;
@@ -142,7 +163,11 @@ class GroupVideoFeedTab extends ConsumerWidget {
     );
   }
 
-  void _startUpload(BuildContext context, WidgetRef ref, VideoChannelSummaryDto channel) {
+  void _startUpload(
+    BuildContext context,
+    WidgetRef ref,
+    VideoChannelSummaryDto channel,
+  ) {
     final groupDto = GroupDto(
       id: groupContext.id,
       name: groupContext.name,

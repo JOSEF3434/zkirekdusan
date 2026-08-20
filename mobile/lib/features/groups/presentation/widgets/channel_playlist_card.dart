@@ -8,11 +8,7 @@ class ChannelPlaylistCard extends StatelessWidget {
   final ChannelPlaylistDto playlist;
   final VoidCallback? onTap;
 
-  const ChannelPlaylistCard({
-    super.key,
-    required this.playlist,
-    this.onTap,
-  });
+  const ChannelPlaylistCard({super.key, required this.playlist, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +55,11 @@ class ChannelPlaylistCard extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.playlist_play, color: Colors.white, size: 28),
+                        const Icon(
+                          Icons.playlist_play,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '${playlist.videosCount}',

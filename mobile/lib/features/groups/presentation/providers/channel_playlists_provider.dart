@@ -45,20 +45,24 @@ class ChannelPlaylistsState {
   }
 }
 
-final channelPlaylistsProvider = StateNotifierProvider.family<
-    ChannelPlaylistsNotifier, ChannelPlaylistsState, String>(
-  (ref, channelId) => ChannelPlaylistsNotifier(
-    ref.watch(groupRepositoryProvider),
-    channelId,
-  ),
-);
+final channelPlaylistsProvider =
+    StateNotifierProvider.family<
+      ChannelPlaylistsNotifier,
+      ChannelPlaylistsState,
+      String
+    >(
+      (ref, channelId) => ChannelPlaylistsNotifier(
+        ref.watch(groupRepositoryProvider),
+        channelId,
+      ),
+    );
 
 class ChannelPlaylistsNotifier extends StateNotifier<ChannelPlaylistsState> {
   final GroupRepository _repository;
   final String _channelId;
 
   ChannelPlaylistsNotifier(this._repository, this._channelId)
-      : super(const ChannelPlaylistsState()) {
+    : super(const ChannelPlaylistsState()) {
     loadInitial();
   }
 
@@ -66,7 +70,11 @@ class ChannelPlaylistsNotifier extends StateNotifier<ChannelPlaylistsState> {
     if (state.isLoading) return;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final res = await _repository.getChannelPlaylists(_channelId, page: 1, limit: 20);
+      final res = await _repository.getChannelPlaylists(
+        _channelId,
+        page: 1,
+        limit: 20,
+      );
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
@@ -87,7 +95,11 @@ class ChannelPlaylistsNotifier extends StateNotifier<ChannelPlaylistsState> {
   Future<void> refresh() async {
     state = state.copyWith(clearError: true);
     try {
-      final res = await _repository.getChannelPlaylists(_channelId, page: 1, limit: 20);
+      final res = await _repository.getChannelPlaylists(
+        _channelId,
+        page: 1,
+        limit: 20,
+      );
       if (!mounted) return;
       state = state.copyWith(
         isLoading: false,

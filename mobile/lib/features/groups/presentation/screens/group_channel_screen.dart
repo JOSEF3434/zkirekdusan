@@ -20,11 +20,7 @@ class GroupChannelScreen extends ConsumerStatefulWidget {
   final String groupId;
   final String? initialTab;
 
-  const GroupChannelScreen({
-    super.key,
-    required this.groupId,
-    this.initialTab,
-  });
+  const GroupChannelScreen({super.key, required this.groupId, this.initialTab});
 
   @override
   ConsumerState<GroupChannelScreen> createState() => _GroupChannelScreenState();
@@ -49,26 +45,32 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
 
   Widget _buildErrorScaffold(BuildContext context, Object err) {
     final theme = Theme.of(context);
-    final errStr = err is Failure ? err.message : err.toString().replaceFirst('Exception: ', '');
+    final errStr = err is Failure
+        ? err.message
+        : err.toString().replaceFirst('Exception: ', '');
 
     IconData icon = Icons.lock_outline;
     String title = 'Access Denied';
     String description = errStr;
     bool showLogin = false;
 
-    if (errStr.contains('401') || errStr.toLowerCase().contains('unauthorized')) {
+    if (errStr.contains('401') ||
+        errStr.toLowerCase().contains('unauthorized')) {
       icon = Icons.account_circle_outlined;
       title = 'Sign In Required';
       description = 'You need to sign in to access this group.';
       showLogin = true;
-    } else if (errStr.contains('404') || errStr.toLowerCase().contains('not found')) {
+    } else if (errStr.contains('404') ||
+        errStr.toLowerCase().contains('not found')) {
       icon = Icons.search_off;
       title = 'Group Not Found';
       description = 'This group does not exist or may have been removed.';
-    } else if (errStr.toLowerCase().contains('network') || errStr.toLowerCase().contains('socket')) {
+    } else if (errStr.toLowerCase().contains('network') ||
+        errStr.toLowerCase().contains('socket')) {
       icon = Icons.wifi_off;
       title = 'Connection Problem';
-      description = 'Unable to connect to the server. Please check your internet connection.';
+      description =
+          'Unable to connect to the server. Please check your internet connection.';
     }
 
     return Scaffold(
@@ -89,7 +91,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
               const SizedBox(height: 16),
               Text(
                 title,
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -105,7 +109,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => ref.read(groupDetailProvider(widget.groupId).notifier).refresh(),
+                    onPressed: () => ref
+                        .read(groupDetailProvider(widget.groupId).notifier)
+                        .refresh(),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                   ),
@@ -134,7 +140,8 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
     final activeChannel = _selectedChannel ?? groupContext.primaryChannel;
     final canViewMembers = groupContext.capabilities.canViewMembers;
     final isPending = groupContext.status == GroupStatus.pendingApproval;
-    final canManage = groupContext.capabilities.canEditGroup ||
+    final canManage =
+        groupContext.capabilities.canEditGroup ||
         groupContext.capabilities.canUpdateGroup ||
         groupContext.capabilities.canDeleteGroup;
 
@@ -147,8 +154,14 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
     ];
 
     final tabViews = <Widget>[
-      GroupVideoFeedTab(groupContext: groupContext, activeChannel: activeChannel),
-      GroupPlaylistsTab(groupContext: groupContext, activeChannel: activeChannel),
+      GroupVideoFeedTab(
+        groupContext: groupContext,
+        activeChannel: activeChannel,
+      ),
+      GroupPlaylistsTab(
+        groupContext: groupContext,
+        activeChannel: activeChannel,
+      ),
       if (canViewMembers) GroupMembersTab(groupContext: groupContext),
       GroupSettingsTab(groupContext: groupContext),
     ];
@@ -174,7 +187,11 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
               tooltip: 'Share',
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Sharing @${activeChannel?.handle ?? groupContext.slug}')),
+                  SnackBar(
+                    content: Text(
+                      'Sharing @${activeChannel?.handle ?? groupContext.slug}',
+                    ),
+                  ),
                 );
               },
             ),
@@ -188,24 +205,33 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                       groupId: groupContext.id,
                       initialName: groupContext.name,
                       initialDescription: groupContext.description,
-                      initialVisibility: groupContext.visibility.name.toUpperCase(),
+                      initialVisibility: groupContext.visibility.name
+                          .toUpperCase(),
                       initialWebsite: groupContext.website,
                       initialCountry: groupContext.country,
                     );
                   } else if (value == 'repair') {
                     try {
-                      await ref.read(groupRepositoryProvider).repairGroup(groupContext.id);
+                      await ref
+                          .read(groupRepositoryProvider)
+                          .repairGroup(groupContext.id);
                       ref.invalidate(groupDetailProvider(groupContext.id));
                       ref.read(creatorWorkspaceProvider.notifier).refresh();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Group synced successfully!'), backgroundColor: Colors.green),
+                          const SnackBar(
+                            content: Text('Group synced successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Sync failed: $e'), backgroundColor: theme.colorScheme.error),
+                          SnackBar(
+                            content: Text('Sync failed: $e'),
+                            backgroundColor: theme.colorScheme.error,
+                          ),
                         );
                       }
                     }
@@ -214,11 +240,18 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                       context: context,
                       builder: (dCtx) => AlertDialog(
                         title: const Text('Delete Group?'),
-                        content: Text('Are you sure you want to delete "${groupContext.name}"?'),
+                        content: Text(
+                          'Are you sure you want to delete "${groupContext.name}"?',
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.of(dCtx).pop(false), child: const Text('Cancel')),
+                          TextButton(
+                            onPressed: () => Navigator.of(dCtx).pop(false),
+                            child: const Text('Cancel'),
+                          ),
                           FilledButton(
-                            style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: theme.colorScheme.error,
+                            ),
                             onPressed: () => Navigator.of(dCtx).pop(true),
                             child: const Text('Delete'),
                           ),
@@ -227,18 +260,25 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                     );
                     if (confirmed == true && context.mounted) {
                       try {
-                        await ref.read(groupRepositoryProvider).deleteGroup(groupContext.id);
+                        await ref
+                            .read(groupRepositoryProvider)
+                            .deleteGroup(groupContext.id);
                         ref.read(creatorWorkspaceProvider.notifier).refresh();
                         if (context.mounted) {
                           context.pop();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Group deleted successfully')),
+                            const SnackBar(
+                              content: Text('Group deleted successfully'),
+                            ),
                           );
                         }
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Delete failed: $e'), backgroundColor: theme.colorScheme.error),
+                            SnackBar(
+                              content: Text('Delete failed: $e'),
+                              backgroundColor: theme.colorScheme.error,
+                            ),
                           );
                         }
                       }
@@ -271,9 +311,16 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
-                          Text('Delete Group', style: TextStyle(color: Colors.red)),
+                          Text(
+                            'Delete Group',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ],
                       ),
                     ),
@@ -296,7 +343,10 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.hourglass_empty, color: Colors.amber.shade900),
+                        Icon(
+                          Icons.hourglass_empty,
+                          color: Colors.amber.shade900,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -304,11 +354,17 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                             children: [
                               Text(
                                 'Pending Approval',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber.shade900,
+                                ),
                               ),
                               Text(
                                 'This group is awaiting admin review. You can preview and edit your settings.',
-                                style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.amber.shade900,
+                                ),
                               ),
                             ],
                           ),
@@ -321,7 +377,8 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                 child: GroupChannelHeader(
                   contextDto: groupContext,
                   selectedChannel: activeChannel,
-                  onChannelSelected: (ch) => setState(() => _selectedChannel = ch),
+                  onChannelSelected: (ch) =>
+                      setState(() => _selectedChannel = ch),
                 ),
               ),
               SliverPersistentHeader(
@@ -330,7 +387,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
                   TabBar(
                     tabs: tabs,
                     isScrollable: tabs.length > 3,
-                    tabAlignment: tabs.length > 3 ? TabAlignment.start : TabAlignment.fill,
+                    tabAlignment: tabs.length > 3
+                        ? TabAlignment.start
+                        : TabAlignment.fill,
                   ),
                   theme.colorScheme.surface,
                 ),
@@ -357,7 +416,11 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(color: _color, child: _tabBar);
   }
 

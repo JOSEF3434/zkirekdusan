@@ -8,11 +8,7 @@ class ChannelVideoCard extends StatelessWidget {
   final ChannelVideoDto video;
   final VoidCallback? onTap;
 
-  const ChannelVideoCard({
-    super.key,
-    required this.video,
-    this.onTap,
-  });
+  const ChannelVideoCard({super.key, required this.video, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +42,10 @@ class ChannelVideoCard extends StatelessWidget {
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black87,
                         borderRadius: BorderRadius.circular(6),
@@ -80,7 +79,10 @@ class ChannelVideoCard extends StatelessWidget {
                     bottom: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(4),

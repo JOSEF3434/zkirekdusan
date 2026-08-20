@@ -7,11 +7,7 @@ class GroupRoleBadge extends StatelessWidget {
   final GroupRole role;
   final bool compact;
 
-  const GroupRoleBadge({
-    super.key,
-    required this.role,
-    this.compact = false,
-  });
+  const GroupRoleBadge({super.key, required this.role, this.compact = false});
 
   @override
   Widget build(BuildContext context) {

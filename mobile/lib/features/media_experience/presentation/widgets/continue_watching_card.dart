@@ -39,7 +39,8 @@ class ContinueWatchingCard extends ConsumerWidget {
                     Image.network(
                       progress.thumbnailUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildPlaceholder(),
                     )
                   else
                     _buildPlaceholder(),

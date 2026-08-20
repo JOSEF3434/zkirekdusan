@@ -45,20 +45,22 @@ class ChannelVideosState {
   }
 }
 
-final channelVideosProvider = StateNotifierProvider.family<
-    ChannelVideosNotifier, ChannelVideosState, String>(
-  (ref, channelId) => ChannelVideosNotifier(
-    ref.watch(groupRepositoryProvider),
-    channelId,
-  ),
-);
+final channelVideosProvider =
+    StateNotifierProvider.family<
+      ChannelVideosNotifier,
+      ChannelVideosState,
+      String
+    >(
+      (ref, channelId) =>
+          ChannelVideosNotifier(ref.watch(groupRepositoryProvider), channelId),
+    );
 
 class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
   final GroupRepository _repository;
   final String _channelId;
 
   ChannelVideosNotifier(this._repository, this._channelId)
-      : super(const ChannelVideosState()) {
+    : super(const ChannelVideosState()) {
     loadInitial();
   }
 
@@ -106,7 +108,10 @@ class ChannelVideosNotifier extends StateNotifier<ChannelVideosState> {
   }
 
   Future<void> loadMore() async {
-    if (state.isLoading || state.isFetchingMore || !state.hasMore || state.nextCursor == null) {
+    if (state.isLoading ||
+        state.isFetchingMore ||
+        !state.hasMore ||
+        state.nextCursor == null) {
       return;
     }
     state = state.copyWith(isFetchingMore: true, clearError: true);

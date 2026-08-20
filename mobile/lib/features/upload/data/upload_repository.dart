@@ -64,7 +64,10 @@ class UploadRepository {
     );
   }
 
-  Future<VideoResponseDto> getStatus(String videoId, {String? channelId}) async {
+  Future<VideoResponseDto> getStatus(
+    String videoId, {
+    String? channelId,
+  }) async {
     final path = channelId != null
         ? '/video-channels/$channelId/videos/$videoId'
         : '/videos/$videoId/status';
@@ -73,4 +76,3 @@ class UploadRepository {
     return VideoResponseDto.fromJson(data);
   }
 }
-
