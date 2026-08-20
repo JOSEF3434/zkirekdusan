@@ -36,7 +36,8 @@ export class StoriesRepository {
     });
   }
 
-  async findFollowingUserIds(userId: string): Promise<string[]> {
+  async findFollowingUserIds(userId?: string): Promise<string[]> {
+    if (!userId) return [];
     const follows = await this.prisma.follow.findMany({
       where: { followerId: userId },
       select: { followingId: true },
@@ -44,7 +45,7 @@ export class StoriesRepository {
     return follows.map((f) => f.followingId);
   }
 
-  async findActiveStoriesForViewer(viewerId: string) {
+  async findActiveStoriesForViewer(viewerId?: string) {
     const now = new Date();
     return this.prisma.story.findMany({
       where: {
@@ -63,11 +64,11 @@ export class StoriesRepository {
         },
         file: { select: { url: true } },
         views: {
-          where: { viewerId },
+          where: viewerId ? { viewerId } : { viewerId: 'guest-no-id' },
           select: { viewedAt: true },
         },
         reactions: {
-          where: { userId: viewerId },
+          where: viewerId ? { userId: viewerId } : { userId: 'guest-no-id' },
           select: { reaction: true },
         },
       },

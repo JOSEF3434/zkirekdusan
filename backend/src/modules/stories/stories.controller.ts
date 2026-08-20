@@ -33,6 +33,7 @@ import {
 } from './dto/story-comment.dto.js';
 import { StoryViewerResponseDto } from './dto/story-viewer.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 @ApiTags('Stories (24h Expiration)')
 @ApiBearerAuth()
@@ -83,6 +84,7 @@ export class StoriesController {
     );
   }
 
+  @Public()
   @Get('feed')
   @ApiOperation({
     summary:
@@ -90,7 +92,20 @@ export class StoriesController {
   })
   @ApiResponse({ status: 200, type: [StoryFeedGroupDto] })
   async getStoryFeed(
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
+  ): Promise<StoryFeedGroupDto[]> {
+    return this.storiesService.getStoryFeed(userId);
+  }
+
+  @Public()
+  @Get()
+  @ApiOperation({
+    summary:
+      'Get sorted stories feed (Alias for /stories/feed)',
+  })
+  @ApiResponse({ status: 200, type: [StoryFeedGroupDto] })
+  async getStories(
+    @CurrentUser('sub') userId?: string,
   ): Promise<StoryFeedGroupDto[]> {
     return this.storiesService.getStoryFeed(userId);
   }
@@ -104,12 +119,13 @@ export class StoriesController {
     return this.storiesService.getMyStories(userId);
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get single active story by ID' })
   @ApiResponse({ status: 200, type: StoryResponseDto })
   async getStoryById(
     @Param('id') storyId: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
   ): Promise<StoryResponseDto> {
     return this.storiesService.getStoryById(storyId, userId);
   }

@@ -1,8 +1,9 @@
 // lib/core/network/auth_interceptor.dart
 // Attaches Bearer token to requests.
-// On 401: attempts silent token refresh using the backend envelope format.
-// On second 401 / missing refresh token: clears session and redirects to /login.
+// On 401: executes single in-flight silent token refresh with mutex.
+// On second 401 / missing refresh token: clears session once and redirects to /login.
 
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/env/env.dart';
@@ -17,6 +18,9 @@ const _kRefreshToken = 'refresh_token';
 
 class AuthInterceptor extends Interceptor {
   final Ref _ref;
+
+  // Single in-flight refresh mutex to prevent parallel refresh loops
+  static Future<String?>? _inFlightRefresh;
 
   AuthInterceptor(this._ref);
 
@@ -54,16 +58,50 @@ class AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
 
-    // Attempt silent token refresh
     try {
-      final storage = _ref.read(storageServiceProvider);
-      final refreshToken = await storage.getToken(key: _kRefreshToken);
-      if (refreshToken == null) {
+      // If a refresh is already in progress, wait for it
+      String? newAccessToken;
+      if (_inFlightRefresh != null) {
+        newAccessToken = await _inFlightRefresh;
+      } else {
+        _inFlightRefresh = _performSilentRefresh();
+        newAccessToken = await _inFlightRefresh;
+        _inFlightRefresh = null;
+      }
+
+      if (newAccessToken == null || newAccessToken.isEmpty) {
         await _clearSessionAndRedirect();
         return handler.next(err);
       }
 
-      // Use a dedicated Dio (no interceptors) to avoid recursive 401 loops
+      // Retry original request with the fresh access token
+      final retryDio = Dio(
+        BaseOptions(
+          baseUrl: Env.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+      final retryResponse = await retryDio.fetch(err.requestOptions);
+      return handler.resolve(retryResponse);
+    } catch (e) {
+      _inFlightRefresh = null;
+      appLogger.w('Silent refresh failed: $e — clearing session');
+      await _clearSessionAndRedirect();
+      return handler.next(err);
+    }
+  }
+
+  Future<String?> _performSilentRefresh() async {
+    try {
+      final storage = _ref.read(storageServiceProvider);
+      final refreshToken = await storage.getToken(key: _kRefreshToken);
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return null;
+      }
+
       final refreshDio = Dio(
         BaseOptions(
           baseUrl: Env.apiBaseUrl,
@@ -77,13 +115,12 @@ class AuthInterceptor extends Interceptor {
         data: {'refreshToken': refreshToken},
       );
 
-      // Unwrap envelope – backend wraps tokens inside {success, data:{accessToken,refreshToken}}
       final data = parseEnvelope(refreshResponse.data);
       final newAccessToken = data['accessToken'] as String?;
       final newRefreshToken = data['refreshToken'] as String?;
 
       if (newAccessToken == null || newAccessToken.isEmpty) {
-        throw Exception('Refresh response missing accessToken');
+        return null;
       }
 
       await storage.saveToken(newAccessToken, key: _kAccessToken);
@@ -91,16 +128,11 @@ class AuthInterceptor extends Interceptor {
         await storage.saveToken(newRefreshToken, key: _kRefreshToken);
       }
 
-      appLogger.d('Token refreshed silently');
-
-      // Retry original request with new token
-      err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-      final retryResponse = await refreshDio.fetch(err.requestOptions);
-      return handler.resolve(retryResponse);
+      appLogger.d('Token refreshed successfully');
+      return newAccessToken;
     } catch (e) {
-      appLogger.w('Silent refresh failed: $e — redirecting to login');
-      await _clearSessionAndRedirect();
-      return handler.next(err);
+      appLogger.e('Error during _performSilentRefresh: $e');
+      return null;
     }
   }
 
@@ -114,7 +146,7 @@ class AuthInterceptor extends Interceptor {
         rootNavigatorKey.currentContext!.go('/login');
       }
     } catch (_) {
-      // Router may not be ready (e.g., during startup)
+      // Router may not be mounted during startup
     }
   }
 }

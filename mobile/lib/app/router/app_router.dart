@@ -67,41 +67,54 @@ class RouterNotifier extends ChangeNotifier {
     final authState = _ref.read(authProvider);
     final prefsState = _ref.read(preferencesProvider);
 
-    final isAuthRoute =
-        state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register';
+    final location = state.matchedLocation;
+    final isAuthRoute = location == '/login' || location == '/register';
+    final isSplashRoute = location == '/';
+    final isOnboardingRoute = location == '/onboarding';
 
-    final isSplashRoute = state.matchedLocation == '/';
-    final isOnboardingRoute = state.matchedLocation == '/onboarding';
-
-    // 1. Onboarding is the absolute highest priority if first launch.
+    // 1. Onboarding is top priority on first launch
     if (prefsState.isFirstLaunch) {
       if (isOnboardingRoute) return null;
       return '/onboarding';
     }
 
-    // 2. If first launch is done, we shouldn't be on onboarding.
+    // 2. If first launch is finished, do not stay on /onboarding
     if (!prefsState.isFirstLaunch && isOnboardingRoute) {
-      return '/'; // Send to splash to evaluate auth state
+      return '/home';
     }
 
-    // 3. Wait for auth status
+    // 3. While auth status is initializing (unknown):
+    // If on splash '/', stay on splash.
+    // If refreshing on a specific route (e.g. '/home', '/explore', '/profile'), do NOT wipe it out!
     if (authState.status == AuthStatus.unknown) {
-      return isSplashRoute ? null : '/';
+      return null;
     }
 
-    // 4. Authenticated user behavior
+    // 4. Authenticated user behavior:
     if (authState.status == AuthStatus.authenticated) {
-      if (isAuthRoute || isSplashRoute || isOnboardingRoute) {
+      if (isAuthRoute || isSplashRoute) {
         return '/home';
       }
+      return null; // Stay on requested route
     }
 
-    // 5. Unauthenticated user behavior
+    // 5. Unauthenticated / Guest user behavior:
     if (authState.status == AuthStatus.unauthenticated) {
-      if (isSplashRoute || isOnboardingRoute || !isAuthRoute) {
+      if (isSplashRoute) {
+        return '/home'; // Guests land on Home
+      }
+
+      final isProtectedRoute = location.startsWith('/creator') ||
+          location.startsWith('/live/studio') ||
+          location.startsWith('/profile/edit') ||
+          location.startsWith('/settings/account') ||
+          location.startsWith('/story/create');
+
+      if (isProtectedRoute) {
         return '/login';
       }
+
+      return null; // Public routes like /home, /explore, /login, /register are permitted
     }
 
     return null;

@@ -55,8 +55,6 @@ async function bootstrap() {
   app.use(compression());
 
   // CORS — read allowed origins from env (comma-separated list)
-  // Falls back to allowing all origins in non-production environments
-  // CORS
   const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
     .map((origin) => origin.trim())
@@ -74,9 +72,13 @@ async function bootstrap() {
         return callback(null, true);
       }
 
+      // Allow Flutter Web development on any localhost or 127.0.0.1 port
       if (
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^http:\/\/0\.0\.0\.0(:\d+)?$/.test(origin) ||
+        /^https:\/\/.*\.onrender\.com$/.test(origin) ||
+        /^https:\/\/.*\.vercel\.app$/.test(origin)
       ) {
         return callback(null, true);
       }
@@ -97,6 +99,7 @@ async function bootstrap() {
       'Accept',
       'Origin',
       'X-Requested-With',
+      'Range',
     ],
 
     exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],

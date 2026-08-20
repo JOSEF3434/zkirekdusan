@@ -72,27 +72,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final isAuth = await _repository.isAuthenticated();
       if (isAuth) {
-        // Fallback to cached user immediately for fast UI
+        // Fast restore from local cache
         final cachedUser = await _repository.getCachedUser();
         state = AuthState(status: AuthStatus.authenticated, user: cachedUser);
 
-        // Then verify with backend (silently refreshes if needed due to interceptor)
-        final freshUser = await _repository.fetchMe();
-        state = AuthState(status: AuthStatus.authenticated, user: freshUser);
+        // Asynchronous background revalidation
+        try {
+          final freshUser = await _repository.fetchMe();
+          state = AuthState(status: AuthStatus.authenticated, user: freshUser);
+        } catch (e) {
+          // If backend check fails (e.g. offline, timeout), verify if token is still locally valid
+          final isStillAuth = await _repository.isAuthenticated();
+          if (!isStillAuth) {
+            state = const AuthState(status: AuthStatus.unauthenticated);
+          }
+        }
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (_) {
-      // If fetchMe fails (e.g. refresh failed, network error), we drop to unauthenticated.
-      // Or we could stay authenticated if it's just a network error, but the interceptor
-      // will clear the session if the refresh token is invalid.
-      final isAuthNow = await _repository.isAuthenticated();
-      if (isAuthNow) {
-        final cachedUser = await _repository.getCachedUser();
-        state = AuthState(status: AuthStatus.authenticated, user: cachedUser);
-      } else {
-        state = const AuthState(status: AuthStatus.unauthenticated);
-      }
+      state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
 

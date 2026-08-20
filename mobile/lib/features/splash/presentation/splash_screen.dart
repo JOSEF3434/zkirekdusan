@@ -1,38 +1,13 @@
 // lib/features/splash/presentation/splash_screen.dart
-// Checks auth status on startup and routes accordingly
+// Startup splash screen; routing is handled deterministically by RouterNotifier.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
-class SplashScreen extends ConsumerWidget {
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Handle already-resolved auth states on mount (e.g. Web fast reload)
-    final authState = ref.watch(authProvider);
-    if (authState.status == AuthStatus.authenticated) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.go('/home');
-      });
-    } else if (authState.status == AuthStatus.unauthenticated) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.go('/login');
-      });
-    }
-
-    // Listen to future auth state transitions
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated) {
-        context.go('/home');
-      } else if (next.status == AuthStatus.unauthenticated) {
-        context.go('/login');
-      }
-      // AuthStatus.unknown → keep showing splash
-    });
-
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(

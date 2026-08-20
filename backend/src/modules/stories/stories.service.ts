@@ -90,11 +90,11 @@ export class StoriesService {
     return this.mapToDto(story);
   }
 
-  async getStoryFeed(viewerId: string): Promise<StoryFeedGroupDto[]> {
+  async getStoryFeed(viewerId?: string): Promise<StoryFeedGroupDto[]> {
     const [followingIds, activeStories, myProfile] = await Promise.all([
       this.storiesRepository.findFollowingUserIds(viewerId),
       this.storiesRepository.findActiveStoriesForViewer(viewerId),
-      this.storiesRepository.findAuthorProfile(viewerId),
+      viewerId ? this.storiesRepository.findAuthorProfile(viewerId) : null,
     ]);
 
     const followingSet = new Set(followingIds);
@@ -110,7 +110,7 @@ export class StoriesService {
     }
 
     // Process each author group
-    const myStories = groupsMap.get(viewerId) ?? [];
+    const myStories = viewerId ? (groupsMap.get(viewerId) ?? []) : [];
     const otherGroups: {
       owner: StoryAuthorDto;
       stories: StoryResponseDto[];
@@ -121,7 +121,7 @@ export class StoriesService {
     }[] = [];
 
     for (const [authorId, storiesList] of groupsMap.entries()) {
-      if (authorId === viewerId) continue;
+      if (viewerId && authorId === viewerId) continue;
 
       const firstAuthor = storiesList[0].author;
       const owner: StoryAuthorDto = {
@@ -167,6 +167,13 @@ export class StoriesService {
     const seenOthers = otherGroups
       .filter((g) => !g.hasUnseen && !g.isFollowed)
       .sort((a, b) => b.latestStoryAt.getTime() - a.latestStoryAt.getTime());
+
+    // If unauthenticated / guest viewer, return public story groups sorted by latestStoryAt DESC
+    if (!viewerId) {
+      return otherGroups.sort(
+        (a, b) => b.latestStoryAt.getTime() - a.latestStoryAt.getTime(),
+      );
+    }
 
     // Build Current User's "My Story" Group (ALWAYS POSITION 0)
     const myMappedStories = myStories.map((s) => this.mapToDto(s, viewerId));
