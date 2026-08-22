@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/broadcaster_provider.dart';
@@ -183,8 +184,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         _isCreating = false;
       });
     } catch (e) {
+      String msg;
+      if (e is AppException) {
+        msg = e.message.isNotEmpty ? e.message : 'Failed to create stream.';
+      } else {
+        msg = e.toString().replaceFirst('Exception: ', '');
+      }
       setState(() {
-        _createError = e.toString();
+        _createError = msg;
         _isCreating = false;
       });
     }

@@ -687,6 +687,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
               // Visibility Selector
               DropdownButtonFormField<String>(
                 initialValue: _visibility,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Visibility',
                   border: OutlineInputBorder(),
@@ -695,16 +696,23 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                 items: const [
                   DropdownMenuItem(
                     value: 'PUBLIC',
-                    child: Text('Public — Anyone can view this video'),
+                    child: Text(
+                      'Public — Anyone can view this video',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'GROUP_ONLY',
-                    child: Text('Group Only — Members of this group only'),
+                    child: Text(
+                      'Group Only — Members of this group only',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'PRIVATE',
                     child: Text(
                       'Private — Only you and channel admins can view',
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

@@ -56,13 +56,20 @@ export class LiveStreamingService {
   }
 
   /**
-   * Check if user has at least MODERATOR role in a group, OR is a global admin
+   * Check if user has at least MODERATOR role in a group, OR is a global admin,
+   * OR is the group creator.
    */
   private async hasStreamPermission(
     userId: string,
     groupId: string,
   ): Promise<boolean> {
     if (await this.isGlobalAdmin(userId)) return true;
+    // Group creator always has permission to stream
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { createdById: true },
+    });
+    if (group?.createdById === userId) return true;
     return this.authorizationService.hasGroupRole(
       userId,
       groupId,
@@ -71,13 +78,19 @@ export class LiveStreamingService {
   }
 
   /**
-   * Check if user has at least GROUP_ADMIN role in a group, OR is a global admin
+   * Check if user has at least GROUP_ADMIN role in a group, OR is a global admin,
+   * OR is the group creator.
    */
   private async hasStreamAdminPermission(
     userId: string,
     groupId: string,
   ): Promise<boolean> {
     if (await this.isGlobalAdmin(userId)) return true;
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { createdById: true },
+    });
+    if (group?.createdById === userId) return true;
     return this.authorizationService.hasGroupRole(
       userId,
       groupId,
@@ -128,7 +141,9 @@ export class LiveStreamingService {
       isSubscribersOnlyChat: dto.isSubscribersOnlyChat,
     });
 
-    return stream;
+    // Re-fetch with full relations so Flutter can parse the response correctly
+    const fullStream = await this.repository.getStreamById(stream.id);
+    return fullStream ?? stream;
   }
 
   async getStreamById(userId: string | undefined, streamId: string) {

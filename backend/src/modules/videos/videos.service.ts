@@ -66,7 +66,7 @@ export class VideosService {
         id: true,
         groupId: true,
         uploadPermission: true,
-        group: { select: { id: true, status: true } },
+        group: { select: { id: true, status: true, createdById: true } },
       },
     });
 
@@ -80,6 +80,8 @@ export class VideosService {
       throw new ForbiddenException('Group is not active');
     }
 
+    const isCreator = channel.group.createdById === userId;
+
     const membership = await this.prisma.groupMember.findFirst({
       where: {
         groupId: channel.groupId,
@@ -89,8 +91,9 @@ export class VideosService {
       select: { role: true },
     });
 
-    if (!membership)
+    if (!membership && !isCreator) {
       throw new ForbiddenException('You are not a member of this group');
+    }
 
     const roleHierarchy: Record<string, number> = {
       GROUP_ADMIN: 4,
@@ -99,7 +102,9 @@ export class VideosService {
       GUEST: 1,
     };
 
-    const userLevel = roleHierarchy[membership.role] ?? 0;
+    const userLevel = isCreator
+      ? 4
+      : (roleHierarchy[membership?.role ?? ''] ?? 0);
     const requiredLevel = roleHierarchy[channel.uploadPermission] ?? 2;
 
     if (userLevel < requiredLevel) {
@@ -140,7 +145,7 @@ export class VideosService {
       isDownloadable: dto.isDownloadable,
     });
 
-    return video;
+    return this.mapVideoToDto(video);
   }
 
   /**
@@ -183,21 +188,28 @@ export class VideosService {
       fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
 
     // 3. Enqueue BullMQ transcode job
-    await this.videoQueue.add(
-      'transcode',
-      { videoId, sourceFilePath, storageKey: sourceFilePath },
-      {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: 100,
-        removeOnFail: 50,
-      },
-    );
+    try {
+      await this.videoQueue.add(
+        'transcode',
+        { videoId, sourceFilePath, storageKey: sourceFilePath },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 50,
+        },
+      );
 
-    this.logger.log(
-      `Video [${videoId}] queued for transcoding (file: ${sourceFilePath})`,
-    );
-    return updated;
+      this.logger.log(
+        `Video [${videoId}] queued for transcoding (file: ${sourceFilePath})`,
+      );
+    } catch (queueErr) {
+      this.logger.warn(
+        `Failed to enqueue transcode job for video [${videoId}] (Redis may be offline): ${queueErr}`,
+      );
+    }
+
+    return this.mapVideoToDto(updated);
   }
 
   async findById(id: string, userId?: string) {
