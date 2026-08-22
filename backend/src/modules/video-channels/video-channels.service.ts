@@ -71,6 +71,14 @@ export class VideoChannelsService {
     return true;
   }
 
+  private mapChannelToDto(channel: any) {
+    if (!channel) return channel;
+    return {
+      ...channel,
+      totalViewsCount: Number(channel.totalViewsCount ?? 0),
+    };
+  }
+
   async create(groupId: string, userId: string, dto: CreateVideoChannelDto) {
     await this.verifyGroupAccess(groupId, userId, GroupRole.GROUP_ADMIN);
 
@@ -88,18 +96,24 @@ export class VideoChannelsService {
       throw new ConflictException(`Handle '${dto.handle}' is already taken`);
     }
 
-    return this.repo.create(groupId, dto);
+    const created = await this.repo.create(groupId, dto);
+    return this.mapChannelToDto(created);
   }
 
   async findByGroup(groupId: string, page = 1, limit = 20) {
     const { data, total } = await this.repo.findByGroup(groupId, page, limit);
-    return { data, total, page, limit };
+    return {
+      data: data.map((c) => this.mapChannelToDto(c)),
+      total,
+      page,
+      limit,
+    };
   }
 
   async findById(id: string) {
     const channel = await this.repo.findById(id);
     if (!channel) throw new NotFoundException('Video channel not found');
-    return channel;
+    return this.mapChannelToDto(channel);
   }
 
   async update(id: string, userId: string, dto: UpdateVideoChannelDto) {
@@ -129,7 +143,8 @@ export class VideoChannelsService {
         );
     }
 
-    return this.repo.update(id, dto);
+    const updated = await this.repo.update(id, dto);
+    return this.mapChannelToDto(updated);
   }
 
   async delete(id: string, userId: string) {

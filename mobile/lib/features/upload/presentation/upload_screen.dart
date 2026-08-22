@@ -208,7 +208,11 @@ class _ChannelSelectorWidgetState
       final Map<String, List<VideoChannelDto>> channels = {};
       for (final g in groups) {
         if (g.status == 'ACTIVE') {
-          channels[g.id] = await repo.getGroupChannels(g.id);
+          try {
+            channels[g.id] = await repo.getGroupChannels(g.id);
+          } catch (_) {
+            channels[g.id] = [];
+          }
         }
       }
 
@@ -221,8 +225,14 @@ class _ChannelSelectorWidgetState
       }
     } catch (e) {
       if (mounted) {
+        String message = 'Unable to connect to the server. Please try again.';
+        if (e.toString().contains('500')) {
+          message = 'Server encountered an issue loading channels. Please retry.';
+        } else if (e.toString().contains('401') || e.toString().contains('403')) {
+          message = 'You do not have permission to view channels or your session has expired.';
+        }
         setState(() {
-          _error = e.toString();
+          _error = message;
           _isLoading = false;
         });
       }
