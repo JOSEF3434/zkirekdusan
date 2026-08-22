@@ -13,6 +13,7 @@ import 'package:mobile/features/media_experience/presentation/providers/continue
 import 'package:mobile/features/media_experience/presentation/widgets/continue_watching_card.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
+import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,11 +27,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late TabController _tabController;
   final ScrollController _recScrollController = ScrollController();
   final ScrollController _subScrollController = ScrollController();
+  bool _isAuthenticated = false;
+
+  int get _tabCount => _isAuthenticated ? 2 : 1;
+
+  void _initTabController() {
+    _tabController = TabController(length: _tabCount, vsync: this);
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _isAuthenticated =
+        ref.read(authProvider).status == AuthStatus.authenticated;
+    _initTabController();
     _recScrollController.addListener(
       () => _onScroll(_recScrollController, isRec: true),
     );
@@ -82,13 +92,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      final isAuth = next.status == AuthStatus.authenticated;
+      if (isAuth != _isAuthenticated) {
+        setState(() {
+          _isAuthenticated = isAuth;
+          _tabController.dispose();
+          _initTabController();
+        });
+        if (isAuth) {
+          ref.read(profileProvider.notifier).loadMyProfile();
+        }
+      }
+    });
+
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
     final authStatus = ref.watch(authProvider).status;
     final isAuthenticated = authStatus == AuthStatus.authenticated;
-    final profileState = ref.watch(profileProvider);
     final continueWatchingState = ref.watch(continueWatchingProvider);
-
     return Scaffold(
       body: ResponsiveLayout.maxReadingWidth(
         maxWidth: 1200,
@@ -99,6 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 floating: true,
                 pinned: true,
                 title: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
                       'assets/images/logo.jpg',
@@ -107,11 +130,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           const Icon(Icons.video_library),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      tr('app.name'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
+                    Flexible(
+                      child: Text(
+                        tr('app.name'),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
                   ],
@@ -125,53 +151,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     icon: const Icon(Icons.search_rounded),
                     onPressed: () => context.push('/search'),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded),
-                    onPressed: () {},
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final unreadCount = ref.watch(
+                        unreadNotificationCountProvider,
+                      );
+                      return IconButton(
+                        icon: unreadCount > 0
+                            ? Badge(
+                                label: Text(
+                                  unreadCount > 99 ? '99+' : '$unreadCount',
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_none_rounded,
+                                ),
+                              )
+                            : const Icon(Icons.notifications_none_rounded),
+                        onPressed: () => context.push('/notifications'),
+                      );
+                    },
                   ),
-                  if (isAuthenticated)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                      child: GestureDetector(
-                        onTap: () => context.push('/profile'),
-                        child: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          backgroundImage:
-                              profileState.profile?.avatarUrl != null
-                              ? NetworkImage(profileState.profile!.avatarUrl!)
-                              : null,
-                          child: profileState.profile?.avatarUrl == null
-                              ? Text(
-                                  (profileState
-                                                  .profile
-                                                  ?.displayName
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? profileState
-                                                .profile!
-                                                .displayName![0]
-                                          : (profileState
-                                                        .profile
-                                                        ?.username
-                                                        ?.isNotEmpty ==
-                                                    true
-                                                ? profileState
-                                                      .profile!
-                                                      .username![0]
-                                                : '?'))
-                                      .toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
-                    )
-                  else
+                  if (!isAuthenticated)
                     Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: TextButton(
@@ -367,11 +367,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildErrorState(String error, ThemeData theme) {
+    String friendlyMessage =
+        'Unable to load content. Please check your connection.';
+    if (error.contains('401') || error.contains('Unauthorized')) {
+      friendlyMessage = 'Session expired or sign in required.';
+    } else if (error.contains('timeout') || error.contains('connection')) {
+      friendlyMessage =
+          'Network connection issue. Please check your internet connection.';
+    }
+
     return SliverFillRemaining(
+      hasScrollBody: false,
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.cloud_off, size: 64, color: Colors.red),
@@ -379,7 +390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text('Something went wrong', style: theme.textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
-                error,
+                friendlyMessage,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium,
               ),

@@ -1,6 +1,6 @@
 // lib/core/storage/secure_storage.dart
 // Expanded StorageService — supports named keys for multiple token types
-// with dual-storage synchronization (FlutterSecureStorage + SharedPreferences fallback)
+// with dual-storage synchronization (FlutterSecureStorage for Native, SharedPreferences for Web)
 // for 100% reliable Web and Mobile token persistence.
 
 import 'package:flutter/foundation.dart';
@@ -10,13 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    webOptions: WebOptions(
-      dbName: 'streamhub_secure_storage',
-      publicKey: 'streamhub_secure_key',
-    ),
-  );
+  return const FlutterSecureStorage(aOptions: AndroidOptions());
 });
 
 class StorageService {
@@ -32,20 +26,28 @@ class StorageService {
 
   Future<void> saveToken(String token, {String? key}) async {
     final effectiveKey = key ?? _defaultTokenKey;
-    try {
-      await _storage.write(key: effectiveKey, value: token);
-    } catch (e) {
-      debugPrint('[StorageService] secure storage write warning: $e');
+    if (!kIsWeb) {
+      try {
+        await _storage.write(key: effectiveKey, value: token);
+      } catch (e) {
+        debugPrint('[StorageService] secure storage write warning: $e');
+      }
     }
 
-    // Synchronize to SharedPreferences for Web reliability
+    // Synchronize to SharedPreferences (primary for Web, backup for native)
     try {
       await _prefs?.setString('sec_$effectiveKey', token);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[StorageService] shared preferences write warning: $e');
+    }
   }
 
   Future<String?> getToken({String? key}) async {
     final effectiveKey = key ?? _defaultTokenKey;
+    if (kIsWeb) {
+      return _prefs?.getString('sec_$effectiveKey');
+    }
+
     String? value;
     try {
       value = await _storage.read(key: effectiveKey);
@@ -67,18 +69,22 @@ class StorageService {
 
   Future<void> deleteToken({String? key}) async {
     final effectiveKey = key ?? _defaultTokenKey;
-    try {
-      await _storage.delete(key: effectiveKey);
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        await _storage.delete(key: effectiveKey);
+      } catch (_) {}
+    }
     try {
       await _prefs?.remove('sec_$effectiveKey');
     } catch (_) {}
   }
 
   Future<void> deleteAll() async {
-    try {
-      await _storage.deleteAll();
-    } catch (_) {}
+    if (!kIsWeb) {
+      try {
+        await _storage.deleteAll();
+      } catch (_) {}
+    }
     try {
       final keys = _prefs?.getKeys() ?? {};
       for (final k in keys) {

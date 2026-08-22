@@ -77,7 +77,8 @@ class Failure {
             );
           } else if (statusCode == 403) {
             return ForbiddenFailure(
-              serverMessage ?? 'You do not have permission to access this resource.',
+              serverMessage ??
+                  'You do not have permission to access this resource.',
               statusCode: statusCode,
               path: path,
             );
@@ -89,7 +90,8 @@ class Failure {
             );
           } else if (statusCode != null && statusCode >= 500) {
             return ServerFailure(
-              serverMessage ?? 'Server is temporarily unavailable. Please try again later.',
+              serverMessage ??
+                  'Server is temporarily unavailable. Please try again later.',
               statusCode: statusCode,
               path: path,
             );
@@ -101,7 +103,11 @@ class Failure {
           );
 
         case DioExceptionType.cancel:
-          return Failure('Request cancelled', statusCode: statusCode, path: path);
+          return Failure(
+            'Request cancelled',
+            statusCode: statusCode,
+            path: path,
+          );
 
         default:
           return NetworkFailure(

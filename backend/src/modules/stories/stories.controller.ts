@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -33,7 +34,7 @@ import {
 } from './dto/story-comment.dto.js';
 import { StoryViewerResponseDto } from './dto/story-viewer.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import { Public } from '../../common/decorators/public.decorator.js';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
 
 @ApiTags('Stories (24h Expiration)')
 @ApiBearerAuth()
@@ -84,7 +85,7 @@ export class StoriesController {
     );
   }
 
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('feed')
   @ApiOperation({
     summary:
@@ -97,7 +98,7 @@ export class StoriesController {
     return this.storiesService.getStoryFeed(userId);
   }
 
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
   @ApiOperation({
     summary:
@@ -119,7 +120,7 @@ export class StoriesController {
     return this.storiesService.getMyStories(userId);
   }
 
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Get single active story by ID' })
   @ApiResponse({ status: 200, type: StoryResponseDto })

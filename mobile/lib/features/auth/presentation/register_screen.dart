@@ -63,7 +63,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.listen<AuthState>(authProvider, (_, next) {
       if (next.status == AuthStatus.authenticated && !_hasNavigated) {
         _hasNavigated = true;
-        context.go('/home');
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
       }
     });
 

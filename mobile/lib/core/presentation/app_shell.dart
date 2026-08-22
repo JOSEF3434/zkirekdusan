@@ -197,7 +197,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    final unreadCount = ref.watch(unreadNotificationCountProvider);
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: Container(
@@ -242,15 +241,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               label: 'Create',
             ),
-            NavigationDestination(
-              icon: unreadCount > 0
-                  ? Badge(
-                      label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-                      child: const Icon(Icons.notifications_outlined),
-                    )
-                  : const Icon(Icons.notifications_outlined),
-              selectedIcon: const Icon(Icons.notifications_rounded),
-              label: 'Alerts',
+            const NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline),
+              selectedIcon: Icon(Icons.chat_bubble),
+              label: 'Chats',
             ),
             const NavigationDestination(
               icon: Icon(Icons.person_outline),

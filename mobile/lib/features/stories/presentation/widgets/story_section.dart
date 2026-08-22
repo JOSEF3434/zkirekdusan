@@ -99,7 +99,48 @@ class StorySection extends ConsumerWidget {
         );
       },
       loading: () => _buildSkeleton(theme),
-      error: (error, stack) => _buildError(ref, theme),
+      error: (error, stack) => _buildFallback(context, isAuthenticated),
+    );
+  }
+
+  Widget _buildFallback(BuildContext context, bool isAuthenticated) {
+    return Container(
+      height: 104,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        children: [
+          MyStoryItem(
+            myGroup: null,
+            onViewStory: () {
+              if (isAuthenticated) {
+                context.push('/story/create');
+              } else {
+                context.push('/login');
+              }
+            },
+            onCreateStory: () {
+              if (isAuthenticated) {
+                context.push('/story/create');
+              } else {
+                context.push('/login');
+              }
+            },
+          ),
+          Center(
+            child: StoryEmptyState(
+              onAddStory: () {
+                if (isAuthenticated) {
+                  context.push('/story/create');
+                } else {
+                  context.push('/login');
+                }
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -141,36 +182,6 @@ class StorySection extends ConsumerWidget {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildError(WidgetRef ref, ThemeData theme) {
-    return Container(
-      height: 72,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: theme.colorScheme.error, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Unable to load stories. Check your connection and try again.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, size: 18),
-            onPressed: () => ref.read(storyFeedProvider.notifier).refresh(),
-          ),
-        ],
       ),
     );
   }

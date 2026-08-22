@@ -104,7 +104,8 @@ class RouterNotifier extends ChangeNotifier {
         return '/home'; // Guests land on Home
       }
 
-      final isProtectedRoute = location.startsWith('/creator') ||
+      final isProtectedRoute =
+          location.startsWith('/creator') ||
           location.startsWith('/live/studio') ||
           location.startsWith('/profile/edit') ||
           location.startsWith('/settings/account') ||

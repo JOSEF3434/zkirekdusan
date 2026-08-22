@@ -91,16 +91,38 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
     VideoListResponseDto response;
 
     if (category == VideoFeedCategory.recommended) {
-      final feedResponse = await feedRepo.getRecommendations(
-        page: 1,
-        limit: 10,
-        cancelToken: _cancelToken,
-      );
-      // Backend /recommendations/home returns posts, we map to videos assuming they are video posts
-      final videos = feedResponse.data
-          .map((p) => p.toVideoResponseDto())
-          .toList();
-      response = VideoListResponseDto(data: videos, meta: feedResponse.meta);
+      try {
+        final feedResponse = await feedRepo.getRecommendations(
+          page: 1,
+          limit: 10,
+          cancelToken: _cancelToken,
+        );
+        final videos = feedResponse.data
+            .map((p) => p.toVideoResponseDto())
+            .toList();
+        response = VideoListResponseDto(data: videos, meta: feedResponse.meta);
+      } catch (_) {
+        try {
+          final feedResponse = await feedRepo.getFeed(
+            page: 1,
+            limit: 10,
+            cancelToken: _cancelToken,
+          );
+          final videos = feedResponse.data
+              .map((p) => p.toVideoResponseDto())
+              .toList();
+          response = VideoListResponseDto(
+            data: videos,
+            meta: feedResponse.meta,
+          );
+        } catch (_) {
+          response = await repo.searchVideos(
+            page: 1,
+            limit: 10,
+            cancelToken: _cancelToken,
+          );
+        }
+      }
     } else if (category == VideoFeedCategory.all ||
         category == VideoFeedCategory.latest) {
       response = await repo.searchVideos(
@@ -175,15 +197,41 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
 
       VideoListResponseDto response;
       if (_currentCategory == VideoFeedCategory.recommended) {
-        final feedResponse = await feedRepo.getRecommendations(
-          page: nextPage,
-          limit: 10,
-          cancelToken: _cancelToken,
-        );
-        final videos = feedResponse.data
-            .map((p) => p.toVideoResponseDto())
-            .toList();
-        response = VideoListResponseDto(data: videos, meta: feedResponse.meta);
+        try {
+          final feedResponse = await feedRepo.getRecommendations(
+            page: nextPage,
+            limit: 10,
+            cancelToken: _cancelToken,
+          );
+          final videos = feedResponse.data
+              .map((p) => p.toVideoResponseDto())
+              .toList();
+          response = VideoListResponseDto(
+            data: videos,
+            meta: feedResponse.meta,
+          );
+        } catch (_) {
+          try {
+            final feedResponse = await feedRepo.getFeed(
+              page: nextPage,
+              limit: 10,
+              cancelToken: _cancelToken,
+            );
+            final videos = feedResponse.data
+                .map((p) => p.toVideoResponseDto())
+                .toList();
+            response = VideoListResponseDto(
+              data: videos,
+              meta: feedResponse.meta,
+            );
+          } catch (_) {
+            response = await repo.searchVideos(
+              page: nextPage,
+              limit: 10,
+              cancelToken: _cancelToken,
+            );
+          }
+        }
       } else if (_currentCategory == VideoFeedCategory.all ||
           _currentCategory == VideoFeedCategory.latest) {
         response = await repo.searchVideos(
