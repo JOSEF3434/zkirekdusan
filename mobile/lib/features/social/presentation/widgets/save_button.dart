@@ -9,6 +9,8 @@ class SaveButton extends ConsumerStatefulWidget {
   final Color? defaultColor;
   final Color activeColor;
 
+  final bool isVideo;
+
   const SaveButton({
     super.key,
     required this.postId,
@@ -16,6 +18,7 @@ class SaveButton extends ConsumerStatefulWidget {
     this.iconSize = 28.0,
     this.defaultColor,
     this.activeColor = Colors.yellow,
+    this.isVideo = false,
   });
 
   @override
@@ -53,7 +56,9 @@ class _SaveButtonState extends ConsumerState<SaveButton>
   }
 
   void _handleTap() {
-    ref.read(saveProvider.notifier).toggleSave(widget.postId);
+    ref
+        .read(saveProvider.notifier)
+        .toggleSave(widget.postId, isVideo: widget.isVideo);
     _controller.forward(from: 0.0);
   }
 

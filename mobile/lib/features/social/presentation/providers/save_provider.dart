@@ -19,7 +19,7 @@ class SaveNotifier extends Notifier<Map<String, bool>> {
     }
   }
 
-  Future<void> toggleSave(String postId) async {
+  Future<void> toggleSave(String postId, {bool isVideo = false}) async {
     final wasSaved = state[postId] ?? false;
 
     // Optimistic update
@@ -27,7 +27,11 @@ class SaveNotifier extends Notifier<Map<String, bool>> {
 
     try {
       final repo = ref.read(socialRepositoryProvider);
-      await repo.toggleSavePost(postId);
+      if (isVideo) {
+        await repo.toggleVideoBookmark(postId, saved: !wasSaved);
+      } else {
+        await repo.toggleSavePost(postId);
+      }
     } catch (e) {
       // Revert on error
       state = {...state, postId: wasSaved};

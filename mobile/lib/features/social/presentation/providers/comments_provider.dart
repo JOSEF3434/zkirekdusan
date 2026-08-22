@@ -33,20 +33,24 @@ class CommentsState {
 }
 
 final commentsProvider =
-    AsyncNotifierProviderFamily<CommentsNotifier, CommentsState, String>(() {
+    AsyncNotifierProviderFamily<CommentsNotifier, CommentsState, (String, bool)>(() {
       return CommentsNotifier();
     });
 
-class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, String> {
+class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, (String, bool)> {
   CancelToken? _cancelToken;
 
   @override
-  Future<CommentsState> build(String arg) async {
+  Future<CommentsState> build((String, bool) arg) async {
     _cancelToken = CancelToken();
     ref.onDispose(() => _cancelToken?.cancel());
 
     final repo = ref.read(socialRepositoryProvider);
-    final response = await repo.getComments(arg, cancelToken: _cancelToken);
+    final response = await repo.getComments(
+      arg.$1,
+      cancelToken: _cancelToken,
+      isVideo: arg.$2,
+    );
 
     return CommentsState(comments: response.data, meta: response.meta);
   }
@@ -64,9 +68,10 @@ class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, String> {
       final repo = ref.read(socialRepositoryProvider);
       final nextPage = (currentState.meta?.page ?? 0) + 1;
       final response = await repo.getComments(
-        arg,
+        arg.$1,
         page: nextPage,
         cancelToken: _cancelToken,
+        isVideo: arg.$2,
       );
 
       state = AsyncValue.data(
@@ -89,13 +94,16 @@ class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, String> {
 
     try {
       final repo = ref.read(socialRepositoryProvider);
-      final newComment = await repo.createComment(arg, content);
+      final newComment = await repo.createComment(
+        arg.$1,
+        content,
+        isVideo: arg.$2,
+      );
 
       state = AsyncValue.data(
         currentState.copyWith(comments: [newComment, ...currentState.comments]),
       );
     } catch (e) {
-      // Could throw to UI to show snackbar
       rethrow;
     }
   }
@@ -120,3 +128,4 @@ class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, String> {
     }
   }
 }
+

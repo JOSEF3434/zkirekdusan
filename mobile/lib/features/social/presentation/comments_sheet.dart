@@ -6,18 +6,19 @@ import 'package:mobile/features/social/presentation/providers/comments_provider.
 
 class CommentsSheet extends ConsumerStatefulWidget {
   final String postId;
+  final bool isVideo;
 
-  const CommentsSheet({super.key, required this.postId});
+  const CommentsSheet({super.key, required this.postId, this.isVideo = false});
 
   @override
   ConsumerState<CommentsSheet> createState() => _CommentsSheetState();
 
-  static void show(BuildContext context, String postId) {
+  static void show(BuildContext context, String postId, {bool isVideo = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => CommentsSheet(postId: postId),
+      builder: (context) => CommentsSheet(postId: postId, isVideo: isVideo),
     );
   }
 }
@@ -25,6 +26,8 @@ class CommentsSheet extends ConsumerStatefulWidget {
 class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
+
+  (String, bool) get _arg => (widget.postId, widget.isVideo);
 
   @override
   void initState() {
@@ -42,7 +45,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      ref.read(commentsProvider(widget.postId).notifier).loadMore();
+      ref.read(commentsProvider(_arg).notifier).loadMore();
     }
   }
 
@@ -50,7 +53,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    ref.read(commentsProvider(widget.postId).notifier).createComment(text);
+    ref.read(commentsProvider(_arg).notifier).createComment(text);
     _textController.clear();
     FocusScope.of(context).unfocus();
   }
@@ -58,7 +61,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final commentsAsync = ref.watch(commentsProvider(widget.postId));
+    final commentsAsync = ref.watch(commentsProvider(_arg));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,

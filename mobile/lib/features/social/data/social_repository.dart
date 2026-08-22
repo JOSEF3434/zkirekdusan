@@ -23,6 +23,17 @@ class SocialRepository {
     parseEnvelope(response.data);
   }
 
+  /// Toggle like on a VIDEO (uses /videos/:id/like endpoint)
+  Future<void> toggleVideoLike(String videoId, {bool liked = true}) async {
+    if (liked) {
+      final response = await _dio.post('/videos/$videoId/like');
+      parseEnvelope(response.data);
+    } else {
+      final response = await _dio.delete('/videos/$videoId/like');
+      parseEnvelope(response.data);
+    }
+  }
+
   Future<void> toggleReelLike(String reelId, {String reaction = 'LIKE'}) async {
     final response = await _dio.post(
       '/reels/$reelId/like',
@@ -41,9 +52,11 @@ class SocialRepository {
     String postId,
     String content, {
     String? parentId,
+    bool isVideo = false,
   }) async {
+    final base = isVideo ? '/videos' : '/posts';
     final response = await _dio.post(
-      '/posts/$postId/comments',
+      '$base/$postId/comments',
       data: {'content': content, 'parentId': ?parentId},
     );
     final data = parseEnvelope(response.data);
@@ -55,9 +68,11 @@ class SocialRepository {
     int page = 1,
     int limit = 20,
     CancelToken? cancelToken,
+    bool isVideo = false,
   }) async {
+    final base = isVideo ? '/videos' : '/posts';
     final response = await _dio.get(
-      '/posts/$postId/comments',
+      '$base/$postId/comments',
       queryParameters: {'page': page, 'limit': limit},
       cancelToken: cancelToken,
     );
@@ -80,6 +95,17 @@ class SocialRepository {
   Future<void> toggleSavePost(String postId) async {
     final response = await _dio.post('/posts/$postId/save');
     parseEnvelope(response.data);
+  }
+
+  /// Toggle bookmark on a VIDEO (uses /videos/:id/bookmark endpoint)
+  Future<void> toggleVideoBookmark(String videoId, {bool saved = true}) async {
+    if (saved) {
+      final response = await _dio.post('/videos/$videoId/bookmark');
+      parseEnvelope(response.data);
+    } else {
+      final response = await _dio.delete('/videos/$videoId/bookmark');
+      parseEnvelope(response.data);
+    }
   }
 
   Future<PaginatedResponse<PostResponseDto>> getSavedPosts({

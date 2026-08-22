@@ -194,7 +194,7 @@ class VideoCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 16.0,
-              vertical: 8.0,
+              vertical: 6.0,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -203,12 +203,13 @@ class VideoCard extends StatelessWidget {
                   postId: video.id,
                   initialLikesCount: video.likesCount,
                   initialIsLiked: video.isLiked ?? false,
-                  iconSize: 24,
+                  iconSize: 22,
                   defaultColor: theme.colorScheme.onSurfaceVariant,
+                  isVideo: true,
                 ),
                 GestureDetector(
                   onTap: () {
-                    CommentsSheet.show(context, video.id);
+                    CommentsSheet.show(context, video.id, isVideo: true);
                   },
                   behavior: HitTestBehavior.opaque,
                   child: Column(
@@ -217,7 +218,7 @@ class VideoCard extends StatelessWidget {
                       Icon(
                         Icons.comment_outlined,
                         color: theme.colorScheme.onSurfaceVariant,
-                        size: 24,
+                        size: 22,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -236,13 +237,14 @@ class VideoCard extends StatelessWidget {
                 SaveButton(
                   postId: video.id,
                   initialIsSaved: video.isSaved ?? false,
-                  iconSize: 24,
+                  iconSize: 22,
                   defaultColor: theme.colorScheme.onSurfaceVariant,
+                  isVideo: true,
                 ),
                 ShareButton(
                   postId: video.id,
                   title: video.title,
-                  iconSize: 24,
+                  iconSize: 22,
                   defaultColor: theme.colorScheme.onSurfaceVariant,
                 ),
               ],

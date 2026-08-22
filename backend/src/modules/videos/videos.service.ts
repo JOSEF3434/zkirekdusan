@@ -480,10 +480,28 @@ export class VideosService {
       return true;
     if (video.uploadedById === userId) return true;
 
+    let groupId = video.videoChannel?.groupId;
+    if (!groupId && video.channelId) {
+      const ch = await this.prisma.videoChannel.findUnique({
+        where: { id: video.channelId },
+        select: { groupId: true },
+      });
+      groupId = ch?.groupId;
+    }
+
+    if (!groupId) return false;
+
+    // Check if user is group creator
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { createdById: true },
+    });
+    if (group?.createdById === userId) return true;
+
     // Check group MODERATOR or higher
     const membership = await this.prisma.groupMember.findFirst({
       where: {
-        groupId: video.videoChannel.groupId,
+        groupId,
         userId,
         removedAt: null,
       },

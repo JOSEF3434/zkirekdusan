@@ -279,7 +279,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         child: const Text(
           'You have no active groups with video channels. '
           'Create or join a group to start streaming.',
-          style: const TextStyle(color: Colors.orange),
+          style: TextStyle(color: Colors.orange),
         ),
       );
     }

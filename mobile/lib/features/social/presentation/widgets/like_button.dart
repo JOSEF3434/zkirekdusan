@@ -11,6 +11,8 @@ class LikeButton extends ConsumerStatefulWidget {
   final Color? defaultColor;
   final Color activeColor;
 
+  final bool isVideo;
+
   const LikeButton({
     super.key,
     required this.postId,
@@ -20,6 +22,7 @@ class LikeButton extends ConsumerStatefulWidget {
     this.textStyle,
     this.defaultColor,
     this.activeColor = Colors.red,
+    this.isVideo = false,
   });
 
   @override
@@ -57,7 +60,9 @@ class _LikeButtonState extends ConsumerState<LikeButton>
   }
 
   void _handleTap() {
-    ref.read(likesProvider.notifier).toggleLike(widget.postId);
+    ref
+        .read(likesProvider.notifier)
+        .toggleLike(widget.postId, isVideo: widget.isVideo);
     _controller.forward(from: 0.0);
   }
 

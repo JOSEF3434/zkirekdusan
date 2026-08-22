@@ -10,6 +10,8 @@ import 'package:mobile/features/media_experience/data/playback_progress_reposito
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 
+import 'package:mobile/app/env/env.dart';
+
 class PlayerState {
   final VideoResponseDto? video;
   final VideoPlayerController? controller;
@@ -56,7 +58,7 @@ class PlayerState {
       video: video ?? this.video,
       controller: controller ?? this.controller,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: error,
       recommendations: recommendations ?? this.recommendations,
       currentRendition: currentRendition ?? this.currentRendition,
       showControls: showControls ?? this.showControls,
@@ -98,6 +100,30 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     _initialize();
   }
 
+  String _resolvePlaybackUrl(String rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      final uri = Uri.tryParse(rawUrl);
+      if (uri != null &&
+          (uri.host == 'localhost' ||
+              uri.host == '127.0.0.1' ||
+              uri.host == '10.0.2.2')) {
+        final baseUri = Uri.tryParse(Env.apiBaseUrl);
+        if (baseUri != null && baseUri.host.isNotEmpty) {
+          return uri
+              .replace(
+                scheme: baseUri.scheme,
+                host: baseUri.host,
+                port: baseUri.hasPort ? baseUri.port : null,
+              )
+              .toString();
+        }
+      }
+      return rawUrl;
+    }
+    final base = Env.apiBaseUrl.replaceAll('/api', '');
+    return rawUrl.startsWith('/') ? '$base$rawUrl' : '$base/$rawUrl';
+  }
+
   @override
   void dispose() {
     _progressTimer?.cancel();
@@ -113,15 +139,21 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       final localProgress = _progressRepo.load(_videoId);
       final video = await _repository.getVideo(_videoId);
 
-      final url =
-          video.hlsUrl ??
-          (video.renditions.isNotEmpty ? video.renditions.first.url : null);
+      final candidateUrls = <String>[];
+      if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
+        candidateUrls.add(_resolvePlaybackUrl(video.hlsUrl!));
+      }
+      for (final rendition in video.renditions) {
+        if (rendition.url.isNotEmpty) {
+          candidateUrls.add(_resolvePlaybackUrl(rendition.url));
+        }
+      }
 
-      if (url == null || url.isEmpty) {
+      if (candidateUrls.isEmpty) {
         if (mounted) {
           state = state.copyWith(
             isLoading: false,
-            error: 'No video stream available.',
+            error: 'No video stream available for this video.',
           );
         }
         return;
@@ -135,8 +167,30 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         resumePos = localProgress.positionSeconds;
       }
 
-      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
-      await controller.initialize();
+      VideoPlayerController? initializedController;
+
+      // Try candidates in order
+      for (final url in candidateUrls) {
+        try {
+          final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
+          await ctrl.initialize();
+          initializedController = ctrl;
+          break;
+        } catch (_) {}
+      }
+
+      if (initializedController == null) {
+        if (mounted) {
+          state = state.copyWith(
+            isLoading: false,
+            error:
+                'Unable to play video. The video stream source is currently unreachable.',
+          );
+        }
+        return;
+      }
+
+      final controller = initializedController;
 
       // Apply saved playback speed
       await controller.setPlaybackSpeed(state.playbackSpeed);

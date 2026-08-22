@@ -416,7 +416,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 400,
-        mainAxisExtent: 320,
+        mainAxisExtent: 360,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),

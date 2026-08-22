@@ -39,7 +39,7 @@ class LikesNotifier extends Notifier<Map<String, LikeState>> {
     }
   }
 
-  Future<void> toggleLike(String postId) async {
+  Future<void> toggleLike(String postId, {bool isVideo = false}) async {
     final currentState = state[postId];
     if (currentState == null) return;
 
@@ -56,11 +56,14 @@ class LikesNotifier extends Notifier<Map<String, LikeState>> {
 
     try {
       final repo = ref.read(socialRepositoryProvider);
-      await repo.togglePostLike(postId);
+      if (isVideo) {
+        await repo.toggleVideoLike(postId, liked: !wasLiked);
+      } else {
+        await repo.togglePostLike(postId);
+      }
     } catch (e) {
       // Revert on error
       state = {...state, postId: currentState};
-      // You could also show a snackbar here or throw to let the UI handle it
     }
   }
 }
