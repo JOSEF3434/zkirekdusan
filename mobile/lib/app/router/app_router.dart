@@ -172,13 +172,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/live/studio',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
-          // For MVP, just use user's ID as channel ID (assuming they have one channel)
-          // or we can read auth state here. Let's pass 'default_channel' if we don't have it in state easily,
-          // but better is getting it from AuthState or profile.
-          // The backend usually creates a channel matching the user ID for new users.
-          return const LiveStudioScreen(
-            channelId: 'default_channel',
-          ); // We'll fix channel id logic if needed.
+          // channelId is now selected in-screen via group/channel dropdown
+          return const LiveStudioScreen();
         },
       ),
       GoRoute(

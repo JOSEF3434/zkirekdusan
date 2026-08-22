@@ -13,11 +13,14 @@ import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart
 import 'package:mobile/features/live/presentation/widgets/stream_health_indicator.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
+import 'package:mobile/features/upload/data/upload_repository.dart';
+import 'package:mobile/features/upload/domain/group_channel_model.dart';
 
 class LiveStudioScreen extends ConsumerStatefulWidget {
-  final String channelId;
+  /// Optional pre-selected channelId. If null, the user picks from a dropdown.
+  final String? channelId;
 
-  const LiveStudioScreen({super.key, required this.channelId});
+  const LiveStudioScreen({super.key, this.channelId});
 
   @override
   ConsumerState<LiveStudioScreen> createState() => _LiveStudioScreenState();
@@ -33,8 +36,24 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   String? _createError;
   bool _keyVisible = false;
 
+  // Group / Channel picker state
+  List<GroupDto> _groups = [];
+  final Map<String, List<VideoChannelDto>> _channelsByGroup = {};
+  GroupDto? _selectedGroup;
+  VideoChannelDto? _selectedChannel;
+  bool _loadingChannels = false;
+  String? _loadError;
+
   // Set after stream is created
   String? _streamId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.channelId == null) {
+      _loadGroups();
+    }
+  }
 
   @override
   void dispose() {
@@ -42,6 +61,62 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     _descCtrl.dispose();
     super.dispose();
   }
+
+  Future<void> _loadGroups() async {
+    setState(() {
+      _loadingChannels = true;
+      _loadError = null;
+    });
+    try {
+      final repo = ref.read(uploadRepositoryProvider);
+      final groups = await repo.getMyGroups();
+      final activeGroups = groups
+          .where((g) => g.status == 'ACTIVE')
+          .toList();
+      setState(() {
+        _groups = activeGroups;
+        _loadingChannels = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadError = 'Could not load your groups. Please check your connection.';
+        _loadingChannels = false;
+      });
+    }
+  }
+
+  Future<void> _loadChannelsForGroup(GroupDto group) async {
+    if (_channelsByGroup.containsKey(group.id)) {
+      setState(() {
+        _selectedGroup = group;
+        _selectedChannel = _channelsByGroup[group.id]!.isNotEmpty
+            ? _channelsByGroup[group.id]!.first
+            : null;
+      });
+      return;
+    }
+    setState(() {
+      _loadingChannels = true;
+      _selectedGroup = group;
+      _selectedChannel = null;
+    });
+    try {
+      final repo = ref.read(uploadRepositoryProvider);
+      final channels = await repo.getGroupChannels(group.id);
+      setState(() {
+        _channelsByGroup[group.id] = channels;
+        _selectedChannel = channels.isNotEmpty ? channels.first : null;
+        _loadingChannels = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadingChannels = false;
+      });
+    }
+  }
+
+  String get _effectiveChannelId =>
+      widget.channelId ?? _selectedChannel?.id ?? '';
 
   String _formatElapsed(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
@@ -61,6 +136,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // ─── Setup page (create stream) ────────────────────────────────────────────
 
   Widget _buildSetupPage(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Set Up Stream'),
@@ -79,6 +156,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 20),
+
+            // ── Group / Channel Picker (only if no channelId pre-supplied) ──
+            if (widget.channelId == null) ...[
+              _buildGroupChannelPicker(theme),
+              const SizedBox(height: 16),
+            ],
 
             // Title
             TextField(
@@ -134,7 +217,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _isCreating ? null : _createStream,
+                onPressed: _isCreating || _loadingChannels ? null : _createStream,
                 icon: _isCreating
                     ? const SizedBox(
                         width: 16,
@@ -154,10 +237,129 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
+  Widget _buildGroupChannelPicker(ThemeData theme) {
+    if (_loadingChannels && _groups.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_loadError != null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(_loadError!, style: const TextStyle(color: Colors.red)),
+            ),
+            TextButton(onPressed: _loadGroups, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_groups.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        ),
+        child: const Text(
+          'You have no active groups with video channels. '
+          'Create or join a group to start streaming.',
+          style: const TextStyle(color: Colors.orange),
+        ),
+      );
+    }
+
+    final List<VideoChannelDto> channelsForGroup =
+        _selectedGroup != null ? (_channelsByGroup[_selectedGroup!.id] ?? <VideoChannelDto>[]) : <VideoChannelDto>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Group Dropdown
+        DropdownButtonFormField<GroupDto>(
+          isExpanded: true,
+          value: _selectedGroup,
+          decoration: const InputDecoration(
+            labelText: 'Group *',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.group),
+          ),
+          hint: const Text('Select a group'),
+          items: _groups
+              .map((g) => DropdownMenuItem(
+                    value: g,
+                    child: Text(g.name, overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: (group) {
+            if (group != null) _loadChannelsForGroup(group);
+          },
+        ),
+        const SizedBox(height: 12),
+
+        // Channel Dropdown (shown once a group is selected)
+        if (_selectedGroup != null)
+          _loadingChannels
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : channelsForGroup.isEmpty
+              ? const Text(
+                  'This group has no video channels.',
+                  style: TextStyle(color: Colors.orange),
+                )
+              : DropdownButtonFormField<VideoChannelDto>(
+                  isExpanded: true,
+                  value: _selectedChannel,
+                  decoration: const InputDecoration(
+                    labelText: 'Channel *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.live_tv),
+                  ),
+                  hint: const Text('Select a channel'),
+                  items: channelsForGroup
+                      .map((c) => DropdownMenuItem<VideoChannelDto>(
+                            value: c,
+                            child: Text(c.name, overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: (ch) {
+                    if (ch != null) setState(() => _selectedChannel = ch);
+                  },
+                ),
+      ],
+    );
+  }
+
   Future<void> _createStream() async {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
       setState(() => _createError = 'Title is required.');
+      return;
+    }
+
+    // Validate channel selected
+    if (_effectiveChannelId.isEmpty) {
+      setState(() => _createError =
+          'Please select a group and channel to stream to.');
       return;
     }
 
@@ -169,7 +371,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     try {
       final repo = ref.read(liveStreamingRepositoryProvider);
       final stream = await repo.createStream(
-        widget.channelId,
+        _effectiveChannelId,
         CreateLiveStreamRequest(
           title: title,
           description: _descCtrl.text.trim().isEmpty
@@ -200,7 +402,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // ─── Studio page (after stream created) ───────────────────────────────────
 
   Widget _buildStudioPage(BuildContext context, String streamId) {
-    final bState = ref.watch(broadcasterProvider((streamId, widget.channelId)));
+    final bState = ref.watch(broadcasterProvider((streamId, _effectiveChannelId)));
     final theme = Theme.of(context);
     final stream = bState.stream;
 
@@ -258,7 +460,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                               .read(
                                 broadcasterProvider((
                                   streamId,
-                                  widget.channelId,
+                                  _effectiveChannelId,
                                 )).notifier,
                               )
                               .regenerateStreamKey(),
@@ -329,7 +531,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                       .read(
                         broadcasterProvider((
                           streamId,
-                          widget.channelId,
+                          _effectiveChannelId,
                         )).notifier,
                       )
                       .goLive(),
@@ -338,7 +540,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                       .read(
                         broadcasterProvider((
                           streamId,
-                          widget.channelId,
+                          _effectiveChannelId,
                         )).notifier,
                       )
                       .publishVod(),
@@ -372,7 +574,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
     if (confirm == true && mounted) {
       await ref
-          .read(broadcasterProvider((streamId, widget.channelId)).notifier)
+          .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
           .endStream();
     }
   }

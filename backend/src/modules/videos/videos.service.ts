@@ -182,12 +182,28 @@ export class VideosService {
     // 2. Resolve source file path from the attached file record
     const fileRecord = await this.prisma.file.findUnique({
       where: { id: fileId },
-      select: { storageKey: true },
+      select: { storageKey: true, url: true },
     });
     const sourceFilePath =
       fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
 
-    // 3. Enqueue BullMQ transcode job
+    // 3. Immediately mark video as READY with raw file URL so Flutter doesn't
+    //    hang waiting for HLS transcoding. The transcode job will update the
+    //    video's hlsUrl/renditions asynchronously once complete.
+    if (fileRecord?.url) {
+      await this.prisma.video.update({
+        where: { id: videoId },
+        data: {
+          status: VideoStatus.READY,
+          hlsUrl: fileRecord.url, // original file — playable immediately
+        },
+      });
+      this.logger.log(
+        `Video [${videoId}] marked READY immediately with raw file URL: ${fileRecord.url}`,
+      );
+    }
+
+    // 4. Enqueue BullMQ transcode job (background — updates hlsUrl when done)
     try {
       await this.videoQueue.add(
         'transcode',
@@ -201,7 +217,7 @@ export class VideosService {
       );
 
       this.logger.log(
-        `Video [${videoId}] queued for transcoding (file: ${sourceFilePath})`,
+        `Video [${videoId}] queued for background HLS transcoding (file: ${sourceFilePath})`,
       );
     } catch (queueErr) {
       this.logger.warn(

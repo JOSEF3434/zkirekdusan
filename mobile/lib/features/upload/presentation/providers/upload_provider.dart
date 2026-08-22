@@ -232,7 +232,18 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    int pollCount = 0;
+    const maxPolls = 150; // 150 × 2s = 5 minutes max
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      pollCount++;
+      if (pollCount > maxPolls) {
+        timer.cancel();
+        // Timeout — treat as completed so user isn't stuck forever
+        _ref.invalidate(videoFeedProvider);
+        state = state.copyWith(step: UploadStep.completed);
+        return;
+      }
+
       if (state.video == null || state.selectedChannel == null) {
         timer.cancel();
         return;
