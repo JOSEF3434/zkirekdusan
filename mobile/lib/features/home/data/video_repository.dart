@@ -13,6 +13,20 @@ class VideoRepository {
 
   VideoRepository(this._dio);
 
+  Future<VideoListResponseDto> getLatestVideos({
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/videos/latest',
+      queryParameters: {'page': page, 'limit': limit},
+      cancelToken: cancelToken,
+    );
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
+  }
+
   Future<VideoListResponseDto> getTrending({
     int page = 1,
     int limit = 20,

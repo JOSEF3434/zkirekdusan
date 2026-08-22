@@ -143,7 +143,7 @@ class VideoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${video.author.displayName ?? video.author.username} • ${_formatViews(video.viewsCount)} • ${timeago.format(video.createdAt)}',
+                        '${video.channelName ?? (video.author.displayName?.isNotEmpty == true ? video.author.displayName! : (video.author.username?.isNotEmpty == true ? video.author.username! : "Creator"))} • ${_formatViews(video.viewsCount)} • ${timeago.format(video.publishedAt ?? video.createdAt)}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall,

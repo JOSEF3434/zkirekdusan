@@ -71,6 +71,11 @@ export class VideosService {
     });
 
     if (!channel) throw new NotFoundException('Video channel not found');
+    if (channel.group.status === 'PENDING_APPROVAL') {
+      throw new ForbiddenException(
+        'Group is not privileged to upload videos. Please communicate with system admin to approve your groups.',
+      );
+    }
     if (channel.group.status !== 'ACTIVE') {
       throw new ForbiddenException('Group is not active');
     }
@@ -205,6 +210,24 @@ export class VideosService {
     }
 
     return this.mapVideoToDto(video);
+  }
+
+  /** Returns the raw Prisma record without DTO mapping — used internally by controller */
+  async findByIdRaw(id: string) {
+    return this.repo.findById(id);
+  }
+
+  async setThumbnail(videoId: string, thumbnailUrl: string, userId: string) {
+    const video = await this.repo.findById(videoId);
+    if (!video) throw new NotFoundException('Video not found');
+
+    const canEdit = await this.canModifyVideo(video, userId);
+    if (!canEdit)
+      throw new ForbiddenException('Insufficient permissions to set thumbnail');
+
+    return this.mapVideoToDto(
+      await this.repo.update(videoId, { thumbnailUrl }),
+    );
   }
 
   async findBySlug(slug: string, userId?: string) {
@@ -383,6 +406,11 @@ export class VideosService {
     return videos.map((v) => this.mapVideoToDto(v));
   }
 
+  async getLatest(page = 1, limit = 20) {
+    const result = await this.repo.getLatest(page, limit);
+    return { ...result, data: result.data.map((v) => this.mapVideoToDto(v)) };
+  }
+
   async getRecommended(videoId: string, userId: string, limit = 10) {
     const videos = await this.repo.getRecommended(userId, videoId, limit);
     return videos.map((v) => this.mapVideoToDto(v));
@@ -440,9 +468,32 @@ export class VideosService {
   }
 
   private mapVideoToDto(video: any) {
+    // viewsCount is stored as BigInt in Prisma — must convert to plain number for JSON
+    const rawViews = video.viewsCount;
+    const viewsCount =
+      typeof rawViews === 'bigint'
+        ? Number(rawViews)
+        : typeof rawViews === 'string'
+          ? parseInt(rawViews, 10) || 0
+          : (rawViews ?? 0);
+
+    // Build author from uploadedBy relation if available
+    const author = video.uploadedBy
+      ? {
+          id: video.uploadedBy.id ?? '',
+          username: video.uploadedBy.username ?? '',
+          displayName: video.uploadedBy.profile?.displayName ?? null,
+          avatarUrl: null as string | null, // avatarFileId would need separate lookup
+        }
+      : { id: '', username: '', displayName: null, avatarUrl: null };
+
     return {
       ...video,
-      viewsCount: video.viewsCount?.toString() ?? '0',
+      viewsCount,
+      author,
+      // Ensure channelId field is surfaced for Flutter
+      channelId: video.videoChannelId ?? video.videoChannel?.id ?? null,
+      channelName: video.videoChannel?.name ?? null,
     };
   }
 }

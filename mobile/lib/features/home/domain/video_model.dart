@@ -73,9 +73,11 @@ class VideoResponseDto {
   final int commentsCount;
   final PostAuthorDto author; // Using existing author DTO
   final String? channelId;
+  final String? channelName;
   final List<VideoRenditionDto> renditions;
   final bool? isLiked;
   final bool? isSaved;
+  final DateTime? publishedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -94,14 +96,42 @@ class VideoResponseDto {
     this.commentsCount = 0,
     required this.author,
     this.channelId,
+    this.channelName,
     this.renditions = const [],
     this.isLiked,
     this.isSaved,
+    this.publishedAt,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory VideoResponseDto.fromJson(Map<String, dynamic> json) {
+    // viewsCount may arrive as int or as a string (BigInt serialized from Prisma)
+    final rawViews = json['viewsCount'];
+    final int parsedViews;
+    if (rawViews is int) {
+      parsedViews = rawViews;
+    } else if (rawViews is String) {
+      parsedViews = int.tryParse(rawViews) ?? 0;
+    } else {
+      parsedViews = 0;
+    }
+
+    // channelId comes directly OR from nested videoChannel
+    final channelId =
+        json['channelId'] as String? ??
+        (json['videoChannel'] as Map<String, dynamic>?)?['id'] as String? ??
+        json['videoChannelId'] as String?;
+
+    final channelName =
+        json['channelName'] as String? ??
+        (json['videoChannel'] as Map<String, dynamic>?)?['name'] as String?;
+
+    // author may come from 'author' (mapped) or 'uploadedBy' (raw Prisma)
+    final authorJson =
+        (json['author'] as Map<String, dynamic>?) ??
+        _buildAuthorFromUploadedBy(json['uploadedBy'] as Map<String, dynamic>?);
+
     return VideoResponseDto(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Untitled',
@@ -112,13 +142,12 @@ class VideoResponseDto {
       thumbnailUrl: json['thumbnailUrl'] as String?,
       hlsUrl: json['hlsUrl'] as String?,
       dashUrl: json['dashUrl'] as String?,
-      viewsCount: json['viewsCount'] as int? ?? 0,
+      viewsCount: parsedViews,
       likesCount: json['likesCount'] as int? ?? 0,
       commentsCount: json['commentsCount'] as int? ?? 0,
-      author: PostAuthorDto.fromJson(
-        json['author'] as Map<String, dynamic>? ?? {},
-      ),
-      channelId: json['videoChannelId'] as String?,
+      author: PostAuthorDto.fromJson(authorJson),
+      channelId: channelId,
+      channelName: channelName,
       renditions:
           (json['renditions'] as List<dynamic>?)
               ?.map(
@@ -128,13 +157,29 @@ class VideoResponseDto {
           [],
       isLiked: json['isLiked'] as bool?,
       isSaved: json['isSaved'] as bool?,
+      publishedAt: json['publishedAt'] != null
+          ? DateTime.tryParse(json['publishedAt'] as String)
+          : null,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
+          ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
     );
+  }
+
+  static Map<String, dynamic> _buildAuthorFromUploadedBy(
+    Map<String, dynamic>? uploadedBy,
+  ) {
+    if (uploadedBy == null) return {};
+    return {
+      'id': uploadedBy['id'],
+      'username': uploadedBy['username'],
+      'displayName':
+          (uploadedBy['profile'] as Map<String, dynamic>?)?['displayName'],
+      'avatarUrl': null,
+    };
   }
 }
 

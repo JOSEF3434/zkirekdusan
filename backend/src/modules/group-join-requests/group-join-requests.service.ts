@@ -29,6 +29,12 @@ export class GroupJoinRequestsService {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) throw new NotFoundException('Group not found');
 
+    if (group.status === 'PENDING_APPROVAL') {
+      throw new ForbiddenException(
+        'Cannot request to join a pending group. Please wait for admin approval.',
+      );
+    }
+
     if (group.status !== 'ACTIVE') {
       throw new BadRequestException('Group is not active');
     }

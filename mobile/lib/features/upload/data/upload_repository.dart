@@ -49,10 +49,14 @@ class UploadRepository {
     void Function(int sent, int total)? onProgress,
   }) async {
     final bytes = await file.readAsBytes();
+    final ext = file.name.split('.').last.toLowerCase();
+    final mimeType = _resolveVideoMimeType(ext);
+
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(
         bytes,
         filename: file.name.isNotEmpty ? file.name : 'video.mp4',
+        contentType: DioMediaType.parse(mimeType),
       ),
     });
 
@@ -62,6 +66,47 @@ class UploadRepository {
       cancelToken: cancelToken,
       onSendProgress: onProgress,
     );
+  }
+
+  Future<void> uploadThumbnail({
+    required String channelId,
+    required String videoId,
+    required XFile file,
+  }) async {
+    final bytes = await file.readAsBytes();
+    final ext = file.name.split('.').last.toLowerCase();
+    final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: file.name.isNotEmpty ? file.name : 'thumbnail.jpg',
+        contentType: DioMediaType.parse(mimeType),
+      ),
+    });
+
+    await _dio.post(
+      '/video-channels/$channelId/videos/$videoId/thumbnail',
+      data: formData,
+    );
+  }
+
+  static String _resolveVideoMimeType(String ext) {
+    switch (ext) {
+      case 'mov':
+        return 'video/quicktime';
+      case 'webm':
+        return 'video/webm';
+      case 'mkv':
+        return 'video/x-matroska';
+      case 'avi':
+        return 'video/x-msvideo';
+      case '3gp':
+        return 'video/3gpp';
+      case 'mp4':
+      default:
+        return 'video/mp4';
+    }
   }
 
   Future<VideoResponseDto> getStatus(

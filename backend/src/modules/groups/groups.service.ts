@@ -168,10 +168,24 @@ export class GroupsService {
     };
   }
 
-  async getGroupById(groupId: string): Promise<GroupResponseDto> {
+  async getGroupById(
+    groupId: string,
+    callerId?: string,
+    callerRole?: AppRole,
+  ): Promise<GroupResponseDto> {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) {
       throw new NotFoundException('Group not found');
+    }
+
+    const isGlobalAdmin =
+      callerRole === AppRole.SUPER_ADMIN || callerRole === AppRole.ADMIN;
+    const isCreator = callerId && group.createdById === callerId;
+
+    if (group.status === 'PENDING_APPROVAL' && !isGlobalAdmin && !isCreator) {
+      throw new ForbiddenException(
+        'This group is pending approval and is only visible to the owner.',
+      );
     }
 
     return {
@@ -189,10 +203,24 @@ export class GroupsService {
     };
   }
 
-  async getGroupBySlug(slug: string): Promise<GroupResponseDto> {
+  async getGroupBySlug(
+    slug: string,
+    callerId?: string,
+    callerRole?: AppRole,
+  ): Promise<GroupResponseDto> {
     const group = await this.groupsRepository.findBySlug(slug);
     if (!group) {
       throw new NotFoundException(`Group with slug '${slug}' not found`);
+    }
+
+    const isGlobalAdmin =
+      callerRole === AppRole.SUPER_ADMIN || callerRole === AppRole.ADMIN;
+    const isCreator = callerId && group.createdById === callerId;
+
+    if (group.status === 'PENDING_APPROVAL' && !isGlobalAdmin && !isCreator) {
+      throw new ForbiddenException(
+        'This group is pending approval and is only visible to the owner.',
+      );
     }
 
     return {
@@ -237,7 +265,7 @@ export class GroupsService {
     }
 
     await this.groupsRepository.updateGroup(groupId, dto);
-    return this.getGroupById(groupId);
+    return this.getGroupById(groupId, actorId, actorRole);
   }
 
   async deleteGroup(
@@ -390,7 +418,15 @@ export class GroupsService {
     role = GroupRole.MEMBER,
   ) {
     const group = await this.groupsRepository.findById(groupId);
-    if (!group || group.status !== 'ACTIVE') {
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+    if (group.status === 'PENDING_APPROVAL') {
+      throw new ForbiddenException(
+        'Cannot add or invite members to a pending group. Please wait for admin approval.',
+      );
+    }
+    if (group.status !== 'ACTIVE') {
       throw new ForbiddenException('Group must be active to invite members');
     }
 
@@ -427,6 +463,13 @@ export class GroupsService {
 
     if (invite.recipientId !== userId) {
       throw new ForbiddenException('This invite token was not issued to you');
+    }
+
+    const group = await this.groupsRepository.findById(invite.groupId);
+    if (!group || group.status !== 'ACTIVE') {
+      throw new ForbiddenException(
+        'Cannot join a group that is pending approval or inactive',
+      );
     }
 
     await this.groupsRepository.addMember(
@@ -484,12 +527,17 @@ export class GroupsService {
     const isGlobalAdmin =
       globalRole === AppRole.SUPER_ADMIN || globalRole === AppRole.ADMIN;
 
-    const isMemberOrCreator =
-      callerGroupRole !== null || (callerId && group.createdById === callerId);
+    const isCreator = Boolean(callerId && group.createdById === callerId);
 
-    if (group.status !== 'ACTIVE' && !isGlobalAdmin && !isMemberOrCreator) {
+    if (group.status === 'PENDING_APPROVAL') {
+      if (!isGlobalAdmin && !isCreator) {
+        throw new ForbiddenException(
+          'This group is pending approval and is only visible to the owner.',
+        );
+      }
+    } else if (group.status !== 'ACTIVE' && !isGlobalAdmin && !callerGroupRole) {
       throw new ForbiddenException(
-        'This group is not available. It may be pending approval, suspended, or archived.',
+        'This group is not available. It may be suspended or archived.',
       );
     }
 

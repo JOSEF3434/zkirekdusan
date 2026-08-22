@@ -118,8 +118,13 @@ export class GroupsController {
   @ApiResponse({ status: 200, type: GroupResponseDto })
   async getGroupById(
     @Param('groupId') groupId: string,
+    @CurrentUser() user?: JwtPayload,
   ): Promise<GroupResponseDto> {
-    return this.groupsService.getGroupById(groupId);
+    return this.groupsService.getGroupById(
+      groupId,
+      user?.sub,
+      user?.role as AppRole,
+    );
   }
 
   @Patch(':groupId')

@@ -45,24 +45,36 @@ class UploadInitRequest {
   final String channelId;
   final int sizeBytes;
   final String? playlistId;
+  final String downloadPermission;
+  final bool isDownloadable;
+  final List<String> categories;
+  final List<String> tags;
+  final List<String> hashtags;
 
   const UploadInitRequest({
     required this.title,
     this.description = '',
     this.visibility = 'PUBLIC',
     required this.channelId,
-    required this.sizeBytes,
+    this.sizeBytes = 0,
     this.playlistId,
+    this.downloadPermission = 'PUBLIC',
+    this.isDownloadable = true,
+    this.categories = const [],
+    this.tags = const [],
+    this.hashtags = const [],
   });
 
   Map<String, dynamic> toJson() {
     return {
       'title': title,
-      'description': description,
+      if (description.isNotEmpty) 'description': description,
       'visibility': visibility,
-      'channelId': channelId,
-      'sizeBytes': sizeBytes,
-      if (playlistId != null) 'playlistId': playlistId,
+      'downloadPermission': downloadPermission,
+      'isDownloadable': isDownloadable,
+      if (categories.isNotEmpty) 'categories': categories,
+      if (tags.isNotEmpty) 'tags': tags,
+      if (hashtags.isNotEmpty) 'hashtags': hashtags,
     };
   }
 }

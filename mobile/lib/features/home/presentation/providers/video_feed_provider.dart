@@ -100,20 +100,25 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
         final videos = feedResponse.data
             .map((p) => p.toVideoResponseDto())
             .toList();
-        response = VideoListResponseDto(data: videos, meta: feedResponse.meta);
-      } catch (_) {
-        try {
-          final feedResponse = await feedRepo.getFeed(
+        if (videos.isNotEmpty) {
+          response = VideoListResponseDto(
+            data: videos,
+            meta: feedResponse.meta,
+          );
+        } else {
+          // If recommendation feed is empty, fallback to latest published videos
+          response = await repo.getLatestVideos(
             page: 1,
             limit: 10,
             cancelToken: _cancelToken,
           );
-          final videos = feedResponse.data
-              .map((p) => p.toVideoResponseDto())
-              .toList();
-          response = VideoListResponseDto(
-            data: videos,
-            meta: feedResponse.meta,
+        }
+      } catch (_) {
+        try {
+          response = await repo.getLatestVideos(
+            page: 1,
+            limit: 10,
+            cancelToken: _cancelToken,
           );
         } catch (_) {
           response = await repo.searchVideos(
@@ -123,9 +128,14 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
           );
         }
       }
-    } else if (category == VideoFeedCategory.all ||
-        category == VideoFeedCategory.latest) {
-      response = await repo.searchVideos(
+    } else if (category == VideoFeedCategory.latest) {
+      response = await repo.getLatestVideos(
+        page: 1,
+        limit: 10,
+        cancelToken: _cancelToken,
+      );
+    } else if (category == VideoFeedCategory.all) {
+      response = await repo.getLatestVideos(
         page: 1,
         limit: 10,
         cancelToken: _cancelToken,
@@ -206,23 +216,24 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
           final videos = feedResponse.data
               .map((p) => p.toVideoResponseDto())
               .toList();
-          response = VideoListResponseDto(
-            data: videos,
-            meta: feedResponse.meta,
-          );
-        } catch (_) {
-          try {
-            final feedResponse = await feedRepo.getFeed(
+          if (videos.isNotEmpty) {
+            response = VideoListResponseDto(
+              data: videos,
+              meta: feedResponse.meta,
+            );
+          } else {
+            response = await repo.getLatestVideos(
               page: nextPage,
               limit: 10,
               cancelToken: _cancelToken,
             );
-            final videos = feedResponse.data
-                .map((p) => p.toVideoResponseDto())
-                .toList();
-            response = VideoListResponseDto(
-              data: videos,
-              meta: feedResponse.meta,
+          }
+        } catch (_) {
+          try {
+            response = await repo.getLatestVideos(
+              page: nextPage,
+              limit: 10,
+              cancelToken: _cancelToken,
             );
           } catch (_) {
             response = await repo.searchVideos(
@@ -232,9 +243,9 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
             );
           }
         }
-      } else if (_currentCategory == VideoFeedCategory.all ||
-          _currentCategory == VideoFeedCategory.latest) {
-        response = await repo.searchVideos(
+      } else if (_currentCategory == VideoFeedCategory.latest ||
+          _currentCategory == VideoFeedCategory.all) {
+        response = await repo.getLatestVideos(
           page: nextPage,
           limit: 10,
           cancelToken: _cancelToken,

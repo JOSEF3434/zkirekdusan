@@ -1,11 +1,14 @@
 // src/modules/videos/videos.controller.ts
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -64,6 +67,8 @@ class ReportVideoDto {
 @ApiBearerAuth()
 @Controller('video-channels/:channelId/videos')
 export class VideosController {
+  private readonly logger = new Logger(VideosController.name);
+
   constructor(
     private readonly videosService: VideosService,
     private readonly uploadsService: UploadsService,
@@ -109,23 +114,89 @@ export class VideosController {
     @CurrentUser('sub') userId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    // Get the video's group ID for file ownership
-    const video = await this.videosService.findById(videoId);
+    if (!file) {
+      throw new BadRequestException('No file provided in multipart request');
+    }
+
+    this.logger.log(
+      `[attachFile] videoId=${videoId} channelId=${channelId} userId=${userId} ` +
+        `filename=${file.originalname} mimeType=${file.mimetype} size=${file.size}`,
+    );
+
+    // Get the video's group ID for file ownership — CRITICAL: use findRaw to avoid DTO mapping issues
+    const video = await this.videosService.findByIdRaw(videoId);
+    if (!video) {
+      throw new NotFoundException(`Video ${videoId} not found`);
+    }
+
     const groupId = video.videoChannel?.groupId;
+    if (!groupId) {
+      this.logger.error(
+        `[attachFile] videoId=${videoId} has no videoChannel.groupId — channel may be deleted`,
+      );
+      throw new BadRequestException(
+        'Video channel has no associated group. Cannot attach file.',
+      );
+    }
+
+    this.logger.log(
+      `[attachFile] Uploading file to group=${groupId} via storage provider`,
+    );
 
     // Upload the file to storage
     const uploadedFile = await this.uploadsService.uploadGroupFile(
-      groupId as string,
+      groupId,
       userId,
       file,
     );
 
-    // Attach the file to the video
-    return this.videosService.attachSourceFile(
-      videoId,
-      uploadedFile.id,
-      userId,
+    this.logger.log(
+      `[attachFile] File stored: fileId=${uploadedFile.id} url=${uploadedFile.url}`,
     );
+
+    // Attach the file to the video and queue transcoding
+    return this.videosService.attachSourceFile(videoId, uploadedFile.id, userId);
+  }
+
+  @Post(':videoId/thumbnail')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload a custom thumbnail for a video',
+    description: 'Uploads an image file and sets it as the video thumbnail.',
+  })
+  @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  @ApiBody({
+    description: 'Thumbnail image file (multipart/form-data)',
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadThumbnail(
+    @Param('channelId') channelId: string,
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No thumbnail file provided');
+    }
+
+    const video = await this.videosService.findByIdRaw(videoId);
+    if (!video) throw new NotFoundException(`Video ${videoId} not found`);
+
+    const groupId = video.videoChannel?.groupId;
+    if (!groupId) throw new BadRequestException('Video has no associated group');
+
+    const uploadedFile = await this.uploadsService.uploadGroupFile(
+      groupId,
+      userId,
+      file,
+    );
+
+    return this.videosService.setThumbnail(videoId, uploadedFile.url, userId);
   }
 
   @Get()
@@ -334,6 +405,16 @@ export class VideosController {
 @Controller('videos')
 export class VideosPublicController {
   constructor(private readonly videosService: VideosService) {}
+
+  @Get('latest')
+  @ApiOperation({
+    summary: 'Get latest public videos sorted by upload date (newest first)',
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getLatest(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.videosService.getLatest(+page, +limit);
+  }
 
   @Get('trending')
   @ApiOperation({

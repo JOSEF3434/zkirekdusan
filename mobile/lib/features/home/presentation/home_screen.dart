@@ -14,6 +14,7 @@ import 'package:mobile/features/media_experience/presentation/widgets/continue_w
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
+import 'package:mobile/features/home/domain/video_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,10 +27,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _recScrollController = ScrollController();
+  final ScrollController _latestScrollController = ScrollController();
   final ScrollController _subScrollController = ScrollController();
   bool _isAuthenticated = false;
 
-  int get _tabCount => _isAuthenticated ? 2 : 1;
+  int get _tabCount => _isAuthenticated ? 3 : 2;
 
   void _initTabController() {
     _tabController = TabController(length: _tabCount, vsync: this);
@@ -41,12 +43,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _isAuthenticated =
         ref.read(authProvider).status == AuthStatus.authenticated;
     _initTabController();
-    _recScrollController.addListener(
-      () => _onScroll(_recScrollController, isRec: true),
+    _recScrollController.addListener(() => _onScroll(_recScrollController));
+    _latestScrollController.addListener(
+      () => _onScroll(_latestScrollController),
     );
-    _subScrollController.addListener(
-      () => _onScroll(_subScrollController, isRec: false),
-    );
+    _subScrollController.addListener(() => _onSubScroll(_subScrollController));
 
     // Load profile silently if authenticated
     Future.microtask(() {
@@ -60,19 +61,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _tabController.dispose();
     _recScrollController.dispose();
+    _latestScrollController.dispose();
     _subScrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll(ScrollController controller, {required bool isRec}) {
+  void _onScroll(ScrollController controller) {
     if (controller.position.pixels >=
         controller.position.maxScrollExtent - 500) {
-      if (isRec) {
-        ref.read(videoFeedProvider.notifier).loadMore();
-      } else {
-        if (ref.read(authProvider).status == AuthStatus.authenticated) {
-          ref.read(subscriptionFeedProvider.notifier).loadNextPage();
-        }
+      ref.read(videoFeedProvider.notifier).loadMore();
+    }
+  }
+
+  void _onSubScroll(ScrollController controller) {
+    if (controller.position.pixels >=
+        controller.position.maxScrollExtent - 500) {
+      if (ref.read(authProvider).status == AuthStatus.authenticated) {
+        ref.read(subscriptionFeedProvider.notifier).loadNextPage();
       }
     }
   }
@@ -83,6 +88,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ref.read(videoFeedProvider.notifier).refresh(),
         ref.read(storyFeedProvider.notifier).refresh(),
       ]);
+    } else if (_tabController.index == 1) {
+      await ref.read(videoFeedProvider.notifier).refresh();
     } else {
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
         ref.read(subscriptionFeedProvider.notifier).refresh();
@@ -182,8 +189,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
                 bottom: TabBar(
                   controller: _tabController,
+                  isScrollable: _tabCount > 2,
                   tabs: [
                     Tab(text: tr('home.recommended')),
+                    const Tab(text: 'Latest'),
                     if (isAuthenticated) Tab(text: tr('home.subscriptions')),
                   ],
                 ),
@@ -235,6 +244,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       const SliverToBoxAdapter(child: Divider(height: 32)),
                     ],
+                    // Category filter chips
+                    SliverToBoxAdapter(child: _buildCategoryChips()),
                     Consumer(
                       builder: (context, ref, _) {
                         final feedStateAsync = ref.watch(videoFeedProvider);
@@ -244,6 +255,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             feedState.isLoadingMore,
                             feedState.error,
                             true,
+                          ),
+                          loading: () =>
+                              const SliverFillRemaining(child: FeedSkeleton()),
+                          error: (error, stack) =>
+                              _buildErrorState(error.toString(), theme),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              // Latest Videos Tab
+              RefreshIndicator(
+                onRefresh: () async {
+                  await ref
+                      .read(videoFeedProvider.notifier)
+                      .setCategory(VideoFeedCategory.latest);
+                },
+                child: CustomScrollView(
+                  controller: _latestScrollController,
+                  slivers: [
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final feedStateAsync = ref.watch(videoFeedProvider);
+                        return feedStateAsync.when(
+                          data: (feedState) => _buildFeedGrid(
+                            feedState.videos,
+                            feedState.isLoadingMore,
+                            feedState.error,
+                            false,
                           ),
                           loading: () =>
                               const SliverFillRemaining(child: FeedSkeleton()),
@@ -300,6 +342,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    final currentCategory = ref.watch(
+      videoFeedProvider.select(
+        (state) => state.valueOrNull?.category ?? VideoFeedCategory.recommended,
+      ),
+    );
+
+    final categories = [
+      VideoFeedCategory.recommended,
+      VideoFeedCategory.latest,
+      VideoFeedCategory.trending,
+      VideoFeedCategory.education,
+      VideoFeedCategory.music,
+      VideoFeedCategory.gaming,
+      VideoFeedCategory.live,
+    ];
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = currentCategory == cat;
+
+          return FilterChip(
+            selected: isSelected,
+            label: Text(cat.label, style: const TextStyle(fontSize: 12)),
+            onSelected: (_) {
+              ref.read(videoFeedProvider.notifier).setCategory(cat);
+            },
+          );
+        },
       ),
     );
   }

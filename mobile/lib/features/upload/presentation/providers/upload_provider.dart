@@ -1,4 +1,3 @@
-// lib/features/upload/presentation/providers/upload_provider.dart
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
+import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 enum UploadStep {
@@ -23,6 +23,7 @@ enum UploadStep {
 class UploadState {
   final UploadStep step;
   final XFile? file;
+  final XFile? thumbnailFile;
 
   final GroupDto? selectedGroup;
   final VideoChannelDto? selectedChannel;
@@ -36,6 +37,7 @@ class UploadState {
   const UploadState({
     this.step = UploadStep.selectVideo,
     this.file,
+    this.thumbnailFile,
     this.selectedGroup,
     this.selectedChannel,
     this.formData,
@@ -47,6 +49,8 @@ class UploadState {
   UploadState copyWith({
     UploadStep? step,
     XFile? file,
+    XFile? thumbnailFile,
+    bool clearThumbnail = false,
     GroupDto? selectedGroup,
     VideoChannelDto? selectedChannel,
     UploadVideoFormData? formData,
@@ -58,6 +62,9 @@ class UploadState {
     return UploadState(
       step: step ?? this.step,
       file: file ?? this.file,
+      thumbnailFile: clearThumbnail
+          ? null
+          : (thumbnailFile ?? this.thumbnailFile),
       selectedGroup: selectedGroup ?? this.selectedGroup,
       selectedChannel: selectedChannel ?? this.selectedChannel,
       formData: formData ?? this.formData,
@@ -73,16 +80,18 @@ final uploadProvider =
       return UploadNotifier(
         ref.watch(uploadRepositoryProvider),
         ref.watch(playlistRepositoryProvider),
+        ref,
       );
     });
 
 class UploadNotifier extends StateNotifier<UploadState> {
   final UploadRepository _repository;
   final PlaylistRepository _playlistRepository;
+  final Ref _ref;
   CancelToken? _cancelToken;
   Timer? _pollingTimer;
 
-  UploadNotifier(this._repository, this._playlistRepository)
+  UploadNotifier(this._repository, this._playlistRepository, this._ref)
     : super(const UploadState());
 
   @override
@@ -100,6 +109,10 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(file: file, step: nextStep, clearError: true);
   }
 
+  void selectThumbnail(XFile? file) {
+    state = state.copyWith(thumbnailFile: file, clearThumbnail: file == null);
+  }
+
   void selectChannel(GroupDto group, VideoChannelDto channel) {
     state = state.copyWith(
       selectedGroup: group,
@@ -113,8 +126,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = const UploadState().copyWith(
       selectedGroup: group,
       selectedChannel: channel,
-      step: UploadStep
-          .selectVideo, // Still need to pick a video, but channel is preselected
+      step: UploadStep.selectVideo,
       clearError: true,
     );
   }
@@ -134,7 +146,10 @@ class UploadNotifier extends StateNotifier<UploadState> {
     if (state.selectedChannel == null ||
         state.formData == null ||
         state.file == null) {
-      state = state.copyWith(error: 'Missing required data');
+      state = state.copyWith(
+        step: UploadStep.failed,
+        error: 'Missing required video data or channel selection',
+      );
       return;
     }
 
@@ -146,15 +161,21 @@ class UploadNotifier extends StateNotifier<UploadState> {
     _cancelToken = CancelToken();
 
     try {
-      // 1. Initiate Upload
+      final fileLength = await state.file!.length();
+
+      // 1. Initiate Upload on backend
       final initRequest = UploadInitRequest(
         title: state.formData!.title,
         description: state.formData!.description,
         visibility: state.formData!.visibility,
         channelId: state.selectedChannel!.id,
         playlistId: state.formData!.playlistId,
-        sizeBytes:
-            0, // Get actual size if possible, otherwise backend handles it or defaults
+        sizeBytes: fileLength,
+        downloadPermission: state.formData!.downloadPermission,
+        isDownloadable: state.formData!.isDownloadable,
+        categories: state.formData!.categories,
+        tags: state.formData!.tags,
+        hashtags: state.formData!.hashtags,
       );
       final initRes = await _repository.initiateUpload(initRequest);
       state = state.copyWith(
@@ -169,30 +190,42 @@ class UploadNotifier extends StateNotifier<UploadState> {
         ),
       );
 
-      // 2. Attach File
+      // 2. Upload custom thumbnail if selected
+      if (state.thumbnailFile != null) {
+        try {
+          await _repository.uploadThumbnail(
+            channelId: state.selectedChannel!.id,
+            videoId: initRes.videoId,
+            file: state.thumbnailFile!,
+          );
+        } catch (_) {
+          // Fallback to auto-generated thumbnail from transcode pipeline if custom thumbnail fails
+        }
+      }
+
+      // 3. Attach Source Video File
       await _repository.uploadVideoFile(
         channelId: state.selectedChannel!.id,
         videoId: initRes.videoId,
         file: state.file!,
         cancelToken: _cancelToken!,
         onProgress: (count, total) {
-          if (total != -1) {
+          if (total > 0) {
             state = state.copyWith(uploadProgress: count / total);
           }
         },
       );
 
-      // 3. Start Polling Status
+      // 4. Start Polling Status
       state = state.copyWith(step: UploadStep.processing, clearError: true);
       _startPolling();
     } catch (e) {
       if (e is DioException && e.type == DioExceptionType.cancel) {
-        // Cancelled explicitly
         return;
       }
       state = state.copyWith(
         step: UploadStep.failed,
-        error: e.toString().replaceFirst('Exception: ', ''),
+        error: _mapErrorToMessage(e),
       );
     }
   }
@@ -215,29 +248,65 @@ class UploadNotifier extends StateNotifier<UploadState> {
         if (video.status == VideoStatus.ready) {
           timer.cancel();
 
-          // If a playlist was selected, add the video to it now that it's ready.
+          // If a playlist was selected, add the video to it
           if (state.formData?.playlistId != null) {
             try {
               await _playlistRepository.addVideoToPlaylist(
                 state.formData!.playlistId!,
                 state.video!.id,
               );
-            } catch (_) {
-              // Non-fatal if playlist addition fails, but we could log it.
-            }
+            } catch (_) {}
           }
+
+          // Refresh the video feeds so the newly uploaded video shows up immediately
+          _ref.invalidate(videoFeedProvider);
 
           state = state.copyWith(step: UploadStep.completed);
         } else if (video.status == VideoStatus.failed) {
           timer.cancel();
           state = state.copyWith(
             step: UploadStep.failed,
-            error: 'Video processing failed on server',
+            error:
+                'Video processing failed on server. Please try a different video format or smaller file.',
           );
         }
       } catch (e) {
-        // Log silently, keep polling unless it's a persistent hard error
+        // Keep polling on transient errors
       }
     });
+  }
+
+  String _mapErrorToMessage(dynamic e) {
+    if (e is DioException) {
+      final statusCode = e.response?.statusCode;
+      final responseData = e.response?.data;
+      String? backendMsg;
+      if (responseData is Map) {
+        backendMsg =
+            responseData['message'] as String? ??
+            responseData['error'] as String?;
+      }
+
+      if (statusCode == 400) {
+        return backendMsg ??
+            'Invalid request. Please make sure the video title is at least 3 characters.';
+      } else if (statusCode == 401) {
+        return 'Your session has expired. Please sign in and try again.';
+      } else if (statusCode == 403) {
+        return backendMsg ??
+            'You do not have permission to upload videos to this channel. If this group is pending approval, uploads are disabled until an Admin approves it.';
+      } else if (statusCode == 404) {
+        return 'The target channel or group was not found.';
+      } else if (statusCode == 413) {
+        return 'The selected video file is too large to upload.';
+      } else if (statusCode != null && statusCode >= 500) {
+        return 'A server error occurred during upload. Please try again shortly.';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return 'Network connection error. Please check your internet connection and try again.';
+      }
+    }
+    return e.toString().replaceFirst('Exception: ', '');
   }
 }

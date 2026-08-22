@@ -34,7 +34,7 @@ export class UploadsRepository {
         url: data.url,
         status: FileStatus.READY,
         uploadedById: data.uploadedById,
-        groupId: data.groupId ?? null,
+        ...(data.groupId ? { groupId: data.groupId } : {}),
         checksum: data.checksum,
       },
     });

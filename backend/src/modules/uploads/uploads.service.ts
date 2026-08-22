@@ -50,9 +50,15 @@ export class UploadsService {
       throw new NotFoundException('Group not found');
     }
 
+    if (group.status === 'PENDING_APPROVAL') {
+      throw new ForbiddenException(
+        'Group is not privileged to upload videos. Please communicate with system admin to approve your groups.',
+      );
+    }
+
     if (group.status !== 'ACTIVE') {
       throw new ForbiddenException(
-        'This group is pending approval or inactive — uploads are disabled until approved by an Admin',
+        'This group is inactive — uploads are disabled until approved by an Admin',
       );
     }
 

@@ -388,6 +388,31 @@ export class VideosRepository {
     });
   }
 
+  async getLatest(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = {
+      status: VideoStatus.READY,
+      visibility: VideoVisibility.PUBLIC,
+      deletedAt: null,
+    };
+
+    const videos = await this.prisma.video.findMany({
+      where,
+      skip,
+      take: limit + 1,
+      orderBy: { createdAt: 'desc' },
+      include: VIDEO_INCLUDE,
+    });
+
+    const total = await this.prisma.video.count({ where });
+    const hasMore = videos.length > limit;
+    const data = hasMore ? videos.slice(0, limit) : videos;
+    const nextCursor = hasMore ? data[data.length - 1].id : undefined;
+
+    return { data, total, nextCursor, hasMore, page, limit };
+  }
+
+
   async getRecommended(userId: string, videoId: string, limit = 10) {
     // Get the video's categories and tags for recommendation
     const video = await this.prisma.video.findUnique({
