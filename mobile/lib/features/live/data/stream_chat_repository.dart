@@ -26,7 +26,10 @@ class StreamChatRepository {
     try {
       final response = await _dio.get(
         '/streams/$streamId/chat',
-        queryParameters: {'limit': limit, 'cursor': ?cursor},
+        queryParameters: {
+          'limit': limit,
+          if (cursor != null) 'cursor': cursor,
+        },
         cancelToken: cancelToken,
       );
       final raw = response.data;

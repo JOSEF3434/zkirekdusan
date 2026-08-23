@@ -697,21 +697,21 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   DropdownMenuItem(
                     value: 'PUBLIC',
                     child: Text(
-                      'Public — Anyone can view this video',
+                      'Public — Anyone can view',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'GROUP_ONLY',
                     child: Text(
-                      'Group Only — Members of this group only',
+                      'Group Only — Members only',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'PRIVATE',
                     child: Text(
-                      'Private — Only you and channel admins can view',
+                      'Private — Only you',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -731,6 +731,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       if (playlists.isEmpty) return const SizedBox.shrink();
                       return DropdownButtonFormField<String?>(
                         initialValue: _playlistId,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Add to Playlist (Optional)',
                           border: OutlineInputBorder(),
@@ -744,7 +745,10 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                           ...playlists.map(
                             (p) => DropdownMenuItem<String?>(
                               value: p.id,
-                              child: Text(p.title),
+                              child: Text(
+                                p.title,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ],

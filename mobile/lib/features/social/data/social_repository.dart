@@ -57,7 +57,10 @@ class SocialRepository {
     final base = isVideo ? '/videos' : '/posts';
     final response = await _dio.post(
       '$base/$postId/comments',
-      data: {'content': content, 'parentId': ?parentId},
+      data: {
+        'content': content,
+        if (parentId != null) 'parentId': parentId,
+      },
     );
     final data = parseEnvelope(response.data);
     return CommentResponseDto.fromJson(data);

@@ -134,16 +134,13 @@ class StoriesRemoteDatasource {
     String? backgroundColor,
     String? textColor,
   }) async {
-    final response = await _dio.post(
-      '/stories',
-      data: {
-        'type': type,
-        'fileId': ?fileId,
-        'content': ?content,
-        'backgroundColor': ?backgroundColor,
-        'textColor': ?textColor,
-      },
-    );
+    final body = <String, dynamic>{'type': type};
+    if (fileId != null) body['fileId'] = fileId;
+    if (content != null) body['content'] = content;
+    if (backgroundColor != null) body['backgroundColor'] = backgroundColor;
+    if (textColor != null) body['textColor'] = textColor;
+
+    final response = await _dio.post('/stories', data: body);
     final data = parseEnvelope(response.data);
     return StoryModel.fromJson(data);
   }

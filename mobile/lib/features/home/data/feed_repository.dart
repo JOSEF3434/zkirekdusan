@@ -26,9 +26,9 @@ class FeedRepository {
       queryParameters: {
         'page': page,
         'limit': limit,
-        'authorId': ?authorId,
-        'groupId': ?groupId,
-        'hashtag': ?hashtag,
+        if (authorId != null) 'authorId': authorId,
+        if (groupId != null) 'groupId': groupId,
+        if (hashtag != null) 'hashtag': hashtag,
       },
       cancelToken: cancelToken,
     );

@@ -271,6 +271,7 @@ export class MessagesService {
         ? {
             id: message.replyTo.id,
             content: message.replyTo.content,
+            type: message.replyTo.type,
             sender: {
               id: message.replyTo.sender.id,
               username: message.replyTo.sender.username,
@@ -294,6 +295,7 @@ export class MessagesService {
         userIds: data.userIds,
       })),
       readBy: (message.reads ?? []).map((r: any) => r.userId),
+      deliveredTo: (message.deliveries ?? []).map((d: any) => d.userId),
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
     };

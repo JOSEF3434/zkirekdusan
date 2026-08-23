@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/env/env.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/widgets/like_button.dart';
 import 'package:mobile/features/social/presentation/widgets/save_button.dart';
@@ -13,6 +14,14 @@ class VideoCard extends StatelessWidget {
   final VideoResponseDto video;
 
   const VideoCard({super.key, required this.video});
+
+  /// Resolve possibly-relative or localhost thumbnail URLs to the real API base.
+  String? _resolveUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    final base = Env.apiBaseUrl.replaceFirst(RegExp(r'/api$'), '');
+    return raw.startsWith('/') ? '$base$raw' : '$base/$raw';
+  }
 
   String _formatDuration(int seconds) {
     final duration = Duration(seconds: seconds);
@@ -52,9 +61,10 @@ class VideoCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (video.thumbnailUrl != null)
+                if (video.thumbnailUrl != null &&
+                    _resolveUrl(video.thumbnailUrl) != null)
                   CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl!,
+                    imageUrl: _resolveUrl(video.thumbnailUrl)!,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
                       color: theme.colorScheme.surfaceContainerHighest,
@@ -113,7 +123,8 @@ class VideoCard extends StatelessWidget {
                   radius: 20,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage: video.author.avatarUrl != null
-                      ? CachedNetworkImageProvider(video.author.avatarUrl!)
+                      ? CachedNetworkImageProvider(
+                          _resolveUrl(video.author.avatarUrl)!)
                       : null,
                   child: video.author.avatarUrl == null
                       ? Text(

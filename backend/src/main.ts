@@ -9,9 +9,15 @@ import compression from 'compression';
 import { AppModule } from './app.module.js';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter.js';
 
+declare global {
+  interface BigInt {
+    toJSON(): number | string;
+  }
+}
+
 // Polyfill BigInt serialization to prevent JSON.stringify errors on Prisma BigInt columns
-(BigInt.prototype as any).toJSON = function () {
-  const intVal = Number(this);
+BigInt.prototype.toJSON = function (): number | string {
+  const intVal = Number(this.valueOf());
   return Number.isSafeInteger(intVal) ? intVal : this.toString();
 };
 
