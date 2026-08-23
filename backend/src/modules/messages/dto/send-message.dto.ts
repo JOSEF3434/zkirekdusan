@@ -1,5 +1,7 @@
 // src/modules/messages/dto/send-message.dto.ts
 import {
+  IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -29,4 +31,20 @@ export class SendMessageDto {
   @IsOptional()
   @IsUUID(undefined, { each: true })
   fileIds?: string[];
+
+  @ApiPropertyOptional({ description: 'Forwarded from original message ID' })
+  @IsOptional()
+  @IsUUID()
+  forwardFromMessageId?: string;
+
+  @ApiPropertyOptional({ description: 'Original conversation ID (for forward)' })
+  @IsOptional()
+  @IsUUID()
+  forwardFromConversationId?: string;
+
+  @ApiPropertyOptional({ description: 'Mentioned user IDs in this message' })
+  @IsOptional()
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  mentionedUserIds?: string[];
 }

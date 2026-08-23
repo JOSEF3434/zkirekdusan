@@ -335,6 +335,12 @@ model User {
   streamPollVotes            StreamPollVote[]     @relation("StreamPollVotes")
   streamHighlights           StreamHighlight[]    @relation("StreamHighlights")
 
+  // Advanced Messaging Relations
+  conversationBlocks    ConversationBlock[] @relation("ConversationBlocker")
+  blockedByUsers        ConversationBlock[] @relation("ConversationBlocked")
+  forwardedMessages     MessageForward[]    @relation("ForwardOriginalSender")
+  messageMentions       MessageMention[]    @relation("MessageMentionUser")
+
   // Phase 6/7 Relations
   searchHistory SearchHistory[] @relation("UserSearchHistory")
   reports       Report[]        @relation("UserReports")
@@ -1009,6 +1015,7 @@ model Conversation {
 
   @@index([groupId])
   @@index([type])
+  @@index([lastMessageAt(sort: Desc)])
   @@map("conversations")
 }
 
@@ -1032,6 +1039,8 @@ model ConversationMember {
   @@unique([conversationId, userId])
   @@index([userId])
   @@index([conversationId])
+  @@index([userId, unreadCount])
+  @@index([userId, isPinned])
   @@map("conversation_members")
 }
 
@@ -1064,6 +1073,8 @@ model Message {
   starredBy   StarredMessage[]
   pinnedIn    PinnedMessage[]
   voiceNote   VoiceMessage?
+  forward     MessageForward?
+  mentions    MessageMention[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1072,6 +1083,9 @@ model Message {
   @@index([channelId])
   @@index([senderId])
   @@index([createdAt])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([conversationId, deletedForEveryoneAt])
+  @@index([replyToId])
   @@map("messages")
 }
 
@@ -2540,4 +2554,60 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+// ─────────────────────────────────────────────
+// MESSAGING ENHANCEMENTS — Advanced Messaging
+// ─────────────────────────────────────────────
+
+/// Tracks blocked users within conversations context
+model ConversationBlock {
+  id             String @id @default(uuid())
+  blockerId      String
+  blockedUserId  String
+
+  blocker     User @relation("ConversationBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedUser User @relation("ConversationBlocked", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedUserId])
+  @@index([blockerId])
+  @@index([blockedUserId])
+  @@map("conversation_blocks")
+}
+
+/// Forward metadata — tracks which message was forwarded from
+model MessageForward {
+  id                  String @id @default(uuid())
+  messageId           String @unique
+  originalMessageId   String
+  originalSenderId    String
+  originalConversationId String
+
+  message             Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  originalSender      User    @relation("ForwardOriginalSender", fields: [originalSenderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+  @@index([originalMessageId])
+  @@map("message_forwards")
+}
+
+/// Inline @mention inside a message
+model MessageMention {
+  id           String @id @default(uuid())
+  messageId    String
+  mentionedUserId String
+
+  message      Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mentionedUser User   @relation("MessageMentionUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, mentionedUserId])
+  @@index([messageId])
+  @@index([mentionedUserId])
+  @@map("message_mentions")
 }

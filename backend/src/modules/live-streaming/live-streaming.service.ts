@@ -505,10 +505,11 @@ export class LiveStreamingService {
 
     const key = await this.repository.getStreamKeyByChannelId(channelId);
     if (!key) {
-      return { keyPrefix: null, rtmpUrl: null, hasKey: false };
+      return { channelId, keyPrefix: null, rtmpUrl: null, hasKey: false };
     }
 
     return {
+      channelId,
       keyPrefix: key.keyPrefix,
       rtmpUrl: this.configService.get<string>(
         'RTMP_SERVER_URL',
@@ -542,6 +543,8 @@ export class LiveStreamingService {
 
     // Return raw key ONCE — not stored in plaintext
     return {
+      channelId,
+      rawKey,
       streamKey: rawKey,
       rtmpUrl: this.configService.get<string>(
         'RTMP_SERVER_URL',

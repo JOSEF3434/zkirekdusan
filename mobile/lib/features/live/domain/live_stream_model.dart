@@ -155,7 +155,12 @@ class StreamKeyDto with _$StreamKeyDto {
   }) = _StreamKeyDto;
 
   factory StreamKeyDto.fromJson(Map<String, dynamic> json) =>
-      _$StreamKeyDtoFromJson(json);
+      _$StreamKeyDtoFromJson({
+        'channelId': json['channelId'] as String? ?? '',
+        'keyPrefix': json['keyPrefix'] as String?,
+        'rtmpUrl': json['rtmpUrl'] as String?,
+        'rawKey': (json['rawKey'] ?? json['streamKey']) as String?,
+      });
 }
 
 // ---------------------------------------------------------------------------
