@@ -28,7 +28,7 @@ class StreamChatRepository {
         '/streams/$streamId/chat',
         queryParameters: {
           'limit': limit,
-          if (cursor != null) 'cursor': cursor,
+          'cursor': ?cursor,
         },
         cancelToken: cancelToken,
       );

@@ -293,7 +293,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         // Group Dropdown
         DropdownButtonFormField<GroupDto>(
           isExpanded: true,
-          value: _selectedGroup,
+          initialValue: _selectedGroup,
           decoration: const InputDecoration(
             labelText: 'Group *',
             border: OutlineInputBorder(),
@@ -328,7 +328,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                 )
               : DropdownButtonFormField<VideoChannelDto>(
                   isExpanded: true,
-                  value: _selectedChannel,
+                  initialValue: _selectedChannel,
                   decoration: const InputDecoration(
                     labelText: 'Channel *',
                     border: OutlineInputBorder(),
