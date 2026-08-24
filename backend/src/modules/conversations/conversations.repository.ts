@@ -1,4 +1,3 @@
-// src/modules/conversations/conversations.repository.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
@@ -26,18 +25,28 @@ export class ConversationsRepository {
                 profile: {
                   select: {
                     displayName: true,
-                    avatar: { select: { url: true } },
+                    avatar: {
+                      select: {
+                        url: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-        channel: { select: { name: true } },
+        channel: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
 
     // Create new direct conversation
     return this.prisma.conversation.create({
@@ -57,14 +66,22 @@ export class ConversationsRepository {
                 profile: {
                   select: {
                     displayName: true,
-                    avatar: { select: { url: true } },
+                    avatar: {
+                      select: {
+                        url: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-        channel: { select: { name: true } },
+        channel: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }
@@ -82,14 +99,24 @@ export class ConversationsRepository {
                 profile: {
                   select: {
                     displayName: true,
-                    avatar: { select: { url: true } },
+                    avatar: {
+                      select: {
+                        url: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-        channel: { select: { name: true, isPrivate: true, groupId: true } },
+        channel: {
+          select: {
+            name: true,
+            isPrivate: true,
+            groupId: true,
+          },
+        },
       },
     });
   }
@@ -97,7 +124,11 @@ export class ConversationsRepository {
   async getUserConversations(userId: string) {
     return this.prisma.conversation.findMany({
       where: {
-        members: { some: { userId } },
+        members: {
+          some: {
+            userId,
+          },
+        },
       },
       include: {
         members: {
@@ -109,34 +140,48 @@ export class ConversationsRepository {
                 profile: {
                   select: {
                     displayName: true,
-                    avatar: { select: { url: true } },
+                    avatar: {
+                      select: {
+                        url: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-        channel: { select: { name: true } },
+        channel: {
+          select: {
+            name: true,
+          },
+        },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: {
+        updatedAt: 'desc',
+      },
     });
   }
 
   async updateLastMessage(conversationId: string, lastMessageId: string) {
     return this.prisma.conversation.update({
-      where: { id: conversationId },
+      where: {
+        id: conversationId,
+      },
       data: {
         lastMessageId,
         lastMessageAt: new Date(),
       },
     });
   }
-}
 
   async updateMemberSetting(
     conversationId: string,
     userId: string,
-    settings: { isMuted?: boolean; isPinned?: boolean },
+    settings: {
+      isMuted?: boolean;
+      isPinned?: boolean;
+    },
   ) {
     return this.prisma.conversationMember.updateMany({
       where: {
@@ -158,3 +203,4 @@ export class ConversationsRepository {
       },
     });
   }
+}
