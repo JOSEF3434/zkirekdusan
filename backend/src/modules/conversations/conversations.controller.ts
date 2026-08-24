@@ -53,4 +53,59 @@ export class ConversationsController {
       userId,
     );
   }
+
+  @Post(':conversationId/mute')
+  @ApiOperation({ summary: 'Mute a conversation' })
+  @ApiResponse({ status: 200 })
+  async muteConversation(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.conversationsService.muteConversation(conversationId, userId);
+    return { success: true };
+  }
+
+  @Post(':conversationId/unmute')
+  @ApiOperation({ summary: 'Unmute a conversation' })
+  @ApiResponse({ status: 200 })
+  async unmuteConversation(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.conversationsService.unmuteConversation(conversationId, userId);
+    return { success: true };
+  }
+
+  @Post(':conversationId/pin')
+  @ApiOperation({ summary: 'Pin a conversation' })
+  @ApiResponse({ status: 200 })
+  async pinConversation(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.conversationsService.pinConversation(conversationId, userId);
+    return { success: true };
+  }
+
+  @Post(':conversationId/unpin')
+  @ApiOperation({ summary: 'Unpin a conversation' })
+  @ApiResponse({ status: 200 })
+  async unpinConversation(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.conversationsService.unpinConversation(conversationId, userId);
+    return { success: true };
+  }
+
+  @Post(':conversationId/mark-read')
+  @ApiOperation({ summary: 'Mark conversation as read' })
+  @ApiResponse({ status: 200 })
+  async markAsRead(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<{ success: boolean }> {
+    await this.conversationsService.markAsRead(conversationId, userId);
+    return { success: true };
+  }
 }

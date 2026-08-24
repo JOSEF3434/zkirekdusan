@@ -58,6 +58,54 @@ export class ConversationsService {
     return this.mapToDto(conversation, userId);
   }
 
+  async muteConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.conversationsRepository.updateMemberSetting(
+      conversationId,
+      userId,
+      { isMuted: true },
+    );
+  }
+
+  async unmuteConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.conversationsRepository.updateMemberSetting(
+      conversationId,
+      userId,
+      { isMuted: false },
+    );
+  }
+
+  async pinConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.conversationsRepository.updateMemberSetting(
+      conversationId,
+      userId,
+      { isPinned: true },
+    );
+  }
+
+  async unpinConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.conversationsRepository.updateMemberSetting(
+      conversationId,
+      userId,
+      { isPinned: false },
+    );
+  }
+
+  async markAsRead(conversationId: string, userId: string): Promise<void> {
+    await this.conversationsRepository.resetUnreadCount(conversationId, userId);
+  }
+
   private mapToDto(conv: any, currentUserId: string): ConversationResponseDto {
     let title: string | null = null;
 

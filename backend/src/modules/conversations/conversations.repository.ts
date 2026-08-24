@@ -132,3 +132,29 @@ export class ConversationsRepository {
     });
   }
 }
+
+  async updateMemberSetting(
+    conversationId: string,
+    userId: string,
+    settings: { isMuted?: boolean; isPinned?: boolean },
+  ) {
+    return this.prisma.conversationMember.updateMany({
+      where: {
+        conversationId,
+        userId,
+      },
+      data: settings,
+    });
+  }
+
+  async resetUnreadCount(conversationId: string, userId: string) {
+    return this.prisma.conversationMember.updateMany({
+      where: {
+        conversationId,
+        userId,
+      },
+      data: {
+        unreadCount: 0,
+      },
+    });
+  }
