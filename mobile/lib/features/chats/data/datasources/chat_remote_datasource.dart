@@ -23,8 +23,10 @@ class ChatRemoteDatasource {
   Future<List<ConversationModel>> getUserConversations() async {
     try {
       final response = await _apiClient.get('/conversations');
-      final data = response.data as List;
-      return data.map((json) => ConversationModel.fromJson(json)).toList();
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((json) => ConversationModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw _handleError(e);
     }
@@ -33,7 +35,8 @@ class ChatRemoteDatasource {
   Future<ConversationModel> getConversationById(String conversationId) async {
     try {
       final response = await _apiClient.get('/conversations/$conversationId');
-      return ConversationModel.fromJson(response.data);
+      final data = parseEnvelope(response.data);
+      return ConversationModel.fromJson(data);
     } catch (e) {
       throw _handleError(e);
     }
@@ -45,7 +48,8 @@ class ChatRemoteDatasource {
         '/conversations/direct',
         data: {'recipientId': recipientId},
       );
-      return ConversationModel.fromJson(response.data);
+      final data = parseEnvelope(response.data);
+      return ConversationModel.fromJson(data);
     } catch (e) {
       throw _handleError(e);
     }
@@ -104,11 +108,12 @@ class ChatRemoteDatasource {
       final response = await _apiClient.get(
         '/conversations/$conversationId/messages',
         queryParameters: {
-          ...?(cursor == null ? null : {'cursor': cursor}),
+          if (cursor != null) 'cursor': cursor,
           'limit': limit,
         },
       );
-      return PaginatedMessagesModel.fromJson(response.data);
+      final data = parseEnvelope(response.data);
+      return PaginatedMessagesModel.fromJson(data);
     } catch (e) {
       throw _handleError(e);
     }
@@ -125,15 +130,15 @@ class ChatRemoteDatasource {
       final response = await _apiClient.post(
         '/conversations/$conversationId/messages',
         data: {
-          ...?(content == null ? null : {'content': content}),
+          if (content != null) 'content': content,
           'type': type,
-          ...?(replyToId == null ? null : {'replyToId': replyToId}),
-          ...?(attachmentIds == null || attachmentIds.isEmpty
-              ? null
-              : {'attachmentIds': attachmentIds}),
+          if (replyToId != null) 'replyToId': replyToId,
+          if (attachmentIds != null && attachmentIds.isNotEmpty)
+            'attachmentIds': attachmentIds,
         },
       );
-      return MessageModel.fromJson(response.data);
+      final data = parseEnvelope(response.data);
+      return MessageModel.fromJson(data);
     } catch (e) {
       throw _handleError(e);
     }
@@ -148,7 +153,8 @@ class ChatRemoteDatasource {
         '/messages/$messageId',
         data: {'content': content},
       );
-      return MessageModel.fromJson(response.data);
+      final data = parseEnvelope(response.data);
+      return MessageModel.fromJson(data);
     } catch (e) {
       throw _handleError(e);
     }
@@ -229,8 +235,10 @@ class ChatRemoteDatasource {
       final response = await _apiClient.get(
         '/conversations/$conversationId/messages/pinned',
       );
-      final data = response.data as List;
-      return data.map((json) => MessageModel.fromJson(json)).toList();
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((json) => MessageModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw _handleError(e);
     }
@@ -255,8 +263,10 @@ class ChatRemoteDatasource {
   Future<List<MessageModel>> getStarredMessages() async {
     try {
       final response = await _apiClient.get('/messages/starred');
-      final data = response.data as List;
-      return data.map((json) => MessageModel.fromJson(json)).toList();
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((json) => MessageModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw _handleError(e);
     }
@@ -279,9 +289,7 @@ class ChatRemoteDatasource {
           filePath,
           filename: fileName,
         ),
-        ...?(conversationId == null
-            ? null
-            : {'conversationId': conversationId}),
+        if (conversationId != null) 'conversationId': conversationId,
       });
 
       final response = await _apiClient.post(
@@ -290,7 +298,8 @@ class ChatRemoteDatasource {
         onSendProgress: onUploadProgress,
       );
 
-      return response.data as Map<String, dynamic>;
+      final data = parseEnvelope(response.data);
+      return data;
     } catch (e) {
       throw _handleError(e);
     }
@@ -306,8 +315,10 @@ class ChatRemoteDatasource {
         '/conversations/search',
         queryParameters: {'q': query},
       );
-      final data = response.data as List;
-      return data.map((json) => ConversationModel.fromJson(json)).toList();
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((json) => ConversationModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw _handleError(e);
     }
@@ -322,8 +333,10 @@ class ChatRemoteDatasource {
         '/conversations/$conversationId/messages/search',
         queryParameters: {'q': query},
       );
-      final data = response.data as List;
-      return data.map((json) => MessageModel.fromJson(json)).toList();
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((json) => MessageModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw _handleError(e);
     }
@@ -336,11 +349,19 @@ class ChatRemoteDatasource {
   Exception _handleError(dynamic error) {
     if (error is DioException) {
       if (error.response != null) {
-        final message = error.response?.data['message'] ?? error.message;
-        return Exception('Chat API Error: $message');
+        final data = error.response?.data;
+        if (data is Map<String, dynamic>) {
+          final message = data['message'] ?? data['error'];
+          if (message is List) {
+            return Exception(message.join(', '));
+          } else if (message != null) {
+            return Exception(message.toString());
+          }
+        }
+        return Exception('Server Error (${error.response?.statusCode})');
       }
       return Exception('Network Error: ${error.message}');
     }
-    return Exception('Unknown Error: $error');
+    return Exception(error.toString().replaceFirst('Exception: ', ''));
   }
 }

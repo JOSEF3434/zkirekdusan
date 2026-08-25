@@ -117,6 +117,32 @@ export class ConversationsRepository {
             groupId: true,
           },
         },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -154,6 +180,32 @@ export class ConversationsRepository {
         channel: {
           select: {
             name: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

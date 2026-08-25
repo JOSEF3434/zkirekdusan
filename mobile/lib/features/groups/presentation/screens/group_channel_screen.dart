@@ -12,6 +12,7 @@ import 'package:mobile/features/groups/presentation/providers/group_detail_provi
 import 'package:mobile/features/groups/presentation/screens/tabs/group_members_tab.dart';
 import 'package:mobile/features/groups/presentation/screens/tabs/group_playlists_tab.dart';
 import 'package:mobile/features/groups/presentation/screens/tabs/group_settings_tab.dart';
+import 'package:mobile/features/groups/presentation/screens/tabs/group_streams_tab.dart';
 import 'package:mobile/features/groups/presentation/screens/tabs/group_video_feed_tab.dart';
 import 'package:mobile/features/groups/presentation/widgets/edit_group_sheet.dart';
 import 'package:mobile/features/groups/presentation/widgets/group_channel_header.dart';
@@ -148,6 +149,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
     // Build dynamic tabs based on capabilities
     final tabs = <Tab>[
       const Tab(text: 'Videos'),
+      const Tab(text: 'Live'),
       const Tab(text: 'Playlists'),
       if (canViewMembers) const Tab(text: 'Members'),
       const Tab(text: 'About & Settings'),
@@ -155,6 +157,10 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
 
     final tabViews = <Widget>[
       GroupVideoFeedTab(
+        groupContext: groupContext,
+        activeChannel: activeChannel,
+      ),
+      GroupStreamsTab(
         groupContext: groupContext,
         activeChannel: activeChannel,
       ),
@@ -167,8 +173,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
     ];
 
     int initialIndex = 0;
-    if (widget.initialTab == 'playlists') initialIndex = 1;
-    if (widget.initialTab == 'members' && canViewMembers) initialIndex = 2;
+    if (widget.initialTab == 'live' || widget.initialTab == 'streams') initialIndex = 1;
+    if (widget.initialTab == 'playlists') initialIndex = 2;
+    if (widget.initialTab == 'members' && canViewMembers) initialIndex = 3;
     if (widget.initialTab == 'settings') initialIndex = tabs.length - 1;
 
     return DefaultTabController(

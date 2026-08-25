@@ -143,7 +143,7 @@ class ExploreScreen extends ConsumerWidget {
   Widget _buildVideoCarousel(List<dynamic> videos, BuildContext context) {
     final isDesktop = ResponsiveLayout.isDesktop(context);
     return SizedBox(
-      height: isDesktop ? 280 : 240,
+      height: isDesktop ? 260 : 235,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -151,8 +151,12 @@ class ExploreScreen extends ConsumerWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           return SizedBox(
-            width: isDesktop ? 340 : 280,
-            child: VideoCard(video: videos[index]),
+            width: isDesktop ? 320 : 260,
+            child: VideoCard(
+              video: videos[index],
+              showActions: false,
+              isCompact: true,
+            ),
           );
         },
       ),

@@ -1,5 +1,5 @@
 // lib/features/player/presentation/providers/player_provider.dart
-// F10 upgraded: progress restore, debounced saves, speed, auto-hide, quality switching.
+// Advanced player with Cloudinary streaming, multi-URL fallback, and progress restore.
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +23,7 @@ class PlayerState {
   final bool isBuffering;
   final bool isFullscreen;
   final double playbackSpeed;
+  final String? activeStreamUrl;
 
   /// Restored position in seconds (-1 means no restore).
   final int resumePositionSeconds;
@@ -39,6 +40,7 @@ class PlayerState {
     this.isFullscreen = false,
     this.playbackSpeed = 1.0,
     this.resumePositionSeconds = -1,
+    this.activeStreamUrl,
   });
 
   PlayerState copyWith({
@@ -53,6 +55,7 @@ class PlayerState {
     bool? isFullscreen,
     double? playbackSpeed,
     int? resumePositionSeconds,
+    String? activeStreamUrl,
   }) {
     return PlayerState(
       video: video ?? this.video,
@@ -67,6 +70,7 @@ class PlayerState {
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
       resumePositionSeconds:
           resumePositionSeconds ?? this.resumePositionSeconds,
+      activeStreamUrl: activeStreamUrl ?? this.activeStreamUrl,
     );
   }
 }
@@ -100,6 +104,75 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     _initialize();
   }
 
+  // ── Cloudinary URL utilities ────────────────────────────────────────────
+
+  /// Returns true if the URL is hosted on Cloudinary CDN.
+  static bool _isCloudinaryUrl(String url) {
+    return url.contains('res.cloudinary.com') ||
+        url.contains('cloudinary.com');
+  }
+
+  /// Extracts cloud name and public_id from a Cloudinary URL.
+  /// e.g. https://res.cloudinary.com/v6zdpkoh/video/upload/stories/abc.mp4
+  ///   → cloudName: v6zdpkoh, publicId: stories/abc
+  static ({String cloudName, String publicId})? _parseCloudinaryUrl(
+    String url,
+  ) {
+    try {
+      final uri = Uri.parse(url);
+      final pathParts = uri.pathSegments;
+      // pathSegments: [cloudName, 'video'/'image', 'upload', ...rest, 'file.ext']
+      if (pathParts.length < 4) return null;
+      final cloudName = pathParts[0];
+      final uploadIdx = pathParts.indexOf('upload');
+      if (uploadIdx < 0) return null;
+      // Everything after 'upload/' minus extension is the public_id
+      final afterUpload = pathParts.sublist(uploadIdx + 1);
+      if (afterUpload.isEmpty) return null;
+      // Strip any transformation segments (contain underscore like q_auto)
+      int startIdx = 0;
+      for (int i = 0; i < afterUpload.length - 1; i++) {
+        if (afterUpload[i].contains('_') || afterUpload[i].contains(',')) {
+          startIdx = i + 1;
+        } else {
+          break;
+        }
+      }
+      final publicWithExt = afterUpload.sublist(startIdx).join('/');
+      // Remove file extension
+      final dotIdx = publicWithExt.lastIndexOf('.');
+      final publicId =
+          dotIdx > 0 ? publicWithExt.substring(0, dotIdx) : publicWithExt;
+      return (cloudName: cloudName, publicId: publicId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Converts a raw Cloudinary video URL to an HLS streaming URL.
+  /// Uses Cloudinary's sp_hd streaming profile for adaptive bitrate.
+  static String _toCloudinaryHlsUrl(String url) {
+    final parsed = _parseCloudinaryUrl(url);
+    if (parsed == null) return url;
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/sp_hd/${parsed.publicId}.m3u8';
+  }
+
+  /// Converts a raw Cloudinary video URL to an optimized direct MP4 URL.
+  static String _toCloudinaryMp4Url(String url) {
+    final parsed = _parseCloudinaryUrl(url);
+    if (parsed == null) return url;
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/q_auto,vc_auto,f_mp4/${parsed.publicId}.mp4';
+  }
+
+  /// Converts a raw Cloudinary video URL to a specific height rendition.
+  static String _toCloudinaryRenditionUrl(String url, int height) {
+    final parsed = _parseCloudinaryUrl(url);
+    if (parsed == null) return url;
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/h_$height,c_scale,q_auto,vc_auto/${parsed.publicId}.mp4';
+  }
+
+  // ── URL resolution ────────────────────────────────────────────────────────
+
   String _resolvePlaybackUrl(String rawUrl) {
     if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
       final uri = Uri.tryParse(rawUrl);
@@ -124,11 +197,60 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     return rawUrl.startsWith('/') ? '$base$rawUrl' : '$base/$rawUrl';
   }
 
+  /// Builds an ordered list of candidate playback URLs, from most-preferred to fallback.
+  List<String> _buildCandidateUrls(VideoResponseDto video) {
+    final candidates = <String>[];
+
+    // ── Primary: hlsUrl ────────────────────────────────────────────────────
+    if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
+      final resolved = _resolvePlaybackUrl(video.hlsUrl!);
+
+      if (_isCloudinaryUrl(resolved)) {
+        // Already HLS?
+        if (resolved.endsWith('.m3u8') || resolved.contains('/sp_')) {
+          candidates.add(resolved); // Already HLS streaming URL
+        } else {
+          // Convert raw Cloudinary URL to HLS streaming URL first
+          candidates.add(_toCloudinaryHlsUrl(resolved));
+          // Then try optimized MP4 as fallback
+          candidates.add(_toCloudinaryMp4Url(resolved));
+          // Then the raw URL as last resort
+          candidates.add(resolved);
+        }
+      } else {
+        candidates.add(resolved);
+      }
+    }
+
+    // ── Renditions (quality options) ───────────────────────────────────────
+    for (final rendition in video.renditions) {
+      if (rendition.url.isNotEmpty) {
+        final resolved = _resolvePlaybackUrl(rendition.url);
+        if (!candidates.contains(resolved)) {
+          candidates.add(resolved);
+          // If Cloudinary rendition looks like HLS, also add direct MP4 fallback
+          if (_isCloudinaryUrl(resolved) && resolved.contains('.m3u8')) {
+            final res = rendition.resolution > 0 ? rendition.resolution : 720;
+            final mp4 = _toCloudinaryRenditionUrl(
+              resolved,
+              res,
+            );
+            if (!candidates.contains(mp4)) candidates.add(mp4);
+          }
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
   @override
   void dispose() {
     _progressTimer?.cancel();
     _controlsHideTimer?.cancel();
-    _flushProgress(); // Flush on dispose
+    _flushProgress();
     state.controller?.dispose();
     super.dispose();
   }
@@ -139,15 +261,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       final localProgress = _progressRepo.load(_videoId);
       final video = await _repository.getVideo(_videoId);
 
-      final candidateUrls = <String>[];
-      if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
-        candidateUrls.add(_resolvePlaybackUrl(video.hlsUrl!));
-      }
-      for (final rendition in video.renditions) {
-        if (rendition.url.isNotEmpty) {
-          candidateUrls.add(_resolvePlaybackUrl(rendition.url));
-        }
-      }
+      final candidateUrls = _buildCandidateUrls(video);
 
       if (candidateUrls.isEmpty) {
         if (mounted) {
@@ -168,15 +282,35 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
 
       VideoPlayerController? initializedController;
+      String? successUrl;
 
-      // Try candidates in order
+      // Try candidates in order — stop at first success
       for (final url in candidateUrls) {
         try {
-          final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
-          await ctrl.initialize();
+          final ctrl = VideoPlayerController.networkUrl(
+            Uri.parse(url),
+            videoPlayerOptions: VideoPlayerOptions(
+              mixWithOthers: false,
+              allowBackgroundPlayback: false,
+            ),
+          );
+          await ctrl.initialize().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              ctrl.dispose();
+              throw TimeoutException('Timed out initializing: $url');
+            },
+          );
+          if (ctrl.value.hasError) {
+            ctrl.dispose();
+            continue;
+          }
           initializedController = ctrl;
+          successUrl = url;
           break;
-        } catch (_) {}
+        } catch (_) {
+          // Try next URL
+        }
       }
 
       if (initializedController == null) {
@@ -184,7 +318,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           state = state.copyWith(
             isLoading: false,
             error:
-                'Unable to play video. The video stream source is currently unreachable.',
+                'Unable to play video. The video stream source is currently unreachable.\n\nPlease check your internet connection and try again.',
           );
         }
         return;
@@ -201,8 +335,6 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
 
       controller.play();
-
-      // Listen for buffering state
       controller.addListener(_onControllerUpdate);
 
       // Throttled progress timer every 5 seconds
@@ -226,9 +358,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           controller: controller,
           isLoading: false,
           resumePositionSeconds: resumePos,
-          currentRendition: video.renditions.isNotEmpty
-              ? video.renditions.first
-              : null,
+          activeStreamUrl: successUrl,
+          currentRendition:
+              video.renditions.isNotEmpty ? video.renditions.first : null,
         );
       }
     } catch (e) {
@@ -248,7 +380,6 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     }
   }
 
-  /// Save progress only when meaningful advancement has happened.
   void _maybeSaveProgress(VideoResponseDto video) {
     final ctrl = state.controller;
     if (ctrl == null || !ctrl.value.isInitialized || !ctrl.value.isPlaying) {
@@ -257,9 +388,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final positionSec = ctrl.value.position.inSeconds;
     final durationSec = ctrl.value.duration.inSeconds;
 
-    // Only save if more than 5 seconds have passed since last save
     if ((positionSec - _lastSavedPosition).abs() < 5) return;
-
     _lastSavedPosition = positionSec;
 
     final progress = PlaybackProgress(
@@ -271,14 +400,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       updatedAt: DateTime.now(),
     );
 
-    // Save locally (always)
     _progressRepo.save(progress);
-
-    // Sync to backend (fire and forget)
     _repository.saveProgress(_videoId, positionSec);
   }
 
-  /// Flush on app background or player dispose.
   void _flushProgress() {
     final video = state.video;
     final ctrl = state.controller;
@@ -367,8 +492,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final oldController = state.controller;
 
     try {
+      // For Cloudinary renditions, try the URL directly
+      final resolvedUrl = _resolvePlaybackUrl(rendition.url);
       final newController = VideoPlayerController.networkUrl(
-        Uri.parse(rendition.url),
+        Uri.parse(resolvedUrl),
       );
       await newController.initialize();
       await newController.seekTo(currentPosition);
@@ -381,13 +508,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         state = state.copyWith(
           controller: newController,
           currentRendition: rendition,
+          activeStreamUrl: resolvedUrl,
         );
       }
 
       oldController?.removeListener(_onControllerUpdate);
       oldController?.dispose();
     } catch (_) {
-      // Quality switch failed — keep old stream
       if (mounted) {
         state = state.copyWith(error: 'Could not switch quality.');
       }

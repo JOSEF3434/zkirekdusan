@@ -10,6 +10,7 @@ import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/broadcaster_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
+import 'package:mobile/app/env/env.dart';
 import 'package:mobile/features/live/presentation/widgets/stream_health_indicator.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
@@ -417,7 +418,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   Text(_formatElapsed(bState.elapsed)),
                 ],
               )
-            : const Text('Studio'),
+            : const Text('Live Studio'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => _confirmLeave(context, bState.stream),
@@ -439,6 +440,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                // ── YouTube Studio Live Monitor Banner ──
+                _buildLiveMonitor(theme, stream, bState),
+
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -464,6 +468,59 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                 )).notifier,
                               )
                               .regenerateStreamKey(),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Recording & Live Settings Card
+                        Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Recording & Archive Settings',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Record Stream'),
+                                  subtitle: const Text(
+                                    'Save stream into group recordings for VOD',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                  value: stream.isRecordingEnabled,
+                                  onChanged: stream.status == LiveStreamStatus.live
+                                      ? null
+                                      : (v) {
+                                          ref
+                                              .read(liveStreamingRepositoryProvider)
+                                              .updateStream(stream.id, {
+                                                'isRecordingEnabled': v,
+                                              })
+                                              .then((updated) {
+                                                ref
+                                                    .read(
+                                                      broadcasterProvider((
+                                                        streamId,
+                                                        _effectiveChannelId,
+                                                      )).notifier,
+                                                    )
+                                                    .goLive(); // updates state
+                                              })
+                                              .catchError((_) {});
+                                        },
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
 
@@ -535,7 +592,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         )).notifier,
                       )
                       .goLive(),
-                  onEndStream: () => _confirmEndStream(context, streamId),
+                  onEndStream: () => _confirmEndStream(context, streamId, bState),
                   onPublishVod: () => ref
                       .read(
                         broadcasterProvider((
@@ -550,14 +607,190 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
-  Future<void> _confirmEndStream(BuildContext context, String streamId) async {
+  Widget _buildLiveMonitor(
+    ThemeData theme,
+    LiveStreamDto stream,
+    BroadcasterState bState,
+  ) {
+    final isLive = stream.status == LiveStreamStatus.live;
+
+    return Container(
+      width: double.infinity,
+      height: 180,
+      color: Colors.black,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background monitor graphic / grid
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isLive ? Icons.sensors : Icons.videocam_outlined,
+                  size: 48,
+                  color: isLive ? const Color(0xFFE53935) : Colors.white38,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isLive
+                    ? 'STREAMING LIVE'
+                    : 'BROADCAST STANDBY',
+                  style: TextStyle(
+                    color: isLive ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isLive
+                      ? 'Live monitor active • Streaming to channel'
+                      : 'Connect your streaming software or press Go Live',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+          // Live duration badge (top-left)
+          Positioned(
+            top: 12,
+            left: 12,
+            child: isLive
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.circle, color: Colors.white, size: 8),
+                        const SizedBox(width: 6),
+                        Text(
+                          'LIVE ${_formatElapsed(bState.elapsed)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'OFFLINE',
+                      style: TextStyle(color: Colors.white70, fontSize: 10),
+                    ),
+                  ),
+          ),
+
+          // Viewers badge (top-right)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.visibility, color: Colors.white70, size: 12),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${bState.viewerCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // REC indicator (bottom-left)
+          if (stream.isRecordingEnabled)
+            Positioned(
+              bottom: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isLive ? Colors.red.withValues(alpha: 0.8) : Colors.black45,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.fiber_manual_record,
+                      color: isLive ? Colors.white : Colors.white60,
+                      size: 10,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'REC',
+                      style: TextStyle(
+                        color: isLive ? Colors.white : Colors.white70,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmEndStream(
+    BuildContext context,
+    String streamId,
+    BroadcasterState bState,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('End Stream?'),
-        content: const Text(
-          'This will end the stream for all viewers. '
-          'If recording is enabled, it will be processed as a VOD.',
+        title: const Text('End Live Broadcast?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your live stream will end for all viewers.',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text('Duration: ${_formatElapsed(bState.elapsed)}'),
+                  const Spacer(),
+                  const Icon(Icons.people_outline, size: 18),
+                  const SizedBox(width: 4),
+                  Text('Peak: ${bState.viewerCount}'),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -572,11 +805,100 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         ],
       ),
     );
+
     if (confirm == true && mounted) {
       await ref
           .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
           .endStream();
+
+      if (mounted) {
+        _showPostStreamSummaryDialog(this.context, streamId, bState);
+      }
     }
+  }
+
+  Future<void> _showPostStreamSummaryDialog(
+    BuildContext context,
+    String streamId,
+    BroadcasterState bState,
+  ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Broadcast Finished'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Your stream recording is saved in group channel streams.'),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(Icons.access_time, size: 16),
+                const SizedBox(width: 6),
+                Text('Total Duration: ${_formatElapsed(bState.elapsed)}'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.visibility, size: 16),
+                const SizedBox(width: 6),
+                Text('Viewers: ${bState.viewerCount}'),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.pop();
+            },
+            child: const Text('Close Studio'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref
+                    .read(
+                      broadcasterProvider((
+                        streamId,
+                        _effectiveChannelId,
+                      )).notifier,
+                    )
+                    .publishVod();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Stream published as Channel Video!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  context.pop();
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Publish VOD failed: $e')),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.video_library),
+            label: const Text('Post as Video (VOD)'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmLeave(
@@ -684,10 +1006,26 @@ class _StreamKeyCard extends StatelessWidget {
     required this.onRegenerate,
   });
 
+  String _resolveRtmpUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.isEmpty) {
+      final baseUri = Uri.tryParse(Env.apiBaseUrl);
+      final host = baseUri?.host.isNotEmpty == true ? baseUri!.host : 'localhost';
+      return 'rtmp://$host:1935/live';
+    }
+    if (rawUrl.contains('localhost') || rawUrl.contains('127.0.0.1')) {
+      final baseUri = Uri.tryParse(Env.apiBaseUrl);
+      if (baseUri != null && baseUri.host.isNotEmpty && baseUri.host != 'localhost' && baseUri.host != '127.0.0.1') {
+        return rawUrl.replaceAll('localhost', baseUri.host).replaceAll('127.0.0.1', baseUri.host);
+      }
+    }
+    return rawUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sk = streamKey;
+    final rtmpDisplayUrl = _resolveRtmpUrl(sk?.rtmpUrl);
 
     return Card(
       child: Padding(
@@ -701,36 +1039,34 @@ class _StreamKeyCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            if (sk?.rtmpUrl != null) ...[
-              const Text(
-                'Server URL',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      sk!.rtmpUrl!,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                      ),
+            const Text(
+              'Server URL',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    rtmpDisplayUrl,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18),
-                    tooltip: 'Copy server URL',
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: sk.rtmpUrl!));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Server URL copied')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 18),
+                  tooltip: 'Copy server URL',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: rtmpDisplayUrl));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Server URL copied')),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
 
             const Text(
               'Stream Key',

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import path from 'path';
@@ -14,6 +15,7 @@ import { StoriesRepository } from './stories.repository.js';
 import { UploadsRepository } from '../uploads/uploads.repository.js';
 import { IStorageProvider } from '../uploads/providers/storage.interface.js';
 import { STORAGE_PROVIDER_TOKEN } from '../uploads/providers/storage.factory.js';
+import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
 import { CreateStoryDto } from './dto/create-story.dto.js';
 import { StoryAuthorDto, StoryResponseDto } from './dto/story-response.dto.js';
 import { StoryFeedGroupDto } from './dto/story-feed.dto.js';
@@ -23,6 +25,8 @@ import { StoryViewerResponseDto } from './dto/story-viewer.dto.js';
 
 @Injectable()
 export class StoriesService {
+  private readonly logger = new Logger(StoriesService.name);
+
   constructor(
     private readonly storiesRepository: StoriesRepository,
     private readonly uploadsRepository: UploadsRepository,
@@ -49,11 +53,9 @@ export class StoriesService {
       throw new BadRequestException('Media file is required');
     }
 
-    const fileType = file.mimetype.startsWith('video/')
-      ? FileType.VIDEO
-      : FileType.IMAGE;
-    const storyType =
-      fileType === FileType.VIDEO ? StoryType.VIDEO : StoryType.IMAGE;
+    const isVideo = file.mimetype.startsWith('video/');
+    const fileType = isVideo ? FileType.VIDEO : FileType.IMAGE;
+    const storyType = isVideo ? StoryType.VIDEO : StoryType.IMAGE;
 
     const checksum = crypto
       .createHash('sha256')
@@ -64,6 +66,20 @@ export class StoriesService {
     const result = await this.storageProvider.upload(file, subfolder);
     const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
 
+    // For Cloudinary video stories: use optimized streaming URL so videos play on all devices
+    let mediaUrl = result.url;
+    if (
+      isVideo &&
+      this.storageProvider.providerType === 'CLOUDINARY'
+    ) {
+      const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+      // Use direct optimized MP4 URL for story videos (stories are short, no need for HLS)
+      mediaUrl = cloudinaryProvider.getVideoDirectUrl(result.storageKey);
+      this.logger.log(
+        `[Stories] Cloudinary video story URL: ${mediaUrl} (publicId: ${result.storageKey})`,
+      );
+    }
+
     const dbFile = await this.uploadsRepository.createFile({
       originalName: file.originalname,
       fileName: path.basename(result.storageKey),
@@ -73,7 +89,7 @@ export class StoriesService {
       fileType,
       provider: result.provider as FileProvider,
       storageKey: result.storageKey,
-      url: result.url,
+      url: mediaUrl, // Store optimized URL
       uploadedById: authorId,
       groupId: null,
       checksum,

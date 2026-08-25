@@ -119,6 +119,20 @@ export class ConversationsService {
         'Direct Chat';
     } else if (conv.channel?.name) {
       title = `#${conv.channel.name}`;
+    } else if (conv.group?.name) {
+      title = conv.group.name;
+    }
+
+    const latestMsg = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
+    let lastMessage: any = undefined;
+    if (latestMsg) {
+      lastMessage = {
+        id: latestMsg.id,
+        content: latestMsg.content,
+        type: latestMsg.type,
+        senderName: latestMsg.sender?.profile?.displayName ?? latestMsg.sender?.username ?? 'User',
+        isMe: latestMsg.senderId === currentUserId,
+      };
     }
 
     return {
@@ -127,7 +141,9 @@ export class ConversationsService {
       groupId: conv.groupId,
       channelId: conv.channelId,
       title,
-      lastMessageAt: conv.lastMessageAt,
+      lastMessageSnippet: latestMsg?.content ?? null,
+      lastMessageAt: conv.lastMessageAt ?? latestMsg?.createdAt ?? null,
+      lastMessage,
       members: (conv.members ?? []).map((m: any) => ({
         userId: m.user.id,
         username: m.user.username,
@@ -135,7 +151,15 @@ export class ConversationsService {
         avatarUrl: m.user.profile?.avatar?.url ?? null,
         unreadCount: m.unreadCount ?? 0,
         isMuted: m.isMuted ?? false,
+        isPinned: m.isPinned ?? false,
       })),
+      metadata: conv.group
+        ? {
+            groupName: conv.group.name,
+            groupAvatar: conv.group.avatarUrl ?? null,
+            channelName: conv.channel?.name ?? null,
+          }
+        : undefined,
       createdAt: conv.createdAt,
     };
   }

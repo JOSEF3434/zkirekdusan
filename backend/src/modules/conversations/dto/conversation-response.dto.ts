@@ -23,6 +23,9 @@ export class ConversationMemberDto {
 
   @ApiProperty({ example: false })
   isMuted!: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  isPinned?: boolean;
 }
 
 export class ConversationResponseDto {
@@ -47,8 +50,14 @@ export class ConversationResponseDto {
   @ApiPropertyOptional({ example: '2024-01-15T10:00:00.000Z', nullable: true })
   lastMessageAt?: Date | null;
 
+  @ApiPropertyOptional({ description: 'Structured last message object' })
+  lastMessage?: any;
+
   @ApiProperty({ type: [ConversationMemberDto] })
   members!: ConversationMemberDto[];
+
+  @ApiPropertyOptional({ description: 'Group or Channel metadata' })
+  metadata?: any;
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   createdAt!: Date;

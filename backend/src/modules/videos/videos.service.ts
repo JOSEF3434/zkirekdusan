@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   Logger,
@@ -16,6 +17,9 @@ import { VideoStatus, VideoVisibility, GroupRole } from '@prisma/client';
 import { AppRole } from '../../common/constants/roles.js';
 import { v4 as uuidv4 } from 'uuid';
 import { VIDEO_PROCESSING_QUEUE } from '../video-processing/video-processing.processor.js';
+import type { IStorageProvider } from '../uploads/providers/storage.interface.js';
+import { STORAGE_PROVIDER_TOKEN } from '../uploads/providers/storage.factory.js';
+import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
 
 @Injectable()
 export class VideosService {
@@ -25,6 +29,8 @@ export class VideosService {
     private readonly repo: VideosRepository,
     private readonly prisma: PrismaService,
     @InjectQueue(VIDEO_PROCESSING_QUEUE) private readonly videoQueue: Queue,
+    @Inject(STORAGE_PROVIDER_TOKEN)
+    private readonly storageProvider: IStorageProvider & Record<string, any>,
   ) {}
 
   private generateSlug(title: string): string {
@@ -179,31 +185,47 @@ export class VideosService {
     // 1. Update DB — sets status → QUEUED and links source file
     const updated = await this.repo.setSourceFile(videoId, fileId);
 
-    // 2. Resolve source file path from the attached file record
+    // 2. Resolve source file from DB
     const fileRecord = await this.prisma.file.findUnique({
       where: { id: fileId },
       select: { storageKey: true, url: true },
     });
-    const sourceFilePath =
-      fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
+    const sourceFilePath = fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
 
-    // 3. Immediately mark video as READY with raw file URL so Flutter doesn't
-    //    hang waiting for HLS transcoding. The transcode job will update the
-    //    video's hlsUrl/renditions asynchronously once complete.
+    // 3. Build the best playback URL immediately so Flutter can play the video
+    //    without waiting for background processing to complete.
     if (fileRecord?.url) {
+      let immediateHlsUrl = fileRecord.url;
+
+      // ── Cloudinary: build native streaming URL right away ─────────────
+      if (this.storageProvider.providerType === 'CLOUDINARY') {
+        const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+        const publicId = fileRecord.storageKey;
+
+        if (publicId) {
+          // Primary: Cloudinary HLS adaptive streaming (sp_hd profile)
+          immediateHlsUrl = cloudinaryProvider.getVideoStreamingUrl(publicId);
+          this.logger.log(
+            `[Cloudinary] Video [${videoId}] immediate streaming URL: ${immediateHlsUrl}`,
+          );
+        }
+      }
+
       await this.prisma.video.update({
         where: { id: videoId },
         data: {
           status: VideoStatus.READY,
-          hlsUrl: fileRecord.url, // original file — playable immediately
+          hlsUrl: immediateHlsUrl,
         },
       });
       this.logger.log(
-        `Video [${videoId}] marked READY immediately with raw file URL: ${fileRecord.url}`,
+        `Video [${videoId}] marked READY immediately. hlsUrl: ${immediateHlsUrl}`,
       );
     }
 
-    // 4. Enqueue BullMQ transcode job (background — updates hlsUrl when done)
+    // 4. Enqueue background processing job:
+    //    - For Cloudinary: builds rendition records from Cloudinary on-demand URLs
+    //    - For Local: runs FFmpeg HLS transcoding
     try {
       await this.videoQueue.add(
         'transcode',
@@ -217,11 +239,11 @@ export class VideosService {
       );
 
       this.logger.log(
-        `Video [${videoId}] queued for background HLS transcoding (file: ${sourceFilePath})`,
+        `Video [${videoId}] queued for background processing (Cloudinary: rendition records; Local: HLS transcode)`,
       );
     } catch (queueErr) {
       this.logger.warn(
-        `Failed to enqueue transcode job for video [${videoId}] (Redis may be offline): ${queueErr}`,
+        `Failed to enqueue processing job for video [${videoId}] (Redis may be offline): ${queueErr}`,
       );
     }
 

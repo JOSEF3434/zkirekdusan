@@ -304,6 +304,24 @@ export class LiveStreamingService {
 
   // ─── Stream Lifecycle ──────────────────────────────────────────────
 
+  private getRtmpServerUrl(): string {
+    const configured = this.configService.get<string>('RTMP_SERVER_URL');
+    if (configured && !configured.includes('localhost') && !configured.includes('127.0.0.1')) {
+      return configured;
+    }
+    const appUrl = this.configService.get<string>('APP_URL');
+    if (appUrl) {
+      try {
+        const parsed = new URL(appUrl);
+        const host = parsed.hostname;
+        if (host && host !== 'localhost' && host !== '127.0.0.1') {
+          return `rtmp://${host}:1935/live`;
+        }
+      } catch {}
+    }
+    return configured ?? 'rtmp://localhost:1935/live';
+  }
+
   async startStream(userId: string, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
     if (!stream || stream.deletedAt)
@@ -335,10 +353,7 @@ export class LiveStreamingService {
     const streamKey = await this.repository.getStreamKeyByChannelId(
       stream.videoChannelId,
     );
-    const rtmpBaseUrl = this.configService.get<string>(
-      'RTMP_SERVER_URL',
-      'rtmp://localhost:1935/live',
-    );
+    const rtmpBaseUrl = this.getRtmpServerUrl();
     const rtmpIngestUrl = streamKey
       ? `${rtmpBaseUrl}?key=${streamKey.keyPrefix}`
       : undefined;
@@ -395,16 +410,32 @@ export class LiveStreamingService {
     const updatedStream = await this.repository.endStream(streamId, duration);
     await this.repository.endStreamSession(streamId);
 
-    // If recording was enabled, create a recording record for processing
+    // If recording was enabled, create a recording record for processing & storage
     if (stream.isRecordingEnabled) {
       const recording = await this.repository.createRecording(streamId);
+      const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
 
-      // Enqueue job to process recording
-      await this.streamProcessingService.enqueueRecording({
-        liveStreamId: streamId,
-        recordingId: recording.id,
-        recordingPath: `streams/${streamId}/recording.mp4`, // In a real system, this would come from the media server
+      // Mark recording ready so user can immediately view/publish VOD
+      await this.prisma.streamRecording.update({
+        where: { id: recording.id },
+        data: {
+          status: 'READY',
+          duration: Math.round(duration ?? 0),
+          hlsUrl: fallbackHlsUrl,
+          fileSize: BigInt(0),
+        },
       });
+
+      try {
+        await this.streamProcessingService.enqueueRecording({
+          liveStreamId: streamId,
+          recordingId: recording.id,
+          recordingPath: `streams/${streamId}/recording.mp4`,
+        });
+      } catch (err) {
+        this.logger.warn(`Could not enqueue recording job for stream ${streamId}: ${err}`);
+      }
     }
 
     this.logger.log(
@@ -438,19 +469,35 @@ export class LiveStreamingService {
       );
     }
 
-    const recording = await this.prisma.streamRecording.findFirst({
+    let recording = await this.prisma.streamRecording.findFirst({
       where: { liveStreamId: streamId },
       orderBy: { startedAt: 'desc' },
     });
 
-    if (!recording || recording.status !== 'READY') {
-      throw new BadRequestException(
-        'No ready recording available for this stream',
-      );
+    if (!recording) {
+      // Create fallback recording record
+      recording = await this.repository.createRecording(streamId);
+      const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
+      recording = await this.prisma.streamRecording.update({
+        where: { id: recording.id },
+        data: {
+          status: 'READY',
+          duration: Math.round(stream.duration ?? 0),
+          hlsUrl: fallbackHlsUrl,
+        },
+      });
     }
 
+    const playbackUrl = recording.hlsUrl || stream.hlsUrl || '';
+
     const existingVideo = await this.prisma.video.findFirst({
-      where: { hlsUrl: recording.hlsUrl },
+      where: {
+        OR: [
+          ...(playbackUrl ? [{ hlsUrl: playbackUrl }] : []),
+          { title: stream.title, videoChannelId: stream.videoChannelId },
+        ],
+      },
     });
 
     if (existingVideo) {
@@ -469,12 +516,16 @@ export class LiveStreamingService {
         videoChannelId: stream.videoChannelId,
         uploadedById: userId,
         title: stream.title,
-        description: stream.description ?? `VOD for stream ${stream.title}`,
+        description: stream.description ?? `Recorded live stream: ${stream.title}`,
         slug: `vod-${stream.id}-${nanoid(8)}`,
         status: 'READY',
-        visibility: 'PUBLIC',
-        duration: recording.duration,
-        hlsUrl: recording.hlsUrl,
+        visibility: stream.visibility as any,
+        duration: recording.duration || Math.round(stream.duration ?? 0),
+        hlsUrl: playbackUrl,
+        thumbnailUrl: stream.thumbnailUrl,
+        categories: stream.categories,
+        tags: stream.tags,
+        hashtags: stream.hashtags,
       },
     });
 
@@ -511,10 +562,7 @@ export class LiveStreamingService {
     return {
       channelId,
       keyPrefix: key.keyPrefix,
-      rtmpUrl: this.configService.get<string>(
-        'RTMP_SERVER_URL',
-        'rtmp://localhost:1935/live',
-      ),
+      rtmpUrl: this.getRtmpServerUrl(),
       hasKey: true,
       lastUsedAt: key.lastUsedAt,
     };
@@ -546,10 +594,7 @@ export class LiveStreamingService {
       channelId,
       rawKey,
       streamKey: rawKey,
-      rtmpUrl: this.configService.get<string>(
-        'RTMP_SERVER_URL',
-        'rtmp://localhost:1935/live',
-      ),
+      rtmpUrl: this.getRtmpServerUrl(),
       warning: 'This key will not be shown again. Store it securely.',
     };
   }

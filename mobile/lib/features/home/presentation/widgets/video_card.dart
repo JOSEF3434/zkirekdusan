@@ -12,8 +12,15 @@ import 'package:timeago/timeago.dart' as timeago;
 
 class VideoCard extends StatelessWidget {
   final VideoResponseDto video;
+  final bool showActions;
+  final bool isCompact;
 
-  const VideoCard({super.key, required this.video});
+  const VideoCard({
+    super.key,
+    required this.video,
+    this.showActions = true,
+    this.isCompact = false,
+  });
 
   /// Resolve possibly-relative or localhost thumbnail URLs to the real API base.
   String? _resolveUrl(String? raw) {
@@ -56,71 +63,77 @@ class VideoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Thumbnail
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (video.thumbnailUrl != null &&
-                    _resolveUrl(video.thumbnailUrl) != null)
-                  CachedNetworkImage(
-                    imageUrl: _resolveUrl(video.thumbnailUrl)!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
+          ClipRRect(
+            borderRadius: BorderRadius.circular(isCompact ? 10 : 0),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (video.thumbnailUrl != null &&
+                      _resolveUrl(video.thumbnailUrl) != null)
+                    CachedNetworkImage(
+                      imageUrl: _resolveUrl(video.thumbnailUrl)!,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    )
+                  else
+                    Container(
                       color: theme.colorScheme.surfaceContainerHighest,
+                      child: const Icon(
+                        Icons.video_library,
+                        color: Colors.grey,
+                        size: 48,
+                      ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  )
-                else
-                  Container(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    child: const Icon(
-                      Icons.video_library,
-                      color: Colors.grey,
-                      size: 48,
-                    ),
-                  ),
 
-                // Duration Badge
-                if (video.duration > 0)
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _formatDuration(video.duration),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                  // Duration Badge
+                  if (video.duration > 0)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _formatDuration(video.duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
 
           // Video Info
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 4 : 12,
+              vertical: isCompact ? 8 : 12,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Avatar
                 CircleAvatar(
-                  radius: 20,
+                  radius: isCompact ? 16 : 20,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage: video.author.avatarUrl != null
                       ? CachedNetworkImageProvider(
@@ -133,10 +146,11 @@ class VideoCard extends StatelessWidget {
                               : (video.author.username?.isNotEmpty == true
                                     ? video.author.username![0].toUpperCase()
                                     : '?'),
+                          style: TextStyle(fontSize: isCompact ? 12 : 14),
                         )
                       : null,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: isCompact ? 8 : 12),
 
                 // Title and details
                 Expanded(
@@ -148,16 +162,18 @@ class VideoCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontSize: 15,
+                          fontSize: isCompact ? 13.5 : 15,
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         '${video.channelName ?? (video.author.displayName?.isNotEmpty == true ? video.author.displayName! : (video.author.username?.isNotEmpty == true ? video.author.username! : "Creator"))} • ${_formatViews(video.viewsCount)} • ${timeago.format(video.publishedAt ?? video.createdAt)}',
-                        maxLines: 2,
+                        maxLines: isCompact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: isCompact ? 11 : 12,
+                        ),
                       ),
                     ],
                   ),
@@ -202,12 +218,13 @@ class VideoCard extends StatelessWidget {
           ),
 
           // Action Row
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 6.0,
-            ),
-            child: Row(
+          if (showActions)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 6.0,
+              ),
+              child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 LikeButton(
