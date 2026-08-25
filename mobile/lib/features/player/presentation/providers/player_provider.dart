@@ -11,6 +11,7 @@ import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 
 import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class PlayerState {
   final VideoResponseDto? video;
@@ -112,130 +113,56 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         url.contains('cloudinary.com');
   }
 
-  /// Extracts cloud name and public_id from a Cloudinary URL.
-  /// e.g. https://res.cloudinary.com/v6zdpkoh/video/upload/stories/abc.mp4
-  ///   → cloudName: v6zdpkoh, publicId: stories/abc
-  static ({String cloudName, String publicId})? _parseCloudinaryUrl(
-    String url,
-  ) {
-    try {
-      final uri = Uri.parse(url);
-      final pathParts = uri.pathSegments;
-      // pathSegments: [cloudName, 'video'/'image', 'upload', ...rest, 'file.ext']
-      if (pathParts.length < 4) return null;
-      final cloudName = pathParts[0];
-      final uploadIdx = pathParts.indexOf('upload');
-      if (uploadIdx < 0) return null;
-      // Everything after 'upload/' minus extension is the public_id
-      final afterUpload = pathParts.sublist(uploadIdx + 1);
-      if (afterUpload.isEmpty) return null;
-      // Strip any transformation segments (contain underscore like q_auto)
-      int startIdx = 0;
-      for (int i = 0; i < afterUpload.length - 1; i++) {
-        if (afterUpload[i].contains('_') || afterUpload[i].contains(',')) {
-          startIdx = i + 1;
-        } else {
-          break;
-        }
-      }
-      final publicWithExt = afterUpload.sublist(startIdx).join('/');
-      // Remove file extension
-      final dotIdx = publicWithExt.lastIndexOf('.');
-      final publicId =
-          dotIdx > 0 ? publicWithExt.substring(0, dotIdx) : publicWithExt;
-      return (cloudName: cloudName, publicId: publicId);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Converts a raw Cloudinary video URL to an HLS streaming URL.
-  /// Uses Cloudinary's sp_hd streaming profile for adaptive bitrate.
-  static String _toCloudinaryHlsUrl(String url) {
-    final parsed = _parseCloudinaryUrl(url);
-    if (parsed == null) return url;
-    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/sp_hd/${parsed.publicId}.m3u8';
-  }
-
-  /// Converts a raw Cloudinary video URL to an optimized direct MP4 URL.
-  static String _toCloudinaryMp4Url(String url) {
-    final parsed = _parseCloudinaryUrl(url);
-    if (parsed == null) return url;
-    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/q_auto,vc_auto,f_mp4/${parsed.publicId}.mp4';
-  }
-
-  /// Converts a raw Cloudinary video URL to a specific height rendition.
-  static String _toCloudinaryRenditionUrl(String url, int height) {
-    final parsed = _parseCloudinaryUrl(url);
-    if (parsed == null) return url;
-    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/h_$height,c_scale,q_auto,vc_auto/${parsed.publicId}.mp4';
-  }
-
-  // ── URL resolution ────────────────────────────────────────────────────────
-
-  String _resolvePlaybackUrl(String rawUrl) {
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      final uri = Uri.tryParse(rawUrl);
-      if (uri != null &&
-          (uri.host == 'localhost' ||
-              uri.host == '127.0.0.1' ||
-              uri.host == '10.0.2.2')) {
-        final baseUri = Uri.tryParse(Env.apiBaseUrl);
-        if (baseUri != null && baseUri.host.isNotEmpty) {
-          return uri
-              .replace(
-                scheme: baseUri.scheme,
-                host: baseUri.host,
-                port: baseUri.hasPort ? baseUri.port : null,
-              )
-              .toString();
-        }
-      }
-      return rawUrl;
-    }
-    final base = Env.apiBaseUrl.replaceAll('/api', '');
-    return rawUrl.startsWith('/') ? '$base$rawUrl' : '$base/$rawUrl';
-  }
-
   /// Builds an ordered list of candidate playback URLs, from most-preferred to fallback.
   List<String> _buildCandidateUrls(VideoResponseDto video) {
     final candidates = <String>[];
 
+    void addCandidate(String? raw) {
+      final resolved = MediaUrlResolver.resolve(raw);
+      if (resolved != null &&
+          resolved.isNotEmpty &&
+          !candidates.contains(resolved)) {
+        candidates.add(resolved);
+      }
+    }
+
     // ── Primary: hlsUrl ────────────────────────────────────────────────────
     if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
-      final resolved = _resolvePlaybackUrl(video.hlsUrl!);
+      final resolved = MediaUrlResolver.resolve(video.hlsUrl!)!;
 
-      if (_isCloudinaryUrl(resolved)) {
-        // Already HLS?
-        if (resolved.endsWith('.m3u8') || resolved.contains('/sp_')) {
-          candidates.add(resolved); // Already HLS streaming URL
+      if (MediaUrlResolver.isCloudinary(resolved)) {
+        // 1. Direct Cloudinary MP4 (guaranteed instant playback on all devices)
+        addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
+
+        // 2. Cloudinary HLS streaming URL (sp_hd)
+        if (resolved.contains('.m3u8')) {
+          addCandidate(resolved);
         } else {
-          // Convert raw Cloudinary URL to HLS streaming URL first
-          candidates.add(_toCloudinaryHlsUrl(resolved));
-          // Then try optimized MP4 as fallback
-          candidates.add(_toCloudinaryMp4Url(resolved));
-          // Then the raw URL as last resort
-          candidates.add(resolved);
+          addCandidate(MediaUrlResolver.toCloudinaryHls(resolved));
         }
+
+        // 3. Raw URL
+        addCandidate(resolved);
       } else {
-        candidates.add(resolved);
+        addCandidate(resolved);
+
+        // If local HLS (.m3u8), also add direct MP4 fallback with same base path
+        if (resolved.endsWith('.m3u8')) {
+          final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
+          addCandidate(mp4Fallback);
+        }
       }
     }
 
     // ── Renditions (quality options) ───────────────────────────────────────
     for (final rendition in video.renditions) {
       if (rendition.url.isNotEmpty) {
-        final resolved = _resolvePlaybackUrl(rendition.url);
-        if (!candidates.contains(resolved)) {
-          candidates.add(resolved);
-          // If Cloudinary rendition looks like HLS, also add direct MP4 fallback
-          if (_isCloudinaryUrl(resolved) && resolved.contains('.m3u8')) {
+        final resolved = MediaUrlResolver.resolve(rendition.url);
+        if (resolved != null) {
+          addCandidate(resolved);
+          if (MediaUrlResolver.isCloudinary(resolved)) {
             final res = rendition.resolution > 0 ? rendition.resolution : 720;
-            final mp4 = _toCloudinaryRenditionUrl(
-              resolved,
-              res,
-            );
-            if (!candidates.contains(mp4)) candidates.add(mp4);
+            addCandidate(MediaUrlResolver.toCloudinaryRendition(resolved, res));
           }
         }
       }
@@ -492,8 +419,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final oldController = state.controller;
 
     try {
-      // For Cloudinary renditions, try the URL directly
-      final resolvedUrl = _resolvePlaybackUrl(rendition.url);
+      // For Cloudinary/local renditions, resolve the URL properly
+      final resolvedUrl =
+          MediaUrlResolver.resolve(rendition.url) ?? rendition.url;
       final newController = VideoPlayerController.networkUrl(
         Uri.parse(resolvedUrl),
       );

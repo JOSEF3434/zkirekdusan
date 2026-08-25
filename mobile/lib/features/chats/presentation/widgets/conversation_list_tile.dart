@@ -58,11 +58,11 @@ class ConversationListTile extends ConsumerWidget {
       child: Container(
         decoration: BoxDecoration(
           color: hasUnread
-              ? (isDark ? Colors.grey[900] : Colors.blue.withOpacity(0.05))
+              ? (isDark ? Colors.grey[900] : Colors.blue.withValues(alpha: 0.05))
               : null,
           border: Border(
             bottom: BorderSide(
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withValues(alpha: 0.1),
               width: 0.5,
             ),
           ),

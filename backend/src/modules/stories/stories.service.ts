@@ -419,6 +419,21 @@ export class StoriesService {
     return { message: 'Story deleted successfully' };
   }
 
+  private sanitizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    const RENDER_HOST = 'https://zikrekidusan.onrender.com';
+    const LOCALHOST_PATTERNS = [
+      /^http:\/\/localhost:\d+/,
+      /^http:\/\/127\.0\.0\.1:\d+/,
+      /^http:\/\/0\.0\.0\.0:\d+/,
+      /^http:\/\/10\.0\.2\.2:\d+/,
+    ];
+    for (const pattern of LOCALHOST_PATTERNS) {
+      if (pattern.test(url)) return url.replace(pattern, RENDER_HOST);
+    }
+    return url;
+  }
+
   private mapToDto(s: any, viewerId?: string): StoryResponseDto {
     const hasViewedByMe = viewerId
       ? Array.isArray(s.views) && s.views.length > 0
@@ -432,7 +447,7 @@ export class StoriesService {
     return {
       id: s.id,
       type: s.type,
-      mediaUrl: s.file?.url ?? null,
+      mediaUrl: this.sanitizeUrl(s.mediaUrl ?? s.file?.url ?? null),
       content: s.content,
       backgroundColor: s.backgroundColor,
       textColor: s.textColor,
@@ -445,7 +460,7 @@ export class StoriesService {
         id: s.author.id,
         username: s.author.username,
         displayName: s.author.profile?.displayName ?? s.author.username,
-        avatarUrl: s.author.profile?.avatar?.url ?? null,
+        avatarUrl: this.sanitizeUrl(s.author.profile?.avatar?.url ?? null),
       },
       expiresAt: s.expiresAt,
       createdAt: s.createdAt,

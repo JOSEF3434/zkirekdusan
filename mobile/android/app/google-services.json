@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "869520328580",
+    "project_id": "zikre-kidusan",
+    "storage_bucket": "zikre-kidusan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:869520328580:android:53f2ed349adb3d25e2ffd1",
+        "android_client_info": {
+          "package_name": "com.example.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc0pfq0gwUw-YgncWPoyXmHxb5mnASHHE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

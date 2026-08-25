@@ -100,7 +100,7 @@ class MessageBubble extends StatelessWidget {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),
@@ -158,7 +158,7 @@ class MessageBubble extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: isMe
-                                          ? Colors.white.withOpacity(0.7)
+                                          ? Colors.white.withValues(alpha: 0.7)
                                           : Colors.grey[600],
                                       fontStyle: FontStyle.italic,
                                     ),
@@ -169,7 +169,7 @@ class MessageBubble extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: isMe
-                                      ? Colors.white.withOpacity(0.7)
+                                      ? Colors.white.withValues(alpha: 0.7)
                                       : Colors.grey[600],
                                 ),
                               ),
@@ -178,7 +178,7 @@ class MessageBubble extends StatelessWidget {
                                 Icon(
                                   _getStatusIcon(),
                                   size: 16,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                               ],
                             ],
@@ -208,7 +208,7 @@ class MessageBubble extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isMe
-            ? Colors.white.withOpacity(0.2)
+            ? Colors.white.withValues(alpha: 0.2)
             : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
         border: Border(
@@ -236,8 +236,8 @@ class MessageBubble extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               color: isMe
-                  ? Colors.white.withOpacity(0.8)
-                  : theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                  ? Colors.white.withValues(alpha: 0.8)
+                  : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -325,7 +325,7 @@ class MessageBubble extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -341,7 +341,7 @@ class MessageBubble extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -366,7 +366,7 @@ class MessageBubble extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isMe
-            ? Colors.white.withOpacity(0.2)
+            ? Colors.white.withValues(alpha: 0.2)
             : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
@@ -398,7 +398,7 @@ class MessageBubble extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     color: isMe
-                        ? Colors.white.withOpacity(0.7)
+                        ? Colors.white.withValues(alpha: 0.7)
                         : Colors.grey[600],
                   ),
                 ),
@@ -417,7 +417,7 @@ class MessageBubble extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.2),
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
         ),
       ),
       child: Wrap(

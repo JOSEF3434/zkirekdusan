@@ -50,4 +50,32 @@ class NotificationsRepository {
     final response = await _dio.delete('/notifications/$id');
     parseEnvelope(response.data);
   }
+
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+    String? deviceId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'token': token,
+        'platform': platform,
+      };
+      if (deviceId != null) {
+        body['deviceId'] = deviceId;
+      }
+      final response = await _dio.post('/device-tokens', data: body);
+      parseEnvelope(response.data);
+    } catch (_) {
+      // Non-blocking
+    }
+  }
+
+  Future<void> removeDeviceToken(String token) async {
+    try {
+      await _dio.delete('/device-tokens/$token');
+    } catch (_) {
+      // Non-blocking
+    }
+  }
 }

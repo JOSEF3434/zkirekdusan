@@ -32,21 +32,49 @@ export class NotificationsService {
     this.notificationsGateway.emitNotification(payload.userId, dto);
 
     // 2. Push FCM mobile notification (fire-and-forget)
-    this.sendPushToUser(payload.userId, payload.title, payload.body).catch(() => null);
+    this.sendPushToUser(
+      payload.userId,
+      payload.title,
+      payload.body,
+      dto.id,
+      payload.type,
+      payload.data,
+    ).catch(() => null);
 
     return dto;
   }
 
-  private async sendPushToUser(userId: string, title: string, body: string): Promise<void> {
+  private async sendPushToUser(
+    userId: string,
+    title: string,
+    body: string,
+    notificationId?: string,
+    type?: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
     const tokens = await this.prisma.deviceToken.findMany({
       where: { userId },
       select: { token: true },
     });
     if (tokens.length === 0) return;
+
+    const stringData: Record<string, string> = {
+      notificationId: notificationId ?? '',
+      type: type ?? 'SYSTEM',
+    };
+    if (data) {
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined && v !== null) {
+          stringData[k] = typeof v === 'string' ? v : JSON.stringify(v);
+        }
+      }
+    }
+
     await this.firebaseService.sendMulticast({
       tokens: tokens.map((t) => t.token),
       title,
       body,
+      data: stringData,
     });
   }
 

@@ -18,7 +18,7 @@ class DateSeparator extends StatelessWidget {
         children: [
           Expanded(
             child: Divider(
-              color: theme.dividerColor.withOpacity(0.3),
+              color: theme.dividerColor.withValues(alpha: 0.3),
               thickness: 1,
             ),
           ),
@@ -27,7 +27,7 @@ class DateSeparator extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.8),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -42,7 +42,7 @@ class DateSeparator extends StatelessWidget {
           ),
           Expanded(
             child: Divider(
-              color: theme.dividerColor.withOpacity(0.3),
+              color: theme.dividerColor.withValues(alpha: 0.3),
               thickness: 1,
             ),
           ),

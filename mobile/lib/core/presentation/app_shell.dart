@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
@@ -26,8 +27,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Initial state — don't show banner on first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _previousStatus = ref.read(connectivityProvider).status;
-      // Initialize notification socket lifecycle (connect/disconnect with auth)
+      // Initialize notification socket & FCM lifecycle (connect/disconnect with auth)
       ref.read(notificationLifecycleProvider);
+      ref.read(fcmServiceProvider).init();
     });
   }
 

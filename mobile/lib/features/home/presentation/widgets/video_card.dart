@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/widgets/like_button.dart';
 import 'package:mobile/features/social/presentation/widgets/save_button.dart';
@@ -23,12 +23,7 @@ class VideoCard extends StatelessWidget {
   });
 
   /// Resolve possibly-relative or localhost thumbnail URLs to the real API base.
-  String? _resolveUrl(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-    final base = Env.apiBaseUrl.replaceFirst(RegExp(r'/api$'), '');
-    return raw.startsWith('/') ? '$base$raw' : '$base/$raw';
-  }
+  String? _resolveUrl(String? raw) => MediaUrlResolver.resolve(raw);
 
   String _formatDuration(int seconds) {
     final duration = Duration(seconds: seconds);

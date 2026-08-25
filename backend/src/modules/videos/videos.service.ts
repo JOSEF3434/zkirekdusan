@@ -203,8 +203,9 @@ export class VideosService {
         const publicId = fileRecord.storageKey;
 
         if (publicId) {
-          // Primary: Cloudinary HLS adaptive streaming (sp_hd profile)
-          immediateHlsUrl = cloudinaryProvider.getVideoStreamingUrl(publicId);
+          // Use direct optimized MP4 URL for guaranteed instant playback on all devices
+          immediateHlsUrl =
+            cloudinaryProvider.getVideoDirectUrl(publicId) || fileRecord.url;
           this.logger.log(
             `[Cloudinary] Video [${videoId}] immediate streaming URL: ${immediateHlsUrl}`,
           );
@@ -535,6 +536,28 @@ export class VideosService {
     );
   }
 
+  /**
+   * Rewrites localhost/loopback URLs to the production Render host so the
+   * Flutter client always receives a reachable URL, even for old DB records
+   * that were inserted before APP_URL was configured correctly.
+   */
+  private sanitizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    const RENDER_HOST = 'https://zikrekidusan.onrender.com';
+    const LOCALHOST_PATTERNS = [
+      /^http:\/\/localhost:\d+/,
+      /^http:\/\/127\.0\.0\.1:\d+/,
+      /^http:\/\/0\.0\.0\.0:\d+/,
+      /^http:\/\/10\.0\.2\.2:\d+/, // Android emulator loopback
+    ];
+    for (const pattern of LOCALHOST_PATTERNS) {
+      if (pattern.test(url)) {
+        return url.replace(pattern, RENDER_HOST);
+      }
+    }
+    return url;
+  }
+
   private mapVideoToDto(video: any) {
     // viewsCount is stored as BigInt in Prisma — must convert to plain number for JSON
     const rawViews = video.viewsCount;
@@ -555,8 +578,26 @@ export class VideosService {
         }
       : { id: '', username: '', displayName: null, avatarUrl: null };
 
+    // Fallback to sourceFile.url if hlsUrl is not set, then sanitize all URLs
+    const rawHlsUrl = video.hlsUrl || video.sourceFile?.url || null;
+
     return {
       ...video,
+      hlsUrl: this.sanitizeUrl(rawHlsUrl),
+      thumbnailUrl: this.sanitizeUrl(video.thumbnailUrl),
+      previewUrl: this.sanitizeUrl(video.previewUrl),
+      dashUrl: this.sanitizeUrl(video.dashUrl),
+      // Defaults for nullable numeric fields so Flutter doesn't choke on null
+      duration: video.duration ?? 0,
+      width: video.width ?? 0,
+      height: video.height ?? 0,
+      bitrate: video.bitrate ?? 0,
+      likesCount: video.likesCount ?? 0,
+      dislikesCount: video.dislikesCount ?? 0,
+      commentsCount: video.commentsCount ?? 0,
+      sharesCount: video.sharesCount ?? 0,
+      bookmarksCount: video.bookmarksCount ?? 0,
+      downloadsCount: video.downloadsCount ?? 0,
       viewsCount,
       author,
       // Ensure channelId field is surfaced for Flutter

@@ -16,7 +16,9 @@ export class LocalStorageProvider implements IStorageProvider {
   constructor(private readonly configService: ConfigService) {
     this.uploadDir = path.resolve(process.cwd(), 'uploads');
     this.baseUrl =
-      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      this.configService.get<string>('APP_URL') ??
+      this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+      'http://localhost:3000';
   }
 
   async upload(

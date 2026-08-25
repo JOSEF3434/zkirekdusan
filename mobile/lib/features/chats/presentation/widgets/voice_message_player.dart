@@ -123,7 +123,7 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       activeTrackColor: widget.isMe ? Colors.white : theme.colorScheme.primary,
                       inactiveTrackColor: widget.isMe
-                          ? Colors.white.withOpacity(0.3)
+                          ? Colors.white.withValues(alpha: 0.3)
                           : Colors.grey[400],
                       thumbColor: widget.isMe ? Colors.white : theme.colorScheme.primary,
                     ),
@@ -142,7 +142,7 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                     style: TextStyle(
                       fontSize: 11,
                       color: widget.isMe
-                          ? Colors.white.withOpacity(0.7)
+                          ? Colors.white.withValues(alpha: 0.7)
                           : Colors.grey[600],
                     ),
                   ),
@@ -181,7 +181,7 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                 color: isActive
                     ? (widget.isMe ? Colors.white : theme.colorScheme.primary)
                     : (widget.isMe
-                        ? Colors.white.withOpacity(0.3)
+                        ? Colors.white.withValues(alpha: 0.3)
                         : Colors.grey[400]),
                 borderRadius: BorderRadius.circular(1),
               ),

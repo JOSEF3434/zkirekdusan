@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/stories/data/datasources/stories_remote_datasource.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
@@ -68,7 +69,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     super.dispose();
   }
 
-  void _setupVideo(String videoUrl) {
+  void _setupVideo(String rawVideoUrl) {
+    final videoUrl = MediaUrlResolver.resolve(rawVideoUrl) ?? rawVideoUrl;
     if (_currentVideoUrl == videoUrl && _videoController != null) {
       return;
     }
@@ -76,7 +78,13 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     _videoController?.dispose();
     _currentVideoUrl = videoUrl;
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    final playbackUrl = MediaUrlResolver.isCloudinary(videoUrl) &&
+            !videoUrl.endsWith('.mp4') &&
+            !videoUrl.endsWith('.m3u8')
+        ? MediaUrlResolver.toCloudinaryMp4(videoUrl)
+        : videoUrl;
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(playbackUrl));
     _videoController = controller;
 
     controller
@@ -106,7 +114,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
           });
         })
         .catchError((error) {
-          debugPrint('[StoryViewer] video error: $error');
+          debugPrint('[StoryViewer] video error: $error for $playbackUrl');
           ref.read(storyViewerProvider.notifier).nextStory();
         });
   }
@@ -491,29 +499,47 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     }
 
     // Image Story
-    if (story.mediaUrl != null && story.mediaUrl!.isNotEmpty) {
+    final resolvedImageUrl = MediaUrlResolver.resolve(story.mediaUrl);
+    if (resolvedImageUrl != null && resolvedImageUrl.isNotEmpty) {
       return CachedNetworkImage(
-        imageUrl: story.mediaUrl!,
+        imageUrl: resolvedImageUrl,
         fit: BoxFit.contain,
         placeholder: (context, url) =>
             const Center(child: CircularProgressIndicator(color: Colors.white)),
-        errorWidget: (context, url, error) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(
-                Icons.broken_image_outlined,
-                color: Colors.white54,
-                size: 48,
-              ),
-              SizedBox(height: 12),
-              Text(
-                'Unable to load media',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ],
-          ),
-        ),
+        errorWidget: (context, url, error) {
+          debugPrint(
+            '[StoryViewer] Image load failed for: $resolvedImageUrl (error: $error)',
+          );
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white54,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Unable to load media',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white30),
+                  ),
+                  onPressed: () {
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        },
       );
     }
 

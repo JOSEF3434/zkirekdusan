@@ -1,6 +1,7 @@
 // lib/features/stories/presentation/widgets/story_item.dart
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 
 class StoryItem extends StatelessWidget {
@@ -60,11 +61,14 @@ class StoryItem extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: ClipOval(
-                    child:
-                        group.owner.avatarUrl != null &&
-                            group.owner.avatarUrl!.isNotEmpty
+                    child: MediaUrlResolver.resolve(group.owner.avatarUrl) !=
+                                null &&
+                            MediaUrlResolver.resolve(group.owner.avatarUrl)!
+                                .isNotEmpty
                         ? CachedNetworkImage(
-                            imageUrl: group.owner.avatarUrl!,
+                            imageUrl: MediaUrlResolver.resolve(
+                              group.owner.avatarUrl,
+                            )!,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
                               color: theme.colorScheme.surfaceContainerHighest,
