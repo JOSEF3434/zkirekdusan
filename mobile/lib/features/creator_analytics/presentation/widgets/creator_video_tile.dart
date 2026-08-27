@@ -37,6 +37,9 @@ class CreatorVideoTile extends StatelessWidget {
           // Open edit screen by default on tap
           onEdit();
         },
+        onLongPress: () {
+          onEdit();
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

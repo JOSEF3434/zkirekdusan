@@ -8,6 +8,7 @@ import 'package:mobile/features/social/presentation/widgets/like_button.dart';
 import 'package:mobile/features/social/presentation/widgets/save_button.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
 import 'package:mobile/features/social/presentation/comments_sheet.dart';
+import 'package:mobile/features/home/presentation/widgets/video_management_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class VideoCard extends StatelessWidget {
@@ -53,6 +54,9 @@ class VideoCard extends StatelessWidget {
     return InkWell(
       onTap: () {
         context.push('/video/${video.id}');
+      },
+      onLongPress: () {
+        VideoManagementSheet.show(context, video: video);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -180,32 +184,7 @@ class VideoCard extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) {
-                        return SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.download_outlined),
-                                title: const Text('Download Offline'),
-                                onTap: () {
-                                  context.pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Open the video to start download',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
+                    VideoManagementSheet.show(context, video: video);
                   },
                 ),
               ],

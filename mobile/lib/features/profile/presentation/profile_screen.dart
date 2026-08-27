@@ -686,16 +686,19 @@ class _ProfileVideosTab extends ConsumerWidget {
             ),
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.only(top: 8, bottom: 80),
-          itemCount: videos.length,
-          itemBuilder: (context, index) {
-            final video = videos[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: VideoCard(video: video),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(profileVideosProvider(userId)),
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 8, bottom: 80),
+            itemCount: videos.length,
+            itemBuilder: (context, index) {
+              final video = videos[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: VideoCard(video: video),
+              );
+            },
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

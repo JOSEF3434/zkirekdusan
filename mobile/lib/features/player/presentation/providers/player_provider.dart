@@ -111,6 +111,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final candidates = <String>[];
 
     void addCandidate(String? raw) {
+      if (raw == null || raw.trim().isEmpty) return;
       final resolved = MediaUrlResolver.resolve(raw);
       if (resolved != null &&
           resolved.isNotEmpty &&
@@ -119,46 +120,44 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
     }
 
-    // ── Primary: hlsUrl ────────────────────────────────────────────────────
+    // ── 1. Primary: Direct HLS or file URL from backend ──────────────────────
     if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
-      final resolved = MediaUrlResolver.resolve(video.hlsUrl!)!;
+      final resolved = MediaUrlResolver.resolve(video.hlsUrl!);
+      if (resolved != null) {
+        // Add the direct URL provided by the backend first!
+        addCandidate(resolved);
 
-      if (MediaUrlResolver.isCloudinary(resolved)) {
-        // 1. Direct Cloudinary MP4 (guaranteed instant playback on all devices)
-        addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
-
-        // 2. Cloudinary HLS streaming URL (sp_hd)
-        if (resolved.contains('.m3u8')) {
-          addCandidate(resolved);
+        if (MediaUrlResolver.isCloudinary(resolved)) {
+          // Add Cloudinary MP4 direct streaming
+          addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
+          if (!resolved.contains('.m3u8')) {
+            addCandidate(MediaUrlResolver.toCloudinaryHls(resolved));
+          }
         } else {
-          addCandidate(MediaUrlResolver.toCloudinaryHls(resolved));
-        }
-
-        // 3. Raw URL
-        addCandidate(resolved);
-      } else {
-        addCandidate(resolved);
-
-        // If local HLS (.m3u8), also add direct MP4 fallback with same base path
-        if (resolved.endsWith('.m3u8')) {
-          final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
-          addCandidate(mp4Fallback);
+          // If local HLS (.m3u8), also add direct MP4 fallback
+          if (resolved.endsWith('.m3u8')) {
+            final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
+            addCandidate(mp4Fallback);
+          }
         }
       }
     }
 
-    // ── Renditions (quality options) ───────────────────────────────────────
+    // ── 2. Renditions (quality options from transcode) ──────────────────────
     for (final rendition in video.renditions) {
       if (rendition.url.isNotEmpty) {
+        addCandidate(rendition.url);
         final resolved = MediaUrlResolver.resolve(rendition.url);
-        if (resolved != null) {
-          addCandidate(resolved);
-          if (MediaUrlResolver.isCloudinary(resolved)) {
-            final res = rendition.resolution > 0 ? rendition.resolution : 720;
-            addCandidate(MediaUrlResolver.toCloudinaryRendition(resolved, res));
-          }
+        if (resolved != null && MediaUrlResolver.isCloudinary(resolved)) {
+          final res = rendition.resolution > 0 ? rendition.resolution : 720;
+          addCandidate(MediaUrlResolver.toCloudinaryRendition(resolved, res));
         }
       }
+    }
+
+    // ── 3. DASH stream URL fallback ─────────────────────────────────────────
+    if (video.dashUrl != null && video.dashUrl!.isNotEmpty) {
+      addCandidate(video.dashUrl);
     }
 
     return candidates;
@@ -207,15 +206,18 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       // Try candidates in order — stop at first success
       for (final url in candidateUrls) {
         try {
+          final uri = Uri.tryParse(url);
+          if (uri == null) continue;
+
           final ctrl = VideoPlayerController.networkUrl(
-            Uri.parse(url),
+            uri,
             videoPlayerOptions: VideoPlayerOptions(
               mixWithOthers: false,
               allowBackgroundPlayback: false,
             ),
           );
           await ctrl.initialize().timeout(
-            const Duration(seconds: 15),
+            const Duration(seconds: 8),
             onTimeout: () {
               ctrl.dispose();
               throw TimeoutException('Timed out initializing: $url');
@@ -229,7 +231,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           successUrl = url;
           break;
         } catch (_) {
-          // Try next URL
+          // Try next candidate URL
         }
       }
 

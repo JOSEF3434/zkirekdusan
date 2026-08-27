@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
+import 'package:mobile/features/social/presentation/widgets/post_management_sheet.dart';
 
 class PostHeader extends StatelessWidget {
   final PostAuthorDto author;
   final DateTime createdAt;
   final String? groupId;
+  final PostResponseDto? post;
 
   const PostHeader({
     super.key,
     required this.author,
     required this.createdAt,
     this.groupId,
+    this.post,
   });
 
   String _formatDate(DateTime date) {
@@ -83,7 +86,9 @@ class PostHeader extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () {
-              // TODO: Implement options menu
+              if (post != null) {
+                PostManagementSheet.show(context, post: post!);
+              }
             },
           ),
         ],
