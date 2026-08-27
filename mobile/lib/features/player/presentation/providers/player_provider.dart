@@ -10,7 +10,6 @@ import 'package:mobile/features/media_experience/data/playback_progress_reposito
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 
-import 'package:mobile/app/env/env.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class PlayerState {
@@ -106,12 +105,6 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   // ── Cloudinary URL utilities ────────────────────────────────────────────
-
-  /// Returns true if the URL is hosted on Cloudinary CDN.
-  static bool _isCloudinaryUrl(String url) {
-    return url.contains('res.cloudinary.com') ||
-        url.contains('cloudinary.com');
-  }
 
   /// Builds an ordered list of candidate playback URLs, from most-preferred to fallback.
   List<String> _buildCandidateUrls(VideoResponseDto video) {

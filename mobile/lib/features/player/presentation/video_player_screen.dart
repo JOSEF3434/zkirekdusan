@@ -8,6 +8,10 @@ import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
 import 'package:mobile/features/player/presentation/providers/player_provider.dart';
+import 'package:mobile/features/social/presentation/providers/likes_provider.dart';
+import 'package:mobile/features/social/presentation/providers/save_provider.dart';
+import 'package:mobile/features/social/presentation/widgets/follow_button.dart';
+import 'package:mobile/features/social/presentation/widgets/share_button.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../media_experience/presentation/widgets/player_speed_sheet.dart';
@@ -95,6 +99,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     }
 
     final video = state.video!;
+
+    // Seed like/save state from video DTO so buttons reflect backend state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(likesProvider.notifier).seed(
+        video.id,
+        video.isLiked ?? false,
+        video.likesCount,
+      );
+      ref.read(saveProvider.notifier).seed(video.id, video.isSaved ?? false);
+    });
 
     // Handle fullscreen
     if (state.isFullscreen) {
@@ -204,19 +218,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Action Buttons Row ────────────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _ActionButton(
-                        icon: Icons.thumb_up_outlined,
-                        label: '${video.likesCount}',
-                        onTap: () {},
+                      // Like button — uses existing LikeButton widget with animation
+                      _VideoActionLike(videoId: video.id, video: video),
+
+                      // Share button — uses share_plus via existing ShareButton
+                      ShareButton(
+                        postId: video.id,
+                        title: video.title,
+                        iconSize: 24,
                       ),
-                      _ActionButton(
-                        icon: Icons.share_outlined,
-                        label: 'Share',
-                        onTap: () {},
-                      ),
+
+                      // Download button
                       Consumer(
                         builder: (context, ref, _) {
                           final downloadState = ref.watch(
@@ -282,44 +299,77 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                           );
                         },
                       ),
-                      _ActionButton(
-                        icon: Icons.bookmark_outline,
-                        label: 'Save',
-                        onTap: () {},
-                      ),
+
+                      // Save / Bookmark button — uses existing SaveButton widget
+                      _VideoActionSave(videoId: video.id, video: video),
                     ],
                   ),
+
                   const Divider(height: 32),
+
+                  // ── Channel row with Subscribe button ─────────────────────
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        child: Text(video.author.displayName?[0] ?? '?'),
+                      GestureDetector(
+                        onTap: () {
+                          if (video.author.username != null) {
+                            context.push(
+                              '/profile/user/${video.author.username}',
+                            );
+                          }
+                        },
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                          child: Text(
+                            (video.author.displayName?.isNotEmpty == true
+                                    ? video.author.displayName![0]
+                                    : video.author.username?.isNotEmpty == true
+                                    ? video.author.username![0]
+                                    : '?')
+                                .toUpperCase(),
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              video.author.displayName ?? 'Unknown',
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            Text('Channel', style: theme.textTheme.bodySmall),
-                          ],
+                        child: GestureDetector(
+                          onTap: () {
+                            if (video.author.username != null) {
+                              context.push(
+                                '/profile/user/${video.author.username}',
+                              );
+                            }
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                video.author.displayName ??
+                                    video.author.username ??
+                                    'Unknown',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              Text(
+                                video.channelName ?? 'Channel',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      FilledButton(
-                        onPressed: () {},
-                        child: const Text('Subscribe'),
+                      // Follow/Subscribe button using existing FollowButton widget
+                      FollowButton(
+                        targetUserId: video.author.id,
+                        isDense: false,
                       ),
                     ],
                   ),
+
                   const Divider(height: 32),
                   if (video.description != null) ...[
-                    Text(video.description!),
+                    _ExpandableDescription(description: video.description!),
                     const Divider(height: 32),
                   ],
                   Text(
@@ -342,6 +392,134 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     );
   }
 }
+
+// ── Like action that uses the existing LikeButton widget internally ──────────
+
+class _VideoActionLike extends ConsumerWidget {
+  final String videoId;
+  final dynamic video;
+
+  const _VideoActionLike({required this.videoId, required this.video});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final likeStateMap = ref.watch(likesProvider);
+    final likeState = likeStateMap[videoId];
+    final isLiked = likeState?.isLiked ?? (video.isLiked ?? false);
+    final count = likeState?.likesCount ?? video.likesCount;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(likesProvider.notifier).toggleLike(videoId, isVideo: true);
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+              key: ValueKey(isLiked),
+              color: isLiked ? Theme.of(context).colorScheme.primary : null,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            count == 0 ? 'Like' : '$count',
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Save/Bookmark action ─────────────────────────────────────────────────────
+
+class _VideoActionSave extends ConsumerWidget {
+  final String videoId;
+  final dynamic video;
+
+  const _VideoActionSave({required this.videoId, required this.video});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saveStateMap = ref.watch(saveProvider);
+    final isSaved = saveStateMap[videoId] ?? (video.isSaved ?? false);
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(saveProvider.notifier).toggleSave(videoId, isVideo: true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isSaved ? 'Removed from saved' : 'Saved to library'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              isSaved ? Icons.bookmark : Icons.bookmark_outline,
+              key: ValueKey(isSaved),
+              color: isSaved ? Colors.amber : null,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(isSaved ? 'Saved' : 'Save', style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Expandable description ───────────────────────────────────────────────────
+
+class _ExpandableDescription extends StatefulWidget {
+  final String description;
+  const _ExpandableDescription({required this.description});
+
+  @override
+  State<_ExpandableDescription> createState() => _ExpandableDescriptionState();
+}
+
+class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.description,
+            maxLines: _expanded ? null : 3,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _expanded ? 'Show less' : 'Show more',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Generic action button ─────────────────────────────────────────────────────
 
 class _ActionButton extends StatelessWidget {
   final IconData icon;
@@ -370,6 +548,8 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
+
+// ── Player Controls Overlay ──────────────────────────────────────────────────
 
 class _PlayerControlsOverlay extends StatelessWidget {
   final VideoPlayerController controller;

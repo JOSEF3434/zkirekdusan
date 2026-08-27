@@ -1,8 +1,13 @@
 // src/modules/notifications/firebase.service.ts
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as firebaseAdmin from 'firebase-admin';
-import { App, getApps, initializeApp, cert } from 'firebase-admin/app';
+import {
+  App,
+  ServiceAccount,
+  cert,
+  getApps,
+  initializeApp,
+} from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 
 @Injectable()
@@ -14,7 +19,9 @@ export class FirebaseService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    const credentialsJson = this.configService.get<string>('FCM_SERVICE_ACCOUNT_JSON');
+    const credentialsJson = this.configService.get<string>(
+      'FCM_SERVICE_ACCOUNT_JSON',
+    );
 
     if (!credentialsJson) {
       this.logger.warn(
@@ -25,7 +32,7 @@ export class FirebaseService implements OnModuleInit {
 
     try {
       if (getApps().length === 0) {
-        const serviceAccount = JSON.parse(credentialsJson);
+        const serviceAccount = JSON.parse(credentialsJson) as ServiceAccount;
         this.app = initializeApp({
           credential: cert(serviceAccount),
         });
@@ -67,13 +74,15 @@ export class FirebaseService implements OnModuleInit {
         },
       });
       return true;
-    } catch (err: any) {
-      if (err?.code === 'messaging/registration-token-not-registered') {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+
+      if (error.code === 'messaging/registration-token-not-registered') {
         this.logger.warn(
           `Stale FCM token removed: ${payload.token.substring(0, 20)}...`,
         );
       } else {
-        this.logger.error('Failed to send push notification', err?.message);
+        this.logger.error('Failed to send push notification', error.message);
       }
       return false;
     }

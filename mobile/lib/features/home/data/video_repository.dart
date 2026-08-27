@@ -89,4 +89,46 @@ class VideoRepository {
     final data = parsePaginatedEnvelope(response.data);
     return VideoListResponseDto.fromJson(data);
   }
+
+  Future<VideoListResponseDto> getLikedVideos({
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/videos/liked',
+      queryParameters: {'page': page, 'limit': limit},
+      cancelToken: cancelToken,
+    );
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
+  }
+
+  Future<VideoListResponseDto> getUserVideos({
+    required String userId,
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/videos',
+      queryParameters: {
+        'authorId': userId,
+        'page': page,
+        'limit': limit,
+      },
+      cancelToken: cancelToken,
+    );
+    final data = parsePaginatedEnvelope(response.data);
+    return VideoListResponseDto.fromJson(data);
+  }
+
+  Future<void> removeFromWatchHistory(String videoId) async {
+    await _dio.delete('/videos/watch-history/$videoId');
+  }
+
+  Future<void> clearWatchHistory() async {
+    await _dio.delete('/videos/watch-history');
+  }
 }
+

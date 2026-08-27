@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/home/data/video_repository.dart';
+import 'package:mobile/features/home/domain/video_model.dart';
+import 'package:mobile/features/home/presentation/widgets/video_card.dart';
+import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
+import 'package:mobile/features/library/domain/playlist_dto.dart';
+import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/library/presentation/watch_history_screen.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
+import 'package:mobile/features/profile/presentation/providers/profile_videos_provider.dart';
 import 'package:mobile/features/profile/presentation/widgets/profile_posts_list.dart';
+import 'package:mobile/features/social/presentation/providers/save_provider.dart';
+import 'package:mobile/features/social/presentation/widgets/share_button.dart';
 import 'package:mobile/features/stories/data/models/story_model.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
@@ -59,11 +71,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final hasActiveStories =
         myStoriesGroup != null && myStoriesGroup.stories.isNotEmpty;
 
-    if (state.isLoading) {
+    if (state.isLoading && profile == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (state.error != null && state.profile == null) {
+    if (state.error != null && profile == null) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -108,8 +120,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               floating: true,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.video_library_outlined),
-                  onPressed: () => context.push('/library'),
+                  icon: const Icon(Icons.notifications_none),
+                  onPressed: () => context.push('/notifications'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => context.push('/search'),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings),
@@ -117,11 +133,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
               ],
             ),
+            // User Avatar & Stats Header
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     GestureDetector(
                       onTap: hasActiveStories
@@ -146,16 +163,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               : null,
                         ),
                         child: CircleAvatar(
-                          radius: 40,
+                          radius: 36,
                           backgroundImage: profile.avatarUrl != null
-                              ? NetworkImage(profile.avatarUrl!)
+                              ? NetworkImage(
+                                  MediaUrlResolver.resolve(profile.avatarUrl!) ??
+                                      profile.avatarUrl!,
+                                )
                               : null,
                           backgroundColor: cs.primaryContainer,
                           child: profile.avatarUrl == null
                               ? Text(
                                   _initials(profile),
                                   style: TextStyle(
-                                    fontSize: 24,
+                                    fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                     color: cs.onPrimaryContainer,
                                   ),
@@ -174,25 +194,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 _fullName(profile) ??
                                 profile.username ??
                                 'User',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
                           ),
                           if (profile.username != null)
                             Text(
                               '@${profile.username}',
-                              style: TextStyle(color: cs.onSurfaceVariant),
+                              style: TextStyle(
+                                color: cs.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
                             ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
-                              Text(
-                                '${profile.stats.followersCount} ${tr('profile.followers')}',
-                                style: TextStyle(color: cs.onSurfaceVariant),
+                              GestureDetector(
+                                onTap: () => context.push(
+                                  '/profile/${profile.userId}/followers',
+                                ),
+                                child: Text(
+                                  '${profile.stats.followersCount} ${tr('profile.followers')}',
+                                  style: TextStyle(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 16),
-                              Text(
-                                '${profile.stats.followingCount} ${tr('profile.following')}',
-                                style: TextStyle(color: cs.onSurfaceVariant),
+                              GestureDetector(
+                                onTap: () => context.push(
+                                  '/profile/${profile.userId}/following',
+                                ),
+                                child: Text(
+                                  '${profile.stats.followingCount} ${tr('profile.following')}',
+                                  style: TextStyle(
+                                    color: cs.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -203,6 +244,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
               ),
             ),
+            // Profile Actions (Edit Profile & View Channel)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -210,15 +252,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                      Text(profile.bio!),
-                      const SizedBox(height: 16),
+                      Text(
+                        profile.bio!,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
                     ],
                     Row(
                       children: [
                         Expanded(
                           child: FilledButton.tonal(
-                            onPressed: () =>
-                                context.push('/profile/edit', extra: profile),
+                            onPressed: () => context.push(
+                              '/profile/edit',
+                              extra: profile,
+                            ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
                             child: Text(
                               isProfileIncomplete
                                   ? tr('profile.setup_profile')
@@ -228,9 +278,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {},
-                            child: Text(tr('profile.view_channel')),
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              // View channels with RBAC permissions -> Creator Workspace / Channels
+                              context.push('/creator/workspace');
+                            },
+                            icon: const Icon(Icons.smart_display_outlined, size: 18),
+                            label: Text(tr('profile.view_channel')),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
                           ),
                         ),
                       ],
@@ -240,12 +297,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
               ),
             ),
+            // ── Watch History Section (Above Tabs) ──────────────────────────
+            SliverToBoxAdapter(
+              child: _WatchHistoryCarousel(),
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 12),
+            ),
+            // ── Tabs Header ────────────────────────────────────────────────
             SliverPersistentHeader(
               pinned: true,
               delegate: _SliverAppBarDelegate(
                 TabBar(
                   controller: _tabController,
                   isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   tabs: [
                     Tab(text: tr('profile.videos')),
                     Tab(text: tr('library.playlists')),
@@ -260,54 +326,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildEmptyState(tr('state.empty')), // Videos
-            _buildEmptyState(tr('state.empty')), // Playlists
+            _ProfileVideosTab(userId: profile.userId),
+            _ProfilePlaylistsTab(),
             ProfilePostsList(
               userId: profile.userId,
               isMyProfile: true,
-            ), // Posts
-            _buildAboutTab(profile, authState, tr), // About
+            ),
+            _ProfileAboutTab(profile: profile, authState: authState),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEmptyState(String msg) {
-    return Center(
-      child: Text(
-        msg,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-      ),
-    );
-  }
-
-  Widget _buildAboutTab(
-    ProfileModel profile,
-    AuthState authState,
-    String Function(String) tr,
-  ) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ListTile(
-          leading: const Icon(Icons.email_outlined),
-          title: const Text('Email'),
-          subtitle: Text(authState.user?.email ?? '—'),
-        ),
-        if (profile.website != null)
-          ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('Website'),
-            subtitle: Text(profile.website!),
-          ),
-        if (profile.country != null)
-          ListTile(
-            leading: const Icon(Icons.location_on_outlined),
-            title: const Text('Country'),
-            subtitle: Text(profile.country!),
-          ),
-      ],
     );
   }
 
@@ -328,6 +356,644 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     return null;
   }
 }
+
+// ── Watch History Carousel (Above Tabs) ──────────────────────────────────────
+
+class _WatchHistoryCarousel extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
+    final historyAsync = ref.watch(watchHistoryProvider);
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              InkWell(
+                onTap: () => context.push('/library/history'),
+                child: Row(
+                  children: [
+                    Text(
+                      tr('library.history'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/library/history'),
+                child: Text(
+                  'View all',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        historyAsync.when(
+          data: (response) {
+            if (response.data.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Text(
+                  'No watched videos yet.',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              );
+            }
+            return SizedBox(
+              height: 165,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: response.data.length,
+                itemBuilder: (context, index) {
+                  final video = response.data[index];
+                  return _HistoryItemCard(video: video);
+                },
+              ),
+            );
+          },
+          loading: () => const SizedBox(
+            height: 160,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (err, stack) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryItemCard extends ConsumerWidget {
+  final VideoResponseDto video;
+
+  const _HistoryItemCard({required this.video});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final resolvedThumb = MediaUrlResolver.resolve(video.thumbnailUrl);
+
+    return Container(
+      width: 170,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => context.push('/video/${video.id}'),
+        onLongPress: () => _showVideoActionModal(context, ref, video),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Container(
+                      color: Colors.grey.shade900,
+                      child: resolvedThumb != null
+                          ? Image.network(
+                              resolvedThumb,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.play_circle_outline, color: Colors.white54),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(Icons.play_circle_outline, color: Colors.white54),
+                            ),
+                    ),
+                  ),
+                  if (video.duration > 0)
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _formatDuration(video.duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        video.author.displayName ?? video.author.username ?? 'Channel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _showVideoActionModal(context, ref, video),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 2.0),
+                    child: Icon(Icons.more_vert, size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVideoActionModal(BuildContext context, WidgetRef ref, VideoResponseDto video) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow_outlined),
+              title: const Text('Play Video'),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push('/video/${video.id}');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Download'),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (video.renditions.isNotEmpty) {
+                  ref.read(downloadServiceProvider.notifier).startDownload(
+                    videoId: video.id,
+                    url: video.renditions.first.url,
+                    title: video.title,
+                    thumbnailUrl: video.thumbnailUrl,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Downloading video...')),
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Download not available for this video')),
+                    );
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: const Text('Save to Bookmarks / Library'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(saveProvider.notifier).toggleSave(video.id, isVideo: true);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Saved to your library')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('Share'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ShareButton(postId: video.id, title: video.title);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Remove from Watch History', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ref.read(videoRepositoryProvider).removeFromWatchHistory(video.id);
+                  ref.invalidate(watchHistoryProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Removed from watch history')),
+                    );
+                  }
+                } catch (_) {
+                  ref.invalidate(watchHistoryProvider);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final duration = Duration(seconds: seconds);
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    if (duration.inHours > 0) {
+      return "${duration.inHours}:$twoDigitMinutes:$twoDigitSeconds";
+    }
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+}
+
+// ── Videos Tab ───────────────────────────────────────────────────────────────
+
+class _ProfileVideosTab extends ConsumerWidget {
+  final String userId;
+
+  const _ProfileVideosTab({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final videosAsync = ref.watch(profileVideosProvider(userId));
+    final theme = Theme.of(context);
+
+    return videosAsync.when(
+      data: (videos) {
+        if (videos.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.video_library_outlined,
+                  size: 56,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Nothing to see here yet.',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.only(top: 8, bottom: 80),
+          itemCount: videos.length,
+          itemBuilder: (context, index) {
+            final video = videos[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: VideoCard(video: video),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(
+        child: Text('Error loading videos: $err'),
+      ),
+    );
+  }
+}
+
+// ── Playlists Tab ────────────────────────────────────────────────────────────
+
+class _ProfilePlaylistsTab extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlistsAsync = ref.watch(myPlaylistsProvider);
+    final theme = Theme.of(context);
+
+    return playlistsAsync.when(
+      data: (playlists) {
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            // Quick Action Row for Library shortcuts (YouTube-style)
+            _buildLibraryShortcuts(context),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Created Playlists',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Create Playlist',
+                  onPressed: () => _showCreatePlaylistDialog(context, ref),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (playlists.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text(
+                    'No playlists created yet.',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              )
+            else
+              ...playlists.map((playlist) => _PlaylistCardTile(playlist: playlist)),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error loading playlists: $err')),
+    );
+  }
+
+  Widget _buildLibraryShortcuts(BuildContext context) {
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.download_done, color: Colors.blue),
+          ),
+          title: const Text('Downloads', style: TextStyle(fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => context.push('/library/downloads'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.thumb_up_alt_outlined, color: Colors.red),
+          ),
+          title: const Text('Liked videos', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: const Text('Private', style: TextStyle(fontSize: 12)),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => context.push('/library/liked'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.bookmark_outline, color: Colors.amber),
+          ),
+          title: const Text('Bookmarked videos', style: TextStyle(fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+          onTap: () => context.push('/library/bookmarks'),
+        ),
+      ],
+    );
+  }
+
+  void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
+    final titleController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('New Playlist'),
+        content: TextField(
+          controller: titleController,
+          decoration: const InputDecoration(
+            hintText: 'Playlist Title',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              if (title.isNotEmpty) {
+                Navigator.pop(dialogCtx);
+                try {
+                  await ref.read(playlistRepositoryProvider).createPlaylist(title: title);
+                  ref.invalidate(myPlaylistsProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Playlist created')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to create playlist: $e')),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaylistCardTile extends StatelessWidget {
+  final PlaylistDto playlist;
+
+  const _PlaylistCardTile({required this.playlist});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 80,
+          height: 48,
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: const Center(
+            child: Icon(Icons.playlist_play, size: 28),
+          ),
+        ),
+      ),
+      title: Text(
+        playlist.title,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        '${playlist.items.length} videos • ${playlist.privacy}',
+        style: TextStyle(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 12,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right, size: 20),
+      onTap: () => context.push('/playlists/${playlist.id}'),
+    );
+  }
+}
+
+// ── About Tab ────────────────────────────────────────────────────────────────
+
+class _ProfileAboutTab extends StatelessWidget {
+  final ProfileModel profile;
+  final AuthState authState;
+
+  const _ProfileAboutTab({
+    required this.profile,
+    required this.authState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          'About',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.email_outlined),
+          title: const Text('Email'),
+          subtitle: Text(authState.user?.email ?? '—'),
+        ),
+        if (profile.website != null)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.link),
+            title: const Text('Website'),
+            subtitle: Text(profile.website!),
+          ),
+        if (profile.country != null)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.location_on_outlined),
+            title: const Text('Country'),
+            subtitle: Text(profile.country!),
+          ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.calendar_today_outlined),
+          title: const Text('Joined'),
+          subtitle: Text(profile.createdAt.toString().split(' ')[0]),
+        ),
+        const Divider(height: 32),
+        Text(
+          'Channel Statistics',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _StatItem(label: 'Videos', value: '${profile.stats.videosCount}'),
+            _StatItem(label: 'Posts', value: '${profile.stats.postsCount}'),
+            _StatItem(label: 'Followers', value: '${profile.stats.followersCount}'),
+            _StatItem(label: 'Following', value: '${profile.stats.followingCount}'),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Sliver App Bar Delegate ──────────────────────────────────────────────────
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;

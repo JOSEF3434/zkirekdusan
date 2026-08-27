@@ -19,6 +19,8 @@ import 'package:mobile/features/settings/presentation/playback_preferences_scree
 import 'package:mobile/features/library/presentation/watch_history_screen.dart';
 import 'package:mobile/features/library/presentation/downloads_screen.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/library/presentation/liked_videos_screen.dart';
+import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 import 'package:mobile/features/settings/presentation/preferences_settings_screens.dart';
 import 'package:mobile/features/settings/presentation/admin_settings_screen.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
@@ -361,6 +363,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'continue-watching',
             builder: (context, state) => const ContinueWatchingScreen(),
+          ),
+          GoRoute(
+            path: 'liked',
+            builder: (context, state) => const LikedVideosScreen(),
+          ),
+          GoRoute(
+            path: 'bookmarks',
+            builder: (context, state) => const BookmarksScreen(),
           ),
         ],
       ),
