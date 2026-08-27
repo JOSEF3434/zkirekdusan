@@ -6,8 +6,12 @@
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "prisma generate && nest build",
+    "build:render": "npm install --include=dev && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
