@@ -7,10 +7,14 @@ import {
 import { ReelsRepository } from './reels.repository.js';
 import { CreateReelDto } from './dto/create-reel.dto.js';
 import { ReelResponseDto } from './dto/reel-response.dto.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 
 @Injectable()
 export class ReelsService {
-  constructor(private readonly reelsRepository: ReelsRepository) {}
+  constructor(
+    private readonly reelsRepository: ReelsRepository,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   async createReel(
     authorId: string,
@@ -60,6 +64,10 @@ export class ReelsService {
 
     if (reel.authorId !== userId) {
       throw new ForbiddenException('You can only delete your own reels');
+    }
+
+    if (reel.file?.storageKey) {
+      await this.uploadsService.safeDeleteAsset(reel.file.storageKey, reel.fileId);
     }
 
     await this.reelsRepository.softDelete(reelId);

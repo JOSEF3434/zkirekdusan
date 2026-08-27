@@ -1,4 +1,4 @@
-// src/modules/video-channels/video-channels.controller.ts
+import 'multer';
 import {
   Body,
   Controller,
@@ -8,7 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -16,6 +19,8 @@ import {
   ApiQuery,
   ApiResponse,
   ApiTags,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { VideoChannelsService } from './video-channels.service.js';
 import { CreateVideoChannelDto } from './dto/create-video-channel.dto.js';
@@ -163,6 +168,42 @@ export class VideoChannelsController {
     @CurrentUser('sub') userId: string,
   ) {
     return this.service.getChannelAnalytics(channelId, userId);
+  }
+
+  @Post(':channelId/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload video channel avatar' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadAvatar(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadAvatar(channelId, userId, file);
+  }
+
+  @Post(':channelId/banner')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload video channel banner' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadBanner(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadBanner(channelId, userId, file);
   }
 }
 

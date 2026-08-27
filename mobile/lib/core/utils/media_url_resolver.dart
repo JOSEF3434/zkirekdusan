@@ -9,7 +9,10 @@ class MediaUrlResolver {
     final trimmed = rawUrl.trim();
     if (trimmed.isEmpty) return null;
 
-    // 1. If it's a relative path (e.g. "/uploads/..." or "uploads/...")
+    // 0. Cloudinary URLs are always complete, secure HTTPS URLs — pass through immediately
+    if (isCloudinary(trimmed)) {
+      return trimmed;
+    }
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       final base = Env.apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
       return trimmed.startsWith('/') ? '$base$trimmed' : '$base/$trimmed';

@@ -19,12 +19,14 @@ import { GroupRole, GROUP_ROLE_HIERARCHY } from '../../common/constants/group-ro
 import { AppRole } from '../../common/constants/roles.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 
 @Injectable()
 export class GroupsService {
   constructor(
     private readonly groupsRepository: GroupsRepository,
     private readonly authorizationService: AuthorizationService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   /**
@@ -852,6 +854,38 @@ export class GroupsService {
 
     await this.groupsRepository.removeMember(groupId, targetUserId);
     return { message: 'Member removed successfully' };
+  }
+
+  async uploadAvatar(
+    groupId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (member?.role !== GroupRole.GROUP_ADMIN && group.createdById !== userId) {
+      throw new ForbiddenException('Only group admins can update group avatar');
+    }
+
+    return this.uploadsService.uploadGroupAvatar(groupId, userId, file);
+  }
+
+  async uploadCover(
+    groupId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (member?.role !== GroupRole.GROUP_ADMIN && group.createdById !== userId) {
+      throw new ForbiddenException('Only group admins can update group cover');
+    }
+
+    return this.uploadsService.uploadGroupCover(groupId, userId, file);
   }
 }
 

@@ -53,7 +53,7 @@ export class PostsRepository {
         },
         media: {
           include: {
-            file: { select: { id: true, url: true, fileType: true } },
+            file: { select: { id: true, url: true, fileType: true, storageKey: true } },
           },
           orderBy: { order: 'asc' },
         },

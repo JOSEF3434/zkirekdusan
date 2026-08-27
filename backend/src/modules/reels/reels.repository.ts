@@ -27,7 +27,7 @@ export class ReelsRepository {
             },
           },
         },
-        file: { select: { url: true } },
+        file: { select: { url: true, storageKey: true } },
       },
     });
   }
@@ -45,7 +45,7 @@ export class ReelsRepository {
             },
           },
         },
-        file: { select: { url: true } },
+        file: { select: { url: true, storageKey: true } },
       },
     });
   }

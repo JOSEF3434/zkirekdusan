@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import { FileProvider, FileType, ReactionType, StoryType } from '@prisma/client';
 import { StoriesRepository } from './stories.repository.js';
 import { UploadsRepository } from '../uploads/uploads.repository.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 import { IStorageProvider } from '../uploads/providers/storage.interface.js';
 import { STORAGE_PROVIDER_TOKEN } from '../uploads/providers/storage.factory.js';
 import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
@@ -30,6 +31,7 @@ export class StoriesService {
   constructor(
     private readonly storiesRepository: StoriesRepository,
     private readonly uploadsRepository: UploadsRepository,
+    private readonly uploadsService: UploadsService,
     @Inject(STORAGE_PROVIDER_TOKEN)
     private readonly storageProvider: IStorageProvider & Record<string, any>,
   ) {}
@@ -413,6 +415,13 @@ export class StoriesService {
 
     if (story.authorId !== userId) {
       throw new ForbiddenException('You can only delete your own stories');
+    }
+
+    if (story.fileId) {
+      const file = await this.uploadsRepository.findById(story.fileId);
+      if (file?.storageKey) {
+        await this.uploadsService.safeDeleteAsset(file.storageKey, story.fileId);
+      }
     }
 
     await this.storiesRepository.softDelete(storyId);

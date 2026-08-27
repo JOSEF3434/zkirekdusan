@@ -1,4 +1,3 @@
-// src/modules/posts/posts.service.ts
 import {
   ForbiddenException,
   Injectable,
@@ -8,10 +7,14 @@ import { PostsRepository } from './posts.repository.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
 import { PostResponseDto } from './dto/post-response.dto.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 
 @Injectable()
 export class PostsService {
-  constructor(private readonly postsRepository: PostsRepository) {}
+  constructor(
+    private readonly postsRepository: PostsRepository,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   async createPost(
     authorId: string,
@@ -63,6 +66,14 @@ export class PostsService {
 
     if (post.authorId !== userId) {
       throw new ForbiddenException('You can only delete your own posts');
+    }
+
+    if (post.media && Array.isArray(post.media)) {
+      for (const m of post.media) {
+        if (m.file?.storageKey) {
+          await this.uploadsService.safeDeleteAsset(m.file.storageKey, m.file.id);
+        }
+      }
     }
 
     await this.postsRepository.softDeletePost(postId);

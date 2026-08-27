@@ -7,10 +7,14 @@ import {
 import { ProfilesRepository } from './profiles.repository.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { ProfileResponseDto } from './dto/profile-response.dto.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly profilesRepository: ProfilesRepository) {}
+  constructor(
+    private readonly profilesRepository: ProfilesRepository,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   async getProfileByUsername(
     username: string,
@@ -81,6 +85,16 @@ export class ProfilesService {
     dto: UpdateProfileDto,
   ): Promise<ProfileResponseDto> {
     await this.profilesRepository.update(userId, dto);
+    return this.getMyProfile(userId);
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<ProfileResponseDto> {
+    await this.uploadsService.uploadUserAvatar(userId, file);
+    return this.getMyProfile(userId);
+  }
+
+  async uploadCover(userId: string, file: Express.Multer.File): Promise<ProfileResponseDto> {
+    await this.uploadsService.uploadUserCover(userId, file);
     return this.getMyProfile(userId);
   }
 }

@@ -60,24 +60,31 @@ export class DownloadsService {
       video.renditions.sort((a, b) => b.height - a.height)[0];
 
     const appUrl =
-      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      this.configService.get<string>('APP_URL') ??
+      this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+      'https://zikrekidusan.onrender.com';
 
     // Generate signed download URL token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour validity
-
-    const downloadUrl = `${appUrl}/api/downloads/file/${token}?res=${targetRes}`;
 
     // Create Download Audit Record
     const record = await this.repo.createRecord({
       userId,
       videoId: video.id,
       resolution: targetRes,
-      signedUrl: downloadUrl,
+      signedUrl: '',
       expiresAt,
       ipAddress,
       userAgent,
       fileSize: rendition ? rendition.fileSize : BigInt(0),
+    });
+
+    const downloadUrl = `${appUrl}/api/downloads/file/${record.id}?token=${token}`;
+
+    await this.prisma.downloadRecord.update({
+      where: { id: record.id },
+      data: { signedUrl: downloadUrl },
     });
 
     // Audit log entry
@@ -131,20 +138,27 @@ export class DownloadsService {
     }
 
     const appUrl =
-      this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      this.configService.get<string>('APP_URL') ??
+      this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+      'https://zikrekidusan.onrender.com';
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    const downloadUrl = `${appUrl}/api/downloads/raw/${file.id}?token=${token}`;
 
     const record = await this.repo.createRecord({
       userId,
       fileId: file.id,
-      signedUrl: downloadUrl,
+      signedUrl: '',
       expiresAt,
       ipAddress,
       userAgent,
       fileSize: file.size,
+    });
+
+    const downloadUrl = `${appUrl}/api/downloads/file/${record.id}?token=${token}`;
+
+    await this.prisma.downloadRecord.update({
+      where: { id: record.id },
+      data: { signedUrl: downloadUrl },
     });
 
     return {
@@ -161,7 +175,12 @@ export class DownloadsService {
   async getDownloadStreamInfo(downloadRecordId: string, userId: string) {
     const record = await this.prisma.downloadRecord.findUnique({
       where: { id: downloadRecordId },
-      include: { video: { include: { renditions: true } }, file: true },
+      include: {
+        video: {
+          include: { renditions: true, sourceFile: true },
+        },
+        file: true,
+      },
     });
 
     if (!record) throw new NotFoundException('Download record not found');
@@ -179,6 +198,7 @@ export class DownloadsService {
     }
 
     let filePath: string | null = null;
+    let remoteUrl: string | null = null;
     let filename = 'download.mp4';
     let mimeType = 'video/mp4';
 
@@ -187,15 +207,33 @@ export class DownloadsService {
       const rendition = record.video.renditions.find(
         (r) => r.resolution === targetRes,
       );
-      const relativeKey = rendition
-        ? rendition.storageKey
-        : `videos/${record.videoId}/master.m3u8`;
-      filePath = path.resolve(process.cwd(), 'uploads', relativeKey);
+
       filename = `${record.video.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${targetRes.toLowerCase()}.mp4`;
+
+      if (rendition?.url) {
+        if (rendition.url.startsWith('http://') || rendition.url.startsWith('https://')) {
+          remoteUrl = rendition.url;
+        } else {
+          filePath = path.resolve(process.cwd(), 'uploads', rendition.storageKey);
+        }
+      } else if (record.video.sourceFile?.url) {
+        if (record.video.sourceFile.url.startsWith('http://') || record.video.sourceFile.url.startsWith('https://')) {
+          remoteUrl = record.video.sourceFile.url;
+        } else {
+          filePath = path.resolve(process.cwd(), 'uploads', record.video.sourceFile.storageKey);
+        }
+      } else if (record.video.hlsUrl) {
+        remoteUrl = record.video.hlsUrl;
+      }
     } else if (record.fileId && record.file) {
-      filePath = path.resolve(process.cwd(), 'uploads', record.file.storageKey);
       filename = record.file.originalName;
       mimeType = record.file.mimeType;
+
+      if (record.file.url && (record.file.url.startsWith('http://') || record.file.url.startsWith('https://'))) {
+        remoteUrl = record.file.url;
+      } else {
+        filePath = path.resolve(process.cwd(), 'uploads', record.file.storageKey);
+      }
     }
 
     // Update status to COMPLETED
@@ -205,7 +243,7 @@ export class DownloadsService {
       record.fileSize || BigInt(0),
     );
 
-    return { filePath, filename, mimeType };
+    return { filePath, remoteUrl, filename, mimeType };
   }
 
   async getUserHistory(userId: string, page = 1, limit = 20) {
@@ -222,7 +260,6 @@ export class DownloadsService {
       include: { role: true },
     });
 
-    // SUPER_ADMIN has unrestricted download access
     if (
       user?.role.name === AppRole.SUPER_ADMIN ||
       user?.role.name === AppRole.ADMIN
@@ -241,7 +278,6 @@ export class DownloadsService {
       return true;
     }
 
-    // Check Group RBAC
     const groupId = video.videoChannel.groupId;
     const member = await this.prisma.groupMember.findFirst({
       where: { groupId, userId, removedAt: null },

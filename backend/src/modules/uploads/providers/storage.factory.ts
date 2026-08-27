@@ -21,10 +21,15 @@ export const storageProviderFactory = {
     const providerType = configService
       .get<string>('STORAGE_PROVIDER')
       ?.toUpperCase();
+
+    // Explicit LOCAL opt-in for isolated offline tests
+    if (providerType === 'LOCAL') {
+      logger.log('STORAGE_PROVIDER=LOCAL explicitly configured — using LocalStorageProvider');
+      return localProvider;
+    }
+
     if (providerType === 'MINIO') {
-      logger.log(
-        'STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider',
-      );
+      logger.log('STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider');
       return minioProvider;
     }
 
@@ -33,13 +38,11 @@ export const storageProviderFactory = {
     const apiSecret = configService.get<string>('CLOUDINARY_API_SECRET');
 
     if (cloudName && apiKey && apiSecret) {
-      logger.log(
-        'Cloudinary credentials found in .env — using CloudinaryStorageProvider',
-      );
+      logger.log(`Cloudinary credentials configured (cloud: ${cloudName}) — using CloudinaryStorageProvider`);
       return cloudinaryProvider;
     }
 
-    logger.log('Using LocalStorageProvider (uploads/ folder)');
+    logger.warn('No Cloudinary credentials found — falling back to LocalStorageProvider');
     return localProvider;
   },
   inject: [

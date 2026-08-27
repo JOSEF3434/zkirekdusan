@@ -4,9 +4,10 @@ import { GroupsService } from './groups.service.js';
 import { GroupsRepository } from './groups.repository.js';
 import { GroupsController } from './groups.controller.js';
 import { AuthorizationModule } from '../authorization/authorization.module.js';
+import { UploadsModule } from '../uploads/uploads.module.js';
 
 @Module({
-  imports: [AuthorizationModule],
+  imports: [AuthorizationModule, UploadsModule],
   controllers: [GroupsController],
   providers: [GroupsService, GroupsRepository],
   exports: [GroupsService, GroupsRepository],

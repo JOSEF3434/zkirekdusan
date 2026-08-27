@@ -107,6 +107,10 @@ export class DownloadsController {
   ) {
     const info = await this.service.getDownloadStreamInfo(downloadId, userId);
 
+    if (info.remoteUrl) {
+      return res.redirect(info.remoteUrl);
+    }
+
     if (!info.filePath || !fs.existsSync(info.filePath)) {
       throw new NotFoundException(
         'Requested file was not found on storage server',

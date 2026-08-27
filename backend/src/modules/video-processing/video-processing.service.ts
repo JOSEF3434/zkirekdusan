@@ -140,14 +140,19 @@ export class VideoProcessingService {
         });
       }
 
+      // Determine thumbnail URL if not already set
+      const posterThumbnailUrl =
+        video.thumbnailUrl && !video.thumbnailUrl.includes('localhost')
+          ? video.thumbnailUrl
+          : `https://res.cloudinary.com/${cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/so_1,q_auto,f_jpg/${publicId}.jpg`;
+
       // Update video to READY with HLS URL as primary + direct MP4 as fallback
       await this.prisma.video.update({
         where: { id: videoId },
         data: {
           status: VideoStatus.READY,
           hlsUrl: hlsStreamingUrl,
-          // Store direct MP4 URL in a field that Flutter player can use as fallback
-          // The player will try hlsUrl first, then renditions
+          thumbnailUrl: posterThumbnailUrl,
         },
       });
 

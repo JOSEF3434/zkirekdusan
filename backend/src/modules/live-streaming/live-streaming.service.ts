@@ -413,7 +413,10 @@ export class LiveStreamingService {
     // If recording was enabled, create a recording record for processing & storage
     if (stream.isRecordingEnabled) {
       const recording = await this.repository.createRecording(streamId);
-      const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const appUrl =
+        this.configService.get<string>('APP_URL') ??
+        this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+        'https://zikrekidusan.onrender.com';
       const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
 
       // Mark recording ready so user can immediately view/publish VOD
@@ -477,7 +480,10 @@ export class LiveStreamingService {
     if (!recording) {
       // Create fallback recording record
       recording = await this.repository.createRecording(streamId);
-      const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const appUrl =
+        this.configService.get<string>('APP_URL') ??
+        this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+        'https://zikrekidusan.onrender.com';
       const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
       recording = await this.prisma.streamRecording.update({
         where: { id: recording.id },

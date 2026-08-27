@@ -125,7 +125,7 @@ export class StreamProcessingProcessor extends WorkerHost {
               originalname: file,
               mimetype: mimeType,
               size: buffer.length,
-            }, `recordings/${recordingId}`);
+            }, `live-recordings/${recordingId}`);
             
             if (file === 'master.m3u8') {
               masterUrl = res.url;
@@ -134,7 +134,10 @@ export class StreamProcessingProcessor extends WorkerHost {
           }
         }
       } else {
-        const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+        const appUrl =
+          this.configService.get<string>('APP_URL') ??
+          this.configService.get<string>('RENDER_EXTERNAL_URL') ??
+          'https://zikrekidusan.onrender.com';
         const masterRelPath = `hls_${recordingId}/master.m3u8`.replace(/\\/g, '/');
         masterUrl = `${appUrl}/uploads/${masterRelPath}`;
       }

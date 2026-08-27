@@ -12,12 +12,14 @@ import { CreateVideoChannelDto } from './dto/create-video-channel.dto.js';
 import { UpdateVideoChannelDto } from './dto/update-video-channel.dto.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
+import { UploadsService } from '../uploads/uploads.service.js';
 
 @Injectable()
 export class VideoChannelsService {
   constructor(
     private readonly repo: VideoChannelsRepository,
     private readonly prisma: PrismaService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   private async verifyGroupAccess(
@@ -225,5 +227,29 @@ export class VideoChannelsService {
       totalComments: totalComments._sum.commentsCount ?? 0,
       subscribersCount: channel.subscribersCount,
     };
+  }
+
+  async uploadAvatar(
+    channelId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    const channel = await this.repo.findById(channelId);
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    return this.uploadsService.uploadChannelAvatar(channelId, userId, file);
+  }
+
+  async uploadBanner(
+    channelId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    const channel = await this.repo.findById(channelId);
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    return this.uploadsService.uploadChannelBanner(channelId, userId, file);
   }
 }

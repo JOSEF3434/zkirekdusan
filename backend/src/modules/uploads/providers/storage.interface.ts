@@ -6,6 +6,10 @@ export interface StorageUploadResult {
   provider: 'LOCAL' | 'CLOUDINARY' | 'S3' | 'MINIO';
   width?: number;
   height?: number;
+  duration?: number;
+  format?: string;
+  resourceType?: 'image' | 'video' | 'raw';
+  bytes?: number;
 }
 
 export interface IStorageProvider {

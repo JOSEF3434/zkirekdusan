@@ -1,4 +1,5 @@
 // src/modules/profiles/profiles.controller.ts
+import 'multer';
 import {
   Body,
   Controller,
@@ -7,14 +8,20 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service.js';
 import { PostsService } from '../posts/posts.service.js';
@@ -49,6 +56,42 @@ export class ProfilesController {
     @Body() dto: UpdateProfileDto,
   ): Promise<ProfileResponseDto> {
     return this.profilesService.updateMyProfile(userId, dto);
+  }
+
+  @Post('me/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload avatar for current user profile' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  async uploadAvatar(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ProfileResponseDto> {
+    return this.profilesService.uploadAvatar(userId, file);
+  }
+
+  @Post('me/cover')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload cover for current user profile' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  async uploadCover(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ProfileResponseDto> {
+    return this.profilesService.uploadCover(userId, file);
   }
 
   @Public()

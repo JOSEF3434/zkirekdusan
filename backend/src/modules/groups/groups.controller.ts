@@ -1,4 +1,4 @@
-// src/modules/groups/groups.controller.ts
+import 'multer';
 import {
   Body,
   Controller,
@@ -10,14 +10,19 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { GroupsService } from './groups.service.js';
 import { CreateGroupDto } from './dto/create-group.dto.js';
@@ -269,6 +274,46 @@ export class GroupsController {
       targetUserId,
       actor.role as AppRole,
     );
+  }
+
+  @Post(':groupId/avatar')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.GROUP_ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload avatar for group' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadAvatar(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.groupsService.uploadAvatar(groupId, userId, file);
+  }
+
+  @Post(':groupId/cover')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.GROUP_ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload cover banner for group' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  async uploadCover(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.groupsService.uploadCover(groupId, userId, file);
   }
 }
 
