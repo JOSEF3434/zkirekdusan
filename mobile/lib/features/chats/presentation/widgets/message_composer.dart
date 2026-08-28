@@ -34,7 +34,7 @@ class MessageComposer extends ConsumerStatefulWidget {
 class _MessageComposerState extends ConsumerState<MessageComposer> {
   final TextEditingController _controller = TextEditingController();
   final AudioRecorder _audioRecorder = AudioRecorder();
-  
+
   bool _isRecording = false;
   bool _showEmojiPicker = false;
   bool _isSending = false;
@@ -49,19 +49,19 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _onTextChanged() {
-    // Send typing indicator
     final hasText = _controller.text.trim().isNotEmpty;
     if (hasText) {
       _sendTypingIndicator();
     } else {
       _stopTypingIndicator();
     }
+    setState(() {});
   }
 
   void _sendTypingIndicator() {
     _typingTimer?.cancel();
     ref.read(typingIndicatorProvider(widget.conversationId).notifier).startTyping();
-    
+
     _typingTimer = Timer(const Duration(seconds: 3), () {
       _stopTypingIndicator();
     });
@@ -86,92 +86,90 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Column(
-      children: [
-        // Reply preview
-        if (widget.replyToMessageId != null) _buildReplyPreview(),
-
-        // Emoji picker
-        if (_showEmojiPicker)
-          SizedBox(
-            height: 250,
-            child: EmojiPicker(
-              onEmojiSelected: (category, emoji) {
-                _controller.text += emoji.emoji;
-              },
-              config: const Config(
-                checkPlatformCompatibility: true,
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F141C) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.05),
+            width: 0.5,
           ),
-
-        // Main composer
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey[900] : Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: EdgeInsets.only(
-            left: 8,
-            right: 8,
-            top: 8,
-            bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 8 : 8 + MediaQuery.of(context).padding.bottom,
-          ),
-          child: _isRecording ? _buildRecordingUI() : _buildInputUI(theme),
         ),
-      ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Reply Preview Banner
+            if (widget.replyToMessageId != null) _buildReplyPreview(isDark),
+
+            // Main Composer Row (Pill Bar matching Screenshot 2)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: _isRecording ? _buildRecordingUI(isDark) : _buildInputUI(isDark),
+            ),
+
+            // Emoji Picker
+            if (_showEmojiPicker)
+              SizedBox(
+                height: 250,
+                child: EmojiPicker(
+                  onEmojiSelected: (category, emoji) {
+                    _controller.text += emoji.emoji;
+                  },
+                  config: Config(
+                    height: 250,
+                    checkPlatformCompatibility: true,
+                    skinToneConfig: const SkinToneConfig(),
+                    categoryViewConfig: CategoryViewConfig(
+                      backgroundColor: isDark ? const Color(0xFF131822) : Colors.grey[100]!,
+                      iconColor: Colors.grey,
+                      iconColorSelected: const Color(0xFF00C6FF),
+                    ),
+                    bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildReplyPreview() {
-    final theme = Theme.of(context);
-    
+  Widget _buildReplyPreview(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: isDark ? const Color(0xFF181F2E) : Colors.grey[100],
         border: Border(
-          bottom: BorderSide(
-            color: theme.dividerColor.withValues(alpha: 0.2),
-          ),
+          left: const BorderSide(color: Color(0xFF00C6FF), width: 3.5),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 3,
-            height: 40,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
+          const Icon(Icons.reply_rounded, size: 18, color: Color(0xFF00C6FF)),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Replying to',
+                const Text(
+                  'Replying to message',
                   style: TextStyle(
                     fontSize: 12,
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF00C6FF),
                   ),
                 ),
-                const SizedBox(height: 2),
                 Text(
-                  'Message preview', // TODO: Get actual message
+                  'Quoted message content',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -180,7 +178,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 20),
+            icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
             onPressed: widget.onCancelReply,
           ),
         ],
@@ -188,32 +186,42 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     );
   }
 
-  Widget _buildInputUI(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _buildInputUI(bool isDark) {
     final hasText = _controller.text.trim().isNotEmpty;
 
     return Row(
       children: [
-        // Emoji button
-        IconButton(
-          icon: Icon(
-            _showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
-            color: _showEmojiPicker ? theme.colorScheme.primary : Colors.grey[600],
+        // Camera / Attachment Button (matching Screenshot 2 camera/plus icon)
+        GestureDetector(
+          onTap: _showAttachmentOptions,
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1B2230) : Colors.grey[200],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.camera_alt_outlined,
+              size: 20,
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+            ),
           ),
-          onPressed: () {
-            setState(() => _showEmojiPicker = !_showEmojiPicker);
-            if (!_showEmojiPicker) {
-              widget.focusNode.requestFocus();
-            }
-          },
         ),
+        const SizedBox(width: 8),
 
-        // Text input
+        // Text Input Pill (matching Screenshot 2 dark rounded field with "Respond...")
         Expanded(
           child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey[850] : Colors.grey[200],
+              color: isDark ? const Color(0xFF1B2230) : Colors.grey[200],
               borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05),
+              ),
             ),
             child: Row(
               children: [
@@ -221,16 +229,22 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                   child: TextField(
                     controller: _controller,
                     focusNode: widget.focusNode,
-                    maxLines: null,
+                    maxLines: 4,
+                    minLines: 1,
                     textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                     decoration: InputDecoration(
-                      hintText: 'Send Message',
-                      hintStyle: TextStyle(color: Colors.grey[600]),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                      hintText: 'Respond...',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 14,
                       ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onTap: () {
                       if (_showEmojiPicker) {
@@ -239,47 +253,77 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                     },
                   ),
                 ),
-                // Attachment button
+
+                // Emoji Button
                 IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   icon: Icon(
-                    Icons.attach_file,
-                    color: Colors.grey[600],
+                    _showEmojiPicker
+                        ? Icons.keyboard_rounded
+                        : Icons.sentiment_satisfied_alt_rounded,
+                    size: 22,
+                    color: _showEmojiPicker
+                        ? const Color(0xFF00C6FF)
+                        : Colors.grey[500],
                   ),
-                  onPressed: _showAttachmentOptions,
+                  onPressed: () {
+                    setState(() => _showEmojiPicker = !_showEmojiPicker);
+                    if (!_showEmojiPicker) {
+                      widget.focusNode.requestFocus();
+                    } else {
+                      widget.focusNode.unfocus();
+                    }
+                  },
                 ),
               ],
             ),
           ),
         ),
-
         const SizedBox(width: 8),
 
-        // Send or Voice button
+        // Send or Voice Mic Button (matching Screenshot 2 circular mic/send button)
         GestureDetector(
           onTap: hasText ? _sendTextMessage : null,
           onLongPressStart: !hasText ? (_) => _startRecording() : null,
           onLongPressEnd: !hasText ? (_) => _stopRecording() : null,
           child: Container(
-            width: 44,
-            height: 44,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: hasText || _isSending
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primary.withValues(alpha: 0.8),
+              gradient: hasText
+                  ? const LinearGradient(
+                      colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
+                    )
+                  : null,
+              color: !hasText
+                  ? (isDark ? const Color(0xFF1B2230) : Colors.grey[200])
+                  : null,
               shape: BoxShape.circle,
+              boxShadow: hasText
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF06B6D4).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: _isSending
                 ? const Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.all(11),
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ),
                   )
                 : Icon(
-                    hasText ? Icons.send : Icons.mic,
-                    color: Colors.white,
-                    size: 22,
+                    hasText ? Icons.send_rounded : Icons.mic_rounded,
+                    color: hasText
+                        ? Colors.black87
+                        : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                    size: 20,
                   ),
           ),
         ),
@@ -287,76 +331,83 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     );
   }
 
-  Widget _buildRecordingUI() {
-    final theme = Theme.of(context);
-    
-    return Row(
-      children: [
-        // Recording indicator
-        Container(
-          width: 12,
-          height: 12,
-          decoration: const BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
+  Widget _buildRecordingUI(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1B2230) : Colors.grey[200],
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          // Flashing red dot
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: Colors.redAccent,
+              shape: BoxShape.circle,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        
-        // Waveform animation (simulated)
-        Expanded(
-          child: Row(
-            children: List.generate(
-              20,
-              (index) => Container(
-                width: 2,
-                height: (index % 3 + 1) * 8.0,
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(1),
+          const SizedBox(width: 10),
+
+          // Duration
+          Text(
+            _formatDuration(_recordingDuration),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.redAccent,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Waveform bars simulation
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                16,
+                (index) => Container(
+                  width: 2.5,
+                  height: ((index * 7) % 18 + 6).toDouble(),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C6FF),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          const SizedBox(width: 12),
 
-        // Recording duration
-        Text(
-          _formatDuration(_recordingDuration),
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
+          // Cancel
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
+            onPressed: _cancelRecording,
           ),
-        ),
 
-        const SizedBox(width: 16),
-
-        // Cancel button
-        IconButton(
-          icon: const Icon(Icons.close, color: Colors.red),
-          onPressed: _cancelRecording,
-        ),
-
-        // Stop button
-        GestureDetector(
-          onTap: _stopRecording,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.send,
-              color: Colors.white,
-              size: 22,
+          // Send Voice
+          GestureDetector(
+            onTap: _stopRecording,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.send_rounded,
+                color: Colors.black87,
+                size: 18,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -373,14 +424,13 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
             content: text,
             replyToId: widget.replyToMessageId,
           );
-      
+
       widget.onCancelReply?.call();
       widget.onMessageSent?.call();
     } catch (e) {
-      // Show error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $e')),
+          SnackBar(content: Text('Failed to send: $e')),
         );
       }
     } finally {
@@ -393,35 +443,47 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF161C28)
+          : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.purple),
-              title: const Text('Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.blue),
-              title: const Text('Camera'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.insert_drive_file, color: Colors.orange),
-              title: const Text('Document'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickDocument();
-              },
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _AttachmentOption(
+                icon: Icons.photo_library_rounded,
+                color: const Color(0xFF00C6FF),
+                label: 'Gallery',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.camera_alt_rounded,
+                color: const Color(0xFF10B981),
+                label: 'Camera',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.insert_drive_file_rounded,
+                color: const Color(0xFFF59E0B),
+                label: 'Document',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickDocument();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -431,7 +493,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: source);
-      
       if (image != null) {
         await _uploadAndSendMedia(image.path, image.name, 'image/jpeg');
       }
@@ -443,7 +504,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _pickDocument() async {
     try {
       final result = await FilePicker.pickFiles();
-      
       if (result != null && result.files.single.path != null) {
         final file = result.files.single;
         await _uploadAndSendMedia(
@@ -457,7 +517,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     }
   }
 
-  Future<void> _uploadAndSendMedia(String filePath, String fileName, String mimeType) async {
+  Future<void> _uploadAndSendMedia(
+      String filePath, String fileName, String mimeType) async {
     setState(() => _isSending = true);
 
     try {
@@ -470,8 +531,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       );
 
       final fileId = uploadResult['id'] as String;
-      
-      await ref.read(chatMessagesProvider(widget.conversationId).notifier).sendMessage(
+
+      await ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .sendMessage(
             attachmentIds: [fileId],
             type: _getMessageType(mimeType),
           );
@@ -529,10 +592,11 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       _recordingTimer?.cancel();
 
       if (path != null) {
-        await _uploadAndSendMedia(path, 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a', 'audio/m4a');
+        await _uploadAndSendMedia(
+            path, 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a', 'audio/m4a');
       }
     } catch (e) {
-      _showError('Failed to send voice message: $e');
+      _showError('Failed to send voice: $e');
     } finally {
       setState(() {
         _isRecording = false;
@@ -544,7 +608,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   void _cancelRecording() async {
     await _audioRecorder.stop();
     _recordingTimer?.cancel();
-    
     setState(() {
       _isRecording = false;
       _recordingDuration = Duration.zero;
@@ -563,5 +626,55 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         SnackBar(content: Text(message)),
       );
     }
+  }
+}
+
+class _AttachmentOption extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _AttachmentOption({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 26),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[300]
+                    : Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

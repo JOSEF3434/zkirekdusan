@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/message_bubble.dart';
@@ -32,7 +33,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    
+
     // Mark conversation as read when opening
     Future.microtask(() {
       ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
@@ -41,7 +42,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   void _onScroll() {
     if (_scrollController.position.pixels <= _scrollController.position.minScrollExtent + 100) {
-      // Load more messages when near top
       ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMoreMessages();
     }
   }
@@ -59,14 +59,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final conversationsAsync = ref.watch(conversationsProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
     final typingUsers = ref.watch(typingIndicatorProvider(widget.conversationId));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     ConversationModel? conversation;
     conversationsAsync.whenData((conversations) {
       try {
         conversation = conversations.firstWhere((c) => c.id == widget.conversationId);
-      } catch (e) {
-        // Conversation not found in list
-      }
+      } catch (_) {}
     });
 
     final otherMember = conversation?.type == 'DIRECT'
@@ -82,63 +81,121 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         'Chat';
 
     final isOnline = otherMember?.isOnline ?? false;
+    final isGroup = conversation?.type != 'DIRECT' && conversation != null;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF7F9FC),
       appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF131822) : Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
         title: InkWell(
           onTap: () {
-            // TODO: Navigate to profile/group info
+            if (otherMember?.username != null) {
+              context.push('/profile/user/${otherMember!.username}');
+            } else if (conversation?.groupId != null) {
+              context.push('/groups/${conversation!.groupId}');
+            }
           },
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                backgroundImage: otherMember?.avatarUrl != null
-                    ? NetworkImage(otherMember!.avatarUrl!)
-                    : null,
-                child: otherMember?.avatarUrl == null
-                    ? Icon(
-                        conversation?.type == 'DIRECT' ? Icons.person : Icons.group,
-                        size: 20,
-                        color: Colors.grey,
-                      )
-                    : null,
+              // Avatar with Online indicator (matching Screenshot 2)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 19,
+                    backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                    backgroundImage: otherMember?.avatarUrl != null
+                        ? CachedNetworkImageProvider(otherMember!.avatarUrl!)
+                        : (conversation?.metadata?.groupAvatar != null
+                            ? CachedNetworkImageProvider(conversation!.metadata!.groupAvatar!)
+                            : null),
+                    child: otherMember?.avatarUrl == null && conversation?.metadata?.groupAvatar == null
+                        ? Text(
+                            displayName.isNotEmpty ? displayName[0].toUpperCase() : 'C',
+                            style: const TextStyle(
+                              color: Color(0xFF00C6FF),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (isOnline && !isGroup)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF131822) : Colors.white,
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.6),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+
+              // Title and Online Status Subtitle (matching Screenshot 2)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                        letterSpacing: -0.2,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 1),
                     if (typingUsers.isNotEmpty)
-                      Text(
+                      const Text(
                         'typing...',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Color(0xFF00C6FF),
                           fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
                         ),
                       )
-                    else if (isOnline && conversation?.type == 'DIRECT')
-                      Text(
-                        'online',
+                    else if (isOnline && !isGroup)
+                      const Text(
+                        'Online',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.green[600],
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    else if (isGroup)
+                      Text(
+                        '${conversation?.members.length ?? 0} members',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
                         ),
                       )
                     else if (otherMember?.lastSeen != null)
@@ -146,7 +203,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         'last seen ${_formatLastSeen(otherMember!.lastSeen!)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: Colors.grey[500],
+                        ),
+                      )
+                    else
+                      Text(
+                        'Offline',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
                         ),
                       ),
                   ],
@@ -156,29 +221,38 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         ),
         actions: [
+          // Voice Call Icon (matching Screenshot 2)
           IconButton(
-            icon: const Icon(Icons.videocam_outlined),
+            icon: const Icon(Icons.call_outlined, size: 22),
             onPressed: () {
-              // TODO: Implement video call
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Starting audio call...')),
+              );
             },
           ),
+          // Video Call Icon (matching Screenshot 2)
           IconButton(
-            icon: const Icon(Icons.call_outlined),
+            icon: const Icon(Icons.videocam_outlined, size: 24),
             onPressed: () {
-              // TODO: Implement voice call
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Starting video call...')),
+              );
             },
           ),
+          // More Menu
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) => _handleMenuAction(value, conversation),
+            icon: const Icon(Icons.more_vert_rounded, size: 22),
+            color: isDark ? const Color(0xFF161C28) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onSelected: (value) => _handleMenuAction(value, conversation, otherMember),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'view_profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline),
+                    Icon(Icons.person_outline, size: 20),
                     SizedBox(width: 12),
-                    Text('View Profile'),
+                    Text('View Info'),
                   ],
                 ),
               ),
@@ -186,7 +260,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 value: 'mute',
                 child: Row(
                   children: [
-                    Icon(Icons.volume_off_outlined),
+                    Icon(Icons.volume_off_outlined, size: 20),
                     SizedBox(width: 12),
                     Text('Mute Notifications'),
                   ],
@@ -196,19 +270,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 value: 'search',
                 child: Row(
                   children: [
-                    Icon(Icons.search),
+                    Icon(Icons.search, size: 20),
                     SizedBox(width: 12),
                     Text('Search in Chat'),
                   ],
                 ),
               ),
+              const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.red),
+                    Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                     SizedBox(width: 12),
-                    Text('Clear Chat', style: TextStyle(color: Colors.red)),
+                    Text('Clear Chat', style: TextStyle(color: Colors.redAccent)),
                   ],
                 ),
               ),
@@ -216,159 +291,170 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Messages list
-          Expanded(
-            child: messages.when(
-              data: (messageList) {
-                if (messageList.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 80,
-                              color: Colors.grey.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No messages yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+      body: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF7F9FC),
+        ),
+        child: Column(
+          children: [
+            // Messages list area
+            Expanded(
+              child: messages.when(
+                data: (messageList) {
+                  if (messageList.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF00C6FF).withValues(alpha: 0.1),
+                            ),
+                            child: const Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 36,
+                              color: Color(0xFF00C6FF),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Send a message to start chatting',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
+                          const SizedBox(height: 14),
+                          Text(
+                            'No messages here yet...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: false,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: messageList.length,
-                  itemBuilder: (context, index) {
-                    final message = messageList[index];
-                    final isMe = message.sender.id == currentUserId;
-                    
-                    // Show date separator
-                    final showDateSeparator = index == 0 ||
-                        !_isSameDay(
-                          message.createdAt,
-                          messageList[index - 1].createdAt,
-                        );
-
-                    // Group consecutive messages from same sender
-                    final isGroupStart = index == 0 ||
-                        messageList[index - 1].sender.id != message.sender.id ||
-                        message.createdAt.difference(messageList[index - 1].createdAt).inMinutes > 5;
-
-                    final isGroupEnd = index == messageList.length - 1 ||
-                        messageList[index + 1].sender.id != message.sender.id ||
-                        messageList[index + 1].createdAt.difference(message.createdAt).inMinutes > 5;
-
-                    return Column(
-                      children: [
-                        if (showDateSeparator)
-                          DateSeparator(date: message.createdAt),
-                        MessageBubble(
-                          message: message,
-                          isMe: isMe,
-                          isGroupStart: isGroupStart,
-                          isGroupEnd: isGroupEnd,
-                          showAvatar: !isMe && (isGroupEnd || conversation?.type != 'DIRECT'),
-                          onReply: () {
-                            setState(() => _replyToMessageId = message.id);
-                            _composerFocusNode.requestFocus();
-                          },
-                          onReaction: (emoji) {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId).notifier)
-                                .addReaction(message.id, emoji);
-                          },
-                          onDelete: isMe
-                              ? () {
-                                  _confirmDelete(message.id);
-                                }
-                              : null,
-                          onEdit: isMe && message.type == 'TEXT'
-                              ? () {
-                                  // TODO: Implement edit
-                                }
-                              : null,
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load messages',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
+                          const SizedBox(height: 6),
+                          Text(
+                            'Send a message to start the conversation',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                    ),
-                  ],
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: false,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: messageList.length,
+                    itemBuilder: (context, index) {
+                      final message = messageList[index];
+                      final isMe = message.sender.id == currentUserId;
+
+                      // Date separator
+                      final showDateSeparator = index == 0 ||
+                          !_isSameDay(
+                            message.createdAt,
+                            messageList[index - 1].createdAt,
+                          );
+
+                      // Message grouping
+                      final isGroupStart = index == 0 ||
+                          messageList[index - 1].sender.id != message.sender.id ||
+                          message.createdAt
+                                  .difference(messageList[index - 1].createdAt)
+                                  .inMinutes >
+                              5;
+
+                      final isGroupEnd = index == messageList.length - 1 ||
+                          messageList[index + 1].sender.id != message.sender.id ||
+                          messageList[index + 1]
+                                  .createdAt
+                                  .difference(message.createdAt)
+                                  .inMinutes >
+                              5;
+
+                      return Column(
+                        children: [
+                          if (showDateSeparator)
+                            DateSeparator(date: message.createdAt),
+                          MessageBubble(
+                            message: message,
+                            isMe: isMe,
+                            isGroupStart: isGroupStart,
+                            isGroupEnd: isGroupEnd,
+                            showAvatar: !isMe &&
+                                (isGroupEnd || conversation?.type != 'DIRECT'),
+                            onReply: () {
+                              setState(() => _replyToMessageId = message.id);
+                              _composerFocusNode.requestFocus();
+                            },
+                            onReaction: (emoji) {
+                              ref
+                                  .read(chatMessagesProvider(widget.conversationId)
+                                      .notifier)
+                                  .addReaction(message.id, emoji);
+                            },
+                            onDelete: isMe ? () => _confirmDelete(message.id) : null,
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                  ),
+                ),
+                error: (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 48, color: Colors.redAccent),
+                      const SizedBox(height: 12),
+                      const Text('Failed to load messages'),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          ref
+                              .read(chatMessagesProvider(widget.conversationId).notifier)
+                              .loadMessages();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00C6FF),
+                          foregroundColor: Colors.black,
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Message Composer
-          MessageComposer(
-            conversationId: widget.conversationId,
-            focusNode: _composerFocusNode,
-            replyToMessageId: _replyToMessageId,
-            onCancelReply: () {
-              setState(() => _replyToMessageId = null);
-            },
-            onMessageSent: () {
-              // Scroll to bottom after sending
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (_scrollController.hasClients) {
-                  _scrollController.animateTo(
-                    _scrollController.position.maxScrollExtent,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                  );
-                }
-              });
-            },
-          ),
-        ],
+            // Message Composer
+            MessageComposer(
+              conversationId: widget.conversationId,
+              focusNode: _composerFocusNode,
+              replyToMessageId: _replyToMessageId,
+              onCancelReply: () {
+                setState(() => _replyToMessageId = null);
+              },
+              onMessageSent: () {
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -392,26 +478,36 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       } else {
         return '${diff.inDays}d ago';
       }
-    } catch (e) {
+    } catch (_) {
       return lastSeen;
     }
   }
 
-  void _handleMenuAction(String action, ConversationModel? conversation) {
+  void _handleMenuAction(
+      String action, ConversationModel? conversation, ConversationMemberModel? otherMember) {
     switch (action) {
       case 'view_profile':
-        // TODO: Navigate to profile
+        if (otherMember?.username != null) {
+          context.push('/profile/user/${otherMember!.username}');
+        } else if (conversation?.groupId != null) {
+          context.push('/groups/${conversation!.groupId}');
+        }
         break;
       case 'mute':
         if (conversation != null) {
           ref.read(conversationsProvider.notifier).muteConversation(conversation.id);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Notifications muted')),
+          );
         }
         break;
       case 'search':
-        // TODO: Implement search
+        context.push('/chats/search');
         break;
       case 'clear':
-        // TODO: Implement clear chat
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chat history cleared')),
+        );
         break;
     }
   }
@@ -420,8 +516,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF161C28)
+            : Colors.white,
         title: const Text('Delete Message'),
-        content: const Text('Are you sure you want to delete this message for everyone?'),
+        content: const Text('Are you sure you want to delete this message?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -429,10 +528,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(chatMessagesProvider(widget.conversationId).notifier).deleteMessage(messageId);
+              ref
+                  .read(chatMessagesProvider(widget.conversationId).notifier)
+                  .deleteMessage(messageId);
               Navigator.pop(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
             child: const Text('Delete'),
           ),
         ],

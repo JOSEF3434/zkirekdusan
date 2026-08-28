@@ -54,6 +54,7 @@ import 'package:mobile/features/groups/presentation/screens/playlist_detail_scre
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
 import 'package:mobile/features/stories/presentation/screens/story_creation_screen.dart';
 import 'package:mobile/features/chats/presentation/screens/conversation_screen.dart';
+import 'package:mobile/features/chats/presentation/screens/chat_search_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -299,6 +300,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return PlaylistDetailScreen(playlistId: id);
         },
+      ),
+      GoRoute(
+        path: '/chats/search',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ChatSearchScreen(),
       ),
       GoRoute(
         path: '/chats/conversation/:id',

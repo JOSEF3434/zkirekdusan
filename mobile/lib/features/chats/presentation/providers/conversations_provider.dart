@@ -164,6 +164,12 @@ class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationMo
     );
   }
 
+  Future<ConversationModel> createOrGetDirectConversation(String recipientId) async {
+    final conv = await _repository.createDirectConversation(recipientId);
+    await refreshConversations();
+    return conv;
+  }
+
   @override
   void dispose() {
     _messageSubscription?.cancel();
