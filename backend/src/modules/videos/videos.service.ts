@@ -427,7 +427,32 @@ export class VideosService {
   }
 
   async getWatchHistory(userId: string, page = 1, limit = 20) {
-    return this.repo.getWatchHistory(userId, page, limit);
+    const result = await this.repo.getWatchHistory(userId, page, limit);
+    return {
+      data: result.data.map((item) => ({
+        ...item.video,
+        watchedAt: (item as any).watchedAt,
+        watchedSeconds: (item as any).watchedSeconds,
+        watchedPercent: (item as any).watchedPercent,
+      })),
+      total: result.total,
+      page,
+      limit,
+    };
+  }
+
+  async removeFromWatchHistory(videoId: string, userId: string) {
+    await this.repo.removeFromWatchHistory(userId, videoId);
+    return { message: 'Video removed from watch history', videoId };
+  }
+
+  async clearWatchHistory(userId: string) {
+    await this.repo.clearWatchHistory(userId);
+    return { message: 'Watch history cleared' };
+  }
+
+  async getLikedVideos(userId: string, page = 1, limit = 20) {
+    return this.repo.getLikedVideos(userId, page, limit);
   }
 
   async getWatchProgress(videoId: string, userId: string) {
@@ -450,6 +475,20 @@ export class VideosService {
 
   async getBookmarks(userId: string, page = 1, limit = 20) {
     return this.repo.getBookmarks(userId, page, limit);
+  }
+
+  async deleteVideo(videoId: string, userId: string) {
+    const video = await this.repo.findById(videoId);
+    if (!video) throw new NotFoundException('Video not found');
+    await this.repo.softDelete(videoId);
+    return { message: 'Video deleted successfully', videoId };
+  }
+
+  async updateVideo(videoId: string, userId: string, dto: UpdateVideoDto) {
+    const video = await this.repo.findById(videoId);
+    if (!video) throw new NotFoundException('Video not found');
+    const updated = await this.repo.update(videoId, dto as any);
+    return this.mapVideoToDto(updated);
   }
 
   async getTrending(limit = 20) {

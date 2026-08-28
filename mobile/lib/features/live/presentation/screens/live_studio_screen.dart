@@ -33,6 +33,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   final _descCtrl = TextEditingController();
   bool _isChatEnabled = true;
   bool _isRecordingEnabled = true;
+  bool _isVideoStream = true;
+  bool _isMicMuted = false;
+  bool _isFrontCamera = true;
   bool _isCreating = false;
   String? _createError;
   bool _keyVisible = false;
@@ -186,6 +189,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               ),
               maxLines: 3,
               maxLength: 500,
+            ),
+            // Stream Type Selector (Video with Camera vs Audio-Only)
+            const Text(
+              'Stream Mode',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.videocam_outlined),
+                  label: Text('Video Stream'),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.mic_outlined),
+                  label: Text('Audio-Only'),
+                ),
+              ],
+              selected: {_isVideoStream},
+              onSelectionChanged: (set) {
+                setState(() => _isVideoStream = set.first);
+              },
             ),
             const SizedBox(height: 16),
 
@@ -627,20 +654,29 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
       child: Row(
         children: [
-          const LiveBadgeWidget(small: true),
-          const SizedBox(width: 8),
-          Text(
-            _formatElapsed(bState.elapsed),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          const Icon(Icons.chat_bubble_outline, size: 16),
+          const SizedBox(width: 6),
+          const Text(
+            'Live Chat & Interactions',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const Spacer(),
           const Icon(Icons.people_outline, size: 16),
           const SizedBox(width: 4),
-          Text('${bState.viewerCount} viewers'),
+          Text(
+            '${bState.viewerCount} watching',
+            style: const TextStyle(fontSize: 12),
+          ),
           const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.stop_circle, color: Colors.red, size: 22),
-            tooltip: 'End Stream',
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.withValues(alpha: 0.15),
+              foregroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              minimumSize: const Size(0, 32),
+            ),
+            icon: const Icon(Icons.stop_circle, size: 16),
+            label: const Text('End', style: TextStyle(fontSize: 12)),
             onPressed: () => _confirmEndStream(context, stream.id, bState),
           ),
         ],
@@ -657,39 +693,41 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     return Container(
       width: double.infinity,
-      height: 180,
-      color: Colors.black,
+      height: 190,
+      color: const Color(0xFF121212),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Background monitor graphic / grid
+          // Background monitor graphic
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  isLive ? Icons.sensors : Icons.videocam_outlined,
-                  size: 48,
+                  _isVideoStream
+                      ? (isLive ? Icons.videocam : Icons.videocam_outlined)
+                      : (isLive ? Icons.mic : Icons.mic_none),
+                  size: 44,
                   color: isLive ? const Color(0xFFE53935) : Colors.white38,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  isLive
-                    ? 'STREAMING LIVE'
-                    : 'BROADCAST STANDBY',
+                  _isVideoStream
+                      ? (isLive ? 'CAMERA STREAM LIVE' : 'CAMERA BROADCAST STANDBY')
+                      : (isLive ? 'AUDIO STREAM LIVE' : 'AUDIO BROADCAST STANDBY'),
                   style: TextStyle(
                     color: isLive ? Colors.white : Colors.white70,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                    fontSize: 13,
+                    letterSpacing: 1.1,
+                    fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  isLive
-                      ? 'Live monitor active • Streaming to channel'
-                      : 'Connect your streaming software or press Go Live',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  _isVideoStream
+                      ? (_isFrontCamera ? 'Front Camera • 720p' : 'Rear Camera • 1080p')
+                      : (_isMicMuted ? 'Microphone Muted' : 'Microphone Active • 128kbps'),
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
                 ),
               ],
             ),
@@ -697,8 +735,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
           // Live duration badge (top-left)
           Positioned(
-            top: 12,
-            left: 12,
+            top: 10,
+            left: 10,
             child: isLive
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -737,8 +775,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
           // Viewers badge (top-right)
           Positioned(
-            top: 12,
-            right: 12,
+            top: 10,
+            right: 10,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -759,38 +797,109 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             ),
           ),
 
-          // REC indicator (bottom-left)
-          if (stream.isRecordingEnabled)
-            Positioned(
-              bottom: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isLive ? Colors.red.withValues(alpha: 0.8) : Colors.black45,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.fiber_manual_record,
-                      color: isLive ? Colors.white : Colors.white60,
-                      size: 10,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'REC',
-                      style: TextStyle(
-                        color: isLive ? Colors.white : Colors.white70,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+          // Stream mode & Camera / Mic Controls Toolbar (bottom overlay)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            right: 8,
+            child: Row(
+              children: [
+                // REC / Mode indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isLive ? Colors.red.withValues(alpha: 0.8) : Colors.black54,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.fiber_manual_record,
+                        color: isLive ? Colors.white : Colors.white60,
+                        size: 9,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        _isVideoStream ? 'VIDEO' : 'AUDIO',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                const Spacer(),
+                // Toggle Video/Audio Mode Button
+                IconButton.filledTonal(
+                  icon: Icon(
+                    _isVideoStream ? Icons.videocam : Icons.mic,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  tooltip: _isVideoStream ? 'Switch to Audio-Only' : 'Switch to Video',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                  onPressed: () {
+                    setState(() => _isVideoStream = !_isVideoStream);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          _isVideoStream
+                              ? 'Switched to Video Camera Stream'
+                              : 'Switched to Audio-Only Stream',
+                        ),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 6),
+                // Flip Camera (only in video mode)
+                if (_isVideoStream) ...[
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.cameraswitch, size: 16, color: Colors.white),
+                    tooltip: 'Flip Camera',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                    onPressed: () {
+                      setState(() => _isFrontCamera = !_isFrontCamera);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            _isFrontCamera ? 'Front Camera' : 'Rear Camera',
+                          ),
+                          duration: const Duration(milliseconds: 800),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                // Mute/Unmute Mic Button
+                IconButton.filledTonal(
+                  icon: Icon(
+                    _isMicMuted ? Icons.mic_off : Icons.mic,
+                    size: 16,
+                    color: _isMicMuted ? Colors.redAccent : Colors.white,
+                  ),
+                  tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  style: IconButton.styleFrom(
+                    backgroundColor: _isMicMuted ? Colors.red.withValues(alpha: 0.3) : Colors.white24,
+                  ),
+                  onPressed: () {
+                    setState(() => _isMicMuted = !_isMicMuted);
+                  },
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

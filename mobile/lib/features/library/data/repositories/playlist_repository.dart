@@ -59,4 +59,52 @@ class PlaylistRepository {
       throw Exception('Failed to add video to playlist');
     }
   }
+
+  Future<void> removeVideoFromPlaylist(String playlistId, String videoId) async {
+    try {
+      await _dio.delete('/video-playlists/$playlistId/items/$videoId');
+    } catch (e) {
+      throw Exception('Failed to remove video from playlist');
+    }
+  }
+
+  Future<void> deletePlaylist(String playlistId) async {
+    try {
+      await _dio.delete('/video-playlists/$playlistId');
+    } catch (e) {
+      throw Exception('Failed to delete playlist');
+    }
+  }
+
+  Future<PlaylistDto> updatePlaylist(
+    String playlistId, {
+    String? title,
+    String? description,
+    String? privacy,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        '/video-playlists/$playlistId',
+        data: {
+          'title': ?title,
+          'description': ?description,
+          'privacy': ?privacy,
+        },
+      );
+      final raw = response.data['data'] ?? response.data;
+      return PlaylistDto.fromJson(raw as Map<String, dynamic>);
+    } catch (e) {
+      throw Exception('Failed to update playlist');
+    }
+  }
+
+  Future<PlaylistDto> getPlaylistDetails(String playlistId) async {
+    try {
+      final response = await _dio.get('/video-playlists/$playlistId');
+      final raw = response.data['data'] ?? response.data;
+      return PlaylistDto.fromJson(raw as Map<String, dynamic>);
+    } catch (e) {
+      throw Exception('Failed to get playlist details');
+    }
+  }
 }

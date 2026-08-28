@@ -347,6 +347,48 @@ export class VideosRepository {
     });
   }
 
+  async removeFromWatchHistory(userId: string, videoId: string) {
+    return this.prisma.videoWatchHistory.deleteMany({
+      where: { userId, videoId },
+    });
+  }
+
+  async clearWatchHistory(userId: string) {
+    return this.prisma.videoWatchHistory.deleteMany({
+      where: { userId },
+    });
+  }
+
+  async getLikedVideos(userId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [likes, total] = await this.prisma.$transaction([
+      this.prisma.videoLike.findMany({
+        where: { userId, isLike: true },
+        include: {
+          video: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              thumbnailUrl: true,
+              duration: true,
+              status: true,
+              viewsCount: true,
+              createdAt: true,
+              videoChannel: { select: { id: true, name: true, handle: true } },
+            },
+          },
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.videoLike.count({ where: { userId, isLike: true } }),
+    ]);
+    const data = likes.map((l) => l.video).filter(Boolean);
+    return { data, total, page, limit };
+  }
+
   async getBookmarks(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
     const [data, total] = await this.prisma.$transaction([
@@ -361,6 +403,8 @@ export class VideosRepository {
               thumbnailUrl: true,
               duration: true,
               status: true,
+              viewsCount: true,
+              createdAt: true,
               videoChannel: { select: { id: true, name: true, handle: true } },
             },
           },
@@ -371,7 +415,7 @@ export class VideosRepository {
       }),
       this.prisma.videoBookmark.count({ where: { userId } }),
     ]);
-    return { data, total };
+    return { data: data.map((b) => b.video).filter(Boolean), total, page, limit };
   }
 
   async getTrending(limit = 20) {

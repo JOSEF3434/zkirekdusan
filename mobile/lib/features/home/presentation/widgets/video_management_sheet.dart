@@ -9,6 +9,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
+import 'package:mobile/features/library/presentation/widgets/save_to_playlist_sheet.dart';
 
 class VideoManagementSheet extends ConsumerWidget {
   final VideoResponseDto video;
@@ -211,11 +212,25 @@ class VideoManagementSheet extends ConsumerWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('Save to Playlist'),
+              subtitle: const Text('Add or remove from your playlists'),
+              onTap: () {
+                Navigator.pop(context);
+                SaveToPlaylistSheet.show(
+                  context,
+                  videoId: video.id,
+                  videoTitle: video.title,
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(
                 isSaved ? Icons.bookmark : Icons.bookmark_border,
                 color: isSaved ? Colors.amber : null,
               ),
               title: Text(isSaved ? 'Remove from Saved' : 'Save / Bookmark Video'),
+              subtitle: const Text('Save to your watch later & bookmarks'),
               onTap: () async {
                 Navigator.pop(context);
                 await ref.read(saveProvider.notifier).toggleSave(video.id, isVideo: true);

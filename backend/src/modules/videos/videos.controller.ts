@@ -398,7 +398,7 @@ export class VideosController {
   }
 }
 
-// ─── Public/discovery endpoints ──────────────────────────────────────────────
+// ─── Public/discovery endpoints (/api/videos) ───────────────────────────────
 
 @ApiTags('Videos')
 @ApiBearerAuth()
@@ -469,6 +469,22 @@ export class VideosPublicController {
     return this.videosService.getWatchHistory(userId, +page, +limit);
   }
 
+  @Delete('watch-history/:videoId')
+  @ApiOperation({ summary: 'Remove a video from watch history' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async removeFromWatchHistory(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.removeFromWatchHistory(videoId, userId);
+  }
+
+  @Delete('watch-history')
+  @ApiOperation({ summary: 'Clear all watch history' })
+  async clearWatchHistory(@CurrentUser('sub') userId: string) {
+    return this.videosService.clearWatchHistory(userId);
+  }
+
   @Get('bookmarks')
   @ApiOperation({ summary: 'Get current user bookmarked videos (watch later)' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -479,6 +495,38 @@ export class VideosPublicController {
     @Query('limit') limit = 20,
   ) {
     return this.videosService.getBookmarks(userId, +page, +limit);
+  }
+
+  @Post(':videoId/bookmark')
+  @ApiOperation({ summary: 'Bookmark a video (Save to Watch Later)' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async bookmarkVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.bookmarkVideo(videoId, userId);
+  }
+
+  @Delete(':videoId/bookmark')
+  @ApiOperation({ summary: 'Remove bookmark from a video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async removeBookmark(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.removeBookmark(videoId, userId);
+  }
+
+  @Get('liked')
+  @ApiOperation({ summary: 'Get current user liked videos' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getLikedVideos(
+    @CurrentUser('sub') userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.videosService.getLikedVideos(userId, +page, +limit);
   }
 
   // ─── Direct video ID endpoints ─────────────────────────────────────────────
@@ -492,6 +540,27 @@ export class VideosPublicController {
     @CurrentUser('sub') userId: string,
   ): Promise<VideoResponseDto> {
     return this.videosService.findById(videoId, userId) as any;
+  }
+
+  @Patch(':videoId')
+  @ApiOperation({ summary: 'Update video details' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async updateVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: UpdateVideoDto,
+  ) {
+    return this.videosService.updateVideo(videoId, userId, dto);
+  }
+
+  @Delete(':videoId')
+  @ApiOperation({ summary: 'Delete video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  async deleteVideo(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.videosService.deleteVideo(videoId, userId);
   }
 
   @Get(':videoId/status')
