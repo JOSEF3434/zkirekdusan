@@ -42,7 +42,14 @@ export const storageProviderFactory = {
       return cloudinaryProvider;
     }
 
-    logger.warn('No Cloudinary credentials found — falling back to LocalStorageProvider');
+    const isProduction = configService.get<string>('NODE_ENV') === 'production';
+    if (isProduction || providerType === 'CLOUDINARY') {
+      throw new Error(
+        'FATAL: STORAGE_PROVIDER=CLOUDINARY is required in production, but CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET is missing from environment variables.'
+      );
+    }
+
+    logger.warn('No Cloudinary credentials found — falling back to LocalStorageProvider (Development only)');
     return localProvider;
   },
   inject: [

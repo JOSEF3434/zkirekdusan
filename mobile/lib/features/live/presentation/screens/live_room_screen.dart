@@ -246,8 +246,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                               ),
                   ),
 
-                  // ── Emoji reaction picker ─────────────────────────────
-                  _buildEmojiBar(),
+                  // ── Emoji reaction picker (hidden when keyboard is active) ──
+                  if (MediaQuery.of(context).viewInsets.bottom == 0)
+                    _buildEmojiBar(),
                 ],
               ),
       ),

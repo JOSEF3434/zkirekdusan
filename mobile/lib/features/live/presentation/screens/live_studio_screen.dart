@@ -440,170 +440,211 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // ── YouTube Studio Live Monitor Banner ──
-                _buildLiveMonitor(theme, stream, bState),
+                // ── YouTube Studio Live Monitor Banner / Camera Preview ──
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: MediaQuery.of(context).viewInsets.bottom > 0 ? 0 : 180,
+                  child: MediaQuery.of(context).viewInsets.bottom > 0
+                      ? const SizedBox.shrink()
+                      : _buildLiveMonitor(theme, stream, bState),
+                ),
 
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Status banner
-                        _StatusBanner(status: stream.status),
-                        const SizedBox(height: 16),
+                  child: stream.status == LiveStreamStatus.live && stream.isChatEnabled
+                      ? Column(
+                          children: [
+                            // Collapsible stats summary when live
+                            _buildLiveStatsRow(theme, stream, bState),
+                            const Divider(height: 1),
+                            // Live Chat takes full flexible space when live
+                            Expanded(
+                              child: LiveChatWidget(
+                                streamId: streamId,
+                                isModerator: true,
+                              ),
+                            ),
+                          ],
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Status banner
+                              _StatusBanner(status: stream.status),
+                              const SizedBox(height: 16),
 
-                        // RTMP key card
-                        _StreamKeyCard(
-                          streamKey: bState.streamKey,
-                          isLoading: bState.isLoadingKey,
-                          keyVisible: _keyVisible,
-                          onToggleVisible: () =>
-                              setState(() => _keyVisible = !_keyVisible),
-                          onRegenerate: () => ref
-                              .read(
-                                broadcasterProvider((
-                                  streamId,
-                                  _effectiveChannelId,
-                                )).notifier,
-                              )
-                              .regenerateStreamKey(),
-                        ),
-                        const SizedBox(height: 16),
+                              // RTMP key card
+                              _StreamKeyCard(
+                                streamKey: bState.streamKey,
+                                isLoading: bState.isLoadingKey,
+                                keyVisible: _keyVisible,
+                                onToggleVisible: () =>
+                                    setState(() => _keyVisible = !_keyVisible),
+                                onRegenerate: () => ref
+                                    .read(
+                                      broadcasterProvider((
+                                        streamId,
+                                        _effectiveChannelId,
+                                      )).notifier,
+                                    )
+                                    .regenerateStreamKey(),
+                              ),
+                              const SizedBox(height: 16),
 
-                        // Recording & Live Settings Card
-                        Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Recording & Archive Settings',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                              // Recording & Live Settings Card
+                              Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Recording & Archive Settings',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SwitchListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        title: const Text('Record Stream'),
+                                        subtitle: const Text(
+                                          'Save stream into group recordings for VOD',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                        value: stream.isRecordingEnabled,
+                                        onChanged: stream.status == LiveStreamStatus.live
+                                            ? null
+                                            : (v) {
+                                                ref
+                                                    .read(liveStreamingRepositoryProvider)
+                                                    .updateStream(stream.id, {
+                                                      'isRecordingEnabled': v,
+                                                    })
+                                                    .then((updated) {
+                                                      ref
+                                                          .read(
+                                                            broadcasterProvider((
+                                                              streamId,
+                                                              _effectiveChannelId,
+                                                            )).notifier,
+                                                          )
+                                                          .goLive();
+                                                    })
+                                                    .catchError((_) {});
+                                              },
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                SwitchListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: const Text('Record Stream'),
-                                  subtitle: const Text(
-                                    'Save stream into group recordings for VOD',
-                                    style: TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Health details (if available)
+                              if (bState.health != null) ...[
+                                StreamHealthIndicator(health: bState.health),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Stream info
+                              Text(
+                                stream.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (stream.description != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  stream.description!,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
-                                  value: stream.isRecordingEnabled,
-                                  onChanged: stream.status == LiveStreamStatus.live
-                                      ? null
-                                      : (v) {
-                                          ref
-                                              .read(liveStreamingRepositoryProvider)
-                                              .updateStream(stream.id, {
-                                                'isRecordingEnabled': v,
-                                              })
-                                              .then((updated) {
-                                                ref
-                                                    .read(
-                                                      broadcasterProvider((
-                                                        streamId,
-                                                        _effectiveChannelId,
-                                                      )).notifier,
-                                                    )
-                                                    .goLive(); // updates state
-                                              })
-                                              .catchError((_) {});
-                                        },
                                 ),
                               ],
-                            ),
+                              const SizedBox(height: 16),
+
+                              // Error
+                              if (bState.error != null)
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    bState.error!,
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Health details (if available)
-                        if (bState.health != null) ...[
-                          StreamHealthIndicator(health: bState.health),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Stream info
-                        Text(
-                          stream.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (stream.description != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            stream.description!,
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 16),
-
-                        // Error
-                        if (bState.error != null)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              bState.error!,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
                 ),
 
-                // Chat (if live)
-                if (stream.status == LiveStreamStatus.live &&
-                    stream.isChatEnabled)
-                  SizedBox(
-                    height: 250,
-                    child: LiveChatWidget(
-                      streamId: streamId,
-                      isModerator: true,
-                    ),
+                // Action bar (hidden when keyboard is open to avoid taking vertical room)
+                if (MediaQuery.of(context).viewInsets.bottom == 0)
+                  _ActionBar(
+                    status: stream.status,
+                    isGoingLive: bState.isGoingLive,
+                    isEndingStream: bState.isEndingStream,
+                    onGoLive: () => ref
+                        .read(
+                          broadcasterProvider((
+                            streamId,
+                            _effectiveChannelId,
+                          )).notifier,
+                        )
+                        .goLive(),
+                    onEndStream: () => _confirmEndStream(context, streamId, bState),
+                    onPublishVod: () => ref
+                        .read(
+                          broadcasterProvider((
+                            streamId,
+                            _effectiveChannelId,
+                          )).notifier,
+                        )
+                        .publishVod(),
                   ),
-
-                // Action bar
-                _ActionBar(
-                  status: stream.status,
-                  isGoingLive: bState.isGoingLive,
-                  isEndingStream: bState.isEndingStream,
-                  onGoLive: () => ref
-                      .read(
-                        broadcasterProvider((
-                          streamId,
-                          _effectiveChannelId,
-                        )).notifier,
-                      )
-                      .goLive(),
-                  onEndStream: () => _confirmEndStream(context, streamId, bState),
-                  onPublishVod: () => ref
-                      .read(
-                        broadcasterProvider((
-                          streamId,
-                          _effectiveChannelId,
-                        )).notifier,
-                      )
-                      .publishVod(),
-                ),
               ],
             ),
+    );
+  }
+
+  Widget _buildLiveStatsRow(
+    ThemeData theme,
+    LiveStreamDto stream,
+    BroadcasterState bState,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      child: Row(
+        children: [
+          const LiveBadgeWidget(small: true),
+          const SizedBox(width: 8),
+          Text(
+            _formatElapsed(bState.elapsed),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const Spacer(),
+          const Icon(Icons.people_outline, size: 16),
+          const SizedBox(width: 4),
+          Text('${bState.viewerCount} viewers'),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.stop_circle, color: Colors.red, size: 22),
+            tooltip: 'End Stream',
+            onPressed: () => _confirmEndStream(context, stream.id, bState),
+          ),
+        ],
+      ),
     );
   }
 
