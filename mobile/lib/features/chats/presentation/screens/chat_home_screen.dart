@@ -45,12 +45,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     // 1. From stories
     storyFeedAsync.whenData((groups) {
       for (final g in groups) {
-        if (g.user.id != currentUserId &&
-            !activeContacts.any((c) => c['id'] == g.user.id)) {
+        if (g.owner.id != currentUserId &&
+            !activeContacts.any((c) => c['id'] == g.owner.id)) {
           activeContacts.add({
-            'id': g.user.id,
-            'name': g.user.displayName ?? g.user.username,
-            'avatarUrl': g.user.avatarUrl,
+            'id': g.owner.id,
+            'name': g.owner.displayName ?? g.owner.username,
+            'avatarUrl': g.owner.avatarUrl,
             'hasStory': g.stories.isNotEmpty,
             'storyGroup': g,
           });

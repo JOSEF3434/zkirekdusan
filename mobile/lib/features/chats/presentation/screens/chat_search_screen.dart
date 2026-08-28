@@ -99,7 +99,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
     final matchingConversations = allConversations.where((c) {
       if (query.isEmpty) return false;
       final title = c.title?.toLowerCase() ?? '';
-      final snippet = c.lastMessageSnippet?.toLowerCase() ?? '';
+      final snippet = c.lastMessage?.content?.toLowerCase() ?? '';
       final otherMember = c.type == 'DIRECT'
           ? c.members.firstWhere(
               (m) => m.userId != currentUserId,
@@ -279,7 +279,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                   ),
                 ),
                 subtitle: Text(
-                  conv.lastMessageSnippet ?? 'No messages',
+                  conv.lastMessage?.content ?? 'No messages',
                   style: TextStyle(color: Colors.grey[500], fontSize: 13),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
