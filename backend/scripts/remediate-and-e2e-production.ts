@@ -235,11 +235,13 @@ async function remediateAndVerify() {
 
   if (activeVideos.length > 0) {
     const v = activeVideos[0];
-    console.log(`\nTesting active video playback: ${v.hlsUrl}`);
-    const httpCheck = await verifyHttpPlayback(v.hlsUrl);
-    console.log(`  ✓ HTTP Status: ${httpCheck.status}`);
-    console.log(`  ✓ Content-Type: ${httpCheck.contentType}`);
-    console.log(`  ✓ Accept-Ranges: ${httpCheck.acceptRanges || 'bytes'}`);
+    if (v.hlsUrl) {
+      console.log(`\nTesting active video playback: ${v.hlsUrl}`);
+      const httpCheck = await verifyHttpPlayback(v.hlsUrl);
+      console.log(`  ✓ HTTP Status: ${httpCheck.status}`);
+      console.log(`  ✓ Content-Type: ${httpCheck.contentType}`);
+      console.log(`  ✓ Accept-Ranges: ${httpCheck.acceptRanges || 'bytes'}`);
+    }
   }
 
   if (nonCloudinaryActiveCount === 0) {
