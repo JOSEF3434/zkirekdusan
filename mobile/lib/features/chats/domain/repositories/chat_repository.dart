@@ -1,14 +1,22 @@
-// lib/features/chats/domain/repositories/chat_repository.dart
-
-//import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
+import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
 abstract class ChatRepository {
-  // Conversations
+  // Conversations & Discovery
+  Future<ChatDiscoveryModel> getChatDiscovery();
   Future<List<ConversationModel>> getUserConversations();
   Future<ConversationModel> getConversationById(String conversationId);
   Future<ConversationModel> createDirectConversation(String recipientId);
+  Future<ConversationModel> createOrGetGroupConversation(String groupId);
+  Future<Map<String, dynamic>> createGroup({
+    required String name,
+    required String slug,
+    String? description,
+    String visibility = 'PUBLIC',
+  });
+  Future<Map<String, dynamic>> getGroupInviteLink(String groupId);
+  Future<Map<String, dynamic>> joinGroupByInvite(String token);
   Future<void> muteConversation(String conversationId);
   Future<void> unmuteConversation(String conversationId);
   Future<void> pinConversation(String conversationId);

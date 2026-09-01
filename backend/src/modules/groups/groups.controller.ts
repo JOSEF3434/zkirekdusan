@@ -200,6 +200,15 @@ export class GroupsController {
     return this.groupsService.joinByInvite(token, userId);
   }
 
+  @Get(':groupId/invite-link')
+  @ApiOperation({ summary: 'Get or generate a shareable group invite link' })
+  async getInviteLink(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.groupsService.getOrCreateShareableInviteLink(groupId, userId);
+  }
+
   // ─── Group Context ───────────────────────────────────────────────────────────
 
   /**

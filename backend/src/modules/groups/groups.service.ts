@@ -55,7 +55,9 @@ export class GroupsService {
 
     if (
       (user.role as AppRole) === AppRole.SUPER_ADMIN ||
-      (user.role as AppRole) === AppRole.ADMIN
+      (user.role as AppRole) === AppRole.ADMIN ||
+      dto.visibility === 'PRIVATE' ||
+      dto.visibility === 'INVITE_ONLY'
     ) {
       status = 'ACTIVE';
     } else {
@@ -453,6 +455,32 @@ export class GroupsService {
     };
   }
 
+  async getOrCreateShareableInviteLink(groupId: string, userId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member) {
+      throw new ForbiddenException('You must be a member to share an invite link');
+    }
+
+    const invite = await this.groupsRepository.createInvite(
+      groupId,
+      userId,
+      userId, // self-issued shareable token
+      GroupRole.MEMBER,
+    );
+
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      inviteToken: invite.token,
+      inviteLink: `https://streamhub.app/join/group/${invite.token}`,
+      expiresAt: invite.expiresAt,
+    };
+  }
+
   async joinByInvite(token: string, userId: string) {
     const invite = await this.groupsRepository.findInviteByToken(token);
     if (
@@ -463,7 +491,8 @@ export class GroupsService {
       throw new BadRequestException('Invalid or expired invite token');
     }
 
-    if (invite.recipientId !== userId) {
+    // Support both direct invites and shareable links (where recipientId == senderId)
+    if (invite.recipientId !== userId && invite.recipientId !== invite.senderId) {
       throw new ForbiddenException('This invite token was not issued to you');
     }
 
@@ -479,9 +508,15 @@ export class GroupsService {
       userId,
       invite.role as GroupRole,
     );
-    await this.groupsRepository.acceptInvite(invite.id);
+    if (invite.recipientId === userId) {
+      await this.groupsRepository.acceptInvite(invite.id);
+    }
 
-    return { message: 'Successfully joined group' };
+    return {
+      message: 'Successfully joined group',
+      groupId: group.id,
+      groupName: group.name,
+    };
   }
 
   // ─── Group Context Endpoint ──────────────────────────────────────────────

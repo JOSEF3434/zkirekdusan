@@ -1,6 +1,5 @@
-// lib/features/chats/presentation/screens/conversation_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -56,15 +55,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
-    final conversationsAsync = ref.watch(conversationsProvider);
+    final discoveryAsync = ref.watch(chatDiscoveryProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
     final typingUsers = ref.watch(typingIndicatorProvider(widget.conversationId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     ConversationModel? conversation;
-    conversationsAsync.whenData((conversations) {
+    discoveryAsync.whenData((discovery) {
       try {
-        conversation = conversations.firstWhere((c) => c.id == widget.conversationId);
+        conversation = discovery.conversations.firstWhere((c) => c.id == widget.conversationId);
       } catch (_) {}
     });
 
@@ -276,6 +275,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   ],
                 ),
               ),
+              if (conversation?.groupId != null)
+                const PopupMenuItem(
+                  value: 'invite_link',
+                  child: Row(
+                    children: [
+                      Icon(Icons.link_rounded, color: Color(0xFF00C6FF), size: 20),
+                      SizedBox(width: 12),
+                      Text('Group Invite Link'),
+                    ],
+                  ),
+                ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'clear',
@@ -504,11 +514,100 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       case 'search':
         context.push('/chats/search');
         break;
+      case 'invite_link':
+        if (conversation?.groupId != null) {
+          _showInviteLinkDialog(context, conversation!.groupId!);
+        }
+        break;
       case 'clear':
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Chat history cleared')),
         );
         break;
+    }
+  }
+
+  Future<void> _showInviteLinkDialog(BuildContext context, String groupId) async {
+    try {
+      final res = await ref.read(chatDiscoveryProvider.notifier).getGroupInviteLink(groupId);
+      final link = res['inviteLink'] as String? ?? 'https://streamhub.app/join/group/${res['inviteToken']}';
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Theme.of(ctx).brightness == Brightness.dark
+                ? const Color(0xFF161C28)
+                : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
+                SizedBox(width: 10),
+                Text('Group Invite Link', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Anyone with this link can join this group:',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).brightness == Brightness.dark
+                        ? const Color(0xFF1E2638)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00C6FF).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          link,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF00C6FF),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF00C6FF)),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: link));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Invite link copied!')),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not generate invite link: $e')),
+        );
+      }
     }
   }
 

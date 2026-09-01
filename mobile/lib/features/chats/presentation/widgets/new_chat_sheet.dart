@@ -1,10 +1,9 @@
-// lib/features/chats/presentation/widgets/new_chat_sheet.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
+import 'package:mobile/features/chats/presentation/widgets/create_group_sheet.dart';
 import 'package:mobile/features/explore/data/search_repository.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
@@ -92,12 +91,108 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
     }
   }
 
+  Future<void> _showJoinByLinkDialog(BuildContext context) async {
+    final tokenController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).brightness == Brightness.dark
+            ? const Color(0xFF161C28)
+            : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
+            SizedBox(width: 10),
+            Text('Join via Link/Token', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paste the group invitation link or invite token to join:',
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: tokenController,
+              decoration: InputDecoration(
+                hintText: 'e.g. 8f9a2b4c-... or link',
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                filled: true,
+                fillColor: Theme.of(ctx).brightness == Brightness.dark
+                    ? const Color(0xFF1E2638)
+                    : Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00C6FF),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              String raw = tokenController.text.trim();
+              if (raw.isEmpty) return;
+              // If full link passed, extract token
+              if (raw.contains('/')) {
+                raw = raw.split('/').last;
+              }
+              Navigator.pop(ctx);
+              try {
+                final res = await ref
+                    .read(chatDiscoveryProvider.notifier)
+                    .joinGroupByInvite(raw);
+                final groupId = res['groupId'] as String?;
+                if (groupId != null && context.mounted) {
+                  final conv = await ref
+                      .read(chatDiscoveryProvider.notifier)
+                      .createOrGetGroupConversation(groupId);
+                  if (context.mounted) {
+                    context.push('/chats/conversation/${conv.id}');
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Could not join: $e'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Join Group'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final currentUserId = ref.watch(authProvider).user?.id;
-    final conversations = ref.watch(conversationsProvider).value ?? [];
+    final discovery = ref.watch(chatDiscoveryProvider).value;
+    final conversations = discovery?.conversations ?? [];
 
     // Extract recent unique users from existing conversations for quick selection
     final existingUsers = <Map<String, String?>>[];
@@ -228,38 +323,39 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
                   child: Column(
                     children: [
                       _QuickActionTile(
-                        icon: Icons.group_add_rounded,
-                        color: const Color(0xFF00C6FF),
-                        title: 'New Group',
-                        onTap: () {
-                          Navigator.pop(context);
-                          context.push('/creator/create-group');
-                        },
-                      ),
-                      _QuickActionTile(
                         icon: Icons.lock_outline_rounded,
-                        color: const Color(0xFF00F2FE),
-                        title: 'New Secret Chat',
+                        color: const Color(0xFF00C6FF),
+                        title: 'New Private Group',
+                        subtitle: 'Invite-only group with shareable link',
                         onTap: () {
-                          // Focus search to pick user
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Select a user below to start chatting')),
-                          );
+                          Navigator.pop(context);
+                          CreateGroupSheet.show(context, isPrivate: true);
                         },
                       ),
                       _QuickActionTile(
-                        icon: Icons.campaign_rounded,
+                        icon: Icons.public_rounded,
                         color: const Color(0xFF10B981),
-                        title: 'New Channel',
+                        title: 'New Public Group',
+                        subtitle: 'Open community group in discovery',
                         onTap: () {
                           Navigator.pop(context);
-                          context.push('/creator/create-group');
+                          CreateGroupSheet.show(context, isPrivate: false);
+                        },
+                      ),
+                      _QuickActionTile(
+                        icon: Icons.link_rounded,
+                        color: const Color(0xFF00F2FE),
+                        title: 'Join with Invite Link',
+                        subtitle: 'Join private or public group via token',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showJoinByLinkDialog(context);
                         },
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 24, thickness: 0.5),
+                const Divider(height: 20, thickness: 0.5),
               ],
 
               // Content Area
@@ -411,12 +507,14 @@ class _QuickActionTile extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   const _QuickActionTile({
     required this.icon,
     required this.color,
     required this.title,
+    this.subtitle,
     required this.onTap,
   });
 
@@ -442,14 +540,32 @@ class _QuickActionTile extends StatelessWidget {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(width: 14),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black87,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
           ],
         ),
       ),

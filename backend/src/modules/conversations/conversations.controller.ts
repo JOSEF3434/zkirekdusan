@@ -1,4 +1,3 @@
-// src/modules/conversations/conversations.controller.ts
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -9,6 +8,7 @@ import {
 import { ConversationsService } from './conversations.service.js';
 import { ConversationResponseDto } from './dto/conversation-response.dto.js';
 import { CreateDirectConversationDto } from './dto/create-direct-conversation.dto.js';
+import { ChatDiscoveryResponseDto } from './dto/chat-discovery-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('Conversations')
@@ -16,6 +16,18 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 @Controller('conversations')
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
+
+  @Get('discover')
+  @ApiOperation({
+    summary:
+      'Get chat discovery data (all users, all public groups, my private groups, and active conversations)',
+  })
+  @ApiResponse({ status: 200, type: ChatDiscoveryResponseDto })
+  async getDiscovery(
+    @CurrentUser('sub') userId: string,
+  ): Promise<ChatDiscoveryResponseDto> {
+    return this.conversationsService.getChatDiscovery(userId);
+  }
 
   @Post('direct')
   @ApiOperation({
@@ -29,6 +41,21 @@ export class ConversationsController {
     return this.conversationsService.createDirectConversation(
       userId,
       dto.recipientId,
+    );
+  }
+
+  @Post('group/:groupId')
+  @ApiOperation({
+    summary: 'Get or start group conversation',
+  })
+  @ApiResponse({ status: 201, type: ConversationResponseDto })
+  async createGroupChat(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<ConversationResponseDto> {
+    return this.conversationsService.findOrCreateGroupConversation(
+      groupId,
+      userId,
     );
   }
 

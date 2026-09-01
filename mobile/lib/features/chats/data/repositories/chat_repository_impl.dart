@@ -1,8 +1,7 @@
-// lib/features/chats/data/repositories/chat_repository_impl.dart
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/chats/data/datasources/chat_remote_datasource.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
+import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 
@@ -17,6 +16,11 @@ class ChatRepositoryImpl implements ChatRepository {
   ChatRepositoryImpl(this._remoteDatasource);
 
   @override
+  Future<ChatDiscoveryModel> getChatDiscovery() async {
+    return await _remoteDatasource.getChatDiscovery();
+  }
+
+  @override
   Future<List<ConversationModel>> getUserConversations() async {
     return await _remoteDatasource.getUserConversations();
   }
@@ -29,6 +33,36 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<ConversationModel> createDirectConversation(String recipientId) async {
     return await _remoteDatasource.createDirectConversation(recipientId);
+  }
+
+  @override
+  Future<ConversationModel> createOrGetGroupConversation(String groupId) async {
+    return await _remoteDatasource.createOrGetGroupConversation(groupId);
+  }
+
+  @override
+  Future<Map<String, dynamic>> createGroup({
+    required String name,
+    required String slug,
+    String? description,
+    String visibility = 'PUBLIC',
+  }) async {
+    return await _remoteDatasource.createGroup(
+      name: name,
+      slug: slug,
+      description: description,
+      visibility: visibility,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> getGroupInviteLink(String groupId) async {
+    return await _remoteDatasource.getGroupInviteLink(groupId);
+  }
+
+  @override
+  Future<Map<String, dynamic>> joinGroupByInvite(String token) async {
+    return await _remoteDatasource.joinGroupByInvite(token);
   }
 
   @override

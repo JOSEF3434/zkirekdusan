@@ -3,75 +3,74 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
+import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
-final conversationsProvider = StateNotifierProvider<ConversationsNotifier, AsyncValue<List<ConversationModel>>>((ref) {
-  final repository = ref.watch(chatRepositoryProvider);
-  final socketService = ref.watch(messagingSocketServiceProvider);
-  final authState = ref.watch(authProvider);
-  return ConversationsNotifier(repository, socketService, authState.user?.id);
-});
+final chatDiscoveryProvider =
+    StateNotifierProvider<
+      ChatDiscoveryNotifier,
+      AsyncValue<ChatDiscoveryModel>
+    >((ref) {
+      final repository = ref.watch(chatRepositoryProvider);
+      final socketService = ref.watch(messagingSocketServiceProvider);
+      final authState = ref.watch(authProvider);
+      return ChatDiscoveryNotifier(
+        repository,
+        socketService,
+        authState.user?.id,
+      );
+    });
 
-class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationModel>>> {
+class ChatDiscoveryNotifier
+    extends StateNotifier<AsyncValue<ChatDiscoveryModel>> {
   final ChatRepository _repository;
   final MessagingSocketService _socketService;
   final String? _currentUserId;
   StreamSubscription? _messageSubscription;
   Timer? _refreshTimer;
 
-  ConversationsNotifier(this._repository, this._socketService, this._currentUserId)
-      : super(const AsyncValue.loading()) {
-    loadConversations();
+  ChatDiscoveryNotifier(
+    this._repository,
+    this._socketService,
+    this._currentUserId,
+  ) : super(const AsyncValue.loading()) {
+    loadDiscovery();
     _setupRealtimeUpdates();
     _setupPeriodicRefresh();
   }
 
-  Future<void> loadConversations() async {
+  Future<void> loadDiscovery() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final conversations = await _repository.getUserConversations();
-      return _sortConversations(conversations);
+      return await _repository.getChatDiscovery();
     });
   }
 
-  Future<void> refreshConversations() async {
-    state = await AsyncValue.guard(() async {
-      final conversations = await _repository.getUserConversations();
-      return _sortConversations(conversations);
+  Future<void> refreshDiscovery() async {
+    final prev = state.value;
+    final result = await AsyncValue.guard(() async {
+      return await _repository.getChatDiscovery();
     });
-  }
-
-  List<ConversationModel> _sortConversations(List<ConversationModel> conversations) {
-    final sorted = [...conversations];
-    sorted.sort((a, b) {
-      // Pinned conversations first
-      final aPinned = a.members.any((m) => m.userId == _currentUserId && m.isPinned);
-      final bPinned = b.members.any((m) => m.userId == _currentUserId && m.isPinned);
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-
-      // Then by lastMessageAt
-      if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
-      if (a.lastMessageAt == null) return 1;
-      if (b.lastMessageAt == null) return -1;
-      return b.lastMessageAt!.compareTo(a.lastMessageAt!);
-    });
-    return sorted;
+    if (result.hasValue) {
+      state = result;
+    } else if (prev != null) {
+      state = AsyncValue.data(prev);
+    }
   }
 
   void _setupRealtimeUpdates() {
     _messageSubscription = _socketService.messageReceived.listen((message) {
-      state.whenData((conversations) {
-        final index = conversations.indexWhere((c) => c.id == message.conversationId);
+      state.whenData((discovery) {
+        final conversations = [...discovery.conversations];
+        final index = conversations.indexWhere(
+          (c) => c.id == message.conversationId,
+        );
         if (index != -1) {
-          final updated = [...conversations];
-          final conversation = updated[index];
-          
-          // Update last message
-          updated[index] = conversation.copyWith(
+          final conv = conversations[index];
+          conversations[index] = conv.copyWith(
             lastMessageAt: message.createdAt,
             lastMessage: MessagePreviewModel(
               id: message.id,
@@ -82,19 +81,29 @@ class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationMo
             ),
           );
 
-          // Increment unread count if not sent by current user
           if (message.sender.id != _currentUserId) {
-            final memberIndex = updated[index].members.indexWhere((m) => m.userId == _currentUserId);
+            final memberIndex = conversations[index].members.indexWhere(
+              (m) => m.userId == _currentUserId,
+            );
             if (memberIndex != -1) {
-              final members = [...updated[index].members];
+              final members = [...conversations[index].members];
               members[memberIndex] = members[memberIndex].copyWith(
                 unreadCount: members[memberIndex].unreadCount + 1,
               );
-              updated[index] = updated[index].copyWith(members: members);
+              conversations[index] = conversations[index].copyWith(
+                members: members,
+              );
             }
           }
 
-          state = AsyncValue.data(_sortConversations(updated));
+          state = AsyncValue.data(
+            ChatDiscoveryModel(
+              conversations: conversations,
+              publicGroups: discovery.publicGroups,
+              myPrivateGroups: discovery.myPrivateGroups,
+              allUsers: discovery.allUsers,
+            ),
+          );
         }
       });
     });
@@ -102,54 +111,117 @@ class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationMo
 
   void _setupPeriodicRefresh() {
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      refreshConversations();
+      refreshDiscovery();
     });
-  }
-
-  Future<void> muteConversation(String conversationId) async {
-    await _repository.muteConversation(conversationId);
-    await refreshConversations();
-  }
-
-  Future<void> unmuteConversation(String conversationId) async {
-    await _repository.unmuteConversation(conversationId);
-    await refreshConversations();
-  }
-
-  Future<void> pinConversation(String conversationId) async {
-    await _repository.pinConversation(conversationId);
-    await refreshConversations();
-  }
-
-  Future<void> unpinConversation(String conversationId) async {
-    await _repository.unpinConversation(conversationId);
-    await refreshConversations();
   }
 
   Future<void> markAsRead(String conversationId) async {
     await _repository.markConversationAsRead(conversationId);
-    
-    // Optimistically update unread count
-    state.whenData((conversations) {
+    state.whenData((discovery) {
+      final conversations = [...discovery.conversations];
       final index = conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
-        final updated = [...conversations];
-        final memberIndex = updated[index].members.indexWhere((m) => m.userId == _currentUserId);
+        final memberIndex = conversations[index].members.indexWhere(
+          (m) => m.userId == _currentUserId,
+        );
         if (memberIndex != -1) {
-          final members = [...updated[index].members];
+          final members = [...conversations[index].members];
           members[memberIndex] = members[memberIndex].copyWith(unreadCount: 0);
-          updated[index] = updated[index].copyWith(members: members);
-          state = AsyncValue.data(updated);
+          conversations[index] = conversations[index].copyWith(
+            members: members,
+          );
+          state = AsyncValue.data(
+            ChatDiscoveryModel(
+              conversations: conversations,
+              publicGroups: discovery.publicGroups,
+              myPrivateGroups: discovery.myPrivateGroups,
+              allUsers: discovery.allUsers,
+            ),
+          );
         }
       }
     });
   }
 
+  Future<void> muteConversation(String conversationId) async {
+    await _repository.muteConversation(conversationId);
+    await refreshDiscovery();
+  }
+
+  Future<void> unmuteConversation(String conversationId) async {
+    await _repository.unmuteConversation(conversationId);
+    await refreshDiscovery();
+  }
+
+  Future<void> pinConversation(String conversationId) async {
+    await _repository.pinConversation(conversationId);
+    await refreshDiscovery();
+  }
+
+  Future<void> unpinConversation(String conversationId) async {
+    await _repository.unpinConversation(conversationId);
+    await refreshDiscovery();
+  }
+
+  Future<ConversationModel> createOrGetDirectConversation(
+    String recipientId,
+  ) async {
+    final conv = await _repository.createDirectConversation(recipientId);
+    await refreshDiscovery();
+    return conv;
+  }
+
+  Future<ConversationModel> createOrGetGroupConversation(String groupId) async {
+    final conv = await _repository.createOrGetGroupConversation(groupId);
+    await refreshDiscovery();
+    return conv;
+  }
+
+  Future<Map<String, dynamic>> createPrivateGroup({
+    required String name,
+    required String slug,
+    String? description,
+  }) async {
+    final result = await _repository.createGroup(
+      name: name,
+      slug: slug,
+      description: description,
+      visibility: 'PRIVATE',
+    );
+    await refreshDiscovery();
+    return result;
+  }
+
+  Future<Map<String, dynamic>> createPublicGroup({
+    required String name,
+    required String slug,
+    String? description,
+  }) async {
+    final result = await _repository.createGroup(
+      name: name,
+      slug: slug,
+      description: description,
+      visibility: 'PUBLIC',
+    );
+    await refreshDiscovery();
+    return result;
+  }
+
+  Future<Map<String, dynamic>> getGroupInviteLink(String groupId) async {
+    return await _repository.getGroupInviteLink(groupId);
+  }
+
+  Future<Map<String, dynamic>> joinGroupByInvite(String token) async {
+    final res = await _repository.joinGroupByInvite(token);
+    await refreshDiscovery();
+    return res;
+  }
+
   int getTotalUnreadCount() {
     return state.maybeWhen(
-      data: (conversations) {
+      data: (discovery) {
         int total = 0;
-        for (final conv in conversations) {
+        for (final conv in discovery.conversations) {
           final member = conv.members.firstWhere(
             (m) => m.userId == _currentUserId,
             orElse: () => conv.members.first,
@@ -164,12 +236,6 @@ class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationMo
     );
   }
 
-  Future<ConversationModel> createOrGetDirectConversation(String recipientId) async {
-    final conv = await _repository.createDirectConversation(recipientId);
-    await refreshConversations();
-    return conv;
-  }
-
   @override
   void dispose() {
     _messageSubscription?.cancel();
@@ -178,36 +244,229 @@ class ConversationsNotifier extends StateNotifier<AsyncValue<List<ConversationMo
   }
 }
 
-// Filter providers
+// Backward compatibility alias for conversationsProvider
+final conversationsProvider = chatDiscoveryProvider;
+
+// Filter provider
 final conversationFilterProvider = StateProvider<String>((ref) => 'all');
 
-final filteredConversationsProvider = Provider<AsyncValue<List<ConversationModel>>>((ref) {
-  final conversations = ref.watch(conversationsProvider);
+// Unified Chat List Provider (Combines Conversations + Public Groups + All Users sorted newest first)
+final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
+  ref,
+) {
+  final discoveryAsync = ref.watch(chatDiscoveryProvider);
   final filter = ref.watch(conversationFilterProvider);
   final currentUserId = ref.watch(authProvider).user?.id;
 
-  return conversations.whenData((convs) {
+  return discoveryAsync.whenData((discovery) {
+    final items = <UnifiedChatItem>[];
+
+    // 1. Existing Active Conversations
+    for (final conv in discovery.conversations) {
+      final isPinned = conv.members.any(
+        (m) => m.userId == currentUserId && m.isPinned,
+      );
+      final isMuted = conv.members.any(
+        (m) => m.userId == currentUserId && m.isMuted,
+      );
+      final member = conv.members.firstWhere(
+        (m) => m.userId == currentUserId,
+        orElse: () => conv.members.isNotEmpty
+            ? conv.members.first
+            : const ConversationMemberModel(userId: '', username: ''),
+      );
+
+      final otherMember = conv.type == 'DIRECT'
+          ? conv.members.firstWhere(
+              (m) => m.userId != currentUserId,
+              orElse: () => conv.members.isNotEmpty
+                  ? conv.members.first
+                  : const ConversationMemberModel(userId: '', username: ''),
+            )
+          : null;
+
+      final title =
+          conv.title ??
+          otherMember?.displayName ??
+          otherMember?.username ??
+          'Chat';
+
+      final subtitle =
+          conv.lastMessage?.content ??
+          (conv.type == 'DIRECT' ? 'Direct Message' : 'Group Chat');
+
+      final avatarUrl = conv.type == 'DIRECT'
+          ? otherMember?.avatarUrl
+          : (conv.metadata?.groupAvatar);
+
+      final isOnline = otherMember?.isOnline ?? false;
+
+      items.add(
+        UnifiedChatItem(
+          id: conv.id,
+          title: title,
+          subtitle: subtitle,
+          avatarUrl: avatarUrl,
+          type: UnifiedChatType.conversation,
+          sortDate: conv.lastMessageAt ?? conv.createdAt,
+          unreadCount: member.unreadCount,
+          isMuted: isMuted,
+          isPinned: isPinned,
+          isOnline: isOnline,
+          conversationId: conv.id,
+          targetUserId: otherMember?.userId,
+          targetGroupId: conv.groupId,
+          conversation: conv,
+        ),
+      );
+    }
+
+    // 2. All Public Groups (sorted newest first)
+    for (final group in discovery.publicGroups) {
+      // Check if already in active conversations
+      final alreadyInConvs = discovery.conversations.any(
+        (c) =>
+            c.groupId == group.id ||
+            (group.conversationId != null && c.id == group.conversationId),
+      );
+
+      if (!alreadyInConvs) {
+        items.add(
+          UnifiedChatItem(
+            id: 'group_${group.id}',
+            title: group.name,
+            subtitle:
+                group.description ??
+                'Public group • ${group.membersCount} members',
+            avatarUrl: group.avatarUrl,
+            type: UnifiedChatType.publicGroup,
+            sortDate: group.createdAt,
+            membersCount: group.membersCount,
+            targetGroupId: group.id,
+            conversationId: group.conversationId,
+          ),
+        );
+      }
+    }
+
+    // 3. User's Private Groups
+    for (final group in discovery.myPrivateGroups) {
+      final alreadyInConvs = discovery.conversations.any(
+        (c) =>
+            c.groupId == group.id ||
+            (group.conversationId != null && c.id == group.conversationId),
+      );
+
+      if (!alreadyInConvs) {
+        items.add(
+          UnifiedChatItem(
+            id: 'private_group_${group.id}',
+            title: group.name,
+            subtitle:
+                group.description ??
+                'Private group • ${group.membersCount} members',
+            avatarUrl: group.avatarUrl,
+            type: UnifiedChatType.privateGroup,
+            sortDate: group.createdAt,
+            membersCount: group.membersCount,
+            targetGroupId: group.id,
+            conversationId: group.conversationId,
+          ),
+        );
+      }
+    }
+
+    // 4. All Users in the database (sorted newest first)
+    for (final user in discovery.allUsers) {
+      if (user.id == currentUserId) continue;
+
+      // Check if already have active direct conversation
+      final alreadyInConvs = discovery.conversations.any(
+        (c) => c.type == 'DIRECT' && c.members.any((m) => m.userId == user.id),
+      );
+
+      if (!alreadyInConvs) {
+        items.add(
+          UnifiedChatItem(
+            id: 'user_${user.id}',
+            title: user.displayName,
+            subtitle:
+                user.bio ??
+                (user.username != null
+                    ? '@${user.username}'
+                    : 'Joined StreamHub'),
+            avatarUrl: user.avatarUrl,
+            type: UnifiedChatType.user,
+            sortDate: user.createdAt,
+            isOnline: user.isOnline,
+            targetUserId: user.id,
+          ),
+        );
+      }
+    }
+
+    // Apply Filter
+    List<UnifiedChatItem> filtered;
     switch (filter) {
       case 'unread':
-        return convs.where((c) {
-          final member = c.members.firstWhere(
-            (m) => m.userId == currentUserId,
-            orElse: () => c.members.first,
-          );
-          return member.unreadCount > 0;
-        }).toList();
-      
+        filtered = items.where((i) => i.unreadCount > 0).toList();
+        break;
+
       case 'personal':
-        return convs.where((c) => c.type == ConversationType.direct).toList();
-      
+        filtered = items
+            .where(
+              (i) =>
+                  i.type == UnifiedChatType.user ||
+                  (i.conversation != null &&
+                      i.conversation!.type == ConversationType.direct),
+            )
+            .toList();
+        break;
+
       case 'groups':
-        return convs.where((c) => c.type == ConversationType.groupDirect).toList();
-      
+        filtered = items
+            .where(
+              (i) =>
+                  i.type == UnifiedChatType.publicGroup ||
+                  i.type == UnifiedChatType.privateGroup ||
+                  (i.conversation != null &&
+                      (i.conversation!.type == ConversationType.groupDirect ||
+                          i.conversation!.type ==
+                              ConversationType.groupChannel)),
+            )
+            .toList();
+        break;
+
       case 'channels':
-        return convs.where((c) => c.type == ConversationType.groupChannel).toList();
-      
-      default:
-        return convs;
+        filtered = items
+            .where(
+              (i) =>
+                  (i.conversation != null &&
+                      i.conversation!.type == ConversationType.groupChannel) ||
+                  i.type == UnifiedChatType.publicGroup,
+            )
+            .toList();
+        break;
+
+      default: // 'all'
+        filtered = items;
+        break;
     }
+
+    // Sort: Pinned first, then by date (newest first)
+    filtered.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return b.sortDate.compareTo(a.sortDate);
+    });
+
+    return filtered;
   });
 });
+
+// Backward compatibility alias for filteredConversationsProvider
+final filteredConversationsProvider =
+    Provider<AsyncValue<List<ConversationModel>>>((ref) {
+      final discovery = ref.watch(chatDiscoveryProvider);
+      return discovery.whenData((d) => d.conversations);
+    });

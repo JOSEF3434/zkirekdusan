@@ -3,60 +3,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:mobile/features/chats/data/models/conversation_model.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 
-class ConversationListTile extends ConsumerWidget {
-  final ConversationModel conversation;
+class UnifiedChatListTile extends ConsumerWidget {
+  final UnifiedChatItem item;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
-  const ConversationListTile({
+  const UnifiedChatListTile({
     super.key,
-    required this.conversation,
+    required this.item,
     required this.onTap,
     this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUserId = ref.watch(authProvider).user?.id;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    // Get current user's member data
-    final currentMember = conversation.members.firstWhere(
-      (m) => m.userId == currentUserId,
-      orElse: () => conversation.members.isNotEmpty
-          ? conversation.members.first
-          : const ConversationMemberModel(userId: '', username: ''),
-    );
-
-    // For direct chats, get the other user
-    final otherMember = conversation.type == 'DIRECT'
-        ? conversation.members.firstWhere(
-            (m) => m.userId != currentUserId,
-            orElse: () => conversation.members.isNotEmpty
-                ? conversation.members.first
-                : const ConversationMemberModel(userId: '', username: ''),
-          )
-        : null;
-
-    final displayName = conversation.title ??
-        otherMember?.displayName ??
-        otherMember?.username ??
-        'Chat';
-
-    final avatarUrl = otherMember?.avatarUrl ??
-        conversation.metadata?.groupAvatar;
-
-    final isOnline = otherMember?.isOnline ?? false;
-    final hasUnread = currentMember.unreadCount > 0;
-    final isMuted = currentMember.isMuted;
-    final isPinned = currentMember.isPinned;
-    final isGroup = conversation.type == 'GROUP_DIRECT' || conversation.groupId != null;
-    final isChannel = conversation.type == 'GROUP_CHANNEL' || conversation.channelId != null;
+    final hasUnread = item.unreadCount > 0;
+    final isGroup = item.type == UnifiedChatType.publicGroup ||
+        item.type == UnifiedChatType.privateGroup ||
+        (item.conversation != null && item.conversation!.groupId != null);
+    final isPrivate = item.type == UnifiedChatType.privateGroup;
 
     return Material(
       color: Colors.transparent,
@@ -90,8 +60,8 @@ class ConversationListTile extends ConsumerWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  _buildAvatar(displayName, avatarUrl, isGroup, isChannel, isDark),
-                  if (isOnline && conversation.type == 'DIRECT')
+                  _buildAvatar(item.title, item.avatarUrl, isGroup, isPrivate, isDark),
+                  if (item.isOnline && !isGroup)
                     Positioned(
                       right: 1,
                       bottom: 1,
@@ -127,13 +97,13 @@ class ConversationListTile extends ConsumerWidget {
                     // Top row: Name, Verified/Mute icon, Timestamp
                     Row(
                       children: [
-                        if (isPinned)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 5),
+                        if (item.isPinned)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 5),
                             child: Icon(
                               Icons.push_pin,
                               size: 13,
-                              color: const Color(0xFF00C6FF),
+                              color: Color(0xFF00C6FF),
                             ),
                           ),
                         Expanded(
@@ -141,10 +111,11 @@ class ConversationListTile extends ConsumerWidget {
                             children: [
                               Flexible(
                                 child: Text(
-                                  displayName,
+                                  item.title,
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w600,
+                                    fontWeight:
+                                        hasUnread ? FontWeight.w700 : FontWeight.w600,
                                     color: isDark ? Colors.white : Colors.black87,
                                     letterSpacing: -0.2,
                                   ),
@@ -152,7 +123,15 @@ class ConversationListTile extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (isMuted) ...[
+                              if (isPrivate) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.lock_rounded,
+                                  size: 13,
+                                  color: isDark ? const Color(0xFF00C6FF) : Colors.blue,
+                                ),
+                              ],
+                              if (item.isMuted) ...[
                                 const SizedBox(width: 4),
                                 Icon(
                                   Icons.volume_off_rounded,
@@ -164,72 +143,60 @@ class ConversationListTile extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        if (conversation.lastMessageAt != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (conversation.lastMessage?.isMe == true) ...[
-                                const Icon(
-                                  Icons.done_all_rounded,
-                                  size: 15,
-                                  color: Color(0xFF00C6FF),
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                              Text(
-                                _formatTimestamp(conversation.lastMessageAt!),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: hasUnread
-                                      ? const Color(0xFF00C6FF)
-                                      : Colors.grey[500],
-                                  fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
-                                ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (item.conversation?.lastMessage?.isMe == true) ...[
+                              const Icon(
+                                Icons.done_all_rounded,
+                                size: 15,
+                                color: Color(0xFF00C6FF),
                               ),
+                              const SizedBox(width: 4),
                             ],
-                          ),
+                            Text(
+                              _formatTimestamp(item.sortDate),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: hasUnread
+                                    ? const Color(0xFF00C6FF)
+                                    : Colors.grey[500],
+                                fontWeight:
+                                    hasUnread ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
 
                     // Bottom row: Last message snippet & Unread count pill
                     Row(
                       children: [
                         Expanded(
-                          child: currentMember.typingStatus?.isTyping == true
-                              ? Row(
-                                  children: [
-                                    const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF00C6FF),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'typing...',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF00C6FF),
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : _buildMessagePreview(context, isDark, hasUnread),
+                          child: Text(
+                            item.subtitle ?? 'Tap to chat',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: hasUnread
+                                  ? (isDark ? Colors.white : Colors.black87)
+                                  : Colors.grey[500],
+                              fontWeight:
+                                  hasUnread ? FontWeight.w500 : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         const SizedBox(width: 8),
 
-                        // Unread Badge
+                        // Unread Badge (matching Screenshot 1 blue circle with count)
                         if (hasUnread)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
-                              vertical: 3,
+                              vertical: 2.5,
                             ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
@@ -245,9 +212,9 @@ class ConversationListTile extends ConsumerWidget {
                               ],
                             ),
                             child: Text(
-                              currentMember.unreadCount > 99
+                              item.unreadCount > 99
                                   ? '99+'
-                                  : '${currentMember.unreadCount}',
+                                  : '${item.unreadCount}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -271,7 +238,7 @@ class ConversationListTile extends ConsumerWidget {
     String name,
     String? avatarUrl,
     bool isGroup,
-    bool isChannel,
+    bool isPrivate,
     bool isDark,
   ) {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -325,12 +292,12 @@ class ConversationListTile extends ConsumerWidget {
         ],
       ),
       child: Center(
-        child: isChannel
-            ? const Icon(Icons.campaign_rounded, color: Colors.white, size: 24)
+        child: isPrivate
+            ? const Icon(Icons.lock_rounded, color: Colors.white, size: 22)
             : isGroup
                 ? const Icon(Icons.groups_rounded, color: Colors.white, size: 24)
                 : Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'C',
+                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -341,123 +308,27 @@ class ConversationListTile extends ConsumerWidget {
     );
   }
 
-  Widget _buildMessagePreview(BuildContext context, bool isDark, bool hasUnread) {
-    final lastMessage = conversation.lastMessage;
-    if (lastMessage == null) {
-      return Text(
-        'No messages yet',
-        style: TextStyle(
-          fontSize: 14,
-          color: Colors.grey[500],
-          fontStyle: FontStyle.italic,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
-    String prefix = '';
-    if (lastMessage.isMe == true) {
-      prefix = 'You: ';
-    } else if (lastMessage.senderName != null && conversation.type != 'DIRECT') {
-      prefix = '${lastMessage.senderName}: ';
-    }
-
-    Widget contentWidget;
-    if (lastMessage.type == 'IMAGE') {
-      contentWidget = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.photo_camera_rounded, size: 15, color: Color(0xFF00C6FF)),
-          const SizedBox(width: 4),
-          Text(
-            'Photo',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isDark ? const Color(0xFF00C6FF) : const Color(0xFF0072FF),
-            ),
-          ),
-        ],
-      );
-    } else if (lastMessage.type == 'VOICE_NOTE' || lastMessage.type == 'AUDIO') {
-      contentWidget = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.mic_rounded, size: 15, color: Color(0xFF10B981)),
-          const SizedBox(width: 4),
-          Text(
-            'Voice message',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isDark ? const Color(0xFF10B981) : Colors.green[700],
-            ),
-          ),
-        ],
-      );
-    } else if (lastMessage.type == 'VIDEO') {
-      contentWidget = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.videocam_rounded, size: 15, color: Colors.amber),
-          const SizedBox(width: 4),
-          const Text('Video', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        ],
-      );
-    } else if (lastMessage.type == 'DOCUMENT') {
-      contentWidget = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.description_rounded, size: 15, color: Colors.orange),
-          const SizedBox(width: 4),
-          const Text('Document', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        ],
-      );
-    } else {
-      contentWidget = Text(
-        lastMessage.content ?? 'Message',
-        style: TextStyle(
-          fontSize: 14,
-          color: hasUnread
-              ? (isDark ? Colors.white : Colors.black87)
-              : Colors.grey[500],
-          fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
-    return Row(
-      children: [
-        if (prefix.isNotEmpty)
-          Text(
-            prefix,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? const Color(0xFF00C6FF) : const Color(0xFF0072FF),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        Expanded(child: contentWidget),
-      ],
-    );
-  }
-
-  String _formatTimestamp(DateTime dateTime) {
+  String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = now.difference(timestamp);
 
-    if (messageDate == today) {
-      return DateFormat('h:mm a').format(dateTime);
-    } else if (today.difference(messageDate).inDays == 1) {
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m';
+    } else if (difference.inDays == 0 && now.day == timestamp.day) {
+      return DateFormat('h:mm a').format(timestamp);
+    } else if (difference.inDays == 1 || (difference.inDays == 0 && now.day != timestamp.day)) {
       return 'Yesterday';
-    } else if (today.difference(messageDate).inDays < 7) {
-      return DateFormat('E').format(dateTime); // e.g. Mon, Sat
+    } else if (difference.inDays < 7) {
+      return DateFormat('EEE').format(timestamp);
+    } else if (now.year == timestamp.year) {
+      return DateFormat('MMM d').format(timestamp);
     } else {
-      return DateFormat('MMM d').format(dateTime);
+      return DateFormat('MM/dd/yy').format(timestamp);
     }
   }
 }
+
+// Alias for backward compatibility
+typedef ConversationListTile = UnifiedChatListTile;

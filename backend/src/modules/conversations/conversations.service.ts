@@ -1,12 +1,17 @@
-// src/modules/conversations/conversations.service.ts
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConversationsRepository } from './conversations.repository.js';
 import { UsersRepository } from '../users/users.repository.js';
 import { ConversationResponseDto } from './dto/conversation-response.dto.js';
+import {
+  ChatDiscoveryResponseDto,
+  ChatGroupItemDto,
+  ChatUserItemDto,
+} from './dto/chat-discovery-response.dto.js';
 
 @Injectable()
 export class ConversationsService {
@@ -35,6 +40,79 @@ export class ConversationsService {
       recipientId,
     );
     return this.mapToDto(conversation, currentUserId);
+  }
+
+  async findOrCreateGroupConversation(
+    groupId: string,
+    userId: string,
+  ): Promise<ConversationResponseDto> {
+    const conv =
+      await this.conversationsRepository.findOrCreateGroupConversation(
+        groupId,
+        userId,
+      );
+    return this.mapToDto(conv, userId);
+  }
+
+  async getChatDiscovery(userId: string): Promise<ChatDiscoveryResponseDto> {
+    const [conversations, allUsers, publicGroups, myPrivateGroups] =
+      await Promise.all([
+        this.getUserConversations(userId),
+        this.conversationsRepository.getAllUsersSortedNewest(userId),
+        this.conversationsRepository.getAllPublicGroupsSortedNewest(),
+        this.conversationsRepository.getUserPrivateGroups(userId),
+      ]);
+
+    const formattedUsers: ChatUserItemDto[] = allUsers.map((u) => {
+      const isOnline = u.presence?.status === 'ONLINE';
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.profile?.displayName ?? u.username ?? 'User',
+        avatarUrl: u.profile?.avatar?.url ?? null,
+        bio: u.profile?.bio ?? null,
+        isOnline,
+        lastSeenAt: u.presence?.lastSeenAt ?? u.lastLoginAt ?? null,
+        createdAt: u.createdAt,
+      };
+    });
+
+    const formattedPublicGroups: ChatGroupItemDto[] = publicGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      description: g.description,
+      avatarUrl: g.avatarUrl,
+      coverUrl: g.coverUrl,
+      visibility: g.visibility,
+      status: g.status,
+      membersCount: g._count?.members ?? 0,
+      conversationId: g.conversations?.[0]?.id ?? null,
+      isMember: true,
+      createdAt: g.createdAt,
+    }));
+
+    const formattedPrivateGroups: ChatGroupItemDto[] = myPrivateGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      description: g.description,
+      avatarUrl: g.avatarUrl,
+      coverUrl: g.coverUrl,
+      visibility: g.visibility,
+      status: g.status,
+      membersCount: g._count?.members ?? 0,
+      conversationId: g.conversations?.[0]?.id ?? null,
+      isMember: true,
+      createdAt: g.createdAt,
+    }));
+
+    return {
+      conversations,
+      publicGroups: formattedPublicGroups,
+      myPrivateGroups: formattedPrivateGroups,
+      allUsers: formattedUsers,
+    };
   }
 
   async getUserConversations(
@@ -164,3 +242,4 @@ export class ConversationsService {
     };
   }
 }
+

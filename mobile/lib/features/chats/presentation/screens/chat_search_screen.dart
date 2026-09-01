@@ -95,7 +95,8 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     // Filter existing conversations matching query
-    final allConversations = ref.watch(conversationsProvider).value ?? [];
+    final discovery = ref.watch(chatDiscoveryProvider).value;
+    final allConversations = discovery?.conversations ?? [];
     final matchingConversations = allConversations.where((c) {
       if (query.isEmpty) return false;
       final title = c.title?.toLowerCase() ?? '';

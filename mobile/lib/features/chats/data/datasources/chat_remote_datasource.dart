@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
+import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
 final chatRemoteDatasourceProvider = Provider<ChatRemoteDatasource>((ref) {
@@ -17,8 +18,18 @@ class ChatRemoteDatasource {
   ChatRemoteDatasource(this._apiClient);
 
   // ══════════════════════════════════════════════════════════════
-  // CONVERSATIONS
+  // CONVERSATIONS & DISCOVERY
   // ══════════════════════════════════════════════════════════════
+
+  Future<ChatDiscoveryModel> getChatDiscovery() async {
+    try {
+      final response = await _apiClient.get('/conversations/discover');
+      final data = parseEnvelope(response.data);
+      return ChatDiscoveryModel.fromJson(data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
 
   Future<List<ConversationModel>> getUserConversations() async {
     try {
@@ -50,6 +61,56 @@ class ChatRemoteDatasource {
       );
       final data = parseEnvelope(response.data);
       return ConversationModel.fromJson(data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<ConversationModel> createOrGetGroupConversation(String groupId) async {
+    try {
+      final response = await _apiClient.post('/conversations/group/$groupId');
+      final data = parseEnvelope(response.data);
+      return ConversationModel.fromJson(data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createGroup({
+    required String name,
+    required String slug,
+    String? description,
+    String visibility = 'PUBLIC', // 'PUBLIC' or 'PRIVATE'
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/groups',
+        data: {
+          'name': name,
+          'slug': slug,
+          'description': ?description,
+          'visibility': visibility,
+        },
+      );
+      return parseEnvelope(response.data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getGroupInviteLink(String groupId) async {
+    try {
+      final response = await _apiClient.get('/groups/$groupId/invite-link');
+      return parseEnvelope(response.data);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> joinGroupByInvite(String token) async {
+    try {
+      final response = await _apiClient.post('/groups/invites/$token/join');
+      return parseEnvelope(response.data);
     } catch (e) {
       throw _handleError(e);
     }
