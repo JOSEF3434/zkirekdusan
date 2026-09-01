@@ -85,7 +85,7 @@ class _ReactionAnimationWidgetState extends State<ReactionAnimationWidget>
             right: 20 + p.xOffset,
             child: AnimatedBuilder(
               animation: p.controller,
-              builder: (_, _) => Transform.translate(
+              builder: (_, __) => Transform.translate(
                 offset: Offset(p.xOffset * 0.3, p.yOffset.value),
                 child: Opacity(
                   opacity: p.opacity.value,

@@ -63,8 +63,8 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    _ref.listen(authProvider, (_, _) => notifyListeners());
-    _ref.listen(preferencesProvider, (_, _) => notifyListeners());
+    _ref.listen(authProvider, (_, __) => notifyListeners());
+    _ref.listen(preferencesProvider, (_, __) => notifyListeners());
   }
 
   String? redirect(BuildContext context, GoRouterState state) {

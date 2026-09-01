@@ -37,7 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     Future.microtask(() => ref.read(profileProvider.notifier).loadMyProfile());
   }
 
@@ -314,6 +314,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   tabAlignment: TabAlignment.start,
                   tabs: [
                     Tab(text: tr('profile.videos')),
+                    const Tab(text: 'Streaming'),
                     Tab(text: tr('library.playlists')),
                     Tab(text: tr('profile.posts')),
                     const Tab(text: 'About'),
@@ -327,6 +328,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           controller: _tabController,
           children: [
             _ProfileVideosTab(userId: profile.userId),
+            _ProfileStreamsTab(userId: profile.userId),
             _ProfilePlaylistsTab(),
             ProfilePostsList(
               userId: profile.userId,
@@ -695,7 +697,12 @@ class _ProfileVideosTab extends ConsumerWidget {
               final video = videos[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
-                child: VideoCard(video: video),
+                child: VideoCard(
+                  video: video,
+                  onVideoDeleted: () {
+                    ref.invalidate(profileVideosProvider(userId));
+                  },
+                ),
               );
             },
           ),
@@ -704,6 +711,93 @@ class _ProfileVideosTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(
         child: Text('Error loading videos: $err'),
+      ),
+    );
+  }
+}
+
+// ── Streaming Tab (Recorded Live Streams & VODs) ─────────────────────────────
+
+class _ProfileStreamsTab extends ConsumerWidget {
+  final String userId;
+
+  const _ProfileStreamsTab({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streamsAsync = ref.watch(profileStreamsProvider(userId));
+    final theme = Theme.of(context);
+
+    return streamsAsync.when(
+      data: (streams) {
+        if (streams.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.live_tv_outlined,
+                  size: 56,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No streaming recordings yet.',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Recorded live streams will automatically appear here.',
+                  style: TextStyle(
+                    color: theme.colorScheme.outline,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(profileStreamsProvider(userId)),
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 8, bottom: 80),
+            itemCount: streams.length,
+            itemBuilder: (context, index) {
+              final video = streams[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: VideoCard(
+                  video: video,
+                  onVideoDeleted: () {
+                    ref.invalidate(profileStreamsProvider(userId));
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
+            const SizedBox(height: 8),
+            Text('Error loading streams: $err'),
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              onPressed: () => ref.invalidate(profileStreamsProvider(userId)),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -869,6 +963,9 @@ class _PlaylistCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final firstThumb = playlist.items.isNotEmpty
+        ? playlist.items.first.videoThumbnailUrl
+        : null;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 4),
@@ -878,17 +975,27 @@ class _PlaylistCardTile extends StatelessWidget {
           width: 80,
           height: 48,
           color: theme.colorScheme.surfaceContainerHighest,
-          child: const Center(
-            child: Icon(Icons.playlist_play, size: 28),
-          ),
+          child: firstThumb != null && firstThumb.isNotEmpty
+              ? Image.network(
+                  firstThumb,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(Icons.playlist_play, size: 28),
+                  ),
+                )
+              : const Center(
+                  child: Icon(Icons.playlist_play, size: 28),
+                ),
         ),
       ),
       title: Text(
         playlist.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        '${playlist.items.length} videos • ${playlist.privacy}',
+        '${playlist.items.length} ${playlist.items.length == 1 ? "video" : "videos"} • ${playlist.visibility}',
         style: TextStyle(
           color: theme.colorScheme.onSurfaceVariant,
           fontSize: 12,

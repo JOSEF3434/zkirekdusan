@@ -756,7 +756,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       );
                     },
                     loading: () => const LinearProgressIndicator(),
-                    error: (_, _) => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
 
               const SizedBox(height: 32),

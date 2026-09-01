@@ -34,7 +34,7 @@ class ChannelPlaylistCard extends StatelessWidget {
                       ? Image.network(
                           thumbnailUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _buildPlaceholder(theme),
+                          errorBuilder: (_, __, ___) => _buildPlaceholder(theme),
                         )
                       : _buildPlaceholder(theme),
                 ),

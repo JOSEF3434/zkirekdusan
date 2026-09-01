@@ -88,7 +88,7 @@ class ChatRemoteDatasource {
         data: {
           'name': name,
           'slug': slug,
-          'description': ?description,
+          if (description != null) 'description': description,
           'visibility': visibility,
         },
       );
@@ -169,7 +169,7 @@ class ChatRemoteDatasource {
       final response = await _apiClient.get(
         '/conversations/$conversationId/messages',
         queryParameters: {
-          'cursor': ?cursor,
+          if (cursor != null) 'cursor': cursor,
           'limit': limit,
         },
       );
@@ -191,9 +191,9 @@ class ChatRemoteDatasource {
       final response = await _apiClient.post(
         '/conversations/$conversationId/messages',
         data: {
-          'content': ?content,
+          if (content != null) 'content': content,
           'type': type,
-          'replyToId': ?replyToId,
+          if (replyToId != null) 'replyToId': replyToId,
           if (attachmentIds != null && attachmentIds.isNotEmpty)
             'attachmentIds': attachmentIds,
         },
@@ -350,7 +350,7 @@ class ChatRemoteDatasource {
           filePath,
           filename: fileName,
         ),
-        'conversationId': ?conversationId,
+        if (conversationId != null) 'conversationId': conversationId,
       });
 
       final response = await _apiClient.post(

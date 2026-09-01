@@ -26,7 +26,7 @@ class FollowButton extends ConsumerWidget {
 
     return followStateAsync.when(
       loading: () => const _LoadingButton(),
-      error: (_, _) => _ErrorButton(
+      error: (_, __) => _ErrorButton(
         onRetry: () => ref.refresh(followProvider(targetUserId)),
       ),
       data: (state) {

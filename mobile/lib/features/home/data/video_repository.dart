@@ -108,6 +108,7 @@ class VideoRepository {
     required String userId,
     int page = 1,
     int limit = 20,
+    bool? isStream,
     CancelToken? cancelToken,
   }) async {
     final response = await _dio.get(
@@ -116,11 +117,35 @@ class VideoRepository {
         'authorId': userId,
         'page': page,
         'limit': limit,
+        if (isStream != null) 'isStream': isStream.toString(),
       },
       cancelToken: cancelToken,
     );
     final data = parsePaginatedEnvelope(response.data);
     return VideoListResponseDto.fromJson(data);
+  }
+
+  Future<VideoListResponseDto> getUserStreams({
+    required String userId,
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    return getUserVideos(
+      userId: userId,
+      page: page,
+      limit: limit,
+      isStream: true,
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<void> deleteVideo(String videoId, {String? channelId}) async {
+    if (channelId != null && channelId.isNotEmpty) {
+      await _dio.delete('/video-channels/$channelId/videos/$videoId');
+    } else {
+      await _dio.delete('/videos/$videoId');
+    }
   }
 
   Future<void> removeFromWatchHistory(String videoId) async {

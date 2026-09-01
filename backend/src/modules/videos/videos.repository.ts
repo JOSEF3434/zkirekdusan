@@ -138,6 +138,58 @@ export class VideosRepository {
     return { data, total, nextCursor, hasMore };
   }
 
+  async findByUser(
+    userId: string,
+    opts: {
+      page?: number;
+      limit?: number;
+      cursor?: string;
+      isStream?: boolean;
+    },
+  ) {
+    const limit = opts.limit ?? 20;
+    const skip = opts.cursor ? 1 : opts.page ? (opts.page - 1) * limit : 0;
+
+    const streamCondition = {
+      OR: [
+        { slug: { startsWith: 'vod-' } },
+        {
+          description: {
+            contains: 'Recorded live stream',
+            mode: 'insensitive' as const,
+          },
+        },
+        { hlsUrl: { contains: '/streams/', mode: 'insensitive' as const } },
+      ],
+    };
+
+    const where: any = {
+      uploadedById: userId,
+      deletedAt: null,
+    };
+
+    if (opts.isStream === true) {
+      where.OR = streamCondition.OR;
+    } else if (opts.isStream === false) {
+      where.NOT = streamCondition;
+    }
+
+    const videos = await this.prisma.video.findMany({
+      where,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : { skip }),
+      take: limit + 1,
+      orderBy: { createdAt: 'desc' },
+      include: VIDEO_INCLUDE,
+    });
+
+    const total = await this.prisma.video.count({ where });
+    const hasMore = videos.length > limit;
+    const data = hasMore ? videos.slice(0, limit) : videos;
+    const nextCursor = hasMore ? data[data.length - 1].id : undefined;
+
+    return { data, total, nextCursor, hasMore };
+  }
+
   async findPublicVideos(opts: {
     page?: number;
     limit?: number;

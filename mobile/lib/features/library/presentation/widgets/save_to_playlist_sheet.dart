@@ -270,7 +270,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                   final created = await repo.createPlaylist(
                     title: title,
                     description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
-                    privacy: privacy.toLowerCase(),
+                    visibility: privacy.toUpperCase(),
                   );
                   await repo.addVideoToPlaylist(created.id, widget.videoId);
                   ref.invalidate(myPlaylistsProvider);

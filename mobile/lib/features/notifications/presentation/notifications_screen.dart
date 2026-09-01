@@ -32,7 +32,7 @@ class NotificationsScreen extends ConsumerWidget {
                   )
                 : const SizedBox.shrink(),
             loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -59,7 +59,7 @@ class NotificationsScreen extends ConsumerWidget {
                     ref.read(notificationsProvider.notifier).refresh(),
                 child: ListView.separated(
                   itemCount: state.notifications.length,
-                  separatorBuilder: (_, _) => Divider(
+                  separatorBuilder: (_, __) => Divider(
                     height: 1,
                     color: theme.colorScheme.outlineVariant.withValues(
                       alpha: 0.3,

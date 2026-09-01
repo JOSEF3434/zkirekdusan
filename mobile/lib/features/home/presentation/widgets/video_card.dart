@@ -15,12 +15,16 @@ class VideoCard extends StatelessWidget {
   final VideoResponseDto video;
   final bool showActions;
   final bool isCompact;
+  final VoidCallback? onVideoDeleted;
+  final VoidCallback? onVideoUpdated;
 
   const VideoCard({
     super.key,
     required this.video,
     this.showActions = true,
     this.isCompact = false,
+    this.onVideoDeleted,
+    this.onVideoUpdated,
   });
 
   /// Resolve possibly-relative or localhost thumbnail URLs to the real API base.
@@ -184,7 +188,12 @@ class VideoCard extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: () {
-                    VideoManagementSheet.show(context, video: video);
+                    VideoManagementSheet.show(
+                      context,
+                      video: video,
+                      onVideoDeleted: onVideoDeleted,
+                      onVideoUpdated: onVideoUpdated,
+                    );
                   },
                 ),
               ],

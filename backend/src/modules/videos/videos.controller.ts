@@ -406,6 +406,51 @@ export class VideosController {
 export class VideosPublicController {
   constructor(private readonly videosService: VideosService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'Get videos by author or discovery query' })
+  @ApiQuery({ name: 'authorId', required: false })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'isStream', required: false, example: 'false' })
+  async getVideos(
+    @Query('authorId') authorId?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('isStream') isStream?: string,
+  ) {
+    if (authorId) {
+      const streamFilter =
+        isStream === 'true' ? true : isStream === 'false' ? false : undefined;
+      return this.videosService.findByUser(authorId, {
+        page: +page,
+        limit: +limit,
+        isStream: streamFilter,
+      });
+    }
+    return this.videosService.getLatest(+page, +limit);
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get videos uploaded by a specific user' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'isStream', required: false, example: 'false' })
+  async getUserVideos(
+    @Param('userId') userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('isStream') isStream?: string,
+  ) {
+    const streamFilter =
+      isStream === 'true' ? true : isStream === 'false' ? false : undefined;
+    return this.videosService.findByUser(userId, {
+      page: +page,
+      limit: +limit,
+      isStream: streamFilter,
+    });
+  }
+
   @Get('latest')
   @ApiOperation({
     summary: 'Get latest public videos sorted by upload date (newest first)',

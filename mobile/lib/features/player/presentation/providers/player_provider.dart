@@ -4,12 +4,16 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/player/data/player_repository.dart';
 import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 
+import 'dart:convert';
+import 'package:mobile/core/storage/secure_storage.dart';
+import 'package:mobile/core/storage/file_system.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class PlayerState {
@@ -24,6 +28,7 @@ class PlayerState {
   final bool isFullscreen;
   final double playbackSpeed;
   final String? activeStreamUrl;
+  final bool isOfflinePlayback;
 
   /// Restored position in seconds (-1 means no restore).
   final int resumePositionSeconds;
@@ -41,6 +46,7 @@ class PlayerState {
     this.playbackSpeed = 1.0,
     this.resumePositionSeconds = -1,
     this.activeStreamUrl,
+    this.isOfflinePlayback = false,
   });
 
   PlayerState copyWith({
@@ -56,6 +62,7 @@ class PlayerState {
     double? playbackSpeed,
     int? resumePositionSeconds,
     String? activeStreamUrl,
+    bool? isOfflinePlayback,
   }) {
     return PlayerState(
       video: video ?? this.video,
@@ -71,6 +78,7 @@ class PlayerState {
       resumePositionSeconds:
           resumePositionSeconds ?? this.resumePositionSeconds,
       activeStreamUrl: activeStreamUrl ?? this.activeStreamUrl,
+      isOfflinePlayback: isOfflinePlayback ?? this.isOfflinePlayback,
     );
   }
 }
@@ -80,6 +88,7 @@ final playerProvider = StateNotifierProvider.autoDispose
       return PlayerNotifier(
         ref.watch(playerRepositoryProvider),
         ref.watch(playbackProgressRepositoryProvider),
+        ref.watch(storageServiceProvider),
         videoId,
         ref.read(playbackPreferencesProvider).defaultSpeed,
       );
@@ -88,6 +97,7 @@ final playerProvider = StateNotifierProvider.autoDispose
 class PlayerNotifier extends StateNotifier<PlayerState> {
   final PlayerRepository _repository;
   final PlaybackProgressRepository _progressRepo;
+  final StorageService _storage;
   final String _videoId;
 
   Timer? _progressTimer;
@@ -98,6 +108,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   PlayerNotifier(
     this._repository,
     this._progressRepo,
+    this._storage,
     this._videoId,
     double initialSpeed,
   ) : super(PlayerState(playbackSpeed: initialSpeed)) {
@@ -178,9 +189,55 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     try {
       // Load local progress first for restore decision
       final localProgress = _progressRepo.load(_videoId);
-      final video = await _repository.getVideo(_videoId);
 
-      final candidateUrls = _buildCandidateUrls(video);
+      // Check offline downloads metadata
+      String? localFileUrl;
+      String? offlineTitle;
+      String? offlineThumbnail;
+      final dlData = await _storage.getToken(key: 'offline_downloads');
+      if (dlData != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(dlData);
+          if (decoded.containsKey(_videoId)) {
+            final item = decoded[_videoId] as Map<String, dynamic>;
+            final localPath = item['localPath'] as String?;
+            offlineTitle = item['title'] as String?;
+            offlineThumbnail = item['thumbnailUrl'] as String?;
+            if (localPath != null &&
+                await FileSystemHelper.fileExists(localPath)) {
+              localFileUrl = Uri.file(localPath).toString();
+            }
+          }
+        } catch (_) {}
+      }
+
+      VideoResponseDto? video;
+      try {
+        video = await _repository.getVideo(_videoId);
+      } catch (repoErr) {
+        if (localFileUrl != null) {
+          // Play in offline mode using cached download metadata
+          video = VideoResponseDto(
+            id: _videoId,
+            title: offlineTitle ?? 'Downloaded Video',
+            thumbnailUrl: offlineThumbnail,
+            status: VideoStatus.ready,
+            visibility: 'PUBLIC',
+            isDownloadable: true,
+            author: const PostAuthorDto(id: '', username: 'Offline Download'),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        } else {
+          rethrow;
+        }
+      }
+
+      final candidateUrls = <String>[];
+      if (localFileUrl != null) {
+        candidateUrls.add(localFileUrl);
+      }
+      candidateUrls.addAll(_buildCandidateUrls(video));
 
       if (candidateUrls.isEmpty) {
         if (mounted) {
@@ -261,7 +318,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       // Throttled progress timer every 5 seconds
       _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        _maybeSaveProgress(video);
+        if (video != null) {
+          _maybeSaveProgress(video);
+        }
       });
 
       // Fetch recommendations in background

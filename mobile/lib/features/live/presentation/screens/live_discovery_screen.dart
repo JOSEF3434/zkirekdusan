@@ -155,7 +155,7 @@ class _Skeletons extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 6,
-      itemBuilder: (_, _) => _SkeletonCard(),
+      itemBuilder: (_, __) => _SkeletonCard(),
     );
   }
 }

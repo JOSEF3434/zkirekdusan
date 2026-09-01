@@ -477,16 +477,42 @@ export class VideosService {
     return this.repo.getBookmarks(userId, page, limit);
   }
 
+  async findByUser(
+    userId: string,
+    opts: {
+      page?: number;
+      limit?: number;
+      cursor?: string;
+      isStream?: boolean;
+    },
+  ) {
+    const result = await this.repo.findByUser(userId, opts);
+    return {
+      ...result,
+      data: result.data.map((v) => this.mapVideoToDto(v)),
+    };
+  }
+
   async deleteVideo(videoId: string, userId: string) {
     const video = await this.repo.findById(videoId);
     if (!video) throw new NotFoundException('Video not found');
+    const canEdit = await this.canModifyVideo(video, userId);
+    if (!canEdit)
+      throw new ForbiddenException(
+        'Insufficient permissions to delete this video',
+      );
     await this.repo.softDelete(videoId);
-    return { message: 'Video deleted successfully', videoId };
+    return { success: true, message: 'Video deleted successfully', videoId };
   }
 
   async updateVideo(videoId: string, userId: string, dto: UpdateVideoDto) {
     const video = await this.repo.findById(videoId);
     if (!video) throw new NotFoundException('Video not found');
+    const canEdit = await this.canModifyVideo(video, userId);
+    if (!canEdit)
+      throw new ForbiddenException(
+        'Insufficient permissions to edit this video',
+      );
     const updated = await this.repo.update(videoId, dto as any);
     return this.mapVideoToDto(updated);
   }

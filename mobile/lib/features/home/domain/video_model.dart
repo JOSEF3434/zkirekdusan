@@ -67,6 +67,10 @@ class VideoResponseDto {
   final int duration;
   final String? thumbnailUrl;
   final String? hlsUrl;
+  final String? uploadedById;
+  final String? downloadPermission;
+  final bool isDownloadable;
+  final bool isStream;
   final String? dashUrl;
   final int viewsCount;
   final int likesCount;
@@ -87,6 +91,10 @@ class VideoResponseDto {
     this.description,
     required this.status,
     required this.visibility,
+    this.uploadedById,
+    this.downloadPermission = 'PUBLIC',
+    this.isDownloadable = true,
+    this.isStream = false,
     this.duration = 0,
     this.thumbnailUrl,
     this.hlsUrl,
@@ -127,6 +135,24 @@ class VideoResponseDto {
         json['channelName'] as String? ??
         (json['videoChannel'] as Map<String, dynamic>?)?['name'] as String?;
 
+    final uploadedById =
+        json['uploadedById'] as String? ??
+        (json['uploadedBy'] as Map<String, dynamic>?)?['id'] as String? ??
+        (json['author'] as Map<String, dynamic>?)?['id'] as String?;
+
+    // Detect if this is a recorded live stream
+    final slug = json['slug'] as String? ?? '';
+    final description = json['description'] as String? ?? '';
+    final hlsUrl = json['hlsUrl'] as String?;
+    final isStream =
+        slug.startsWith('vod-') ||
+        description.toLowerCase().contains('recorded live stream') ||
+        (hlsUrl != null && hlsUrl.contains('/streams/'));
+
+    final isDownloadable =
+        json['isDownloadable'] as bool? ??
+        (!isStream); // Non-streaming posts are downloadable by default
+
     // author may come from 'author' (mapped) or 'uploadedBy' (raw Prisma)
     final authorJson =
         (json['author'] as Map<String, dynamic>?) ??
@@ -138,9 +164,14 @@ class VideoResponseDto {
       description: json['description'] as String?,
       status: _parseStatus(json['status'] as String? ?? ''),
       visibility: json['visibility'] as String? ?? 'PUBLIC',
+      uploadedById: uploadedById,
+      downloadPermission:
+          json['downloadPermission'] as String? ?? 'PUBLIC',
+      isDownloadable: isDownloadable,
+      isStream: isStream,
       duration: json['duration'] as int? ?? 0,
       thumbnailUrl: json['thumbnailUrl'] as String?,
-      hlsUrl: json['hlsUrl'] as String?,
+      hlsUrl: hlsUrl,
       dashUrl: json['dashUrl'] as String?,
       viewsCount: parsedViews,
       likesCount: json['likesCount'] as int? ?? 0,

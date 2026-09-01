@@ -59,7 +59,7 @@ class SocialRepository {
       '$base/$postId/comments',
       data: {
         'content': content,
-        'parentId': ?parentId,
+        if (parentId != null) 'parentId': parentId,
       },
     );
     final data = parseEnvelope(response.data);

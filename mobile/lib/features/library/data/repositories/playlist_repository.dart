@@ -1,3 +1,4 @@
+// lib/features/library/data/repositories/playlist_repository.dart
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
@@ -15,37 +16,46 @@ class PlaylistRepository {
 
   Future<List<PlaylistDto>> getMyPlaylists({
     int page = 1,
-    int limit = 20,
+    int limit = 50,
   }) async {
     try {
       final response = await _dio.get(
         '/video-playlists',
         queryParameters: {'page': page, 'limit': limit},
       );
-      final data = response.data['data'] as List;
-      return data
-          .map((json) => PlaylistDto.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final rawData = response.data['data'] ?? response.data;
+      if (rawData is List) {
+        return rawData
+            .map((json) => PlaylistDto.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
     } catch (e) {
-      throw Exception('Failed to load playlists');
+      throw Exception('Failed to load playlists: $e');
     }
   }
 
   Future<PlaylistDto> createPlaylist({
     required String title,
     String? description,
-    String privacy = 'private',
+    String visibility = 'PUBLIC',
+    String? videoChannelId,
   }) async {
     try {
       final response = await _dio.post(
         '/video-playlists',
-        data: {'title': title, 'description': description, 'privacy': privacy},
+        data: {
+          'title': title,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+          'visibility': visibility.toUpperCase(),
+          if (videoChannelId != null) 'videoChannelId': videoChannelId,
+        },
       );
-      return PlaylistDto.fromJson(
-        response.data['data'] as Map<String, dynamic>,
-      );
+      final raw = response.data['data'] ?? response.data;
+      return PlaylistDto.fromJson(raw as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Failed to create playlist');
+      throw Exception('Failed to create playlist: $e');
     }
   }
 
@@ -56,15 +66,18 @@ class PlaylistRepository {
         data: {'videoId': videoId},
       );
     } catch (e) {
-      throw Exception('Failed to add video to playlist');
+      throw Exception('Failed to add video to playlist: $e');
     }
   }
 
-  Future<void> removeVideoFromPlaylist(String playlistId, String videoId) async {
+  Future<void> removeVideoFromPlaylist(
+    String playlistId,
+    String videoId,
+  ) async {
     try {
       await _dio.delete('/video-playlists/$playlistId/items/$videoId');
     } catch (e) {
-      throw Exception('Failed to remove video from playlist');
+      throw Exception('Failed to remove video from playlist: $e');
     }
   }
 
@@ -72,7 +85,7 @@ class PlaylistRepository {
     try {
       await _dio.delete('/video-playlists/$playlistId');
     } catch (e) {
-      throw Exception('Failed to delete playlist');
+      throw Exception('Failed to delete playlist: $e');
     }
   }
 
@@ -80,21 +93,22 @@ class PlaylistRepository {
     String playlistId, {
     String? title,
     String? description,
-    String? privacy,
+    String? visibility,
   }) async {
     try {
+      final Map<String, dynamic> data = {};
+      if (title != null) data['title'] = title;
+      if (description != null) data['description'] = description;
+      if (visibility != null) data['visibility'] = visibility.toUpperCase();
+
       final response = await _dio.patch(
         '/video-playlists/$playlistId',
-        data: {
-          'title': ?title,
-          'description': ?description,
-          'privacy': ?privacy,
-        },
+        data: data,
       );
       final raw = response.data['data'] ?? response.data;
       return PlaylistDto.fromJson(raw as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Failed to update playlist');
+      throw Exception('Failed to update playlist: $e');
     }
   }
 
@@ -104,7 +118,7 @@ class PlaylistRepository {
       final raw = response.data['data'] ?? response.data;
       return PlaylistDto.fromJson(raw as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Failed to get playlist details');
+      throw Exception('Failed to get playlist details: $e');
     }
   }
 }

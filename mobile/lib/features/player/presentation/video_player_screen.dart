@@ -272,14 +272,45 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                               iconColor: Colors.green,
                               label: 'Downloaded',
                               onTap: () {
-                                ref
-                                    .read(downloadServiceProvider.notifier)
-                                    .deleteDownload(video.id);
+                                showDialog(
+                                  context: context,
+                                  builder: (dlgCtx) => AlertDialog(
+                                    title: const Text('Delete Download?'),
+                                    content: const Text(
+                                      'Remove this downloaded video from your device storage?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dlgCtx),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                        ),
+                                        onPressed: () {
+                                          Navigator.pop(dlgCtx);
+                                          ref
+                                              .read(
+                                                downloadServiceProvider.notifier,
+                                              )
+                                              .deleteDownload(video.id);
+                                        },
+                                        child: const Text('Remove'),
+                                      ),
+                                    ],
+                                  ),
+                                );
                               },
                             );
                           }
 
-                          final canDownload = video.renditions.isNotEmpty;
+                          final downloadUrl = video.renditions.isNotEmpty
+                              ? video.renditions.first.url
+                              : (video.hlsUrl ?? video.dashUrl);
+                          final canDownload = video.isDownloadable &&
+                              downloadUrl != null &&
+                              downloadUrl.isNotEmpty;
 
                           return _ActionButton(
                             icon: Icons.download_outlined,
@@ -290,12 +321,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                         .read(downloadServiceProvider.notifier)
                                         .startDownload(
                                           videoId: video.id,
-                                          url: video.renditions.first.url,
+                                          url: downloadUrl,
                                           title: video.title,
                                           thumbnailUrl: video.thumbnailUrl,
                                         );
                                   }
-                                : () {},
+                                : () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Download is disabled for this stream/video',
+                                        ),
+                                      ),
+                                    );
+                                  },
                           );
                         },
                       ),

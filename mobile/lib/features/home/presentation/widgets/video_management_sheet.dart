@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
@@ -47,10 +48,20 @@ class VideoManagementSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?.id;
-    final isAuthor = currentUserId == video.author.id;
+    final isAuthor = currentUserId != null &&
+        (currentUserId == video.author.id ||
+            currentUserId == video.uploadedById ||
+            authState.user?.role == 'ADMIN' ||
+            authState.user?.role == 'SUPER_ADMIN');
     final saveStateMap = ref.watch(saveProvider);
     final isSaved = saveStateMap[video.id] ?? (video.isSaved ?? false);
     final theme = Theme.of(context);
+    final downloadUrl = video.renditions.isNotEmpty
+        ? video.renditions.first.url
+        : (video.hlsUrl ?? video.dashUrl);
+    final canDownload = video.isDownloadable &&
+        downloadUrl != null &&
+        downloadUrl.isNotEmpty;
 
     return SafeArea(
       child: Padding(
@@ -83,7 +94,7 @@ class VideoManagementSheet extends ConsumerWidget {
                           ? Image.network(
                               video.thumbnailUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Icon(
+                              errorBuilder: (_, __, ___) => const Icon(
                                 Icons.play_circle_outline,
                                 size: 18,
                                 color: Colors.white54,
@@ -188,12 +199,16 @@ class VideoManagementSheet extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.download_outlined),
               title: const Text('Download Offline'),
+              enabled: canDownload,
+              subtitle: !canDownload
+                  ? const Text('Download disabled for this video')
+                  : null,
               onTap: () {
                 Navigator.pop(context);
-                if (video.renditions.isNotEmpty) {
+                if (canDownload) {
                   ref.read(downloadServiceProvider.notifier).startDownload(
                     videoId: video.id,
-                    url: video.renditions.first.url,
+                    url: downloadUrl,
                     title: video.title,
                     thumbnailUrl: video.thumbnailUrl,
                   );
@@ -205,7 +220,9 @@ class VideoManagementSheet extends ConsumerWidget {
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Download not available for this video')),
+                      const SnackBar(
+                        content: Text('Download not available for this video'),
+                      ),
                     );
                   }
                 }
@@ -372,17 +389,12 @@ class VideoManagementSheet extends ConsumerWidget {
             onPressed: () async {
               Navigator.pop(dialogCtx);
               try {
-                final dio = ref.read(apiClientProvider);
-                final channelId = video.channelId;
-                if (channelId != null && channelId.isNotEmpty) {
-                  await dio.delete('/video-channels/$channelId/videos/${video.id}');
-                } else {
-                  await dio.delete('/videos/${video.id}');
-                }
+                final repo = ref.read(videoRepositoryProvider);
+                await repo.deleteVideo(video.id, channelId: video.channelId);
                 onVideoDeleted?.call();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Video deleted')),
+                    const SnackBar(content: Text('Video deleted successfully')),
                   );
                 }
               } catch (e) {

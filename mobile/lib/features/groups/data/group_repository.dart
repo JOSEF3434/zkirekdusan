@@ -96,8 +96,8 @@ class GroupRepository {
         '/video-channels/$channelId/videos',
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
-          'status': ?statusFilter,
+          if (cursor != null) 'cursor': cursor,
+          if (statusFilter != null) 'status': statusFilter,
         },
       );
       final envelope = parseEnvelope(response.data);
@@ -175,7 +175,7 @@ class GroupRepository {
           'title': title,
           if (description != null && description.isNotEmpty)
             'description': description,
-          'videoChannelId': ?videoChannelId,
+          if (videoChannelId != null) 'videoChannelId': videoChannelId,
           'visibility': visibility,
         },
       );
@@ -282,11 +282,11 @@ class GroupRepository {
       await _dio.patch(
         '/groups/$groupId',
         data: {
-          'name': ?name,
-          'description': ?description,
-          'visibility': ?visibility,
-          'website': ?website,
-          'country': ?country,
+          if (name != null) 'name': name,
+          if (description != null) 'description': description,
+          if (visibility != null) 'visibility': visibility,
+          if (website != null) 'website': website,
+          if (country != null) 'country': country,
         },
       );
     } on DioException catch (e) {
