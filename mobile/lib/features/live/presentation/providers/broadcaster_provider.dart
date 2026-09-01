@@ -70,12 +70,15 @@ class BroadcasterNotifier extends StateNotifier<BroadcasterState> {
   final List<StreamSubscription> _subs = [];
 
   BroadcasterNotifier({
-    required this._streamId,
+    required String streamId,
     required String channelId,
-    required this._repo,
-    required this._socket,
+    required LiveStreamingRepository repo,
+    required LiveSocketService socket,
     LiveStreamDto? initialStream,
-  }) : _channelId = channelId,
+  }) : _streamId = streamId,
+       _channelId = channelId,
+       _repo = repo,
+       _socket = socket,
        super(BroadcasterState(stream: initialStream)) {
     _init();
   }

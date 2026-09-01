@@ -9,12 +9,14 @@ class CommentsState {
   final FeedMetaDto? meta;
   final bool isLoadingMore;
   final String? error;
+  final Set<String> likedCommentIds;
 
   const CommentsState({
     this.comments = const [],
     this.meta,
     this.isLoadingMore = false,
     this.error,
+    this.likedCommentIds = const {},
   });
 
   CommentsState copyWith({
@@ -22,12 +24,14 @@ class CommentsState {
     FeedMetaDto? meta,
     bool? isLoadingMore,
     String? error,
+    Set<String>? likedCommentIds,
   }) {
     return CommentsState(
       comments: comments ?? this.comments,
       meta: meta ?? this.meta,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      error: error, // Can be set to null
+      error: error,
+      likedCommentIds: likedCommentIds ?? this.likedCommentIds,
     );
   }
 }
@@ -104,6 +108,44 @@ class CommentsNotifier extends FamilyAsyncNotifier<CommentsState, (String, bool)
         currentState.copyWith(comments: [newComment, ...currentState.comments]),
       );
     } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> toggleCommentLike(String commentId) async {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    final isCurrentlyLiked = currentState.likedCommentIds.contains(commentId);
+    final updatedLikedIds = Set<String>.from(currentState.likedCommentIds);
+    if (isCurrentlyLiked) {
+      updatedLikedIds.remove(commentId);
+    } else {
+      updatedLikedIds.add(commentId);
+    }
+
+    final updatedComments = currentState.comments.map((comment) {
+      if (comment.id == commentId) {
+        final newCount = isCurrentlyLiked
+            ? (comment.likesCount > 0 ? comment.likesCount - 1 : 0)
+            : comment.likesCount + 1;
+        return comment.copyWith(likesCount: newCount);
+      }
+      return comment;
+    }).toList();
+
+    state = AsyncValue.data(
+      currentState.copyWith(
+        comments: updatedComments,
+        likedCommentIds: updatedLikedIds,
+      ),
+    );
+
+    try {
+      final repo = ref.read(socialRepositoryProvider);
+      await repo.toggleCommentLike(commentId);
+    } catch (e) {
+      state = AsyncValue.data(currentState);
       rethrow;
     }
   }

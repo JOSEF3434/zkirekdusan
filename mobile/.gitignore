@@ -48,3 +48,6 @@ app.*.map.json
 # *.png
 # *.jpg
 # *.gif
+
+# FVM Version Cache
+.fvm/

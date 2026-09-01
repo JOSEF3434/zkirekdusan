@@ -36,6 +36,7 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
 
   # F5: Live Streaming
+  camera: ^0.11.0+2
   socket_io_client: ^2.0.3+1
   wakelock_plus: ^1.2.10
   shared_preferences: ^2.5.5
@@ -92,21 +93,21 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/App_icon.jpg"
+  image_path: "assets/images/logo.jpg"
 
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/App_icon.jpg"
+  adaptive_icon_foreground: "assets/images/logo.jpg"
 
   remove_alpha_ios: true
 
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: "assets/images/App_icon.jpg"
+  image: "assets/images/logo.jpg"
 
   android_12:
     color: "#FFFFFF"
-    image: "assets/images/App_icon.jpg"
+    image: "assets/images/logo.jpg"
 
   android: true
   ios: true

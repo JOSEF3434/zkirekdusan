@@ -1,5 +1,16 @@
 {
   "folder-color.pathColors": [],
   "java.configuration.updateBuildConfiguration": "interactive",
-  "java.compile.nullAnalysis.mode": "automatic"
+  "java.compile.nullAnalysis.mode": "automatic",
+  "dart.flutterSdkPath": "mobile/.fvm/versions/3.47.2",
+  "dart.flutterSdkPaths": [
+    "C:/Users/mesti/fvm/versions",
+    "mobile/.fvm/versions"
+  ],
+  "search.exclude": {
+    "**/.fvm": true
+  },
+  "files.watcherExclude": {
+    "**/.fvm/**": true
+  }
 }

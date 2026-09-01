@@ -1,4 +1,15 @@
 {
   "cmake.sourceDirectory": "C:/Users/JOICE/Desktop/zkreKdusan/mobile/windows",
-  "java.configuration.updateBuildConfiguration": "interactive"
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "dart.flutterSdkPath": ".fvm/versions/3.47.2",
+  "dart.flutterSdkPaths": [
+    "C:/Users/mesti/fvm/versions",
+    ".fvm/versions"
+  ],
+  "search.exclude": {
+    "**/.fvm": true
+  },
+  "files.watcherExclude": {
+    "**/.fvm/**": true
+  }
 }

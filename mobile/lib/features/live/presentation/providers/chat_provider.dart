@@ -62,11 +62,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final List<StreamSubscription> _subs = [];
 
   ChatNotifier({
-    required this._streamId,
+    required String streamId,
     required StreamChatRepository chatRepo,
-    required this._socket,
-    required this._isAuthenticated,
-  }) : _chatRepo = chatRepo,
+    required LiveSocketService socket,
+    required bool isAuthenticated,
+  }) : _streamId = streamId,
+       _chatRepo = chatRepo,
+       _socket = socket,
+       _isAuthenticated = isAuthenticated,
        super(const ChatState()) {
     _init();
   }

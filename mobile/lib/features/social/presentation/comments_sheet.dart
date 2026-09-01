@@ -177,10 +177,13 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(comment.content),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.favorite_border, size: 16),
-                            onPressed: () {
-                              // TODO: comment likes
+                          trailing: _CommentLikeButton(
+                            likesCount: comment.likesCount,
+                            isLiked: state.likedCommentIds.contains(comment.id),
+                            onTap: () {
+                              ref
+                                  .read(commentsProvider(_arg).notifier)
+                                  .toggleCommentLike(comment.id);
                             },
                           ),
                         );
@@ -240,6 +243,93 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _CommentLikeButton extends StatefulWidget {
+  final int likesCount;
+  final bool isLiked;
+  final VoidCallback onTap;
+
+  const _CommentLikeButton({
+    required this.likesCount,
+    required this.isLiked,
+    required this.onTap,
+  });
+
+  @override
+  State<_CommentLikeButton> createState() => _CommentLikeButtonState();
+}
+
+class _CommentLikeButtonState extends State<_CommentLikeButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _controller.forward(from: 0.0);
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: _handleTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Icon(
+                widget.isLiked ? Icons.favorite : Icons.favorite_border,
+                size: 18,
+                color: widget.isLiked
+                    ? Colors.redAccent
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (widget.likesCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '${widget.likesCount}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: widget.isLiked
+                        ? Colors.redAccent
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
