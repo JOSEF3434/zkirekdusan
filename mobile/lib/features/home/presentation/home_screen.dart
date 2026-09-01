@@ -37,6 +37,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _tabController = TabController(length: _tabCount, vsync: this);
   }
 
+  void _syncTabController(bool isAuthenticated) {
+    final tabCount = isAuthenticated ? 3 : 2;
+    if (_tabController.length == tabCount) {
+      return;
+    }
+
+    final initialIndex = _tabController.index.clamp(0, tabCount - 1);
+    _tabController.dispose();
+    _isAuthenticated = isAuthenticated;
+    _tabController = TabController(
+      length: tabCount,
+      initialIndex: initialIndex,
+      vsync: this,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -104,8 +120,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (isAuth != _isAuthenticated) {
         setState(() {
           _isAuthenticated = isAuth;
-          _tabController.dispose();
-          _initTabController();
         });
         if (isAuth) {
           ref.read(profileProvider.notifier).loadMyProfile();
@@ -117,6 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final tr = ref.watch(trProvider);
     final authStatus = ref.watch(authProvider).status;
     final isAuthenticated = authStatus == AuthStatus.authenticated;
+    _syncTabController(isAuthenticated);
     final continueWatchingState = ref.watch(continueWatchingProvider);
     return Scaffold(
       body: ResponsiveLayout.maxReadingWidth(
