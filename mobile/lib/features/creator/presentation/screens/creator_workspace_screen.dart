@@ -29,7 +29,7 @@ class _CreatorWorkspaceScreenState
     _scrollController.addListener(_onScroll);
 
     // Refresh the workspace when this screen mounts to ensure we have the
-    // latest groups from the server (e.g. after returning from Create Group)
+    // latest groups from the server (e.g. after returning from Create Channel)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(creatorWorkspaceProvider.notifier).refresh();
     });
@@ -64,7 +64,7 @@ class _CreatorWorkspaceScreenState
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => context.push('/creator/create-group'),
-            tooltip: 'Create New Group',
+            tooltip: 'Create New Channel',
           ),
         ],
       ),
@@ -86,10 +86,10 @@ class _CreatorWorkspaceScreenState
 
     if (state.groups.isEmpty) {
       return CreatorEmptyState(
-        title: 'No Groups Available',
+        title: 'No Channels Available',
         message:
-            'Create a group to start uploading videos and building your audience.',
-        buttonText: 'Create Group',
+            'Create a channel to start uploading videos and building your audience.',
+        buttonText: 'Create Channel',
         onAction: () => context.push('/creator/create-group'),
       );
     }
@@ -124,13 +124,13 @@ class _CreatorWorkspaceScreenState
         controller: _scrollController,
         slivers: [
           if (activeGroups.isNotEmpty) ...[
-            _buildSectionHeader('Active Groups', Icons.star, Colors.blue),
+            _buildSectionHeader('Active Channels', Icons.star, Colors.blue),
             _buildGroupList(activeGroups),
           ],
 
           if (pendingGroups.isNotEmpty) ...[
             _buildSectionHeader(
-              'Pending Review',
+              'Pending Channels',
               Icons.hourglass_empty,
               Colors.orange,
             ),
@@ -138,7 +138,7 @@ class _CreatorWorkspaceScreenState
           ],
 
           if (rejectedGroups.isNotEmpty) ...[
-            _buildSectionHeader('Rejected', Icons.cancel, Colors.red.shade900),
+            _buildSectionHeader('Rejected Channels', Icons.cancel, Colors.red.shade900),
             _buildGroupList(rejectedGroups, isRejected: true),
           ],
 

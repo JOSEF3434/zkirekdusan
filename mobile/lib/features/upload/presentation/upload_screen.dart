@@ -284,15 +284,15 @@ class _ChannelSelectorWidgetState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.group_off_rounded, size: 64, color: Colors.grey),
+              const Icon(Icons.tv_off_rounded, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
               const Text(
-                'No Groups Available',
+                'No Channels Available',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
-                'You must create or join an active group before you can upload videos.',
+                'You must create a channel before you can upload videos.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -325,7 +325,7 @@ class _ChannelSelectorWidgetState
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.primaryContainer,
-                  child: const Icon(Icons.groups_rounded),
+                  child: const Icon(Icons.video_collection_rounded),
                 ),
                 title: Text(
                   group.name,
@@ -339,7 +339,7 @@ class _ChannelSelectorWidgetState
                           fontWeight: FontWeight.w500,
                         ),
                       )
-                    : Text('${groupChannels.length} channel(s) available'),
+                    : Text('${groupChannels.length} sub-channel(s) available'),
               ),
               if (isPending)
                 Container(
@@ -358,7 +358,7 @@ class _ChannelSelectorWidgetState
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'This group is pending approval and is not privileged to upload videos. Please communicate with system admin to approve your groups.',
+                          'This channel is pending approval and is not privileged to upload videos. Please communicate with system admin to approve your channel.',
                           style: TextStyle(color: Colors.orange, fontSize: 13),
                         ),
                       ),
@@ -369,7 +369,7 @@ class _ChannelSelectorWidgetState
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Text(
-                    'No video channels found in this group.',
+                    'No video sub-channels found in this channel.',
                     style: TextStyle(color: Colors.grey),
                   ),
                 )
@@ -704,7 +704,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   DropdownMenuItem(
                     value: 'GROUP_ONLY',
                     child: Text(
-                      'Group Only — Members only',
+                      'Channel Only — Members only',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -756,7 +756,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       );
                     },
                     loading: () => const LinearProgressIndicator(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
 
               const SizedBox(height: 32),

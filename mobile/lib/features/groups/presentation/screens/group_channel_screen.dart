@@ -59,13 +59,13 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
         errStr.toLowerCase().contains('unauthorized')) {
       icon = Icons.account_circle_outlined;
       title = 'Sign In Required';
-      description = 'You need to sign in to access this group.';
+      description = 'You need to sign in to access this channel.';
       showLogin = true;
     } else if (errStr.contains('404') ||
         errStr.toLowerCase().contains('not found')) {
       icon = Icons.search_off;
-      title = 'Group Not Found';
-      description = 'This group does not exist or may have been removed.';
+      title = 'Channel Not Found';
+      description = 'This channel does not exist or may have been removed.';
     } else if (errStr.toLowerCase().contains('network') ||
         errStr.toLowerCase().contains('socket')) {
       icon = Icons.wifi_off;
@@ -76,7 +76,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Group'),
+        title: const Text('Channel'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),

@@ -70,8 +70,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             SnackBar(
               content: Text(
                 group.status == GroupStatus.active
-                    ? 'Group created and is now active!'
-                    : 'Group created! Waiting for admin approval.',
+                    ? 'Channel created and is now active!'
+                    : 'Channel created! Waiting for admin approval.',
               ),
               backgroundColor: Colors.green,
             ),
@@ -100,7 +100,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Group')),
+      appBar: AppBar(title: const Text('Create Channel')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -109,7 +109,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Group Name',
+                labelText: 'Channel Name',
                 border: OutlineInputBorder(),
               ),
               validator: (value) =>
@@ -180,7 +180,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Create Group'),
+                  : const Text('Create Channel'),
             ),
           ],
         ),

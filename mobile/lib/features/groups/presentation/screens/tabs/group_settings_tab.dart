@@ -98,7 +98,7 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
       children: [
         // Group Info Section
         Text(
-          'Group Details',
+          'Channel Details',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -108,7 +108,7 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
           controller: _nameController,
           enabled: canEdit,
           decoration: const InputDecoration(
-            labelText: 'Group Name',
+            labelText: 'Channel Name',
             border: OutlineInputBorder(),
           ),
         ),
@@ -196,7 +196,7 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'About Group',
+                  'About Channel',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
