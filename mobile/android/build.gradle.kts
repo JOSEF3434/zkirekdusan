@@ -20,8 +20,8 @@ subprojects {
 }
 
 subprojects {
-    if (name == "file_picker") {
-        pluginManager.apply("org.jetbrains.kotlin.android")
+    // Apply JVM 17 target to all Kotlin compilation tasks across all Flutter plugins
+    plugins.withId("org.jetbrains.kotlin.android") {
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
             compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }

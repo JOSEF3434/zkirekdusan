@@ -74,8 +74,12 @@ export class AppController {
         profile: {
           select: {
             displayName: true,
-            avatarUrl: true,
             bio: true,
+            avatar: {
+              select: {
+                url: true,
+              },
+            },
           },
         },
       },
@@ -114,7 +118,7 @@ export class AppController {
 
     const displayName = user.profile?.displayName || user.username || 'Zikre Kidusan User';
     const bio = user.profile?.bio || 'Check out this profile on Zikre Kidusan.';
-    const avatarUrl = user.profile?.avatarUrl || 'https://via.placeholder.com/150';
+    const avatarUrl = user.profile?.avatar?.url || 'https://via.placeholder.com/150';
 
     return res.status(HttpStatus.OK).send(`
       <!DOCTYPE html>

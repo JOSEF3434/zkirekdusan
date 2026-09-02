@@ -31,7 +31,7 @@ export class AdminUsersController {
       take: Number(limit),
       skip: skip,
       include: {
-        profile: { select: { displayName: true, avatarUrl: true } },
+        profile: { select: { displayName: true, avatar: { select: { url: true } } } },
       },
     });
   }

@@ -2407,21 +2407,8 @@ model StreamHighlight {
 // PHASE 6: DISCOVERY (Search, Recommendations, Trending)
 // ─────────────────────────────────────────────
 
-model SearchHistory {
-  id         String   @id @default(uuid())
-  userId     String
-  query      String
-  entityType String? // Optional: if they searched specifically for users, posts, etc.
-  timestamp  DateTime @default(now())
 
-  // We do not require a strict relation to User to avoid cascading issues if we want to retain history
-  // But optionally:
-  user User @relation("UserSearchHistory", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, timestamp(sort: Desc)])
-  @@index([timestamp])
-  @@map("search_history")
-}
 
 model RecommendationEvent {
   id         String   @id @default(uuid())
@@ -2454,38 +2441,7 @@ model TrendingScore {
 // PHASE 7: ENTERPRISE ADMIN PLATFORM
 // ─────────────────────────────────────────────
 
-enum ReportStatus {
-  PENDING
-  REVIEWING
-  RESOLVED
-  DISMISSED
-}
 
-model Report {
-  id         String @id @default(uuid())
-  reporterId String
-
-  // What is being reported? (Unified report system)
-  entityType String // "USER", "GROUP", "POST", "VIDEO", "REEL", "COMMENT", "MESSAGE", "STREAM"
-  entityId   String
-
-  reason  String
-  details String? @db.Text
-
-  status ReportStatus @default(PENDING)
-
-  resolvedAt   DateTime?
-  resolvedById String?
-
-  reporter User @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([entityType, entityId])
-  @@index([status])
-  @@map("reports")
-}
 
 enum ModerationStatus {
   OPEN

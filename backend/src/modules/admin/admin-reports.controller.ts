@@ -57,7 +57,7 @@ export class AdminReportsController {
               profile: {
                 select: {
                   displayName: true,
-                  avatarUrl: true,
+                  avatar: { select: { url: true } },
                 },
               },
             },
@@ -69,7 +69,7 @@ export class AdminReportsController {
 
     // Enrich with target user details if targetUserId or targetType == USER
     const enrichedItems = await Promise.all(
-      items.map(async (report) => {
+      items.map(async (report: any) => {
         let targetUser: any = null;
         const targetUserId = report.targetUserId || (report.targetType === 'USER' ? report.targetId : null);
         if (targetUserId) {
@@ -83,7 +83,7 @@ export class AdminReportsController {
               profile: {
                 select: {
                   displayName: true,
-                  avatarUrl: true,
+                  avatar: { select: { url: true } },
                 },
               },
             },
@@ -113,12 +113,12 @@ export class AdminReportsController {
     @CurrentUser('sub') adminId: string,
     @Body() dto: { action: 'BAN_USER' | 'DEACTIVATE_USER' | 'DISMISS' | 'RESOLVE' | 'SUSPEND_USER'; note?: string },
   ) {
-    const report = await this.prisma.report.findUnique({ where: { id } });
+    const report: any = await this.prisma.report.findUnique({ where: { id } });
     if (!report) {
       return { success: false, message: 'Report not found' };
     }
 
-    const targetUserId = report.targetUserId || (report.targetType === 'USER' ? report.targetId : null);
+    const targetUserId = report.targetUserId || (report.targetType === 'USER' ? report.targetId : (report.entityType === 'USER' ? report.entityId : null));
 
     // Apply user action if requested
     if (targetUserId) {
@@ -142,14 +142,16 @@ export class AdminReportsController {
 
     const newStatus = dto.action === 'DISMISS' ? 'DISMISSED' : 'RESOLVED';
 
+    const updateData: any = {
+      status: newStatus,
+      actionTaken: dto.action,
+      resolvedById: adminId,
+      resolvedAt: new Date(),
+    };
+
     const updated = await this.prisma.report.update({
       where: { id },
-      data: {
-        status: newStatus,
-        actionTaken: dto.action,
-        resolvedById: adminId,
-        resolvedAt: new Date(),
-      },
+      data: updateData,
     });
 
     return {
@@ -166,14 +168,16 @@ export class AdminReportsController {
     @CurrentUser('sub') adminId: string,
     @Body() dto: { status: 'RESOLVED' | 'DISMISSED'; actionTaken?: string },
   ) {
+    const updateData: any = {
+      status: dto.status,
+      actionTaken: dto.actionTaken ?? dto.status,
+      resolvedById: adminId,
+      resolvedAt: new Date(),
+    };
+
     return this.prisma.report.update({
       where: { id },
-      data: {
-        status: dto.status,
-        actionTaken: dto.actionTaken ?? dto.status,
-        resolvedById: adminId,
-        resolvedAt: new Date(),
-      },
+      data: updateData,
     });
   }
 }

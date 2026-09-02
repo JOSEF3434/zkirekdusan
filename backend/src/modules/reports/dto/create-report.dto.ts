@@ -30,7 +30,7 @@ export class CreateReportDto {
   })
   @IsEnum(ReportTargetTypeEnum)
   @IsNotEmpty()
-  targetType: ReportTargetTypeEnum;
+  targetType!: ReportTargetTypeEnum;
 
   @ApiProperty({
     description: 'Identifier of the entity (user ID/group ID/post ID)',
@@ -38,7 +38,7 @@ export class CreateReportDto {
   })
   @IsString()
   @IsNotEmpty()
-  targetId: string;
+  targetId!: string;
 
   @ApiPropertyOptional({
     description: 'Associated target user ID (e.g. author or user being reported)',
@@ -54,7 +54,7 @@ export class CreateReportDto {
   })
   @IsEnum(ReportReasonEnum)
   @IsNotEmpty()
-  reason: ReportReasonEnum;
+  reason!: ReportReasonEnum;
 
   @ApiPropertyOptional({
     description: 'Optional additional explanation/comment from the reporter',
