@@ -7,6 +7,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/splash/presentation/splash_screen.dart';
 import 'package:mobile/features/splash/presentation/onboarding_screen.dart';
+import 'package:mobile/features/splash/presentation/providers/splash_provider.dart';
 import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
 import 'package:mobile/features/home/presentation/home_screen.dart';
@@ -49,6 +50,8 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_d
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_management_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.dart';
+import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/playlist_detail_screen.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
@@ -63,18 +66,25 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    _ref.listen(authProvider, (_, __) => notifyListeners());
-    _ref.listen(preferencesProvider, (_, __) => notifyListeners());
+    _ref.listen(authProvider, (_, next) => notifyListeners());
+    _ref.listen(preferencesProvider, (_, next) => notifyListeners());
+    _ref.listen(splashCompletedProvider, (_, next) => notifyListeners());
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
     final authState = _ref.read(authProvider);
     final prefsState = _ref.read(preferencesProvider);
+    final splashCompleted = _ref.read(splashCompletedProvider);
 
     final location = state.matchedLocation;
     final isAuthRoute = location == '/login' || location == '/register';
     final isSplashRoute = location == '/';
     final isOnboardingRoute = location == '/onboarding';
+
+    // 0. Hold on splash screen route until minimum splash loading time and animations complete
+    if (isSplashRoute && !splashCompleted) {
+      return null;
+    }
 
     // 1. Onboarding is top priority on first launch
     if (prefsState.isFirstLaunch) {
@@ -283,6 +293,36 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/groups',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const GroupManagementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminReportsScreen(),
+      ),
+      GoRoute(
+        path: '/qr-scan',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const QrScannerScreen(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // Canonical Deep Link Redirect Routes
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: '/u/:username',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final username = state.pathParameters['username'];
+          return '/profile/user/$username';
+        },
+      ),
+      GoRoute(
+        path: '/g/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final id = state.pathParameters['id'];
+          return '/groups/$id';
+        },
       ),
       GoRoute(
         path: '/groups/:id',

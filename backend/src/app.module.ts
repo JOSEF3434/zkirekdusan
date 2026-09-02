@@ -64,8 +64,9 @@ import { RecommendationsModule } from './modules/recommendations/recommendations
 import { TrendingModule } from './modules/trending/trending.module.js';
 import { ExploreModule } from './modules/explore/explore.module.js';
 
-// Phase 7 — Admin Platform
+// Phase 7 — Admin Platform & Moderation
 import { AdminModule } from './modules/admin/admin.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 
 // Health Check
 import { HealthModule } from './modules/health/health.module.js';
@@ -177,8 +178,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     TrendingModule,
     ExploreModule,
 
-    // Phase 7 — Admin Platform
+    // Phase 7 — Admin Platform & Reports
     AdminModule,
+    ReportsModule,
   ],
 
   controllers: [AppController],

@@ -100,7 +100,7 @@ class ExploreScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: streams.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final stream = streams[index];
           return GestureDetector(
@@ -148,7 +148,7 @@ class ExploreScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: videos.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           return SizedBox(
             width: isDesktop ? 320 : 260,
@@ -173,7 +173,7 @@ class ExploreScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: channels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final channel = channels[index];
           return GestureDetector(

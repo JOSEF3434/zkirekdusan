@@ -49,7 +49,7 @@ class PlaylistRepository {
           if (description != null && description.isNotEmpty)
             'description': description,
           'visibility': visibility.toUpperCase(),
-          if (videoChannelId != null) 'videoChannelId': videoChannelId,
+          'videoChannelId': ?videoChannelId,
         },
       );
       final raw = response.data['data'] ?? response.data;

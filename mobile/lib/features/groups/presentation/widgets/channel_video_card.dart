@@ -81,7 +81,8 @@ class ChannelVideoCard extends StatelessWidget {
                       ? Image.network(
                           video.thumbnailUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildPlaceholder(theme),
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildPlaceholder(theme),
                         )
                       : _buildPlaceholder(theme),
                 ),

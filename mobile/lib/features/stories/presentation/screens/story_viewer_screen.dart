@@ -14,7 +14,7 @@ import 'package:mobile/features/stories/presentation/providers/story_viewer_prov
 import 'package:mobile/features/stories/presentation/widgets/story_comment_input.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_progress_bar.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_reaction_bar.dart';
-import 'package:mobile/features/stories/presentation/widgets/story_reactions_sheet.dart';
+// story_reactions_sheet is replaced by unified StoryViewsSheet
 import 'package:mobile/features/stories/presentation/widgets/story_viewer_analytics.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_viewer_controls.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_views_sheet.dart';
@@ -380,20 +380,6 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                                 notifier.setOverlayOpen(true);
                                 _videoController?.pause();
                                 StoryViewsSheet.show(
-                                  context,
-                                  currentStory.id,
-                                ).then((_) {
-                                  notifier.setOverlayOpen(false);
-                                  _videoController?.play();
-                                });
-                              },
-                              onReactionsTap: () {
-                                final notifier = ref.read(
-                                  storyViewerProvider.notifier,
-                                );
-                                notifier.setOverlayOpen(true);
-                                _videoController?.pause();
-                                StoryReactionsSheet.show(
                                   context,
                                   currentStory.id,
                                 ).then((_) {

@@ -68,5 +68,20 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSCameraUsageDescription</key>
+		<string>Zikre Kidusan needs camera access to scan profile and group QR codes and record stories.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.zikrekidusan.mobile</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>zikrekidusan</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

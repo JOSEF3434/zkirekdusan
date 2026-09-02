@@ -31,7 +31,7 @@ class StreamHighlightsRepository {
         '/live-streams/$streamId/highlights',
         data: {
           'title': title,
-          if (description != null) 'description': description,
+          'description': ?description,
           'startTimeSec': startTimeSec,
           'endTimeSec': endTimeSec,
         },

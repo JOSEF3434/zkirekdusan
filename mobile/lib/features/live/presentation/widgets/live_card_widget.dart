@@ -138,7 +138,7 @@ class LiveCardWidget extends StatelessWidget {
                   width: double.infinity,
                   height: height,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _fallbackThumb(height),
+                  errorWidget: (context, url, error) => _fallbackThumb(height),
                 )
               : _fallbackThumb(height),
         ),

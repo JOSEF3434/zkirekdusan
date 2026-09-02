@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Body,
   UseGuards,
   Query,
@@ -30,7 +31,7 @@ export class AdminUsersController {
       take: Number(limit),
       skip: skip,
       include: {
-        profile: { select: { displayName: true } },
+        profile: { select: { displayName: true, avatarUrl: true } },
       },
     });
   }
@@ -45,5 +46,41 @@ export class AdminUsersController {
       where: { id },
       data: { status: dto.status },
     });
+  }
+
+  @Post(':id/ban')
+  @ApiOperation({ summary: 'Ban user account' })
+  async banUser(
+    @Param('id') id: string,
+    @Body() body?: { reason?: string },
+  ) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'BANNED' },
+    });
+    return { success: true, message: `User ${user.username ?? id} has been banned.` };
+  }
+
+  @Post(':id/deactivate')
+  @ApiOperation({ summary: 'Deactivate user account' })
+  async deactivateUser(
+    @Param('id') id: string,
+    @Body() body?: { reason?: string },
+  ) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'INACTIVE' },
+    });
+    return { success: true, message: `User ${user.username ?? id} has been deactivated.` };
+  }
+
+  @Post(':id/activate')
+  @ApiOperation({ summary: 'Reactivate user account' })
+  async activateUser(@Param('id') id: string) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
+    return { success: true, message: `User ${user.username ?? id} has been reactivated.` };
   }
 }

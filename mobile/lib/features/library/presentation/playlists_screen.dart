@@ -79,7 +79,7 @@ class PlaylistsScreen extends ConsumerWidget {
             return ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: playlists.length,
-              separatorBuilder: (_, __) => const Divider(height: 16),
+              separatorBuilder: (context, index) => const Divider(height: 16),
               itemBuilder: (context, index) {
                 final playlist = playlists[index];
                 final firstThumb = playlist.items.isNotEmpty
@@ -108,7 +108,9 @@ class PlaylistsScreen extends ConsumerWidget {
                                   Image.network(
                                     firstThumb,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
                                       Icons.playlist_play,
                                       size: 32,
                                     ),

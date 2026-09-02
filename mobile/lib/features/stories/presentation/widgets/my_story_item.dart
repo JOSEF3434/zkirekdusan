@@ -18,6 +18,15 @@ class MyStoryItem extends StatelessWidget {
 
   bool get hasActiveStories => myGroup != null && myGroup!.stories.isNotEmpty;
 
+  /// Returns true only when the user has NO active stories left (all expired),
+  /// meaning they can post again for the next 24h round.
+  bool get canAddMore {
+    if (myGroup == null || myGroup!.stories.isEmpty) return true;
+    final now = DateTime.now();
+    final hasActive = myGroup!.stories.any((s) => s.expiresAt.isAfter(now));
+    return !hasActive;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -87,34 +96,35 @@ class MyStoryItem extends StatelessWidget {
                 ),
               ),
 
-              // Plus button badge
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: onCreateStory,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: theme.colorScheme.surface,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 3,
-                          offset: const Offset(0, 1),
+              // Plus button badge — only visible when no active stories remain (24h expired)
+              if (canAddMore)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: onCreateStory,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: theme.colorScheme.surface,
+                          width: 2,
                         ),
-                      ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.add, size: 14, color: Colors.white),
                     ),
-                    child: const Icon(Icons.add, size: 14, color: Colors.white),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 6),

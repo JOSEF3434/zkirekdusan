@@ -1,17 +1,18 @@
 // lib/features/chats/presentation/screens/chat_home_screen.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
-import 'package:mobile/features/chats/presentation/widgets/conversation_list_tile.dart';
 import 'package:mobile/features/chats/presentation/widgets/chat_search_bar.dart';
+import 'package:mobile/features/chats/presentation/widgets/conversation_list_tile.dart';
 import 'package:mobile/features/chats/presentation/widgets/new_chat_sheet.dart';
+import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class ChatHomeScreen extends ConsumerStatefulWidget {
   const ChatHomeScreen({super.key});
@@ -87,43 +88,28 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final chatItemsAsync = ref.watch(unifiedChatListProvider);
-    final discoveryAsync = ref.watch(chatDiscoveryProvider);
+    // chatDiscoveryProvider is watched via notifier below for unread count
     final filter = ref.watch(conversationFilterProvider);
     final unreadCount =
         ref.watch(chatDiscoveryProvider.notifier).getTotalUnreadCount();
     final storyFeedAsync = ref.watch(storyFeedProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
+    final profile = ref.watch(profileProvider).profile;
+    final authUser = ref.watch(authProvider).user;
+    final userName = profile?.displayName ?? authUser?.username ?? 'You';
+    final userAvatar = profile?.avatarUrl;
 
-    // Active Contacts Strip: Extract from stories, users in database, and conversations
+    // Story-only contacts strip: only users who have active stories
     final activeContacts = <Map<String, dynamic>>[];
-
-    // 1. Stories
     storyFeedAsync.whenData((groups) {
       for (final g in groups) {
-        if (g.owner.id != currentUserId &&
-            !activeContacts.any((c) => c['id'] == g.owner.id)) {
+        if (g.owner.id != currentUserId && g.stories.isNotEmpty) {
           activeContacts.add({
             'id': g.owner.id,
-            'name': g.owner.displayName ?? g.owner.username,
+            'name': g.owner.displayName ?? g.owner.username ?? 'User',
             'avatarUrl': g.owner.avatarUrl,
-            'hasStory': g.stories.isNotEmpty,
+            'hasStory': true,
             'storyGroup': g,
-          });
-        }
-      }
-    });
-
-    // 2. All Database Users (newest first)
-    discoveryAsync.whenData((disc) {
-      for (final u in disc.allUsers) {
-        if (u.id != currentUserId &&
-            !activeContacts.any((c) => c['id'] == u.id)) {
-          activeContacts.add({
-            'id': u.id,
-            'name': u.displayName,
-            'avatarUrl': u.avatarUrl,
-            'hasStory': false,
-            'storyGroup': null,
           });
         }
       }
@@ -134,13 +120,51 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF17212B) : Colors.white,
         elevation: 0,
-        title: Text(
-          'Chats',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.3,
-            color: isDark ? Colors.white : Colors.black87,
+        titleSpacing: 16,
+        title: GestureDetector(
+          onTap: () => _showMyProfileSheet(context, userName, userAvatar, isDark),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar
+              CircleAvatar(
+                radius: 18,
+                backgroundColor:
+                    const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                backgroundImage: userAvatar != null && userAvatar.isNotEmpty
+                    ? CachedNetworkImageProvider(userAvatar)
+                    : null,
+                child: userAvatar == null || userAvatar.isEmpty
+                    ? Text(
+                        userName.isNotEmpty ? userName[0].toUpperCase() : 'Y',
+                        style: const TextStyle(
+                          color: Color(0xFF00C6FF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              // Name
+              Text(
+                userName,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.3,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 20,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.6)
+                    : Colors.black45,
+              ),
+            ],
           ),
         ),
         actions: [
@@ -623,6 +647,132 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showMyProfileSheet(
+    BuildContext context,
+    String name,
+    String? avatarUrl,
+    bool isDark,
+  ) {
+    final auth = ref.read(authProvider);
+    final username = auth.user?.username ?? '';
+    final bgColor = isDark ? const Color(0xFF17212B) : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Avatar + name header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor:
+                          const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? CachedNetworkImageProvider(avatarUrl)
+                          : null,
+                      child: avatarUrl == null || avatarUrl.isEmpty
+                          ? Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'Y',
+                              style: const TextStyle(
+                                color: Color(0xFF00C6FF),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 26,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          if (username.isNotEmpty)
+                            Text(
+                              '@$username',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1),
+
+              // Actions
+              ListTile(
+                leading: const Icon(Icons.person_outline_rounded,
+                    color: Color(0xFF00C6FF)),
+                title: const Text('My Profile'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/profile');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.auto_stories_outlined,
+                    color: Color(0xFF10B981)),
+                title: const Text('My Stories'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/story/create');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.settings_outlined,
+                    color: Colors.orangeAccent),
+                title: const Text('Settings'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/settings');
+                },
+              ),
+
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

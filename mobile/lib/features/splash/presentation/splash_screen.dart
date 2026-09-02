@@ -25,6 +25,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   late final AnimationController _entranceController;
   late final AnimationController _ambientController;
+  late final AnimationController _shimmerController;
+  late final AnimationController _loadingController;
 
   // Staggered Entrance Animations
   late final Animation<double> _logoOpacity;
@@ -40,10 +42,12 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _authorOpacity;
   late final Animation<Offset> _authorSlide;
 
-  late final Animation<double> _spinnerOpacity;
+  late final Animation<double> _loadingIndicatorOpacity;
+  late final Animation<double> _loadingProgress;
 
   // Ambient Candlelight Pulse
   late final Animation<double> _candlePulse;
+  late final Animation<double> _textBreathing;
 
   // Pre-calculated particles for deterministic, performant rendering
   late final List<_LightParticle> _particles;
@@ -52,16 +56,28 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // 1. Entrance Choreography (2400ms smooth reverent reveal)
+    // 1. Entrance Choreography (2800ms smooth reverent reveal)
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 2800),
     );
 
-    // 2. Ambient Candlelight Breathing Animation (4000ms loop)
+    // 2. Ambient Candlelight & Text Breathing Animation (4000ms loop)
     _ambientController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4000),
+    );
+
+    // 3. Dynamic Text Shimmer Sweep (3000ms repeating wave)
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    );
+
+    // 4. Splash Loading Time Progression (5000ms duration)
+    _loadingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5000),
     );
 
     // Logo reveal (0.0 -> 0.35)
@@ -71,15 +87,16 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
       ),
     );
-    _logoSlide = Tween<Offset>(
-      begin: const Offset(0.0, -0.10),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.0, 0.35, curve: Curves.easeOutCubic),
-      ),
-    );
+    _logoSlide =
+        Tween<Offset>(
+          begin: const Offset(0.0, -0.10),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.0, 0.35, curve: Curves.easeOutCubic),
+          ),
+        );
 
     // Title reveal (0.15 -> 0.45)
     _titleOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -88,15 +105,13 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.15, 0.45, curve: Curves.easeOut),
       ),
     );
-    _titleSlide = Tween<Offset>(
-      begin: const Offset(0.0, 0.12),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
-      ),
-    );
+    _titleSlide =
+        Tween<Offset>(begin: const Offset(0.0, 0.12), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
+          ),
+        );
 
     // Golden light/glow illumination (0.30 -> 0.70)
     _goldenGlowOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -113,15 +128,13 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.35, 0.75, curve: Curves.easeOut),
       ),
     );
-    _quoteSlide = Tween<Offset>(
-      begin: const Offset(0.0, 0.20),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.35, 0.75, curve: Curves.easeOutCubic),
-      ),
-    );
+    _quoteSlide =
+        Tween<Offset>(begin: const Offset(0.0, 0.20), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.35, 0.75, curve: Curves.easeOutCubic),
+          ),
+        );
 
     // Author reveal: Slow elegant fade + slight upward motion (0.65 -> 1.0)
     _authorOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -130,30 +143,35 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.65, 1.0, curve: Curves.easeOut),
       ),
     );
-    _authorSlide = Tween<Offset>(
-      begin: const Offset(0.0, 0.15),
-      end: Offset.zero,
-    ).animate(
+    _authorSlide =
+        Tween<Offset>(begin: const Offset(0.0, 0.15), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: const Interval(0.65, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
+
+    // Loading Indicator & Bar reveal (0.50 -> 0.85)
+    _loadingIndicatorOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.65, 1.0, curve: Curves.easeOutCubic),
+        curve: const Interval(0.50, 0.85, curve: Curves.easeIn),
       ),
     );
 
-    // Spinner reveal (0.75 -> 1.0)
-    _spinnerOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.75, 1.0, curve: Curves.easeIn),
-      ),
+    // Loading Progress fill from 0.0 to 1.0
+    _loadingProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _loadingController, curve: Curves.easeInOutCubic),
     );
 
     // Continuous subtle candlelight pulse
     _candlePulse = Tween<double>(begin: 0.85, end: 1.15).animate(
-      CurvedAnimation(
-        parent: _ambientController,
-        curve: Curves.easeInOutSine,
-      ),
+      CurvedAnimation(parent: _ambientController, curve: Curves.easeInOutSine),
+    );
+
+    // Dynamic subtle text breathing scale
+    _textBreathing = Tween<double>(begin: 0.995, end: 1.015).animate(
+      CurvedAnimation(parent: _ambientController, curve: Curves.easeInOutSine),
     );
 
     // Initialize sacred light particles with fixed random seeds for smooth performance
@@ -170,12 +188,16 @@ class _SplashScreenState extends State<SplashScreen>
 
     _entranceController.forward();
     _ambientController.repeat(reverse: true);
+    _shimmerController.repeat();
+    _loadingController.forward();
   }
 
   @override
   void dispose() {
     _entranceController.dispose();
     _ambientController.dispose();
+    _shimmerController.dispose();
+    _loadingController.dispose();
     super.dispose();
   }
 
@@ -253,27 +275,55 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       SizedBox(height: spacing),
 
-                      // 2. App Title with subtle slide-in
+                      // 2. App Title with subtle slide-in & gold shimmer
                       FadeTransition(
                         opacity: _titleOpacity,
                         child: SlideTransition(
                           position: _titleSlide,
-                          child: Text(
-                            'ዝክረ ክዱሳን',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                  fontFamilyFallback: _amharicFontFallback,
-                                  letterSpacing: 0.3,
-                                ) ??
-                                TextStyle(
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                  fontFamilyFallback: _amharicFontFallback,
-                                ),
+                          child: AnimatedBuilder(
+                            animation: _shimmerController,
+                            builder: (context, child) {
+                              final shimmerVal = _shimmerController.value;
+
+                              return ShaderMask(
+                                blendMode: BlendMode.srcATop,
+                                shaderCallback: (bounds) {
+                                  return LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    stops: [
+                                      (shimmerVal - 0.25).clamp(0.0, 1.0),
+                                      shimmerVal.clamp(0.0, 1.0),
+                                      (shimmerVal + 0.25).clamp(0.0, 1.0),
+                                    ],
+                                    colors: [
+                                      theme.colorScheme.primary,
+                                      const Color(0xFFF5A623),
+                                      theme.colorScheme.primary,
+                                    ],
+                                  ).createShader(bounds);
+                                },
+                                child: child,
+                              );
+                            },
+                            child: Text(
+                              'ዝክረ ክዱሳን',
+                              textAlign: TextAlign.center,
+                              style:
+                                  theme.textTheme.headlineMedium?.copyWith(
+                                    fontSize: titleFontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                    fontFamilyFallback: _amharicFontFallback,
+                                    letterSpacing: 0.3,
+                                  ) ??
+                                  TextStyle(
+                                    fontSize: titleFontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                    fontFamilyFallback: _amharicFontFallback,
+                                  ),
+                            ),
                           ),
                         ),
                       ),
@@ -284,68 +334,112 @@ class _SplashScreenState extends State<SplashScreen>
                         animation: Listenable.merge([
                           _entranceController,
                           _ambientController,
+                          _shimmerController,
                         ]),
                         builder: (context, child) {
                           final glowVal =
                               _goldenGlowOpacity.value * _candlePulse.value;
+                          final scaleVal = _textBreathing.value;
 
-                          return Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              // Soft golden candlelight halo behind the sacred quote
-                              gradient: RadialGradient(
-                                center: Alignment.center,
-                                radius: 1.1,
-                                colors: [
-                                  const Color(0xFFF5A623).withValues(
-                                    alpha: 0.10 * glowVal.clamp(0.0, 1.0),
-                                  ),
-                                  const Color(0xFF006B5E).withValues(
-                                    alpha: 0.03 * glowVal.clamp(0.0, 1.0),
-                                  ),
-                                  Colors.transparent,
-                                ],
-                                stops: const [0.0, 0.6, 1.0],
-                              ),
-                              border: Border.all(
-                                color: const Color(0xFFF5A623).withValues(
-                                  alpha: 0.16 * glowVal.clamp(0.0, 1.0),
+                          return Transform.scale(
+                            scale: scaleVal,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                // Soft golden candlelight halo behind the sacred quote
+                                gradient: RadialGradient(
+                                  center: Alignment.center,
+                                  radius: 1.1,
+                                  colors: [
+                                    const Color(0xFFF5A623).withValues(
+                                      alpha: 0.12 * glowVal.clamp(0.0, 1.0),
+                                    ),
+                                    const Color(0xFF006B5E).withValues(
+                                      alpha: 0.04 * glowVal.clamp(0.0, 1.0),
+                                    ),
+                                    Colors.transparent,
+                                  ],
+                                  stops: const [0.0, 0.6, 1.0],
                                 ),
-                                width: 1.0,
+                                border: Border.all(
+                                  color: const Color(0xFFF5A623).withValues(
+                                    alpha: 0.18 * glowVal.clamp(0.0, 1.0),
+                                  ),
+                                  width: 1.0,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFF5A623).withValues(
+                                      alpha: 0.08 * glowVal.clamp(0.0, 1.0),
+                                    ),
+                                    blurRadius: 16,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
                               ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18.0,
+                                vertical: 16.0,
+                              ),
+                              child: child,
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18.0,
-                              vertical: 16.0,
-                            ),
-                            child: child,
                           );
                         },
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Main Quote with upward motion + golden glow
+                            // Main Quote with dynamic golden shimmer wave & upward motion
                             FadeTransition(
                               opacity: _quoteOpacity,
                               child: SlideTransition(
                                 position: _quoteSlide,
-                                child: Text(
-                                  '✝️ፍቅር ያጌብረኒ ከመ እንግር ዜናሆሙ ለቅዱሳን!🌿',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: quoteFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.6,
-                                    color: const Color(0xFF1E293B),
-                                    fontFamilyFallback: _amharicFontFallback,
-                                    letterSpacing: 0.15,
-                                    shadows: [
-                                      Shadow(
-                                        color: const Color(0xFFF5A623)
-                                            .withValues(alpha: 0.25),
-                                        blurRadius: 10,
-                                      ),
-                                    ],
+                                child: AnimatedBuilder(
+                                  animation: _shimmerController,
+                                  builder: (context, child) {
+                                    final shimmerVal = _shimmerController.value;
+
+                                    return ShaderMask(
+                                      blendMode: BlendMode.srcATop,
+                                      shaderCallback: (bounds) {
+                                        return LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          stops: [
+                                            (shimmerVal - 0.28).clamp(0.0, 1.0),
+                                            shimmerVal.clamp(0.0, 1.0),
+                                            (shimmerVal + 0.28).clamp(0.0, 1.0),
+                                          ],
+                                          colors: const [
+                                            Color(0xFF1E293B),
+                                            Color(
+                                              0xFFD4AF37,
+                                            ), // Luminous gold wave
+                                            Color(0xFF1E293B),
+                                          ],
+                                        ).createShader(bounds);
+                                      },
+                                      child: child,
+                                    );
+                                  },
+                                  child: Text(
+                                    '✝️ፍቅር ያጌብረኒ ከመ እንግር ዜናሆሙ ለቅዱሳን!🌿',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: quoteFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.6,
+                                      color: const Color(0xFF1E293B),
+                                      fontFamilyFallback: _amharicFontFallback,
+                                      letterSpacing: 0.15,
+                                      shadows: [
+                                        Shadow(
+                                          color: const Color(
+                                            0xFFF5A623,
+                                          ).withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -356,7 +450,7 @@ class _SplashScreenState extends State<SplashScreen>
                             FadeTransition(
                               opacity: _authorOpacity,
                               child: Container(
-                                width: 40,
+                                width: 42,
                                 height: 1.5,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(1),
@@ -397,16 +491,86 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       SizedBox(height: spacing * 1.5),
 
-                      // 4. Loading Indicator with gentle fade
+                      // 4. Loading Progress Bar & Loading Indicator
                       FadeTransition(
-                        opacity: _spinnerOpacity,
-                        child: SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: theme.colorScheme.primary,
-                          ),
+                        opacity: _loadingIndicatorOpacity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Animated Loading Progress Bar
+                            AnimatedBuilder(
+                              animation: _loadingProgress,
+                              builder: (context, _) {
+                                return Container(
+                                  width: isCompact ? 160.0 : 200.0,
+                                  height: 3.5,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(3),
+                                    color: theme.colorScheme.primary.withValues(
+                                      alpha: 0.10,
+                                    ),
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FractionallySizedBox(
+                                      widthFactor: _loadingProgress.value,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFF006B5E),
+                                              Color(0xFFF5A623),
+                                              Color(0xFFFFD700),
+                                            ],
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFFF5A623,
+                                              ).withValues(alpha: 0.5),
+                                              blurRadius: 6,
+                                              spreadRadius: 1,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 14.0),
+
+                            // Loading Status / Spinner
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8.0),
+                                Text(
+                                  'በመጫን ላይ...',
+                                  style: TextStyle(
+                                    fontSize: isCompact ? 11.5 : 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF6B7280),
+                                    fontFamilyFallback: _amharicFontFallback,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],

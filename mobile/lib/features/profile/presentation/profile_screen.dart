@@ -979,7 +979,8 @@ class _PlaylistCardTile extends StatelessWidget {
               ? Image.network(
                   firstThumb,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Center(
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Center(
                     child: Icon(Icons.playlist_play, size: 28),
                   ),
                 )

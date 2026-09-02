@@ -41,10 +41,17 @@ class AdminSettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/admin/moderation'),
           ),
           ListTile(
-            leading: const Icon(Icons.report),
-            title: Text(tr('settings.admin.reports')),
+            leading: const Icon(Icons.flag_rounded, color: Colors.orange),
+            title: const Text('User Reports & Moderation'),
+            subtitle: const Text('Review spam, harassment, and ban accounts'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+            onTap: () => context.push('/admin/reports'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.groups_rounded),
+            title: const Text('Group Approvals'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/admin/groups'),
           ),
           if (user?.role == 'SUPER_ADMIN')
             ListTile(

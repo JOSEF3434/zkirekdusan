@@ -227,9 +227,12 @@ class _ChannelSelectorWidgetState
       if (mounted) {
         String message = 'Unable to connect to the server. Please try again.';
         if (e.toString().contains('500')) {
-          message = 'Server encountered an issue loading channels. Please retry.';
-        } else if (e.toString().contains('401') || e.toString().contains('403')) {
-          message = 'You do not have permission to view channels or your session has expired.';
+          message =
+              'Server encountered an issue loading channels. Please retry.';
+        } else if (e.toString().contains('401') ||
+            e.toString().contains('403')) {
+          message =
+              'You do not have permission to view channels or your session has expired.';
         }
         setState(() {
           _error = message;
@@ -756,7 +759,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       );
                     },
                     loading: () => const LinearProgressIndicator(),
-                    error: (_, _) => const SizedBox.shrink(),
+                    error: (error, stackTrace) => const SizedBox.shrink(),
                   ),
 
               const SizedBox(height: 32),

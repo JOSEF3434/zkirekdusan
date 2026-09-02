@@ -5,14 +5,12 @@ import 'package:mobile/features/stories/data/models/story_model.dart';
 class StoryViewerAnalytics extends StatelessWidget {
   final StoryModel story;
   final VoidCallback onViewersTap;
-  final VoidCallback onReactionsTap;
   final VoidCallback onDeleteTap;
 
   const StoryViewerAnalytics({
     super.key,
     required this.story,
     required this.onViewersTap,
-    required this.onReactionsTap,
     required this.onDeleteTap,
   });
 
@@ -73,7 +71,7 @@ class StoryViewerAnalytics extends StatelessWidget {
             // Reactions Counter
             if (story.reactionsCount > 0) ...[
               InkWell(
-                onTap: onReactionsTap,
+                onTap: onViewersTap,
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.symmetric(

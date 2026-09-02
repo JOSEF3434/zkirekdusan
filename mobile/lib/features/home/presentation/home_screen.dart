@@ -384,7 +384,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final cat = categories[index];
           final isSelected = currentCategory == cat;

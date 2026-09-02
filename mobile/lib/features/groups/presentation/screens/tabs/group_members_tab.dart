@@ -81,7 +81,7 @@ class GroupMembersTab extends ConsumerWidget {
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: state.members.length + (state.isFetchingMore ? 1 : 0),
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (context, index) => const Divider(height: 1),
           itemBuilder: (context, index) {
             if (index >= state.members.length) {
               return const Center(

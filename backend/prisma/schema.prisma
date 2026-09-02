@@ -138,6 +138,34 @@ enum ReactionType {
   ANGRY
 }
 
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  MISINFORMATION
+  INAPPROPRIATE_CONTENT
+  VIOLENCE
+  COPYRIGHT
+  IMPERSONATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportTargetType {
+  USER
+  GROUP
+  POST
+  COMMENT
+  VIDEO
+  MESSAGE
+}
+
 // ─────────────────────────────────────────────
 // Phase 3 Messaging Enums
 // ─────────────────────────────────────────────
@@ -2610,4 +2638,43 @@ model MessageMention {
   @@index([messageId])
   @@index([mentionedUserId])
   @@map("message_mentions")
+}
+
+// ─────────────────────────────────────────────
+// SEARCH HISTORY & REPORTS
+// ─────────────────────────────────────────────
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserSearchHistory", fields: [userId], references: [id], onDelete: Cascade)
+  query     String
+  filters   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("search_histories")
+}
+
+model Report {
+  id           String           @id @default(uuid())
+  reporterId   String
+  reporter     User             @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType   ReportTargetType @default(USER)
+  targetId     String
+  targetUserId String?
+  reason       ReportReason     @default(OTHER)
+  comment      String?          @db.Text
+  status       ReportStatus     @default(PENDING)
+  actionTaken  String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([reporterId])
+  @@index([targetId])
+  @@index([targetType])
+  @@index([status])
+  @@map("reports")
 }

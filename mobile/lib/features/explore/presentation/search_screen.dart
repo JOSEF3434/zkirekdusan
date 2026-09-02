@@ -118,7 +118,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildRecentSearches(AsyncValue<List<String>> recentAsync) {
     return recentAsync.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
       data: (searches) {
         if (searches.isEmpty) {
           return Center(

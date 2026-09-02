@@ -53,7 +53,7 @@ class _LiveBadgeWidgetState extends State<LiveBadgeWidget>
         children: [
           AnimatedBuilder(
             animation: _pulse,
-            builder: (_, __) => Opacity(
+            builder: (context, child) => Opacity(
               opacity: _pulse.value,
               child: Container(
                 width: dotSize,

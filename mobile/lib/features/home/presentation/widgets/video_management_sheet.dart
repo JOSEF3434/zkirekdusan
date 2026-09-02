@@ -94,7 +94,8 @@ class VideoManagementSheet extends ConsumerWidget {
                           ? Image.network(
                               video.thumbnailUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
                                 Icons.play_circle_outline,
                                 size: 18,
                                 color: Colors.white54,
