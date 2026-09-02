@@ -10,6 +10,7 @@ import 'package:mobile/features/chats/presentation/widgets/message_composer.dart
 import 'package:mobile/features/chats/presentation/widgets/date_separator.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/calls/services/call_service.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -220,23 +221,25 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         ),
         actions: [
-          // Voice Call Icon (matching Screenshot 2)
+          // Voice Call Icon
           IconButton(
             icon: const Icon(Icons.call_outlined, size: 22),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Starting audio call...')),
-              );
-            },
+            onPressed: () => _startCall(
+              context: context,
+              conversation: conversation,
+              otherMember: otherMember,
+              isVideo: false,
+            ),
           ),
-          // Video Call Icon (matching Screenshot 2)
+          // Video Call Icon
           IconButton(
             icon: const Icon(Icons.videocam_outlined, size: 24),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Starting video call...')),
-              );
-            },
+            onPressed: () => _startCall(
+              context: context,
+              conversation: conversation,
+              otherMember: otherMember,
+              isVideo: true,
+            ),
           ),
           // More Menu
           PopupMenuButton<String>(
@@ -639,4 +642,39 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       ),
     );
   }
+
+  Future<void> _startCall({
+    required BuildContext context,
+    required ConversationModel? conversation,
+    required ConversationMemberModel? otherMember,
+    required bool isVideo,
+  }) async {
+    if (otherMember == null || otherMember.userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot call this participant')),
+      );
+      return;
+    }
+
+    final currentUser = ref.read(authProvider).user;
+    final myDisplayName = currentUser?.displayIdentifier ?? 'Caller';
+    final targetDisplayName =
+        otherMember.displayName ?? otherMember.username;
+    final targetAvatarUrl = otherMember.avatarUrl;
+
+    // Navigate to active call screen
+    context.push('/call/active');
+
+    // Initiate WebRTC call via CallService
+    await ref.read(callServiceProvider).initiateCall(
+          targetUserId: otherMember.userId,
+          conversationId: widget.conversationId,
+          targetDisplayName: targetDisplayName,
+          targetAvatarUrl: targetAvatarUrl,
+          isVideo: isVideo,
+          myDisplayName: myDisplayName,
+          myAvatarUrl: null,
+        );
+  }
 }
+

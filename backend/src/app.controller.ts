@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Res, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { AppService } from './app.service.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { Public } from './common/decorators/public.decorator.js';

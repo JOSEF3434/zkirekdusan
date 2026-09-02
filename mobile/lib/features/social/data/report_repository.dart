@@ -114,7 +114,7 @@ class ReportRepository {
         data: {
           'targetType': targetType.toBackendString(),
           'targetId': targetId,
-          if (targetUserId != null) 'targetUserId': targetUserId,
+          'targetUserId': ?targetUserId,
           'reason': reason.toBackendString(),
           if (comment != null && comment.trim().isNotEmpty)
             'comment': comment.trim(),

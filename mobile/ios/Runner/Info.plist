@@ -69,7 +69,9 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>NSCameraUsageDescription</key>
-		<string>Zikre Kidusan needs camera access to scan profile and group QR codes and record stories.</string>
+		<string>Zikre Kidusan needs camera access to scan profile and group QR codes, record stories, and make video calls.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Zikre Kidusan needs microphone access to record voice messages and make audio/video calls.</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

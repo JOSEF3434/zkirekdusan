@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -282,29 +283,35 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         ),
         const SizedBox(width: 8),
 
-        // Send or Voice Mic Button (matching Screenshot 2 circular mic/send button)
+        // Send or Voice Mic Button — tap to send text; tap mic to toggle recording
         GestureDetector(
-          onTap: hasText ? _sendTextMessage : null,
-          onLongPressStart: !hasText ? (_) => _startRecording() : null,
-          onLongPressEnd: !hasText ? (_) => _stopRecording() : null,
-          child: Container(
+          onTap: hasText
+              ? _sendTextMessage
+              : (_isRecording ? _stopRecording : _startRecording),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              gradient: hasText
-                  ? const LinearGradient(
-                      colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
+              gradient: (hasText || _isRecording)
+                  ? LinearGradient(
+                      colors: _isRecording
+                          ? [const Color(0xFFEF4444), const Color(0xFFDC2626)]
+                          : [const Color(0xFF2DD4BF), const Color(0xFF06B6D4)],
                     )
                   : null,
-              color: !hasText
+              color: (!hasText && !_isRecording)
                   ? (isDark ? const Color(0xFF1B2230) : Colors.grey[200])
                   : null,
               shape: BoxShape.circle,
-              boxShadow: hasText
+              boxShadow: (hasText || _isRecording)
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF06B6D4).withValues(alpha: 0.3),
-                        blurRadius: 8,
+                        color: (_isRecording
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF06B6D4))
+                            .withValues(alpha: 0.35),
+                        blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
                     ]
@@ -315,13 +322,15 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                     padding: EdgeInsets.all(11),
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
                 : Icon(
-                    hasText ? Icons.send_rounded : Icons.mic_rounded,
-                    color: hasText
-                        ? Colors.black87
+                    hasText
+                        ? Icons.send_rounded
+                        : (_isRecording ? Icons.stop_rounded : Icons.mic_rounded),
+                    color: (hasText || _isRecording)
+                        ? Colors.white
                         : (isDark ? Colors.grey[300] : Colors.grey[700]),
                     size: 20,
                   ),
@@ -564,9 +573,19 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     }
 
     try {
+      // ✅ Fix: must use an absolute path — relative filenames crash on Android/iOS
+      final tempDir = await getTemporaryDirectory();
+      final filePath =
+          '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
       await _audioRecorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: '${DateTime.now().millisecondsSinceEpoch}.m4a',
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 44100,
+          bitRate: 128000,
+          numChannels: 1,
+        ),
+        path: filePath,
       );
 
       setState(() {
@@ -575,9 +594,11 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       });
 
       _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        setState(() {
-          _recordingDuration = Duration(seconds: timer.tick);
-        });
+        if (mounted) {
+          setState(() {
+            _recordingDuration = Duration(seconds: timer.tick);
+          });
+        }
       });
     } catch (e) {
       _showError('Failed to start recording: $e');

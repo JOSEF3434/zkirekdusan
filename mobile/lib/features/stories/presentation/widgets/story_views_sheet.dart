@@ -49,9 +49,6 @@ class _StoryViewsSheetState extends ConsumerState<StoryViewsSheet>
   late Future<List<_MergedEntry>> _mergedFuture;
   late TabController _tabController;
 
-  static const _tabAll = 0;
-  static const _tabLikers = 1;
-
   @override
   void initState() {
     super.initState();
@@ -74,11 +71,6 @@ class _StoryViewsSheetState extends ConsumerState<StoryViewsSheet>
 
     final viewers = results[0] as List<StoryViewModel>;
     final reactions = results[1] as List<StoryReactionModel>;
-
-    // Build a map of userId -> reaction for quick lookup
-    final reactionsMap = {
-      for (final r in reactions) r.userId: r,
-    };
 
     // Merged entries: start with likers (users who reacted)
     final entries = <_MergedEntry>[];

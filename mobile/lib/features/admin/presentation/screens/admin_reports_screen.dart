@@ -433,7 +433,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
               children: [
                 // 1. Ban User
                 FilledButton.icon(
-                  onPressed: () => _confirmBanUser(context, report),
+                  onPressed: () => _confirmBanUser(report),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.redAccent,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -444,7 +444,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
 
                 // 2. Deactivate User
                 FilledButton.tonalIcon(
-                  onPressed: () => _confirmDeactivateUser(context, report),
+                  onPressed: () => _confirmDeactivateUser(report),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.orange.withValues(alpha: 0.2),
                     foregroundColor: Colors.orange,
@@ -554,7 +554,6 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   }
 
   Future<void> _confirmBanUser(
-    BuildContext context,
     AdminReportItemDto report,
   ) async {
     final confirmed = await showDialog<bool>(
@@ -600,7 +599,6 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   }
 
   Future<void> _confirmDeactivateUser(
-    BuildContext context,
     AdminReportItemDto report,
   ) async {
     final confirmed = await showDialog<bool>(

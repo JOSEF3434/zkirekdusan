@@ -346,7 +346,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                         label: 'Message',
                         isLoading: _isOpeningChat,
                         isDark: isDark,
-                        onTap: () => _openDirectChat(context, profile.userId),
+                        onTap: () => _openDirectChat(profile.userId),
                       ),
                       _buildActionButton(
                         icon: _isMuted
@@ -675,7 +675,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                 ],
               ),
             ),
-            if (trailing != null) trailing,
+            ?trailing,
           ],
         ),
       ),
@@ -998,7 +998,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     );
   }
 
-  Future<void> _openDirectChat(BuildContext context, String targetUserId) async {
+  Future<void> _openDirectChat(String targetUserId) async {
     setState(() => _isOpeningChat = true);
     try {
       final conv = await ref

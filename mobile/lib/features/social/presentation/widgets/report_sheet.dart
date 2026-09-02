@@ -163,21 +163,45 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
                 child: Column(
                   children: ReportReason.values.map((reason) {
                     final isSelected = _selectedReason == reason;
-                    return RadioListTile<ReportReason>(
-                      value: reason,
-                      groupValue: _selectedReason,
-                      activeColor: const Color(0xFF00C6FF),
-                      title: Text(
-                        reason.displayName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isDark ? Colors.white : Colors.black87,
+                    return InkWell(
+                      onTap: () => setState(() => _selectedReason = reason),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF00C6FF)
+                                      : Colors.grey.withValues(alpha: 0.5),
+                                  width: isSelected ? 6 : 2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                reason.displayName,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      onChanged: (val) {
-                        setState(() => _selectedReason = val);
-                      },
                     );
                   }).toList(),
                 ),

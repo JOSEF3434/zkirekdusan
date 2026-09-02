@@ -58,6 +58,9 @@ import 'package:mobile/features/stories/presentation/screens/story_viewer_screen
 import 'package:mobile/features/stories/presentation/screens/story_creation_screen.dart';
 import 'package:mobile/features/chats/presentation/screens/conversation_screen.dart';
 import 'package:mobile/features/chats/presentation/screens/chat_search_screen.dart';
+import 'package:mobile/features/calls/presentation/screens/call_screen.dart';
+import 'package:mobile/features/calls/presentation/screens/incoming_call_screen.dart';
+import 'package:mobile/features/calls/providers/call_state_provider.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -69,6 +72,11 @@ class RouterNotifier extends ChangeNotifier {
     _ref.listen(authProvider, (_, next) => notifyListeners());
     _ref.listen(preferencesProvider, (_, next) => notifyListeners());
     _ref.listen(splashCompletedProvider, (_, next) => notifyListeners());
+    _ref.listen(callStateProvider, (prev, next) {
+      if (prev?.status != next.status) {
+        notifyListeners();
+      }
+    });
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -80,6 +88,12 @@ class RouterNotifier extends ChangeNotifier {
     final isAuthRoute = location == '/login' || location == '/register';
     final isSplashRoute = location == '/';
     final isOnboardingRoute = location == '/onboarding';
+
+    // Handle Incoming Call: immediately route to /call/incoming
+    final callState = _ref.read(callStateProvider);
+    if (callState.status == CallStatus.ringing && location != '/call/incoming') {
+      return '/call/incoming';
+    }
 
     // 0. Hold on splash screen route until minimum splash loading time and animations complete
     if (isSplashRoute && !splashCompleted) {
@@ -156,6 +170,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Full-screen routes above the shell
+      GoRoute(
+        path: '/call/active',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const CallScreen(),
+      ),
+      GoRoute(
+        path: '/call/incoming',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const IncomingCallScreen(),
+      ),
       GoRoute(
         path: '/story-viewer',
         parentNavigatorKey: rootNavigatorKey,

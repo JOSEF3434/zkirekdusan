@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Configurable minimum splash screen display and loading duration
 final splashLoadingDurationProvider = Provider<Duration>((ref) {
-  return const Duration(milliseconds: 5000);
+  return const Duration(milliseconds: 4500);
 });
 
 class SplashNotifier extends StateNotifier<bool> {

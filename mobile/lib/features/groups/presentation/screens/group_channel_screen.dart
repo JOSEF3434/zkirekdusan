@@ -148,7 +148,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                   targetName: groupContext.name,
                 );
               } else if (value == 'leave') {
-                _confirmLeaveGroup(context, groupContext);
+                _confirmLeaveGroup(groupContext);
               }
             },
             itemBuilder: (context) => [
@@ -300,7 +300,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                           label: 'Message',
                           isLoading: _isOpeningChat,
                           isDark: isDark,
-                          onTap: () => _openGroupChat(context, groupContext.id),
+                          onTap: () => _openGroupChat(groupContext.id),
                         ),
                         _buildGroupActionButton(
                           icon: _isMuted
@@ -346,7 +346,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                           icon: Icons.logout_rounded,
                           label: 'Leave',
                           isDark: isDark,
-                          onTap: () => _confirmLeaveGroup(context, groupContext),
+                          onTap: () => _confirmLeaveGroup(groupContext),
                         ),
                       ],
                     ),
@@ -939,7 +939,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
     );
   }
 
-  Future<void> _openGroupChat(BuildContext context, String groupId) async {
+  Future<void> _openGroupChat(String groupId) async {
     setState(() => _isOpeningChat = true);
     try {
       final conv = await ref
@@ -963,7 +963,6 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   }
 
   Future<void> _confirmLeaveGroup(
-    BuildContext context,
     GroupContextDto group,
   ) async {
     final confirmed = await showDialog<bool>(

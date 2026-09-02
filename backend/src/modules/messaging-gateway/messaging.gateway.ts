@@ -32,6 +32,13 @@ export const WS_EVENTS = {
   MARK_READ: 'message:read',
   PRESENCE_UPDATE: 'presence:update',
 
+  // Call signaling – Client → Server
+  CALL_INITIATE: 'call:initiate',
+  CALL_ACCEPT: 'call:accept',
+  CALL_REJECT: 'call:reject',
+  CALL_HANGUP: 'call:hangup',
+  CALL_ICE_CANDIDATE: 'call:ice-candidate',
+
   // Server → Client
   MESSAGE_NEW: 'message:new',
   MESSAGE_UPDATED: 'message:updated',
@@ -42,6 +49,13 @@ export const WS_EVENTS = {
   READ_RECEIPT: 'message:receipt',
   PRESENCE_CHANGED: 'presence:changed',
   ERROR: 'error',
+
+  // Call signaling – Server → Client
+  CALL_INCOMING: 'call:incoming',
+  CALL_ANSWERED: 'call:answered',
+  CALL_REJECTED: 'call:rejected',
+  CALL_ENDED: 'call:ended',
+  CALL_ICE: 'call:ice',
 } as const;
 
 @WebSocketGateway({
@@ -299,6 +313,142 @@ export class MessagingGateway
         });
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
+    }
+  }
+
+  // ── Call Signaling ────────────────────────────────────────────────────────
+
+  /**
+   * Caller → Server: initiate a call
+   * Payload: { targetUserId, conversationId, callType: 'audio'|'video', offer: RTCSessionDescriptionInit }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_INITIATE)
+  async handleCallInitiate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      targetUserId: string;
+      conversationId: string;
+      callType: 'audio' | 'video';
+      offer: object;
+      callerName: string;
+      callerAvatar?: string;
+    },
+  ) {
+    const callerId = (client as any).userId as string;
+    const targetSockets = this.userSocketMap.get(data.targetUserId);
+
+    if (!targetSockets || targetSockets.size === 0) {
+      // Target is offline – let caller know immediately
+      client.emit(WS_EVENTS.CALL_REJECTED, {
+        conversationId: data.conversationId,
+        reason: 'offline',
+      });
+      return;
+    }
+
+    // Forward incoming call to all target sockets (multi-device)
+    for (const socketId of targetSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_INCOMING, {
+        callerId,
+        conversationId: data.conversationId,
+        callType: data.callType,
+        offer: data.offer,
+        callerName: data.callerName,
+        callerAvatar: data.callerAvatar,
+      });
+    }
+  }
+
+  /**
+   * Callee → Server: accept call and send answer SDP back to caller
+   * Payload: { callerId, conversationId, answer: RTCSessionDescriptionInit }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_ACCEPT)
+  handleCallAccept(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { callerId: string; conversationId: string; answer: object },
+  ) {
+    const calleeId = (client as any).userId as string;
+    const callerSockets = this.userSocketMap.get(data.callerId);
+    if (!callerSockets) return;
+
+    for (const socketId of callerSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_ANSWERED, {
+        calleeId,
+        conversationId: data.conversationId,
+        answer: data.answer,
+      });
+    }
+  }
+
+  /**
+   * Callee → Server: reject incoming call
+   * Payload: { callerId, conversationId, reason?: string }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_REJECT)
+  handleCallReject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { callerId: string; conversationId: string; reason?: string },
+  ) {
+    const calleeId = (client as any).userId as string;
+    const callerSockets = this.userSocketMap.get(data.callerId);
+    if (!callerSockets) return;
+
+    for (const socketId of callerSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_REJECTED, {
+        calleeId,
+        conversationId: data.conversationId,
+        reason: data.reason ?? 'declined',
+      });
+    }
+  }
+
+  /**
+   * Either party → Server: hang up an active or ringing call
+   * Payload: { targetUserId, conversationId }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_HANGUP)
+  handleCallHangup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; conversationId: string },
+  ) {
+    const senderId = (client as any).userId as string;
+    const targetSockets = this.userSocketMap.get(data.targetUserId);
+    if (!targetSockets) return;
+
+    for (const socketId of targetSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
+        senderId,
+        conversationId: data.conversationId,
+      });
+    }
+  }
+
+  /**
+   * Either party → Server: relay an ICE candidate to the remote peer
+   * Payload: { targetUserId, conversationId, candidate: RTCIceCandidateInit }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_ICE_CANDIDATE)
+  handleCallIceCandidate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      targetUserId: string;
+      conversationId: string;
+      candidate: object;
+    },
+  ) {
+    const targetSockets = this.userSocketMap.get(data.targetUserId);
+    if (!targetSockets) return;
+
+    for (const socketId of targetSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_ICE, {
+        conversationId: data.conversationId,
+        candidate: data.candidate,
+      });
     }
   }
 

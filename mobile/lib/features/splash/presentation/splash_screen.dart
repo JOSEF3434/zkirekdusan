@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen>
     // 1. Entrance Choreography (2800ms smooth reverent reveal)
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 2200),
     );
 
     // 2. Ambient Candlelight & Text Breathing Animation (4000ms loop)
@@ -77,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen>
     // 4. Splash Loading Time Progression (5000ms duration)
     _loadingController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5000),
+      duration: const Duration(milliseconds: 8000),
     );
 
     // Logo reveal (0.0 -> 0.35)
