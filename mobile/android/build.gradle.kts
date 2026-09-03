@@ -20,13 +20,6 @@ subprojects {
 }
 
 subprojects {
-    val android = project.extensions.findByName("android")
-    if (android is com.android.build.gradle.BaseExtension) {
-        android.compileSdkVersion(36)
-    }
-}
-
-subprojects {
     pluginManager.withPlugin("com.android.library") {
         project.dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.2.0")
     }

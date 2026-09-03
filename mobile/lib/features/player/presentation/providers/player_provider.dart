@@ -12,6 +12,7 @@ import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/storage/file_system.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
@@ -200,6 +201,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       // Check offline downloads metadata
       String? localFileUrl;
+      String? localFilePath;
       String? offlineTitle;
       String? offlineThumbnail;
       final dlData = await _storage.getToken(key: 'offline_downloads');
@@ -213,6 +215,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
             offlineThumbnail = item['thumbnailUrl'] as String?;
             if (localPath != null &&
                 await FileSystemHelper.fileExists(localPath)) {
+              localFilePath = localPath;
               localFileUrl = Uri.file(localPath).toString();
             }
           }
@@ -223,7 +226,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       try {
         video = await _repository.getVideo(_videoId);
       } catch (repoErr) {
-        if (localFileUrl != null) {
+        if (localFilePath != null) {
           // Play in offline mode using cached download metadata
           video = VideoResponseDto(
             id: _videoId,
@@ -242,7 +245,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
 
       final candidateUrls = <String>[];
-      if (localFileUrl != null) {
+      if (localFilePath != null) {
+        candidateUrls.add(localFilePath);
+      }
+      if (localFileUrl != null && !candidateUrls.contains(localFileUrl)) {
         candidateUrls.add(localFileUrl);
       }
       candidateUrls.addAll(_buildCandidateUrls(video));
@@ -271,16 +277,34 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       // Try candidates in order — stop at first success
       for (final url in candidateUrls) {
         try {
-          final uri = Uri.tryParse(url);
-          if (uri == null) continue;
+          final isLocal = (localFilePath != null && (url == localFilePath || url == localFileUrl)) ||
+              url.startsWith('file://') ||
+              (!url.startsWith('http://') && !url.startsWith('https://'));
 
-          final ctrl = VideoPlayerController.networkUrl(
-            uri,
-            videoPlayerOptions: VideoPlayerOptions(
-              mixWithOthers: false,
-              allowBackgroundPlayback: false,
-            ),
-          );
+          final VideoPlayerController ctrl;
+          if (isLocal) {
+            final path = (localFilePath != null && url == localFilePath)
+                ? localFilePath
+                : (url.startsWith('file://') ? Uri.parse(url).toFilePath() : url);
+            ctrl = VideoPlayerController.file(
+              File(path),
+              videoPlayerOptions: VideoPlayerOptions(
+                mixWithOthers: false,
+                allowBackgroundPlayback: false,
+              ),
+            );
+          } else {
+            final uri = Uri.tryParse(url);
+            if (uri == null) continue;
+            ctrl = VideoPlayerController.networkUrl(
+              uri,
+              videoPlayerOptions: VideoPlayerOptions(
+                mixWithOthers: false,
+                allowBackgroundPlayback: false,
+              ),
+            );
+          }
+
           await ctrl.initialize().timeout(
             const Duration(seconds: 8),
             onTimeout: () {
@@ -341,6 +365,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           })
           .catchError((_) {});
 
+      final isOffline = (localFilePath != null &&
+          (successUrl == localFilePath || successUrl == localFileUrl));
+
       if (mounted) {
         state = state.copyWith(
           video: video,
@@ -348,6 +375,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           isLoading: false,
           resumePositionSeconds: resumePos,
           activeStreamUrl: successUrl,
+          isOfflinePlayback: isOffline,
           currentRendition:
               video.renditions.isNotEmpty ? video.renditions.first : null,
         );

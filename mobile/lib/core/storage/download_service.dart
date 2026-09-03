@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/storage/file_system.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:flutter/foundation.dart';
 
 class DownloadMetadata {
@@ -128,14 +129,27 @@ class DownloadNotifier extends StateNotifier<DownloadState> {
         errors: {...state.errors}..remove(videoId),
       );
 
+      // Resolve URL to a fully reachable absolute URL
+      final resolvedUrl = MediaUrlResolver.resolve(url);
+      if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
+        throw Exception('Invalid download URL: $url');
+      }
+
+      // If it's Cloudinary HLS (.m3u8), convert to direct downloadable MP4
+      final effectiveUrl = MediaUrlResolver.isCloudinary(resolvedUrl)
+          ? MediaUrlResolver.toCloudinaryMp4(resolvedUrl)
+          : (resolvedUrl.endsWith('.m3u8')
+              ? resolvedUrl.replaceAll(RegExp(r'\.m3u8$'), '.mp4')
+              : resolvedUrl);
+
       final dirPath = await FileSystemHelper.getApplicationDocumentsPath();
       final localPath = '$dirPath/video_$videoId.mp4';
 
       await _dio.download(
-        url,
+        effectiveUrl,
         localPath,
         onReceiveProgress: (received, total) {
-          if (total != -1) {
+          if (total != -1 && total > 0) {
             final p = received / total;
             state = state.copyWith(progress: {...state.progress, videoId: p});
           }

@@ -273,11 +273,60 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 children: [
                   Text(video.title, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 8),
-                  Text(
-                    '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Offline Mode vs Online Stream indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: state.isOfflinePlayback
+                              ? Colors.green.withValues(alpha: 0.15)
+                              : const Color(0xFF00C6FF).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: state.isOfflinePlayback
+                                ? Colors.green
+                                : const Color(0xFF00C6FF),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              state.isOfflinePlayback
+                                  ? Icons.offline_pin_rounded
+                                  : Icons.cloud_done_rounded,
+                              size: 14,
+                              color: state.isOfflinePlayback
+                                  ? Colors.green
+                                  : const Color(0xFF00C6FF),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              state.isOfflinePlayback
+                                  ? 'Offline Mode'
+                                  : 'Online Stream',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: state.isOfflinePlayback
+                                    ? Colors.green
+                                    : const Color(0xFF00C6FF),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -315,8 +364,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                   width: 24,
                                   height: 24,
                                   child: CircularProgressIndicator(
-                                    value: progress,
+                                    value: progress > 0 ? progress : null,
                                     strokeWidth: 2,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFF00C6FF)),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -367,12 +419,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                             );
                           }
 
-                          final downloadUrl = video.renditions.isNotEmpty
-                              ? video.renditions.first.url
-                              : (video.hlsUrl ?? video.dashUrl);
-                          final canDownload = video.isDownloadable &&
-                              downloadUrl != null &&
-                              downloadUrl.isNotEmpty;
+                          String? candidateDownloadUrl;
+                          for (final r in video.renditions) {
+                            if (r.url.trim().isNotEmpty) {
+                              candidateDownloadUrl = r.url;
+                              break;
+                            }
+                          }
+                          candidateDownloadUrl ??= video.hlsUrl ?? video.dashUrl;
+                          final canDownload = candidateDownloadUrl != null &&
+                              candidateDownloadUrl.trim().isNotEmpty;
 
                           return _ActionButton(
                             icon: Icons.download_outlined,
@@ -383,16 +439,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                         .read(downloadServiceProvider.notifier)
                                         .startDownload(
                                           videoId: video.id,
-                                          url: downloadUrl,
+                                          url: candidateDownloadUrl!,
                                           title: video.title,
                                           thumbnailUrl: video.thumbnailUrl,
                                         );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Video added to Downloads list!',
+                                        ),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
                                   }
                                 : () {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          'Download is disabled for this stream/video',
+                                          'Download is unavailable for this video',
                                         ),
                                       ),
                                     );
