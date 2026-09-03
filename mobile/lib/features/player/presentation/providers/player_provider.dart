@@ -52,6 +52,7 @@ class PlayerState {
   PlayerState copyWith({
     VideoResponseDto? video,
     VideoPlayerController? controller,
+    bool clearController = false,
     bool? isLoading,
     String? error,
     List<VideoResponseDto>? recommendations,
@@ -66,7 +67,7 @@ class PlayerState {
   }) {
     return PlayerState(
       video: video ?? this.video,
-      controller: controller ?? this.controller,
+      controller: clearController ? null : (controller ?? this.controller),
       isLoading: isLoading ?? this.isLoading,
       error: error,
       recommendations: recommendations ?? this.recommendations,
@@ -183,6 +184,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     _flushProgress();
     state.controller?.dispose();
     super.dispose();
+  }
+
+  /// Transfer controller ownership to MiniPlayer.
+  /// Must be called BEFORE this notifier is disposed (i.e. before context.pop()).
+  /// After this call, dispose() will not touch the controller.
+  void detachController() {
+    state = state.copyWith(clearController: true);
   }
 
   Future<void> _initialize() async {

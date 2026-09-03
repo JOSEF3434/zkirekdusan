@@ -124,10 +124,14 @@ class LiveStreamingRepository {
     }
   }
 
-  /// DELETE /streams/:id
-  Future<void> deleteStream(String streamId) async {
+  /// DELETE /video-channels/:channelId/streams/:id or /streams/:id
+  Future<void> deleteStream(String streamId, {String? channelId}) async {
     try {
-      await _dio.delete('/streams/$streamId');
+      if (channelId != null && channelId.isNotEmpty) {
+        await _dio.delete('/video-channels/$channelId/streams/$streamId');
+      } else {
+        await _dio.delete('/streams/$streamId');
+      }
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }

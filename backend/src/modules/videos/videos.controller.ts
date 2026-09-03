@@ -277,7 +277,7 @@ export class VideosController {
     @Param('videoId') videoId: string,
     @CurrentUser('sub') userId: string,
   ) {
-    return this.videosService.delete(videoId, userId);
+    return this.videosService.deleteVideo(videoId, userId);
   }
 
   @Post(':videoId/like')

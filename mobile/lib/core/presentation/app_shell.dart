@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/presentation/widgets/mini_player_overlay.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
@@ -61,8 +62,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.group_add),
-                title: const Text('Create Group'),
+                leading: const Icon(Icons.tv),
+                title: const Text('Create Channel'),
                 onTap: () {
                   context.pop(); // close sheet
                   context.push('/creator/create-group');
@@ -140,67 +141,89 @@ class _AppShellState extends ConsumerState<AppShell> {
       final isDesktop = ResponsiveLayout.isDesktop(context);
 
       return Scaffold(
-        body: Row(
+        body: Stack(
           children: [
-            NavigationRail(
-              extended: isDesktop,
-              selectedIndex: _adjustedSelectedIndex,
-              onDestinationSelected: (index) => _onItemTapped(index, context),
-              labelType: isDesktop
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              trailing: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: IconButton(
-                  icon: unreadCount > 0
-                      ? Badge(
-                          label: Text(
-                            unreadCount > 99 ? '99+' : '$unreadCount',
-                          ),
-                          child: const Icon(Icons.notifications_outlined),
-                        )
-                      : const Icon(Icons.notifications_outlined),
-                  tooltip: 'Notifications',
-                  onPressed: () => context.push('/notifications'),
+            Row(
+              children: [
+                NavigationRail(
+                  extended: isDesktop,
+                  selectedIndex: _adjustedSelectedIndex,
+                  onDestinationSelected: (index) => _onItemTapped(index, context),
+                  labelType: isDesktop
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  trailing: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: IconButton(
+                      icon: unreadCount > 0
+                          ? Badge(
+                              label: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                              ),
+                              child: const Icon(Icons.notifications_outlined),
+                            )
+                          : const Icon(Icons.notifications_outlined),
+                      tooltip: 'Notifications',
+                      onPressed: () => context.push('/notifications'),
+                    ),
+                  ),
+                  destinations: const [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: Text('Home'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.explore_outlined),
+                      selectedIcon: Icon(Icons.explore),
+                      label: Text('Explore'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.add_circle_outline),
+                      selectedIcon: Icon(Icons.add_circle),
+                      label: Text('Create'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.chat_bubble_outline),
+                      selectedIcon: Icon(Icons.chat_bubble),
+                      label: Text('Chats'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.person_outline),
+                      selectedIcon: Icon(Icons.person),
+                      label: Text('Profile'),
+                    ),
+                  ],
                 ),
-              ),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home),
-                  label: Text('Home'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.explore_outlined),
-                  selectedIcon: Icon(Icons.explore),
-                  label: Text('Explore'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.add_circle_outline),
-                  selectedIcon: Icon(Icons.add_circle),
-                  label: Text('Create'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  selectedIcon: Icon(Icons.chat_bubble),
-                  label: Text('Chats'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: Icon(Icons.person),
-                  label: Text('Profile'),
-                ),
+                const VerticalDivider(thickness: 1, width: 1),
+                Expanded(child: widget.navigationShell),
               ],
             ),
-            const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: widget.navigationShell),
+            // ── Mini player overlay (floats above all shell content) ──
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: MiniPlayerOverlay(),
+            ),
           ],
         ),
       );
     }
 
     return Scaffold(
-      body: widget.navigationShell,
+      body: Stack(
+        children: [
+          widget.navigationShell,
+          // ── Mini player overlay (floats above nav bar) ──
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 65, // offset above the bottom navigation bar height
+            child: MiniPlayerOverlay(),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [

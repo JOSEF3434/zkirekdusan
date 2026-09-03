@@ -196,12 +196,6 @@ export class LiveStreamingService {
     if (!stream || stream.deletedAt)
       throw new NotFoundException('Stream not found');
 
-    if (stream.status === LiveStreamStatus.LIVE) {
-      throw new BadRequestException(
-        'Cannot delete an active live stream. End it first.',
-      );
-    }
-
     const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
@@ -210,6 +204,14 @@ export class LiveStreamingService {
       throw new ForbiddenException(
         'You do not have permission to delete this stream',
       );
+    }
+
+    if (stream.status === LiveStreamStatus.LIVE) {
+      try {
+        await this.endStream(userId, streamId);
+      } catch {
+        await this.repository.endStreamSession(streamId).catch(() => {});
+      }
     }
 
     return this.repository.deleteStream(streamId);

@@ -143,10 +143,7 @@ class VideoManagementSheet extends ConsumerWidget {
                 leading: const Icon(Icons.edit_outlined),
                 title: const Text('Edit Video Details'),
                 subtitle: const Text('Title, description, and visibility'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditVideoDialog(context, ref);
-                },
+                onTap: () => _showEditVideoDialog(context, ref),
               ),
               if (video.channelId != null) ...[
                 ListTile(
@@ -180,10 +177,7 @@ class VideoManagementSheet extends ConsumerWidget {
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: const Text('Delete Video', style: TextStyle(color: Colors.red)),
                 subtitle: const Text('Permanently delete this video'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirmDialog(context, ref);
-                },
+                onTap: () => _showDeleteConfirmDialog(context, ref),
               ),
               const Divider(height: 16),
             ],
@@ -330,7 +324,11 @@ class VideoManagementSheet extends ConsumerWidget {
             onPressed: () async {
               final newTitle = titleController.text.trim();
               final newDesc = descController.text.trim();
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(dialogCtx);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
               try {
                 final dio = ref.read(apiClientProvider);
                 final channelId = video.channelId;
@@ -352,17 +350,13 @@ class VideoManagementSheet extends ConsumerWidget {
                   );
                 }
                 onVideoUpdated?.call();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Video updated successfully')),
-                  );
-                }
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Video updated successfully')),
+                );
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to update video: $e')),
-                  );
-                }
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Failed to update video: $e')),
+                );
               }
             },
             child: const Text('Save'),
@@ -373,6 +367,7 @@ class VideoManagementSheet extends ConsumerWidget {
   }
 
   void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -389,21 +384,20 @@ class VideoManagementSheet extends ConsumerWidget {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(dialogCtx);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
               try {
                 final repo = ref.read(videoRepositoryProvider);
                 await repo.deleteVideo(video.id, channelId: video.channelId);
                 onVideoDeleted?.call();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Video deleted successfully')),
-                  );
-                }
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Video deleted successfully')),
+                );
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to delete video: $e')),
-                  );
-                }
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Failed to delete video: $e')),
+                );
               }
             },
             child: const Text('Delete'),

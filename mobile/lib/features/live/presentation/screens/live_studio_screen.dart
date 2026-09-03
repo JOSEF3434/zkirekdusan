@@ -20,6 +20,20 @@ import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart'
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 
+// ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
+
+class LiveStudioChannelItem {
+  final VideoChannelDto channel;
+  final GroupDto group;
+
+  const LiveStudioChannelItem({required this.channel, required this.group});
+
+  String get displayName =>
+      channel.name.isNotEmpty ? channel.name : group.name;
+  String get groupName => group.name;
+  String? get avatarUrl => group.avatarUrl ?? group.coverUrl;
+}
+
 class LiveStudioScreen extends ConsumerStatefulWidget {
   /// Optional pre-selected channelId. If null, the user picks from a dropdown.
   final String? channelId;
@@ -51,11 +65,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   bool _isTorchOn = false;
   bool _isInitializingCamera = false;
 
-  // Group / Channel picker state
-  List<GroupDto> _groups = [];
-  final Map<String, List<VideoChannelDto>> _channelsByGroup = {};
-  GroupDto? _selectedGroup;
-  VideoChannelDto? _selectedChannel;
+  // Channel picker state (YouTube style)
+  List<LiveStudioChannelItem> _availableChannels = [];
+  LiveStudioChannelItem? _selectedChannelItem;
   bool _loadingChannels = false;
   String? _loadError;
 
@@ -66,7 +78,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   void initState() {
     super.initState();
     if (widget.channelId == null) {
-      _loadGroups();
+      _loadChannels();
     }
     _setupCamera(front: true);
   }
@@ -79,7 +91,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     super.dispose();
   }
 
-  Future<void> _loadGroups() async {
+  Future<void> _loadChannels() async {
     setState(() {
       _loadingChannels = true;
       _loadError = null;
@@ -87,53 +99,51 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     try {
       final repo = ref.read(uploadRepositoryProvider);
       final groups = await repo.getMyGroups();
-      final activeGroups = groups
-          .where((g) => g.status == 'ACTIVE')
-          .toList();
-      setState(() {
-        _groups = activeGroups;
-        _loadingChannels = false;
-      });
-    } catch (e) {
-      setState(() {
-        _loadError = 'Could not load your groups. Please check your connection.';
-        _loadingChannels = false;
-      });
-    }
-  }
+      final activeGroups =
+          groups.where((g) => g.status == 'ACTIVE').toList();
 
-  Future<void> _loadChannelsForGroup(GroupDto group) async {
-    if (_channelsByGroup.containsKey(group.id)) {
-      setState(() {
-        _selectedGroup = group;
-        _selectedChannel = _channelsByGroup[group.id]!.isNotEmpty
-            ? _channelsByGroup[group.id]!.first
-            : null;
-      });
-      return;
-    }
-    setState(() {
-      _loadingChannels = true;
-      _selectedGroup = group;
-      _selectedChannel = null;
-    });
-    try {
-      final repo = ref.read(uploadRepositoryProvider);
-      final channels = await repo.getGroupChannels(group.id);
-      setState(() {
-        _channelsByGroup[group.id] = channels;
-        _selectedChannel = channels.isNotEmpty ? channels.first : null;
-        _loadingChannels = false;
-      });
+      final List<LiveStudioChannelItem> items = [];
+      for (final group in activeGroups) {
+        try {
+          final channels = await repo.getGroupChannels(group.id);
+          for (final ch in channels) {
+            items.add(LiveStudioChannelItem(channel: ch, group: group));
+          }
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableChannels = items;
+          _loadingChannels = false;
+          if (widget.channelId != null) {
+            _selectedChannelItem = items.cast<LiveStudioChannelItem?>().firstWhere(
+                  (it) => it?.channel.id == widget.channelId,
+                  orElse: () => null,
+                );
+          } else if (_selectedChannelItem != null) {
+            _selectedChannelItem = items.cast<LiveStudioChannelItem?>().firstWhere(
+                  (it) => it?.channel.id == _selectedChannelItem!.channel.id,
+                  orElse: () => items.isNotEmpty ? items.first : null,
+                );
+          } else if (items.isNotEmpty) {
+            _selectedChannelItem = items.first;
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        _loadingChannels = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loadError =
+              'Could not load your streaming channels. Please check your connection.';
+          _loadingChannels = false;
+        });
+      }
     }
   }
 
   String get _effectiveChannelId =>
-      widget.channelId ?? _selectedChannel?.id ?? '';
+      widget.channelId ?? _selectedChannelItem?.channel.id ?? '';
 
   String _formatElapsed(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
@@ -174,9 +184,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             ),
             const SizedBox(height: 20),
 
-            // ── Group / Channel Picker (only if no channelId pre-supplied) ──
+            // ── Channel Picker (YouTube style, only if no channelId pre-supplied) ──
             if (widget.channelId == null) ...[
-              _buildGroupChannelPicker(theme),
+              _buildChannelPicker(theme),
               const SizedBox(height: 16),
             ],
 
@@ -278,115 +288,371 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
-  Widget _buildGroupChannelPicker(ThemeData theme) {
-    if (_loadingChannels && _groups.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    if (_loadError != null) {
+  Widget _buildChannelPicker(ThemeData theme) {
+    if (_loadingChannels && _availableChannels.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-        ),
-        child: Row(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        alignment: Alignment.center,
+        child: const Column(
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(_loadError!, style: const TextStyle(color: Colors.red)),
-            ),
-            TextButton(onPressed: _loadGroups, child: const Text('Retry')),
+            CircularProgressIndicator(),
+            SizedBox(height: 12),
+            Text('Loading your channels…', style: TextStyle(fontSize: 13)),
           ],
         ),
       );
     }
 
-    if (_groups.isEmpty) {
+    if (_loadError != null && _availableChannels.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          color: Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         ),
-        child: const Text(
-          'You have no active groups with video channels. '
-          'Create or join a group to start streaming.',
-          style: TextStyle(color: Colors.orange),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _loadError!,
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+              ),
+            ),
+            FilledButton.tonal(
+              onPressed: _loadChannels,
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }
 
-    final List<VideoChannelDto> channelsForGroup =
-        _selectedGroup != null ? (_channelsByGroup[_selectedGroup!.id] ?? <VideoChannelDto>[]) : <VideoChannelDto>[];
+    if (_availableChannels.isEmpty) {
+      // YouTube-style prompt to create a channel
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.live_tv, color: theme.colorScheme.primary, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Create a Channel to Go Live',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'You need a channel to broadcast live streams.',
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create Channel'),
+                onPressed: () async {
+                  await context.push('/creator/create-group');
+                  _loadChannels();
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // YouTube-style Selected Channel Card
+    final selected = _selectedChannelItem ?? _availableChannels.first;
+    final initial = selected.displayName.isNotEmpty
+        ? selected.displayName[0].toUpperCase()
+        : '?';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Group Dropdown
-        DropdownButtonFormField<GroupDto>(
-          isExpanded: true,
-          initialValue: _selectedGroup,
-          decoration: const InputDecoration(
-            labelText: 'Group *',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.group),
-          ),
-          hint: const Text('Select a group'),
-          items: _groups
-              .map((g) => DropdownMenuItem(
-                    value: g,
-                    child: Text(g.name, overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(),
-          onChanged: (group) {
-            if (group != null) _loadChannelsForGroup(group);
-          },
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Broadcast Channel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (_availableChannels.length > 1)
+              TextButton(
+                onPressed: _showChannelSwitcherSheet,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('Switch channel'),
+              ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _availableChannels.length > 1 ? _showChannelSwitcherSheet : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  backgroundImage: selected.avatarUrl != null &&
+                          selected.avatarUrl!.isNotEmpty
+                      ? NetworkImage(selected.avatarUrl!)
+                      : null,
+                  child: selected.avatarUrl == null || selected.avatarUrl!.isEmpty
+                      ? Text(
+                          initial,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                            fontSize: 16,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selected.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'CHANNEL',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              selected.groupName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (_availableChannels.length > 1)
+                  Icon(
+                    Icons.arrow_drop_down_circle_outlined,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-        // Channel Dropdown (shown once a group is selected)
-        if (_selectedGroup != null)
-          _loadingChannels
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: CircularProgressIndicator(),
+  void _showChannelSwitcherSheet() {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(top: 4, bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                )
-              : channelsForGroup.isEmpty
-              ? const Text(
-                  'This group has no video channels.',
-                  style: TextStyle(color: Colors.orange),
-                )
-              : DropdownButtonFormField<VideoChannelDto>(
-                  isExpanded: true,
-                  initialValue: _selectedChannel,
-                  decoration: const InputDecoration(
-                    labelText: 'Channel *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.live_tv),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Select Channel',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
                   ),
-                  hint: const Text('Select a channel'),
-                  items: channelsForGroup
-                      .map((c) => DropdownMenuItem<VideoChannelDto>(
-                            value: c,
-                            child: Text(c.name, overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (ch) {
-                    if (ch != null) setState(() => _selectedChannel = ch);
+                ),
+                const Divider(),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _availableChannels.length,
+                    itemBuilder: (context, i) {
+                      final item = _availableChannels[i];
+                      final isSelected =
+                          _selectedChannelItem?.channel.id == item.channel.id;
+                      final initial = item.displayName.isNotEmpty
+                          ? item.displayName[0].toUpperCase()
+                          : '?';
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          backgroundImage: item.avatarUrl != null &&
+                                  item.avatarUrl!.isNotEmpty
+                              ? NetworkImage(item.avatarUrl!)
+                              : null,
+                          child: item.avatarUrl == null || item.avatarUrl!.isEmpty
+                              ? Text(
+                                  initial,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        title: Text(
+                          item.displayName,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          item.groupName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: isSelected
+                            ? Icon(Icons.check_circle,
+                                color: theme.colorScheme.primary)
+                            : null,
+                        onTap: () {
+                          setState(() => _selectedChannelItem = item);
+                          Navigator.of(ctx).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.add,
+                        color: theme.colorScheme.primary, size: 20),
+                  ),
+                  title: const Text('Create new channel',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await context.push('/creator/create-group');
+                    _loadChannels();
                   },
                 ),
-      ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -399,8 +665,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     // Validate channel selected
     if (_effectiveChannelId.isEmpty) {
-      setState(() => _createError =
-          'Please select a group and channel to stream to.');
+      setState(() => _createError = 'Please select a channel to stream to.');
       return;
     }
 
@@ -669,9 +934,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         children: [
           const Icon(Icons.chat_bubble_outline, size: 16),
           const SizedBox(width: 6),
-          const Text(
-            'Live Chat & Interactions',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          const Flexible(
+            child: Text(
+              'Live Chat',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const Spacer(),
           const Icon(Icons.people_outline, size: 16),
@@ -679,8 +948,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           Text(
             '${bState.viewerCount} watching',
             style: const TextStyle(fontSize: 12),
+            maxLines: 1,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red.withValues(alpha: 0.15),
@@ -1069,71 +1339,95 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   ),
                 ),
                 const Spacer(),
-                // Toggle Video/Audio Mode
-                IconButton.filledTonal(
-                  icon: Icon(
-                    _isVideoStream ? Icons.videocam : Icons.mic,
-                    size: 17,
-                    color: Colors.white,
-                  ),
-                  tooltip: _isVideoStream ? 'Switch to Audio Mode' : 'Switch to Camera Video',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                  style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                  onPressed: () {
-                    setState(() => _isVideoStream = !_isVideoStream);
-                    if (_isVideoStream && !_isCameraInitialized) {
-                      _setupCamera();
-                    }
-                  },
-                ),
-                const SizedBox(width: 6),
-                // Flip Camera (only in video mode)
-                if (_isVideoStream) ...[
-                  IconButton.filledTonal(
-                    icon: const Icon(Icons.cameraswitch, size: 17, color: Colors.white),
-                    tooltip: 'Flip Camera',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                    style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                    onPressed: _flipCamera,
-                  ),
-                  const SizedBox(width: 6),
-                  // Flash/Torch button
-                  IconButton.filledTonal(
-                    icon: Icon(
-                      _isTorchOn ? Icons.flash_on : Icons.flash_off,
-                      size: 17,
-                      color: _isTorchOn ? Colors.amberAccent : Colors.white,
+                Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Toggle Video/Audio Mode
+                        IconButton.filledTonal(
+                          icon: Icon(
+                            _isVideoStream ? Icons.videocam : Icons.mic,
+                            size: 17,
+                            color: Colors.white,
+                          ),
+                          tooltip: _isVideoStream
+                              ? 'Switch to Audio Mode'
+                              : 'Switch to Camera Video',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 34, minHeight: 34),
+                          style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54),
+                          onPressed: () {
+                            setState(() => _isVideoStream = !_isVideoStream);
+                            if (_isVideoStream && !_isCameraInitialized) {
+                              _setupCamera();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        // Flip Camera (only in video mode)
+                        if (_isVideoStream) ...[
+                          IconButton.filledTonal(
+                            icon: const Icon(Icons.cameraswitch,
+                                size: 17, color: Colors.white),
+                            tooltip: 'Flip Camera',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 34, minHeight: 34),
+                            style: IconButton.styleFrom(
+                                backgroundColor: Colors.black54),
+                            onPressed: _flipCamera,
+                          ),
+                          const SizedBox(width: 6),
+                          // Flash/Torch button
+                          IconButton.filledTonal(
+                            icon: Icon(
+                              _isTorchOn ? Icons.flash_on : Icons.flash_off,
+                              size: 17,
+                              color: _isTorchOn
+                                  ? Colors.amberAccent
+                                  : Colors.white,
+                            ),
+                            tooltip: 'Toggle Flashlight',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 34, minHeight: 34),
+                            style: IconButton.styleFrom(
+                              backgroundColor: _isTorchOn
+                                  ? Colors.amber.withValues(alpha: 0.3)
+                                  : Colors.black54,
+                            ),
+                            onPressed: _toggleTorch,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        // Mute/Unmute Mic Button
+                        IconButton.filledTonal(
+                          icon: Icon(
+                            _isMicMuted ? Icons.mic_off : Icons.mic,
+                            size: 17,
+                            color:
+                                _isMicMuted ? Colors.redAccent : Colors.white,
+                          ),
+                          tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 34, minHeight: 34),
+                          style: IconButton.styleFrom(
+                            backgroundColor: _isMicMuted
+                                ? Colors.red.withValues(alpha: 0.35)
+                                : Colors.black54,
+                          ),
+                          onPressed: () {
+                            setState(() => _isMicMuted = !_isMicMuted);
+                          },
+                        ),
+                      ],
                     ),
-                    tooltip: 'Toggle Flashlight',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                    style: IconButton.styleFrom(
-                      backgroundColor:
-                          _isTorchOn ? Colors.amber.withValues(alpha: 0.3) : Colors.black54,
-                    ),
-                    onPressed: _toggleTorch,
                   ),
-                  const SizedBox(width: 6),
-                ],
-                // Mute/Unmute Mic Button
-                IconButton.filledTonal(
-                  icon: Icon(
-                    _isMicMuted ? Icons.mic_off : Icons.mic,
-                    size: 17,
-                    color: _isMicMuted ? Colors.redAccent : Colors.white,
-                  ),
-                  tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                  style: IconButton.styleFrom(
-                    backgroundColor:
-                        _isMicMuted ? Colors.red.withValues(alpha: 0.35) : Colors.black54,
-                  ),
-                  onPressed: () {
-                    setState(() => _isMicMuted = !_isMicMuted);
-                  },
                 ),
               ],
             ),

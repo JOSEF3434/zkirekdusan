@@ -99,6 +99,20 @@ export class LiveStreamingController {
   ) {
     return this.liveStreamingService.generateStreamKey(userId, channelId);
   }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete/Cancel a stream in this channel' })
+  @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  async deleteStream(
+    @CurrentUser('sub') userId: string,
+    @Param('id') streamId: string,
+  ) {
+    return this.liveStreamingService.deleteStream(userId, streamId);
+  }
 }
 
 // ─── Global Stream Controller ───────────────────────────────────────────────

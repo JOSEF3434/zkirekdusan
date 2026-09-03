@@ -186,7 +186,7 @@ class LiveCardWidget extends StatelessWidget {
           backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
           child: avatarUrl == null
               ? Text(
-                  channelName[0].toUpperCase(),
+                  channelName.isNotEmpty ? channelName[0].toUpperCase() : '?',
                   style: const TextStyle(fontSize: 10),
                 )
               : null,

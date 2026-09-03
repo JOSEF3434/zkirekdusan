@@ -138,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: cs.errorContainer,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: cs.error.withOpacity(0.3),
+                            color: cs.error.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(

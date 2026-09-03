@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/features/live/presentation/providers/live_room_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
@@ -67,6 +68,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   bool _controlsVisible = true;
   bool _isFullscreen = false;
 
+  // Mini-player drag tracking
+  double _dragOffset = 0;
+  bool _isDragging = false;
+  static const _kMiniDragThreshold = 120.0; // px to trigger minimize
+
   // Reactions
   final List<_Particle> _particles = [];
   final _rng = Random();
@@ -86,12 +92,28 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           .read(liveSocketServiceProvider)
           .onReactionBroadcast
           .listen(_onReactionReceived);
+
+      // Reclaim controller from mini player if we're re-entering the same stream.
+      final mini = ref.read(miniPlayerProvider);
+      if (mini.isVisible &&
+          mini.type == MiniPlayerType.live &&
+          mini.contentId == widget.streamId &&
+          mini.controller != null &&
+          mini.controller!.value.isInitialized) {
+        setState(() {
+          _playerCtrl = mini.controller;
+          _playerInitialized = true;
+        });
+        ref.read(miniPlayerProvider.notifier).hide();
+      }
     });
   }
 
   @override
   void dispose() {
     _reactionSub?.cancel();
+    // Note: _playerCtrl may have been transferred to miniPlayerProvider
+    // (in that case it's null here because we call _minimizeToMiniPlayer).
     _playerCtrl?.dispose();
     _hideControlsTimer?.cancel();
     for (final p in _particles) {
@@ -132,6 +154,34 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   void _onTapPlayer() {
     setState(() => _controlsVisible = !_controlsVisible);
     if (_controlsVisible) _scheduleHideControls();
+  }
+
+  // ── Mini-player minimise ────────────────────────────────────────────────
+
+  void _minimizeToMiniPlayer(LiveRoomState roomState) {
+    final stream = roomState.stream;
+    final hlsUrl = stream?.hlsUrl ?? '';
+    if (hlsUrl.isEmpty && _playerCtrl == null) {
+      // Nothing to show — just navigate back.
+      if (mounted) context.pop();
+      return;
+    }
+
+    final ctrl = _playerCtrl;
+    _playerCtrl = null; // transfer ownership — prevents dispose() from killing it
+    _playerInitialized = false;
+
+    ref.read(miniPlayerProvider.notifier).showLive(
+      streamId: widget.streamId,
+      title: stream?.title ?? 'Live Stream',
+      channelName: stream?.videoChannel?.name,
+      thumbnailUrl: stream?.thumbnailUrl,
+      hlsUrl: hlsUrl,
+      controller: ctrl,
+    );
+
+    WakelockPlus.disable().ignore();
+    if (mounted) context.pop();
   }
 
   // ── Fullscreen ─────────────────────────────────────────────────────────────
@@ -216,41 +266,71 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     LiveSocketService socket,
     ThemeData theme,
   ) {
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: SafeArea(
-        child: roomState.isLoading
-            ? _buildLoading()
-            : roomState.error != null
-            ? _buildError(roomState.error!, theme)
-            : Column(
-                children: [
-                  // ── 16:9 Player ──────────────────────────────────────
-                  _buildPlayerSection(roomState, socket),
+    return PopScope(
+      // Intercept back: minimize instead of leaving.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _minimizeToMiniPlayer(roomState);
+      },
+      child: GestureDetector(
+        // Drag-down on the player area to minimize.
+        onVerticalDragStart: (_) => setState(() {
+          _isDragging = true;
+          _dragOffset = 0;
+        }),
+        onVerticalDragUpdate: (details) {
+          if (!_isDragging) return;
+          setState(() => _dragOffset += details.delta.dy);
+        },
+        onVerticalDragEnd: (_) {
+          if (_dragOffset > _kMiniDragThreshold) {
+            _minimizeToMiniPlayer(roomState);
+          }
+          setState(() {
+            _isDragging = false;
+            _dragOffset = 0;
+          });
+        },
+        child: Transform.translate(
+          offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
+          child: Scaffold(
+            backgroundColor: theme.colorScheme.surface,
+            body: SafeArea(
+              child: roomState.isLoading
+                  ? _buildLoading()
+                  : roomState.error != null
+                  ? _buildError(roomState.error!, theme)
+                  : Column(
+                      children: [
+                        // ── 16:9 Player ──────────────────────────────────────
+                        _buildPlayerSection(roomState, socket),
 
-                  // ── Stream meta ──────────────────────────────────────
-                  _buildStreamMeta(roomState, theme),
+                        // ── Stream meta ──────────────────────────────────────
+                        _buildStreamMeta(roomState, theme),
 
-                  // ── Chat list ────────────────────────────────────────
-                  Expanded(
-                    child:
-                        roomState.stream?.isChatEnabled != false
-                            ? LiveChatWidget(streamId: widget.streamId)
-                            : Center(
-                                child: Text(
-                                  'Chat is disabled for this stream.',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                  ),
+                        // ── Chat list ────────────────────────────────────────
+                        Expanded(
+                          child:
+                              roomState.stream?.isChatEnabled != false
+                                  ? LiveChatWidget(streamId: widget.streamId)
+                                  : Center(
+                                      child: Text(
+                                        'Chat is disabled for this stream.',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                        ),
 
-                  // ── Emoji reaction picker (hidden when keyboard is active) ──
-                  if (MediaQuery.of(context).viewInsets.bottom == 0)
-                    _buildEmojiBar(),
-                ],
-              ),
+                        // ── Emoji reaction picker (hidden when keyboard is active) ──
+                        if (MediaQuery.of(context).viewInsets.bottom == 0)
+                          _buildEmojiBar(),
+                      ],
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -365,7 +445,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               IconButton(
                 onPressed: () {
                   if (_isFullscreen) _toggleFullscreen();
-                  context.pop();
+                  // Minimize to mini player instead of hard-popping.
+                  _minimizeToMiniPlayer(state);
                 },
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
               ),
@@ -582,6 +663,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 if (stream.videoChannel?.name != null)
                   Text(
                     stream.videoChannel!.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -603,20 +686,23 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         dark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100;
     return Container(
       color: bg,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: _kPickerEmojis
-            .map(
-              (e) => GestureDetector(
-                onTap: () => _sendReaction(e),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(e, style: const TextStyle(fontSize: 26)),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: _kPickerEmojis
+              .map(
+                (e) => GestureDetector(
+                  onTap: () => _sendReaction(e),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(e, style: const TextStyle(fontSize: 24)),
+                  ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     );
   }

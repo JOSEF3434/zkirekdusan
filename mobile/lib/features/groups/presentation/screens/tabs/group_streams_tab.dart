@@ -358,35 +358,38 @@ class _StreamCard extends ConsumerWidget {
               const SizedBox(height: 8),
 
               // Action buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (isLive)
-                    FilledButton.icon(
-                      onPressed: () => context.push('/live/room/${stream.id}'),
-                      icon: const Icon(Icons.play_arrow, size: 16),
-                      label: const Text('Watch Live'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53935),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (isLive)
+                      FilledButton.icon(
+                        onPressed: () => context.push('/live/room/${stream.id}'),
+                        icon: const Icon(Icons.play_arrow, size: 16),
+                        label: const Text('Watch Live'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFE53935),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        ),
                       ),
-                    ),
-                  if (isEnded && canManage) ...[
-                    OutlinedButton.icon(
-                      onPressed: () => _publishVod(context, ref),
-                      icon: const Icon(Icons.video_library, size: 16),
-                      label: const Text('Post as Video (VOD)'),
-                    ),
-                    const SizedBox(width: 8),
+                    if (isEnded && canManage) ...[
+                      OutlinedButton.icon(
+                        onPressed: () => _publishVod(context, ref),
+                        icon: const Icon(Icons.video_library, size: 16),
+                        label: const Text('Post as Video (VOD)'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (canManage && !isLive)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: Colors.red,
+                        tooltip: 'Delete Stream',
+                        onPressed: () => _confirmDelete(context, ref),
+                      ),
                   ],
-                  if (canManage && !isLive)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      color: Colors.red,
-                      tooltip: 'Delete Stream',
-                      onPressed: () => _confirmDelete(context, ref),
-                    ),
-                ],
+                ),
               ),
             ],
           ),
@@ -425,7 +428,9 @@ class _StreamCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Stream?'),
-        content: const Text('This will delete this live stream recording.'),
+        content: const Text(
+          'This will permanently delete this stream. This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -443,7 +448,10 @@ class _StreamCard extends ConsumerWidget {
     if (confirm == true && context.mounted) {
       try {
         final repo = ref.read(liveStreamingRepositoryProvider);
-        await repo.deleteStream(stream.id);
+        await repo.deleteStream(
+          stream.id,
+          channelId: stream.videoChannelId,
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Stream deleted')),

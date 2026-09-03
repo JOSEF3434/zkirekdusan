@@ -1,9 +1,9 @@
-// lib/features/player/presentation/video_player_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
@@ -30,6 +30,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   String? _seekFeedback;
   Timer? _seekFeedbackTimer;
 
+  // Mini-player drag state
+  double _dragOffset = 0;
+  bool _isDragging = false;
+  static const _kMiniDragThreshold = 120.0;
+
   void _showSeekFeedback(String text) {
     setState(() {
       _seekFeedback = text;
@@ -40,8 +45,40 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     });
   }
 
+  /// Minimize to mini player: transfer controller ownership and pop.
+  void _minimizeToMiniPlayer(PlayerState state) {
+    final ctrl = state.controller;
+    if (ctrl == null || !ctrl.value.isInitialized) {
+      context.pop();
+      return;
+    }
+
+    final video = state.video;
+    if (video == null) {
+      context.pop();
+      return;
+    }
+
+    // Detach the controller from the provider so it won't be disposed.
+    // The provider is autoDispose — when we pop, it normally disposes the
+    // controller. We prevent this by overriding with keepAlive via listen.
+    ref.read(miniPlayerProvider.notifier).showVideo(
+      videoId: video.id,
+      title: video.title,
+      channelName: video.author.username,
+      thumbnailUrl: video.thumbnailUrl,
+      controller: ctrl,
+    );
+
+    // Null out the controller in provider state before dispose runs.
+    ref.read(playerProvider(widget.videoId).notifier).detachController();
+
+    context.pop();
+  }
+
   @override
   void dispose() {
+    _seekFeedbackTimer?.cancel();
     // Restore orientation when leaving player
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -200,14 +237,39 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       );
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            playerWidget,
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _minimizeToMiniPlayer(state);
+      },
+      child: GestureDetector(
+        onVerticalDragStart: (_) => setState(() {
+          _isDragging = true;
+          _dragOffset = 0;
+        }),
+        onVerticalDragUpdate: (details) {
+          if (!_isDragging) return;
+          setState(() => _dragOffset += details.delta.dy);
+        },
+        onVerticalDragEnd: (_) {
+          if (_dragOffset > _kMiniDragThreshold) {
+            _minimizeToMiniPlayer(state);
+          }
+          setState(() {
+            _isDragging = false;
+            _dragOffset = 0;
+          });
+        },
+        child: Transform.translate(
+          offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
+          child: Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  playerWidget,
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
                 children: [
                   Text(video.title, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 8),
@@ -388,10 +450,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                 video.author.displayName ??
                                     video.author.username ??
                                     'Unknown',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium,
                               ),
                               Text(
                                 video.channelName ?? 'Channel',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
@@ -422,10 +488,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                       child: VideoCard(video: rec),
                     ),
                   ),
-                ],
+                 ],
               ),
             ),
           ],
+        ),
+      ),
+          ),
         ),
       ),
     );
