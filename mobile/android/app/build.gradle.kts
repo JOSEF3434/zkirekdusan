@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -37,13 +35,6 @@ android {
         }
     }
 }
-
-kotlin {
-    compilerOptions {
-        jvmTarget = JvmTarget.JVM_17
-    }
-}
-
 
 flutter {
     source = "../.."

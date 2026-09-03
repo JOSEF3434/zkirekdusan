@@ -123,6 +123,26 @@ export class ConversationsService {
     return conversations.map((conv) => this.mapToDto(conv, userId));
   }
 
+  async getConversationUpdates(
+    userId: string,
+    since?: string,
+  ) {
+    const sinceDate = since ? new Date(since) : new Date(0);
+    const conversations =
+      await this.conversationsRepository.getUserConversations(userId);
+
+    const updated = conversations.filter(
+      (c: any) =>
+        new Date(c.updatedAt) > sinceDate ||
+        (c.lastMessageAt && new Date(c.lastMessageAt) > sinceDate),
+    );
+
+    return {
+      conversations: updated.map((conv: any) => this.mapToDto(conv, userId)),
+      serverTimestamp: new Date().toISOString(),
+    };
+  }
+
   async getConversationById(
     conversationId: string,
     userId: string,

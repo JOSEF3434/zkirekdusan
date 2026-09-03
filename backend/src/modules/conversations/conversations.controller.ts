@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -66,6 +67,23 @@ export class ConversationsController {
     @CurrentUser('sub') userId: string,
   ): Promise<ConversationResponseDto[]> {
     return this.conversationsService.getUserConversations(userId);
+  }
+
+  @Get('updates')
+  @ApiOperation({
+    summary: 'Delta sync: Get conversations updated since a given timestamp',
+  })
+  @ApiQuery({
+    name: 'since',
+    required: false,
+    description: 'ISO-8601 timestamp',
+  })
+  @ApiResponse({ status: 200 })
+  async getUpdates(
+    @CurrentUser('sub') userId: string,
+    @Query('since') since?: string,
+  ) {
+    return this.conversationsService.getConversationUpdates(userId, since);
   }
 
   @Get(':conversationId')

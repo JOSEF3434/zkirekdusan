@@ -1077,6 +1077,7 @@ model Message {
   conversationId String
   channelId      String?
   senderId       String
+  clientId       String?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   channel      Channel?     @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -1114,6 +1115,8 @@ model Message {
   @@index([conversationId, createdAt(sort: Desc)])
   @@index([conversationId, deletedForEveryoneAt])
   @@index([replyToId])
+  @@index([clientId])
+  @@index([senderId, clientId])
   @@map("messages")
 }
 

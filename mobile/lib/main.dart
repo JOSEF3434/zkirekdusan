@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,17 +8,20 @@ import 'package:mobile/firebase_options.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/env/env.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
+import 'package:mobile/core/providers/database_provider.dart';
+import 'package:mobile/core/sync/background_sync_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize environment variables
+  // 1. Initialize environment variables
   await Env.init();
 
-  // Initialize Firebase safely
+  // 2. Initialize Firebase safely
   try {
     if (kIsWeb ||
         defaultTargetPlatform == TargetPlatform.android ||
@@ -41,16 +45,25 @@ void main() async {
     debugPrint('[Firebase] Initialization error: $e');
   }
 
-  // Initialize SharedPreferences
+  // 3. Initialize SQLite local database (offline-first foundation)
+  final appDatabase = AppDatabase();
+
+  // 4. Initialize Background Sync Service
+  if (!kIsWeb) {
+    await BackgroundSyncService.initialize();
+  }
+
+  // 5. Initialize SharedPreferences
   final sharedPrefs = await SharedPreferences.getInstance();
 
-  // Initialize Localization
+  // 6. Initialize Localization
   final localizationService = LocalizationService();
   await localizationService.init();
 
   runApp(
     ProviderScope(
       overrides: [
+        appDatabaseProvider.overrideWithValue(appDatabase),
         sharedPreferencesProvider.overrideWithValue(sharedPrefs),
         localizationServiceProvider.overrideWithValue(localizationService),
       ],

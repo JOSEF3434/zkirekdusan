@@ -93,11 +93,26 @@ export class MessagesRepository {
     dto: SendMessageDto,
     channelId?: string,
   ) {
+    if (dto.clientId) {
+      // Idempotency check: if message with this clientId from this sender already exists, return it
+      const existing = await this.prisma.message.findFirst({
+        where: {
+          senderId,
+          clientId: dto.clientId,
+        },
+        include: MESSAGE_INCLUDE,
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     return this.prisma.message.create({
       data: {
         conversationId,
         senderId,
         channelId: channelId ?? null,
+        clientId: dto.clientId ?? null,
         content: dto.content,
         type: dto.type,
         replyToId: dto.replyToId ?? null,
@@ -357,5 +372,39 @@ export class MessagesRepository {
       _sum: { unreadCount: true },
     });
     return result._sum.unreadCount ?? 0;
+  }
+
+  async getUpdatesSince(
+    conversationId: string,
+    since: Date,
+    limit = 100,
+  ) {
+    const activeMessages = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        updatedAt: { gt: since },
+        deletedForEveryoneAt: null,
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: limit,
+      include: MESSAGE_INCLUDE,
+    });
+
+    const deletedMessages = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        deletedForEveryoneAt: { gt: since },
+      },
+      select: {
+        id: true,
+        deletedForEveryoneAt: true,
+      },
+      take: limit,
+    });
+
+    return {
+      messages: activeMessages,
+      deletedIds: deletedMessages.map((m) => m.id),
+    };
   }
 }

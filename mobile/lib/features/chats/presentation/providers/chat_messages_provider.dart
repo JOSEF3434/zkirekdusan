@@ -42,12 +42,18 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
   Future<void> loadMessages() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final result = await _repository.getMessages(conversationId: conversationId);
       _nextCursor = result.nextCursor;
       _hasMore = result.hasMore;
-      return result.data.reversed.toList(); // Reverse to show oldest first
-    });
+      state = AsyncValue.data(result.data.reversed.toList());
+    } catch (e, st) {
+      if (state.value != null && state.value!.isNotEmpty) {
+        // Keep cached state
+      } else {
+        state = AsyncValue.error(e, st);
+      }
+    }
   }
 
   Future<void> loadMoreMessages() async {

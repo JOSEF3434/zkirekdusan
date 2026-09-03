@@ -300,4 +300,37 @@ export class MessagesService {
       updatedAt: message.updatedAt,
     };
   }
+
+  async getMessageUpdates(
+    conversationId: string,
+    userId: string,
+    since?: string,
+    limit = 100,
+  ) {
+    const conversation =
+      await this.conversationsRepository.findById(conversationId);
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+    const isMember = conversation.members.some(
+      (m: any) => m.userId === userId,
+    );
+    if (!isMember) {
+      throw new ForbiddenException('You are not a member of this conversation');
+    }
+
+    const sinceDate = since ? new Date(since) : new Date(0);
+    const { messages, deletedIds } =
+      await this.messagesRepository.getUpdatesSince(
+        conversationId,
+        sinceDate,
+        limit,
+      );
+
+    return {
+      messages: messages.map((m: any) => this.mapToDto(m)),
+      deletedIds,
+      serverTimestamp: new Date().toISOString(),
+    };
+  }
 }

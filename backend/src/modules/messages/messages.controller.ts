@@ -66,6 +66,31 @@ export class MessagesController {
     );
   }
 
+  @Get('conversations/:conversationId/messages/updates')
+  @ApiOperation({
+    summary:
+      'Delta sync: Get new, updated, and deleted messages since a given timestamp',
+  })
+  @ApiQuery({
+    name: 'since',
+    required: false,
+    description: 'ISO-8601 timestamp',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getMessageUpdates(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('sub') userId: string,
+    @Query('since') since?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.messagesService.getMessageUpdates(
+      conversationId,
+      userId,
+      since,
+      limit ? Number(limit) : 100,
+    );
+  }
+
   // ── Pinned messages ────────────────────────────────────────────────────────
 
   @Get('conversations/:conversationId/messages/pinned')

@@ -186,17 +186,23 @@ class ChatRemoteDatasource {
     String? replyToId,
     List<String>? attachmentIds,
     String type = 'TEXT',
+    String? clientId,
   }) async {
     try {
+      final Map<String, dynamic> body = {
+        'type': type,
+      };
+      if (content != null) body['content'] = content;
+      if (replyToId != null) body['replyToId'] = replyToId;
+      if (attachmentIds != null && attachmentIds.isNotEmpty) {
+        body['attachmentIds'] = attachmentIds;
+        body['fileIds'] = attachmentIds;
+      }
+      if (clientId != null) body['clientId'] = clientId;
+
       final response = await _apiClient.post(
         '/conversations/$conversationId/messages',
-        data: {
-          'content': ?content,
-          'type': type,
-          'replyToId': ?replyToId,
-          if (attachmentIds != null && attachmentIds.isNotEmpty)
-            'attachmentIds': attachmentIds,
-        },
+        data: body,
       );
       final data = parseEnvelope(response.data);
       return MessageModel.fromJson(data);

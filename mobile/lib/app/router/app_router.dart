@@ -26,6 +26,7 @@ import 'package:mobile/features/settings/presentation/content_settings_screen.da
 import 'package:mobile/features/settings/presentation/downloads_settings_screen.dart';
 import 'package:mobile/features/settings/presentation/data_usage_settings_screen.dart';
 import 'package:mobile/features/settings/presentation/cache_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/storage_settings_screen.dart';
 import 'package:mobile/features/library/presentation/watch_history_screen.dart';
 import 'package:mobile/features/library/presentation/downloads_screen.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
@@ -432,6 +433,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'cache',
             builder: (context, state) => const CacheSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'storage',
+            builder: (context, state) => const StorageSettingsScreen(),
           ),
           GoRoute(
             path: 'admin',

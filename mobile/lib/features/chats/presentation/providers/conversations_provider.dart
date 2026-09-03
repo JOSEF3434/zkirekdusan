@@ -60,9 +60,28 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _loadDiscovery() async {
-    state = await AsyncValue.guard(() async {
+    // 1. Immediately hydrate state with local cached conversations if available
+    try {
+      final cached = await _repository.getUserConversations();
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(
+          ChatDiscoveryModel(
+            conversations: cached,
+          ),
+        );
+      }
+    } catch (_) {}
+
+    // 2. Refresh from server in background if available
+    final result = await AsyncValue.guard(() async {
       return await _repository.getChatDiscovery();
     });
+
+    if (result.hasValue) {
+      state = result;
+    } else if (state.value == null) {
+      state = result;
+    }
   }
 
   Future<void> refreshDiscovery() async {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/presentation/widgets/mini_player_overlay.dart';
+import 'package:mobile/core/presentation/widgets/offline_status_banner.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:mobile/core/storage/download_service.dart';
@@ -251,7 +252,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: widget.navigationShell),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const OfflineStatusBanner(),
+                      Expanded(child: widget.navigationShell),
+                    ],
+                  ),
+                ),
               ],
             ),
             // ── Mini player overlay (floats above all shell content) ──
@@ -269,7 +277,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: Stack(
         children: [
-          widget.navigationShell,
+          Column(
+            children: [
+              const OfflineStatusBanner(),
+              Expanded(child: widget.navigationShell),
+            ],
+          ),
           // ── Mini player overlay (floats above nav bar) ──
           const Positioned(
             left: 0,

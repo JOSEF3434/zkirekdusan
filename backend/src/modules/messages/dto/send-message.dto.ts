@@ -47,4 +47,9 @@ export class SendMessageDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   mentionedUserIds?: string[];
+
+  @ApiPropertyOptional({ description: 'Client-generated UUID for idempotency and offline sync reconciliation' })
+  @IsOptional()
+  @IsString()
+  clientId?: string;
 }

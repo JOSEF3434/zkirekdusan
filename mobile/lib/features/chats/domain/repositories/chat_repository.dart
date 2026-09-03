@@ -36,6 +36,7 @@ abstract class ChatRepository {
     String? replyToId,
     List<String>? attachmentIds,
     String type = 'TEXT',
+    String? clientId,
   });
   
   Future<MessageModel> editMessage({
