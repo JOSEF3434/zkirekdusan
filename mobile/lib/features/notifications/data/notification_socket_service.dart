@@ -23,6 +23,8 @@ final notificationSocketServiceProvider = Provider<NotificationSocketService>((
 class NotificationSocketService {
   io.Socket? _socket;
   Timer? _reconnectTimer;
+  Future<void>? _connectFuture;
+  bool _shouldReconnect = true;
   int _reconnectAttempts = 0;
   static const _maxReconnectAttempts = 10;
   static const _baseBackoffMs = 1000;
@@ -36,11 +38,26 @@ class NotificationSocketService {
 
   /// Call after authentication — connects to /notifications namespace.
   Future<void> connect() async {
+    _shouldReconnect = true;
     if (_socket != null && _socket!.connected) return;
+    if (_connectFuture != null) return _connectFuture!;
+
+    final future = _connectInternal();
+    _connectFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_connectFuture, future)) {
+        _connectFuture = null;
+      }
+    }
+  }
+
+  Future<void> _connectInternal() async {
 
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'access_token');
-    if (token == null) {
+    if (token == null || !_shouldReconnect) {
       debugPrint('[NotificationSocket] No token — skipping connection');
       return;
     }
@@ -112,6 +129,7 @@ class NotificationSocketService {
   }
 
   void _scheduleReconnect() {
+    if (!_shouldReconnect) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint('[NotificationSocket] Max reconnect attempts reached');
       return;
@@ -130,6 +148,7 @@ class NotificationSocketService {
 
   /// Disconnect cleanly — called on logout or app dispose.
   void disconnect() {
+    _shouldReconnect = false;
     _reconnectTimer?.cancel();
     _socket?.disconnect();
     _socket?.dispose();

@@ -17,13 +17,21 @@ import 'package:mobile/features/library/presentation/library_screen.dart';
 import 'package:mobile/features/library/presentation/continue_watching_screen.dart';
 import 'package:mobile/features/settings/presentation/settings_screen.dart';
 import 'package:mobile/features/settings/presentation/playback_preferences_screen.dart';
+import 'package:mobile/features/settings/presentation/preferences_settings_screens.dart';
+import 'package:mobile/features/settings/presentation/admin_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/security_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/privacy_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/notification_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/content_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/downloads_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/data_usage_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/cache_settings_screen.dart';
 import 'package:mobile/features/library/presentation/watch_history_screen.dart';
 import 'package:mobile/features/library/presentation/downloads_screen.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
 import 'package:mobile/features/library/presentation/liked_videos_screen.dart';
 import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
-import 'package:mobile/features/settings/presentation/preferences_settings_screens.dart';
-import 'package:mobile/features/settings/presentation/admin_settings_screen.dart';
+
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
@@ -396,6 +404,34 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'playback',
             builder: (context, state) => const PlaybackPreferencesScreen(),
+          ),
+          GoRoute(
+            path: 'security',
+            builder: (context, state) => const SecuritySettingsScreen(),
+          ),
+          GoRoute(
+            path: 'privacy',
+            builder: (context, state) => const PrivacySettingsScreen(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'content',
+            builder: (context, state) => const ContentSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'downloads',
+            builder: (context, state) => const DownloadsSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'data-usage',
+            builder: (context, state) => const DataUsageSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'cache',
+            builder: (context, state) => const CacheSettingsScreen(),
           ),
           GoRoute(
             path: 'admin',

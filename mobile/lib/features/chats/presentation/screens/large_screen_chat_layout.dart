@@ -336,8 +336,8 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded, size: 23),
-            tooltip: 'Search',
-            onPressed: () => context.push('/chats/search'),
+            tooltip: 'Global Search',
+            onPressed: () => context.push('/search'),
           ),
           IconButton(
             icon: const Icon(Icons.edit_square, size: 21),

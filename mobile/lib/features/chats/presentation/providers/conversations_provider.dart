@@ -16,11 +16,13 @@ final chatDiscoveryProvider =
     >((ref) {
       final repository = ref.watch(chatRepositoryProvider);
       final socketService = ref.watch(messagingSocketServiceProvider);
-      final authState = ref.watch(authProvider);
+      final currentUserId = ref.watch(
+        authProvider.select((auth) => auth.user?.id),
+      );
       return ChatDiscoveryNotifier(
         repository,
         socketService,
-        authState.user?.id,
+        currentUserId,
       );
     });
 
@@ -31,6 +33,7 @@ class ChatDiscoveryNotifier
   final String? _currentUserId;
   StreamSubscription? _messageSubscription;
   Timer? _refreshTimer;
+  Future<void>? _discoveryRequest;
 
   ChatDiscoveryNotifier(
     this._repository,
@@ -43,14 +46,40 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> loadDiscovery() async {
+    if (_discoveryRequest != null) return _discoveryRequest!;
     state = const AsyncValue.loading();
+    final request = _loadDiscovery();
+    _discoveryRequest = request;
+    try {
+      await request;
+    } finally {
+      if (identical(_discoveryRequest, request)) {
+        _discoveryRequest = null;
+      }
+    }
+  }
+
+  Future<void> _loadDiscovery() async {
     state = await AsyncValue.guard(() async {
       return await _repository.getChatDiscovery();
     });
   }
 
   Future<void> refreshDiscovery() async {
+    if (_discoveryRequest != null) return _discoveryRequest!;
     final prev = state.value;
+    final request = _refreshDiscovery(prev);
+    _discoveryRequest = request;
+    try {
+      await request;
+    } finally {
+      if (identical(_discoveryRequest, request)) {
+        _discoveryRequest = null;
+      }
+    }
+  }
+
+  Future<void> _refreshDiscovery(ChatDiscoveryModel? prev) async {
     final result = await AsyncValue.guard(() async {
       return await _repository.getChatDiscovery();
     });

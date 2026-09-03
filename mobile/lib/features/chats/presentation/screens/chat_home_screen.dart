@@ -12,7 +12,7 @@ import 'package:mobile/features/chats/presentation/widgets/conversation_list_til
 import 'package:mobile/features/chats/presentation/widgets/new_chat_sheet.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
-import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
+import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 
 class ChatHomeScreen extends ConsumerStatefulWidget {
   const ChatHomeScreen({super.key});
@@ -92,28 +92,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     final filter = ref.watch(conversationFilterProvider);
     final unreadCount =
         ref.watch(chatDiscoveryProvider.notifier).getTotalUnreadCount();
-    final storyFeedAsync = ref.watch(storyFeedProvider);
-    final currentUserId = ref.watch(authProvider).user?.id;
     final profile = ref.watch(profileProvider).profile;
     final authUser = ref.watch(authProvider).user;
     final userName = profile?.displayName ?? authUser?.username ?? 'You';
     final userAvatar = profile?.avatarUrl;
 
-    // Story-only contacts strip: only users who have active stories
-    final activeContacts = <Map<String, dynamic>>[];
-    storyFeedAsync.whenData((groups) {
-      for (final g in groups) {
-        if (g.owner.id != currentUserId && g.stories.isNotEmpty) {
-          activeContacts.add({
-            'id': g.owner.id,
-            'name': g.owner.displayName ?? g.owner.username ?? 'User',
-            'avatarUrl': g.owner.avatarUrl,
-            'hasStory': true,
-            'storyGroup': g,
-          });
-        }
-      }
-    });
+
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.white,
@@ -170,8 +154,8 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded, size: 24),
-            tooltip: 'Search',
-            onPressed: () => context.push('/chats/search'),
+            tooltip: 'Global Search',
+            onPressed: () => context.push('/search'),
           ),
           IconButton(
             icon: const Icon(Icons.edit_square, size: 22),
@@ -202,23 +186,25 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
             parent: BouncingScrollPhysics(),
           ),
           slivers: [
-            // Active Contacts & Stories Carousel Strip (Screenshot 1 top bar)
-            SliverToBoxAdapter(
-              child: _buildActiveContactsStrip(
-                activeContacts,
-                storyFeedAsync.value ?? [],
-                isDark,
-              ),
+            // Stories Section (Matches Screenshot 2: Your Story + Friends with stories or Empty State)
+            const SliverToBoxAdapter(
+              child: StorySection(),
             ),
 
-            // Search Bar Input (Screenshot 1 Search bar)
+            // Search Bar Input (Search only in chat page and its messages)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                 child: ChatSearchBar(
                   controller: _searchController,
-                  readOnly: true,
-                  onTap: () => context.push('/chats/search'),
+                  hintText: 'Search chats and messages...',
+                  readOnly: false,
+                  onChanged: (val) => setState(() {}),
+                  onClear: () {
+                    setState(() {
+                      _searchController.clear();
+                    });
+                  },
                 ),
               ),
             ),
@@ -289,10 +275,22 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
               ),
             ),
 
-            // Chat Items List (Sorted newest first)
+            // Chat Items List (Filtered by search query, newest first)
             chatItemsAsync.when(
               data: (items) {
-                if (items.isEmpty) {
+                final query = _searchController.text.trim().toLowerCase();
+                final displayItems = query.isEmpty
+                    ? items
+                    : items.where((item) {
+                        final titleMatch =
+                            item.title.toLowerCase().contains(query);
+                        final subtitleMatch =
+                            item.subtitle?.toLowerCase().contains(query) ??
+                                false;
+                        return titleMatch || subtitleMatch;
+                      }).toList();
+
+                if (displayItems.isEmpty) {
                   return SliverFillRemaining(
                     child: Center(
                       child: Padding(
@@ -308,17 +306,21 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                                 color: const Color(0xFF00C6FF)
                                     .withValues(alpha: 0.1),
                               ),
-                              child: const Icon(
-                                Icons.chat_bubble_outline_rounded,
+                              child: Icon(
+                                query.isNotEmpty
+                                    ? Icons.search_off_rounded
+                                    : Icons.chat_bubble_outline_rounded,
                                 size: 40,
-                                color: Color(0xFF00C6FF),
+                                color: const Color(0xFF00C6FF),
                               ),
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              filter == 'all'
-                                  ? 'No chats found'
-                                  : 'No $filter chats',
+                              query.isNotEmpty
+                                  ? 'No chats or messages found'
+                                  : (filter == 'all'
+                                      ? 'No chats found'
+                                      : 'No $filter chats'),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -327,30 +329,53 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Start chatting with public groups or users',
+                              query.isNotEmpty
+                                  ? 'Try searching for another keyword in chats'
+                                  : 'Start chatting with public groups or users',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[500],
                               ),
                             ),
                             const SizedBox(height: 18),
-                            ElevatedButton.icon(
-                              onPressed: () => NewChatSheet.show(context),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Start New Chat'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C6FF),
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
+                            if (query.isNotEmpty)
+                              ElevatedButton.icon(
+                                onPressed: () => context.push('/chats/search'),
+                                icon: const Icon(Icons.travel_explore_rounded,
+                                    size: 18),
+                                label:
+                                    const Text('Search in Messages Database'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00C6FF),
+                                  foregroundColor: Colors.black,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
+                              )
+                            else
+                              ElevatedButton.icon(
+                                onPressed: () => NewChatSheet.show(context),
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text('Start New Chat'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00C6FF),
+                                  foregroundColor: Colors.black,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -361,7 +386,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final item = items[index];
+                      final item = displayItems[index];
                       return UnifiedChatListTile(
                         item: item,
                         onTap: () => _handleItemTap(item),
@@ -371,7 +396,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             : null,
                       );
                     },
-                    childCount: items.length,
+                    childCount: displayItems.length,
                   ),
                 );
               },
@@ -434,162 +459,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     );
   }
 
-  Widget _buildActiveContactsStrip(
-    List<Map<String, dynamic>> contacts,
-    List storyGroups,
-    bool isDark,
-  ) {
-    return Container(
-      height: 98,
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: 1 + contacts.length,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // "New Chat" button
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: InkWell(
-                onTap: () => NewChatSheet.show(context),
-                borderRadius: BorderRadius.circular(30),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? const Color(0xFF1E2638)
-                            : Colors.grey[200],
-                        border: Border.all(
-                          color:
-                              const Color(0xFF00C6FF).withValues(alpha: 0.4),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Color(0xFF00C6FF),
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'New Chat',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.grey[300] : Colors.grey[800],
-                      ),
-                      maxLines: 1,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
 
-          final contact = contacts[index - 1];
-          final userId = contact['id'] as String;
-          final name = contact['name'] as String? ?? 'User';
-          final avatarUrl = contact['avatarUrl'] as String?;
-          final hasStory = contact['hasStory'] as bool? ?? false;
-          final storyGroup = contact['storyGroup'];
-
-          // Colored circular rings (like Screenshot 1: Emu, Addisu, Mamee, Haym, Hana)
-          final ringColors = [
-            const Color(0xFF00C6FF),
-            const Color(0xFF10B981),
-            const Color(0xFFFF5252),
-            const Color(0xFFFFB300),
-            const Color(0xFF7C4DFF),
-            const Color(0xFF00E5FF),
-          ];
-          final ringColor = ringColors[name.hashCode.abs() % ringColors.length];
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: InkWell(
-              onTap: () async {
-                if (hasStory &&
-                    storyGroup != null &&
-                    storyGroups.isNotEmpty) {
-                  final groupIdx = storyGroups.indexOf(storyGroup);
-                  context.push(
-                    '/story-viewer',
-                    extra: StoryViewerArgs(
-                      groups: storyGroups.cast(),
-                      initialGroupIndex: groupIdx >= 0 ? groupIdx : 0,
-                    ),
-                  );
-                } else {
-                  final conv = await ref
-                      .read(chatDiscoveryProvider.notifier)
-                      .createOrGetDirectConversation(userId);
-                  if (context.mounted) {
-                    context.push('/chats/conversation/${conv.id}');
-                  }
-                }
-              },
-              borderRadius: BorderRadius.circular(30),
-              child: Column(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: ringColor,
-                        width: 2.2,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(2.5),
-                    child: CircleAvatar(
-                      backgroundColor:
-                          ringColor.withValues(alpha: 0.2),
-                      backgroundImage: avatarUrl != null
-                          ? CachedNetworkImageProvider(avatarUrl)
-                          : null,
-                      child: avatarUrl == null
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                              style: TextStyle(
-                                color: ringColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      name.split(' ').first,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.grey[300] : Colors.grey[800],
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   void _showConversationOptions(BuildContext context, String conversationId) {
     showModalBottomSheet(
@@ -852,3 +722,6 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
+
+
+

@@ -8,6 +8,7 @@ class ChatSearchBar extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onClear;
   final bool readOnly;
+  final String? hintText;
 
   const ChatSearchBar({
     super.key,
@@ -16,6 +17,7 @@ class ChatSearchBar extends StatelessWidget {
     this.onChanged,
     this.onClear,
     this.readOnly = true,
+    this.hintText,
   });
 
   @override
@@ -37,10 +39,10 @@ class ChatSearchBar extends StatelessWidget {
           onChanged: onChanged,
           onTap: onTap,
           decoration: InputDecoration(
-            hintText: 'Search Chats',
+            hintText: hintText ?? 'Search chats and messages',
             hintStyle: TextStyle(
               color: Colors.grey[600],
-              fontSize: 16,
+              fontSize: 15,
             ),
             prefixIcon: Icon(
               Icons.search,
