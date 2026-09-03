@@ -132,18 +132,44 @@ class AuthRemoteDatasource {
   String _parseDioError(DioException e) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
-      final msg = data['message'];
-      if (msg is String) return msg;
-      if (msg is List) return msg.join(', ');
+      final msg = data['error'] ?? data['message'];
+      if (msg is String && msg.isNotEmpty) return msg;
+      if (msg is List && msg.isNotEmpty) return msg.join(', ');
+      final details = data['details'];
+      if (details is String && details.isNotEmpty) return details;
+      if (details is List && details.isNotEmpty) return details.join(', ');
+    }
+    final status = e.response?.statusCode;
+    if (status == 401) {
+      return 'Invalid credentials';
+    }
+    if (status == 403) {
+      return 'Access forbidden. Please check your permissions.';
+    }
+    if (status == 404) {
+      return 'Account or resource not found.';
+    }
+    if (status == 409) {
+      return 'An account with this email, phone, or username already exists.';
+    }
+    if (status == 422) {
+      return 'Validation failed. Please check the information provided.';
+    }
+    if (status == 429) {
+      return 'Too many attempts. Please try again in a few minutes.';
+    }
+    if (status != null && status >= 500) {
+      return 'Server is temporarily unavailable. Please try again later.';
     }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
         return 'Connection timed out. Check your internet connection.';
       case DioExceptionType.connectionError:
-        return 'Could not connect to the server.';
+        return 'Could not connect to the server. Please check your connection.';
       default:
-        return 'An unexpected error occurred.';
+        return 'Authentication failed. Please try again.';
     }
   }
 

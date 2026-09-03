@@ -33,15 +33,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final identifier = _identifierCtrl.text.trim();
     final password = _passwordCtrl.text;
 
-    // Detect identifier type: email, phone (+), or username
+    // Detect identifier type: email, phone, or username
     String? email;
     String? phone;
     String? username;
 
+    final cleanDigits = identifier.replaceAll(RegExp(r'[\s\-]'), '');
+    final isPhone = (identifier.startsWith('+') ||
+            RegExp(r'^[0-9]{7,15}$').hasMatch(cleanDigits)) &&
+        !identifier.contains(RegExp(r'[a-zA-Z]'));
+
     if (identifier.contains('@')) {
       email = identifier;
-    } else if (identifier.startsWith('+')) {
-      phone = identifier;
+    } else if (isPhone) {
+      phone = cleanDigits;
     } else {
       username = identifier;
     }
@@ -125,23 +130,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     // Error banner
                     if (authState.error != null) ...[
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: cs.errorContainer,
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: cs.error.withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.error_outline,
+                              Icons.error_outline_rounded,
                               color: cs.error,
-                              size: 18,
+                              size: 20,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 authState.error!,
-                                style: TextStyle(color: cs.error),
+                                style: TextStyle(
+                                  color: cs.onErrorContainer,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],

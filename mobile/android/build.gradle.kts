@@ -26,6 +26,15 @@ subprojects {
     }
 }
 
+subprojects {
+    pluginManager.withPlugin("com.android.library") {
+        project.dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.2.0")
+    }
+    pluginManager.withPlugin("com.android.application") {
+        project.dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.2.0")
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

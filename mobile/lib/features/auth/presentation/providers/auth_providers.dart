@@ -2,6 +2,7 @@
 // Riverpod providers for auth feature
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -111,10 +112,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
+      String errorMessage;
+      if (e is AppException) {
+        final raw = e.message;
+        final rawLower = raw.toLowerCase();
+        final isAuthFailure = e.code == '401' ||
+            rawLower.contains('invalid credentials') ||
+            rawLower.contains('unauthorized') ||
+            rawLower.contains('authentication failed') ||
+            rawLower.contains('unexpected error');
+
+        if (isAuthFailure) {
+          if (email != null && email.isNotEmpty) {
+            errorMessage = 'Incorrect email or password. Please check and try again.';
+          } else if (phoneNumber != null && phoneNumber.isNotEmpty) {
+            errorMessage = 'Incorrect phone number or password. Please check and try again.';
+          } else if (username != null && username.isNotEmpty) {
+            errorMessage = 'Incorrect username or password. Please check and try again.';
+          } else {
+            errorMessage = 'Incorrect login credentials or password. Please try again.';
+          }
+        } else {
+          errorMessage = raw;
+        }
+      } else {
+        errorMessage = e
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('AppException: ', '');
+      }
+
       state = state.copyWith(
         isLoading: false,
         status: AuthStatus.unauthenticated,
-        error: e.toString().replaceFirst('AppException: ', ''),
+        error: errorMessage,
       );
     }
   }
@@ -139,10 +170,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
+      final errorMessage = e is AppException
+          ? e.message
+          : e
+              .toString()
+              .replaceFirst('Exception: ', '')
+              .replaceFirst('AppException: ', '');
       state = state.copyWith(
         isLoading: false,
         status: AuthStatus.unauthenticated,
-        error: e.toString().replaceFirst('AppException: ', ''),
+        error: errorMessage,
       );
     }
   }
