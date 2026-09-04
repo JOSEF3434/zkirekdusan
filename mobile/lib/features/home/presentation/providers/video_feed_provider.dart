@@ -88,7 +88,10 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
   Future<VideoFeedState> _fetchInitial(VideoFeedCategory category) async {
     final repo = ref.read(videoRepositoryProvider);
     final feedRepo = ref.read(feedRepositoryProvider);
-    VideoListResponseDto response;
+    VideoListResponseDto response = const VideoListResponseDto(
+      data: [],
+      meta: FeedMetaDto.empty(),
+    );
 
     if (category == VideoFeedCategory.recommended) {
       try {
@@ -106,14 +109,15 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
             meta: feedResponse.meta,
           );
         } else {
-          // If recommendation feed is empty, fallback to latest published videos
+          // Fall back to latest videos so feed is never empty when user has 0 recommendations
           response = await repo.getLatestVideos(
             page: 1,
             limit: 10,
             cancelToken: _cancelToken,
           );
         }
-      } catch (_) {
+      } catch (e) {
+        // Network/parsing error: fall back to local cached latest videos
         try {
           response = await repo.getLatestVideos(
             page: 1,
@@ -121,11 +125,7 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
             cancelToken: _cancelToken,
           );
         } catch (_) {
-          response = await repo.searchVideos(
-            page: 1,
-            limit: 10,
-            cancelToken: _cancelToken,
-          );
+          // Keep safe empty default
         }
       }
     } else if (category == VideoFeedCategory.latest) {
@@ -179,15 +179,21 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    // Don't set loading — keep existing videos visible during background refresh
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
     try {
-      final newState = await _fetchInitial(_currentCategory);
+      final newState = await _fetchInitial(_currentCategory)
+          .timeout(const Duration(seconds: 15));
       state = AsyncValue.data(newState);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous != null) {
+        state = AsyncValue.data(previous.copyWith(error: e.toString()));
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
@@ -205,7 +211,10 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
       final feedRepo = ref.read(feedRepositoryProvider);
       final nextPage = (currentState.meta?.page ?? 0) + 1;
 
-      VideoListResponseDto response;
+      VideoListResponseDto response = const VideoListResponseDto(
+        data: [],
+        meta: FeedMetaDto.empty(),
+      );
       if (_currentCategory == VideoFeedCategory.recommended) {
         try {
           final feedResponse = await feedRepo.getRecommendations(
@@ -216,19 +225,11 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
           final videos = feedResponse.data
               .map((p) => p.toVideoResponseDto())
               .toList();
-          if (videos.isNotEmpty) {
-            response = VideoListResponseDto(
-              data: videos,
-              meta: feedResponse.meta,
-            );
-          } else {
-            response = await repo.getLatestVideos(
-              page: nextPage,
-              limit: 10,
-              cancelToken: _cancelToken,
-            );
-          }
-        } catch (_) {
+          response = VideoListResponseDto(
+            data: videos,
+            meta: feedResponse.meta,
+          );
+        } catch (e) {
           try {
             response = await repo.getLatestVideos(
               page: nextPage,
@@ -236,11 +237,7 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
               cancelToken: _cancelToken,
             );
           } catch (_) {
-            response = await repo.searchVideos(
-              page: nextPage,
-              limit: 10,
-              cancelToken: _cancelToken,
-            );
+            // Keep safe empty default
           }
         }
       } else if (_currentCategory == VideoFeedCategory.latest ||

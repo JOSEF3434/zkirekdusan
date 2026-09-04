@@ -13,8 +13,8 @@ final apiClientProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 60),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -223,7 +223,21 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
 
   // Normalise: extract meta
   final rawMeta = dataMap['meta'] ?? dataMap['pagination'];
-  final meta = _tryAsMap(rawMeta) ?? {};
+  Map<String, dynamic> meta = _tryAsMap(rawMeta) ?? {};
+  if (meta.isEmpty) {
+    if (dataMap.containsKey('page') ||
+        dataMap.containsKey('limit') ||
+        dataMap.containsKey('total')) {
+      meta = {
+        'page': dataMap['page'] ?? 1,
+        'limit': dataMap['limit'] ?? (items.isNotEmpty ? items.length : 20),
+        'total': dataMap['total'] ?? items.length,
+        'totalPages': dataMap['totalPages'] ?? (items.isNotEmpty ? 1 : 0),
+        'hasNext': dataMap['hasNext'] ?? false,
+        'hasPrev': dataMap['hasPrev'] ?? false,
+      };
+    }
+  }
 
   return {'data': items, 'meta': meta};
 }

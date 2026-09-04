@@ -33,17 +33,88 @@ class ChatRepositoryImpl implements ChatRepository {
   // ══════════════════════════════════════════════════════════════
 
   @override
+  Future<List<ConversationModel>> getCachedConversations() async {
+    try {
+      final cached = await _db.conversationsDao.getConversations();
+      return cached.map(_companionToConversation).toList();
+    } catch (e) {
+      debugPrint('[ChatRepo] getCachedConversations error: $e');
+      return [];
+    }
+  }
+
+  @override
   Future<ChatDiscoveryModel> getChatDiscovery() async {
     final isOnline = _ref.read(connectivityProvider).isOnline;
     if (isOnline) {
       try {
-        return await _remoteDatasource.getChatDiscovery();
+        final discovery = await _remoteDatasource
+            .getChatDiscovery()
+            .timeout(const Duration(seconds: 15));
+
+        // Persist remote conversations into local database
+        if (discovery.conversations.isNotEmpty) {
+          final companions =
+              discovery.conversations.map(_conversationToCompanion).toList();
+          await _db.conversationsDao.upsertConversations(companions);
+        }
+
+        // Persist remote users into local database
+        if (discovery.allUsers.isNotEmpty) {
+          final localUsers = discovery.allUsers.map((u) {
+            return LocalUserData(
+              id: u.id,
+              username: u.username,
+              displayName: u.displayName,
+              avatarUrl: u.avatarUrl,
+              bio: u.bio,
+              updatedAt: DateTime.now(),
+            );
+          }).toList();
+          await _db.usersDao.saveUsers(localUsers);
+        }
+
+        // If remote discovery conversations are empty, merge with cached conversations
+        var finalConversations = discovery.conversations;
+        if (finalConversations.isEmpty) {
+          final cached = await getCachedConversations();
+          if (cached.isNotEmpty) {
+            finalConversations = cached;
+          }
+        }
+
+        return ChatDiscoveryModel(
+          conversations: finalConversations,
+          publicGroups: discovery.publicGroups,
+          myPrivateGroups: discovery.myPrivateGroups,
+          allUsers: discovery.allUsers,
+        );
       } catch (e) {
         debugPrint('[ChatRepo] Remote discovery error: $e');
       }
     }
-    // Fallback: return empty discovery when offline
-    return const ChatDiscoveryModel();
+
+    // Fallback: return cached conversations and users from Drift when offline or network fails
+    final cached = await getCachedConversations();
+    List<ChatUserItem> cachedUsers = [];
+    try {
+      final userRows = await _db.usersDao.getAllUsers();
+      cachedUsers = userRows.map((u) {
+        return ChatUserItem(
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName ?? u.username ?? 'User',
+          avatarUrl: u.avatarUrl,
+          bio: u.bio,
+          createdAt: u.updatedAt ?? DateTime.now(),
+        );
+      }).toList();
+    } catch (_) {}
+
+    return ChatDiscoveryModel(
+      conversations: cached,
+      allUsers: cachedUsers,
+    );
   }
 
   @override
@@ -52,19 +123,21 @@ class ChatRepositoryImpl implements ChatRepository {
 
     if (isOnline) {
       try {
-        final remoteList = await _remoteDatasource.getUserConversations();
+        final remoteList = await _remoteDatasource
+            .getUserConversations()
+            .timeout(const Duration(seconds: 15));
         // Persist to local database
         final companions = remoteList.map(_conversationToCompanion).toList();
         await _db.conversationsDao.upsertConversations(companions);
         return remoteList;
       } catch (e) {
-        debugPrint('[ChatRepo] Remote conversations fetch failed: $e, falling back to cache');
+        debugPrint(
+            '[ChatRepo] Remote conversations fetch failed: $e, falling back to cache');
       }
     }
 
     // Load from local Drift database
-    final cached = await _db.conversationsDao.getConversations();
-    return cached.map(_companionToConversation).toList();
+    return await getCachedConversations();
   }
 
   @override

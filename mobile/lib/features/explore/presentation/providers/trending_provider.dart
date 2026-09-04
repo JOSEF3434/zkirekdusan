@@ -53,18 +53,25 @@ class TrendingNotifier extends AsyncNotifier<TrendingState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    // Don't set loading — keep existing trending list visible during background refresh
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
     try {
       final repo = ref.read(exploreRepositoryProvider);
-      final response = await repo.getTrendingVideos(cancelToken: _cancelToken);
+      final response = await repo
+          .getTrendingVideos(cancelToken: _cancelToken)
+          .timeout(const Duration(seconds: 15));
       state = AsyncValue.data(
         TrendingState(videos: response.data, meta: response.meta),
       );
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous != null) {
+        state = AsyncValue.data(previous.copyWith(error: e.toString()));
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

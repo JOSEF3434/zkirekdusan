@@ -6,6 +6,7 @@ abstract class ChatRepository {
   // Conversations & Discovery
   Future<ChatDiscoveryModel> getChatDiscovery();
   Future<List<ConversationModel>> getUserConversations();
+  Future<List<ConversationModel>> getCachedConversations();
   Future<ConversationModel> getConversationById(String conversationId);
   Future<ConversationModel> createDirectConversation(String recipientId);
   Future<ConversationModel> createOrGetGroupConversation(String groupId);

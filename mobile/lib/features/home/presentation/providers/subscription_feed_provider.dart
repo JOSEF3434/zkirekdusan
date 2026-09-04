@@ -103,11 +103,18 @@ class SubscriptionFeedNotifier extends AsyncNotifier<SubscriptionFeedState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    // Don't set loading — keep existing feed visible during background refresh
     try {
-      state = AsyncValue.data(await _fetchPage(1));
+      final newState = await _fetchPage(1)
+          .timeout(const Duration(seconds: 15));
+      state = AsyncValue.data(newState);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous != null) {
+        state = AsyncValue.data(previous.copyWith(error: e.toString()));
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 }

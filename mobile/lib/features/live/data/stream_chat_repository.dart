@@ -36,7 +36,10 @@ class StreamChatRepository {
       // Backend returns {success, data: {messages: [...], nextCursor, hasMore}}
       final envelope = parseEnvelope(raw);
       final messagesJson =
-          (envelope['messages'] as List?) ?? (envelope['data'] as List?) ?? [];
+          (envelope['messages'] as List?) ??
+          (envelope['items'] as List?) ??
+          (envelope['data'] as List?) ??
+          [];
       final messages = messagesJson
           .map((e) => ChatMessageDto.fromJson(e as Map<String, dynamic>))
           .toList();

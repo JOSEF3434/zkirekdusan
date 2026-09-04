@@ -61,15 +61,21 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    // Don't set loading — keep existing posts visible during background refresh
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
     try {
-      final newState = await _fetchInitial();
+      final newState = await _fetchInitial()
+          .timeout(const Duration(seconds: 15));
       state = AsyncValue.data(newState);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous != null) {
+        state = AsyncValue.data(previous.copyWith(error: e.toString()));
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

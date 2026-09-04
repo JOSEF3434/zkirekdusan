@@ -126,18 +126,20 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   // ── Player ─────────────────────────────────────────────────────────────────
 
   Future<void> _initPlayer(String hlsUrl) async {
-    if (_playerInitialized) return;
+    if (_playerInitialized || hlsUrl.trim().isEmpty) return;
     try {
-      final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl));
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl.trim()));
       await ctrl.initialize();
       await ctrl.play();
       if (mounted) {
         setState(() {
           _playerCtrl = ctrl;
           _playerInitialized = true;
+          _playerError = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[LiveRoom] Failed to init player: $e');
       if (mounted) setState(() => _playerError = true);
     }
   }
@@ -241,10 +243,15 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     final roomState = ref.watch(liveRoomProvider(widget.streamId));
     final theme = Theme.of(context);
 
-    // Kick off player when HLS URL becomes available
+    // Kick off player when HLS URL becomes available (scheduled safely after build phase)
     final hlsUrl = roomState.stream?.hlsUrl;
-    if (hlsUrl != null && !_playerInitialized && !_playerError) {
-      _initPlayer(hlsUrl);
+    if (hlsUrl != null &&
+        hlsUrl.isNotEmpty &&
+        !_playerInitialized &&
+        !_playerError) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _initPlayer(hlsUrl);
+      });
     }
 
     // Subscribe to incoming reactions
@@ -400,6 +407,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               _buildPlayerError()
             else if (state.isEnded)
               _buildStreamEnded(state)
+            else if (state.stream?.hlsUrl == null ||
+                state.stream!.hlsUrl!.isEmpty)
+              _buildStreamStarting(state)
             else
               _buildBuffering(),
 
@@ -532,6 +542,53 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             }).toList(),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildStreamStarting(LiveRoomState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'LIVE BROADCAST',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              state.stream?.title ?? 'Live Stream',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Broadcaster is preparing the live feed…',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

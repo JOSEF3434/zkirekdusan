@@ -13,9 +13,20 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return into(localUsers).insertOnConflictUpdate(user);
   }
 
+  Future<void> saveUsers(List<LocalUserData> users) async {
+    if (users.isEmpty) return;
+    await batch((b) {
+      b.insertAllOnConflictUpdate(localUsers, users);
+    });
+  }
+
   Future<LocalUserData?> getUser(String id) {
     return (select(localUsers)..where((tbl) => tbl.id.equals(id)))
         .getSingleOrNull();
+  }
+
+  Future<List<LocalUserData>> getAllUsers() {
+    return select(localUsers).get();
   }
 
   Stream<LocalUserData?> watchUser(String id) {

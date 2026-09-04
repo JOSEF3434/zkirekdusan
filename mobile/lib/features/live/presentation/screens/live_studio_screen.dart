@@ -65,6 +65,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   bool _isInitializingCamera = false;
   bool _isStreamingRtmp = false;
   String? _streamingError;
+  String? _lastStreamKey;
 
   // Channel picker state (YouTube style)
   List<LiveStudioChannelItem> _availableChannels = [];
@@ -1117,11 +1118,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       targetUrl = Env.rtmpServerUrl;
     }
 
-    if (!targetUrl.endsWith('/')) {
-      targetUrl = '$targetUrl/';
+    // Safety fallback: if targetUrl contains emulator loopback or localhost, point to Cloudinary live ingest
+    if (targetUrl.contains('10.0.2.2') || targetUrl.contains('localhost')) {
+      targetUrl = 'rtmp://live.cloudinary.com/streams';
     }
 
-    final key = streamKey.isNotEmpty ? streamKey : stream.id;
+    if (targetUrl.endsWith('/')) {
+      targetUrl = targetUrl.substring(0, targetUrl.length - 1);
+    }
+
+    final key = streamKey.trim();
+    if (key.isEmpty) {
+      throw Exception(
+        'Stream key is missing. Please regenerate your stream key to broadcast.',
+      );
+    }
+
+    _lastStreamKey = key;
 
     try {
       await _liveStreamController!.startStreaming(
@@ -1158,29 +1171,46 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
   Future<void> _handleGoLive(String streamId, BroadcasterState bState) async {
     try {
+      final channelId = _effectiveChannelId;
+      if (channelId.isEmpty) {
+        throw Exception('Please select a streaming channel first.');
+      }
+
       final notifier = ref.read(
-        broadcasterProvider((streamId, _effectiveChannelId)).notifier,
+        broadcasterProvider((streamId, channelId)).notifier,
       );
-      var key = ref.read(broadcasterProvider((streamId, _effectiveChannelId))).streamKey?.rawKey;
+      var key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
       if (key == null || key.isEmpty) {
         await notifier.regenerateStreamKey();
-        key = ref.read(broadcasterProvider((streamId, _effectiveChannelId))).streamKey?.rawKey;
+        key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
       }
+
+      if (key == null || key.isEmpty) {
+        throw Exception(
+          'Could not obtain stream key. Please check your network connection.',
+        );
+      }
+
+      _lastStreamKey = key;
 
       await notifier.goLive();
 
       final updatedState = ref.read(
-        broadcasterProvider((streamId, _effectiveChannelId)),
+        broadcasterProvider((streamId, channelId)),
       );
       final currentStream = updatedState.stream;
       if (currentStream != null) {
-        await _startRtmpBroadcast(currentStream, key ?? '');
+        await _startRtmpBroadcast(currentStream, key);
       }
     } catch (e) {
       if (mounted) {
+        String msg = e.toString();
+        if (msg.startsWith('Exception: ')) {
+          msg = msg.substring('Exception: '.length);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to start live broadcast: $e'),
+            content: Text('Failed to start live broadcast: $msg'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1459,8 +1489,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     if (isLive && !_isStreamingRtmp)
                       InkWell(
                         onTap: () {
-                          final key = bState.streamKey?.rawKey ?? '';
-                          _startRtmpBroadcast(stream, key);
+                          final key = _lastStreamKey ?? bState.streamKey?.rawKey ?? '';
+                          if (key.isNotEmpty) {
+                            _startRtmpBroadcast(stream, key);
+                          } else {
+                            _handleGoLive(stream.id, bState);
+                          }
                         },
                         child: const Padding(
                           padding: EdgeInsets.only(left: 8),

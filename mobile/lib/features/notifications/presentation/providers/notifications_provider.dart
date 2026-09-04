@@ -83,10 +83,13 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    // Don't set loading — keep existing notifications visible during background refresh
     try {
       final repo = ref.read(notificationsRepositoryProvider);
-      final notifications = await repo.getAll();
+      final notifications = await repo
+          .getAll()
+          .timeout(const Duration(seconds: 15));
       final unreadCount = await repo.getUnreadCount();
       state = AsyncValue.data(
         NotificationsState(
@@ -95,7 +98,14 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
         ),
       );
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous != null) {
+        // Keep showing cached notifications; surface error non-destructively
+        state = AsyncValue.data(
+          previous.copyWith(error: e.toString()),
+        );
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

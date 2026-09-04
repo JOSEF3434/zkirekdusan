@@ -22,13 +22,63 @@ class ChatRemoteDatasource {
   // ══════════════════════════════════════════════════════════════
 
   Future<ChatDiscoveryModel> getChatDiscovery() async {
+    List<ConversationModel> conversations = [];
+    List<ChatGroupItem> publicGroups = [];
+    List<ChatGroupItem> myPrivateGroups = [];
+    List<ChatUserItem> allUsers = [];
+
+    // 1. Try standard discovery endpoint
     try {
       final response = await _apiClient.get('/conversations/discover');
       final data = parseEnvelope(response.data);
-      return ChatDiscoveryModel.fromJson(data);
+      final model = ChatDiscoveryModel.fromJson(data);
+      conversations = model.conversations;
+      publicGroups = model.publicGroups;
+      myPrivateGroups = model.myPrivateGroups;
+      allUsers = model.allUsers;
     } catch (e) {
-      throw _handleError(e);
+      // /conversations/discover may fail with 500 on backend; fall back to individual endpoints
     }
+
+    // 2. If conversations are empty, attempt to fetch user conversations directly
+    if (conversations.isEmpty) {
+      try {
+        final convs = await getUserConversations();
+        conversations = convs;
+      } catch (_) {}
+    }
+
+    // 3. If public groups are empty, fetch from /groups
+    if (publicGroups.isEmpty) {
+      try {
+        final response = await _apiClient.get('/groups');
+        final data = parsePaginatedEnvelope(response.data);
+        final list = (data['data'] as List<dynamic>?) ?? [];
+        publicGroups = list
+            .map((g) => ChatGroupItem.fromJson(g as Map<String, dynamic>))
+            .where((g) => g.visibility == 'PUBLIC')
+            .toList();
+      } catch (_) {}
+    }
+
+    // 4. If all users are empty, fetch from /users
+    if (allUsers.isEmpty) {
+      try {
+        final response = await _apiClient.get('/users');
+        final data = parsePaginatedEnvelope(response.data);
+        final list = (data['data'] as List<dynamic>?) ?? [];
+        allUsers = list
+            .map((u) => ChatUserItem.fromJson(u as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+    }
+
+    return ChatDiscoveryModel(
+      conversations: conversations,
+      publicGroups: publicGroups,
+      myPrivateGroups: myPrivateGroups,
+      allUsers: allUsers,
+    );
   }
 
   Future<List<ConversationModel>> getUserConversations() async {

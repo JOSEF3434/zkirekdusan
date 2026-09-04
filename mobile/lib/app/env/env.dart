@@ -51,9 +51,6 @@ class Env {
     final envOverride = dotenv.env['RTMP_SERVER_URL'];
     if (envOverride != null && envOverride.isNotEmpty) return envOverride;
 
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'rtmp://10.0.2.2:1935/live';
-    }
-    return 'rtmp://localhost:1935/live';
+    return 'rtmp://live.cloudinary.com/streams';
   }
 }

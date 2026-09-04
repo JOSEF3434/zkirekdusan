@@ -18,8 +18,12 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     final now = DateTime.now();
     return (select(syncQueue)
           ..where((tbl) =>
-              (tbl.status.equals('pending') | tbl.status.equals('failed')) &
-              (tbl.nextRetryAt.isNull() | tbl.nextRetryAt.isSmallerOrEqualValue(now)))
+              (tbl.status.equals('pending') &
+                  (tbl.nextRetryAt.isNull() |
+                      tbl.nextRetryAt.isSmallerOrEqualValue(now))) |
+              (tbl.status.equals('failed') &
+                  tbl.nextRetryAt.isNotNull() &
+                  tbl.nextRetryAt.isSmallerOrEqualValue(now)))
           ..orderBy([
             (tbl) => OrderingTerm(
                 expression: tbl.createdAt, mode: OrderingMode.asc)
@@ -30,7 +34,9 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
 
   Stream<int> watchPendingCount() {
     return (select(syncQueue)
-          ..where((tbl) => tbl.status.equals('pending') | tbl.status.equals('failed')))
+          ..where((tbl) =>
+              tbl.status.equals('pending') |
+              (tbl.status.equals('failed') & tbl.nextRetryAt.isNotNull())))
         .watch()
         .map((list) => list.length);
   }
@@ -72,7 +78,8 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   Future<int> getPendingCount() async {
     final list = await (select(syncQueue)
           ..where((tbl) =>
-              tbl.status.equals('pending') | tbl.status.equals('failed')))
+              tbl.status.equals('pending') |
+              (tbl.status.equals('failed') & tbl.nextRetryAt.isNotNull())))
         .get();
     return list.length;
   }

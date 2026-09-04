@@ -35,6 +35,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _initTabController() {
     _tabController = TabController(length: _tabCount, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      if (_tabController.index == 0) {
+        ref.read(videoFeedProvider.notifier).setCategory(VideoFeedCategory.recommended);
+      } else if (_tabController.index == 1) {
+        ref.read(videoFeedProvider.notifier).setCategory(VideoFeedCategory.latest);
+      }
+    }
   }
 
   void _syncTabController(bool isAuthenticated) {
@@ -44,6 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     final initialIndex = _tabController.index.clamp(0, tabCount - 1);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _isAuthenticated = isAuthenticated;
     _tabController = TabController(
@@ -51,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       initialIndex: initialIndex,
       vsync: this,
     );
+    _tabController.addListener(_onTabChanged);
   }
 
   @override
@@ -75,6 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _recScrollController.dispose();
     _latestScrollController.dispose();
@@ -408,6 +422,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isRec,
   ) {
     if (videos.isEmpty && !isLoadingMore) {
+      if (isRec) {
+        return SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.1),
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'No recommendations yet',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Check back soon — as you watch and interact with videos, we\'ll recommend content tailored for you.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
       return SliverFillRemaining(
         child: Center(
           child: Column(

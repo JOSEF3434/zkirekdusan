@@ -16,7 +16,9 @@ class SyncManager extends StateNotifier<SyncStatus> {
   final AppDatabase _db;
   final ConnectivityNotifier _connectivity;
 
-  bool _isSyncing = false;
+  // Future-based lock: concurrent callers await the in-flight sync instead of
+  // racing past the boolean guard and starting a second sync loop.
+  Future<void>? _syncFuture;
   Timer? _successResetTimer;
 
   SyncManager(this._apiClient, this._db, this._connectivity)
@@ -46,26 +48,45 @@ class SyncManager extends StateNotifier<SyncStatus> {
   }
 
   /// Triggers a full synchronization pass.
-  /// Non-reentrant (prevents concurrent sync executions).
-  Future<void> triggerSync() async {
-    if (_isSyncing) return;
+  /// Non-reentrant: concurrent callers share the in-flight Future.
+  Future<void> triggerSync() {
+    // Return the existing future so any concurrent caller waits for it,
+    // rather than racing past a boolean flag.
+    if (_syncFuture != null) return _syncFuture!;
 
+    _syncFuture = _runSync().whenComplete(() {
+      _syncFuture = null;
+    });
+    return _syncFuture!;
+  }
+
+  Future<void> _runSync() async {
     if (!_connectivity.state.isOnline) {
       state = SyncStatus.offline;
       return;
     }
 
-    _isSyncing = true;
-    state = SyncStatus.syncing;
-    _successResetTimer?.cancel();
-
+    Timer? watchdog;
     try {
       final pendingEntries = await _db.syncQueueDao.getPendingEntries();
       if (pendingEntries.isEmpty) {
         state = SyncStatus.idle;
-        _isSyncing = false;
         return;
       }
+
+      state = SyncStatus.syncing;
+      _successResetTimer?.cancel();
+
+      // Safety watchdog: if the entire sync pass hangs (e.g. DB query blocks),
+      // force the banner back to idle after 60 s so it can never be permanently stuck.
+      watchdog = Timer(const Duration(seconds: 60), () {
+        if (state == SyncStatus.syncing) {
+          debugPrint(
+            '[SyncManager] Watchdog fired — sync pass exceeded 60 s, resetting to idle',
+          );
+          state = SyncStatus.idle;
+        }
+      });
 
       bool anyFailed = false;
 
@@ -76,7 +97,7 @@ class SyncManager extends StateNotifier<SyncStatus> {
         }
 
         try {
-          await _processEntry(entry);
+          await _processEntry(entry).timeout(const Duration(seconds: 10));
           await _db.syncQueueDao.removeEntry(entry.id);
         } catch (e) {
           anyFailed = true;
@@ -92,10 +113,10 @@ class SyncManager extends StateNotifier<SyncStatus> {
               error: e.toString(),
             );
           } else {
-            // Max retries reached or non-recoverable error
+            // Max retries reached or non-recoverable: abandon
             await _db.syncQueueDao.updateEntryStatus(
               entry.id,
-              'failed',
+              'abandoned',
               retryCount: entry.retryCount + 1,
               nextRetryAt: null,
               error: e.toString(),
@@ -109,19 +130,27 @@ class SyncManager extends StateNotifier<SyncStatus> {
 
       if (anyFailed) {
         state = SyncStatus.failed;
+        _successResetTimer = Timer(const Duration(seconds: 2), () {
+          if (state == SyncStatus.failed) state = SyncStatus.idle;
+        });
       } else {
         state = SyncStatus.success;
-        _successResetTimer = Timer(const Duration(seconds: 3), () {
-          if (state == SyncStatus.success) {
-            state = SyncStatus.idle;
-          }
+        _successResetTimer = Timer(const Duration(seconds: 2), () {
+          if (state == SyncStatus.success) state = SyncStatus.idle;
         });
       }
     } catch (e) {
       debugPrint('[SyncManager] Top-level sync error: $e');
       state = SyncStatus.failed;
+      _successResetTimer = Timer(const Duration(seconds: 2), () {
+        if (state == SyncStatus.failed) state = SyncStatus.idle;
+      });
     } finally {
-      _isSyncing = false;
+      watchdog?.cancel();
+      // Guarantee banner is never left in 'syncing'
+      if (state == SyncStatus.syncing) {
+        state = SyncStatus.idle;
+      }
     }
   }
 

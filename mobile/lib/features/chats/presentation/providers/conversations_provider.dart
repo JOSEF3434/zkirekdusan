@@ -47,7 +47,9 @@ class ChatDiscoveryNotifier
 
   Future<void> loadDiscovery() async {
     if (_discoveryRequest != null) return _discoveryRequest!;
-    state = const AsyncValue.loading();
+    if (state.valueOrNull == null) {
+      state = const AsyncValue.loading();
+    }
     final request = _loadDiscovery();
     _discoveryRequest = request;
     try {
@@ -60,27 +62,38 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _loadDiscovery() async {
-    // 1. Immediately hydrate state with local cached conversations if available
+    // 1. Immediately hydrate state with local cached conversations from Drift (no network delay!)
     try {
-      final cached = await _repository.getUserConversations();
-      if (cached.isNotEmpty) {
-        state = AsyncValue.data(
-          ChatDiscoveryModel(
-            conversations: cached,
-          ),
-        );
+      final cached = await _repository.getCachedConversations();
+      state = AsyncValue.data(
+        ChatDiscoveryModel(
+          conversations: cached,
+        ),
+      );
+    } catch (_) {
+      if (state.valueOrNull == null) {
+        state = const AsyncValue.data(ChatDiscoveryModel());
       }
-    } catch (_) {}
+    }
 
-    // 2. Refresh from server in background if available
-    final result = await AsyncValue.guard(() async {
-      return await _repository.getChatDiscovery();
-    });
-
-    if (result.hasValue) {
-      state = result;
-    } else if (state.value == null) {
-      state = result;
+    // 2. Refresh from server in background with timeout
+    try {
+      final discovery = await _repository
+          .getChatDiscovery()
+          .timeout(const Duration(seconds: 15));
+      if (discovery.conversations.isNotEmpty ||
+          discovery.allUsers.isNotEmpty ||
+          discovery.publicGroups.isNotEmpty ||
+          state.valueOrNull == null ||
+          state.valueOrNull!.conversations.isEmpty) {
+        state = AsyncValue.data(discovery);
+      }
+    } catch (e) {
+      if (state.valueOrNull == null) {
+        // Fallback to local cached conversations
+        final cached = await _repository.getCachedConversations();
+        state = AsyncValue.data(ChatDiscoveryModel(conversations: cached));
+      }
     }
   }
 
@@ -99,13 +112,20 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _refreshDiscovery(ChatDiscoveryModel? prev) async {
-    final result = await AsyncValue.guard(() async {
-      return await _repository.getChatDiscovery();
-    });
-    if (result.hasValue) {
-      state = result;
-    } else if (prev != null) {
-      state = AsyncValue.data(prev);
+    try {
+      final discovery = await _repository
+          .getChatDiscovery()
+          .timeout(const Duration(seconds: 15));
+      if (discovery.conversations.isNotEmpty ||
+          discovery.allUsers.isNotEmpty ||
+          discovery.publicGroups.isNotEmpty ||
+          prev == null) {
+        state = AsyncValue.data(discovery);
+      }
+    } catch (e) {
+      if (prev != null) {
+        state = AsyncValue.data(prev);
+      }
     }
   }
 
@@ -272,7 +292,9 @@ class ChatDiscoveryNotifier
         for (final conv in discovery.conversations) {
           final member = conv.members.firstWhere(
             (m) => m.userId == _currentUserId,
-            orElse: () => conv.members.first,
+            orElse: () => conv.members.isNotEmpty
+                ? conv.members.first
+                : const ConversationMemberModel(userId: '', username: ''),
           );
           if (!member.isMuted) {
             total += member.unreadCount;
@@ -306,8 +328,18 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
   final filter = ref.watch(conversationFilterProvider);
   final currentUserId = ref.watch(authProvider).user?.id;
 
-  return discoveryAsync.whenData((discovery) {
-    final items = <UnifiedChatItem>[];
+  final discovery = discoveryAsync.value;
+  if (discovery == null) {
+    if (discoveryAsync.hasError) {
+      return AsyncValue.error(
+        discoveryAsync.error!,
+        discoveryAsync.stackTrace!,
+      );
+    }
+    return const AsyncValue.loading();
+  }
+
+  final items = <UnifiedChatItem>[];
 
     // 1. Existing Active Conversations
     for (final conv in discovery.conversations) {
@@ -508,8 +540,7 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
       return b.sortDate.compareTo(a.sortDate);
     });
 
-    return filtered;
-  });
+    return AsyncValue.data(filtered);
 });
 
 // Backward compatibility alias for filteredConversationsProvider
