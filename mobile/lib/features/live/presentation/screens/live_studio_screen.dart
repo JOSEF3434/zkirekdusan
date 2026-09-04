@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:camera/camera.dart';
+import 'package:apivideo_live_stream/apivideo_live_stream.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
@@ -44,7 +44,8 @@ class LiveStudioScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveStudioScreen> createState() => _LiveStudioScreenState();
 }
 
-class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
+class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
+    with ApiVideoLiveStreamEventsListener {
   // Setup form controllers (shown before stream exists)
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -57,9 +58,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   String? _createError;
   bool _keyVisible = false;
 
-  // Camera & Streaming hardware state
-  CameraController? _cameraController;
-  List<CameraDescription> _availableCameras = [];
+  // Camera & Streaming hardware state (apivideo_live_stream)
+  ApiVideoLiveStreamController? _liveStreamController;
+  List<CameraInfo> _availableCameras = [];
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = true;
   bool _isTorchOn = false;
@@ -88,11 +89,54 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   @override
   void dispose() {
     _stopRtmpBroadcast();
-    _cameraController?.dispose();
+    _liveStreamController?.stop();
+    _liveStreamController?.dispose();
     _titleCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
   }
+
+  // ─── apivideo_live_stream callbacks ──────────────────────────────
+  @override
+  void onConnectionSuccess() {
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = true;
+        _streamingError = null;
+      });
+    }
+  }
+
+  @override
+  void onConnectionFailed(String reason) {
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = false;
+        _streamingError = 'RTMP broadcast failed: $reason';
+      });
+    }
+  }
+
+  @override
+  void onDisconnection() {
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = false;
+      });
+    }
+  }
+
+  @override
+  void onError(Exception error) {
+    if (mounted) {
+      setState(() {
+        _streamingError = 'RTMP stream error: $error';
+      });
+    }
+  }
+
+  @override
+  void onVideoSizeChanged(Size size) {}
 
   Future<void> _loadChannels() async {
     setState(() {
@@ -983,7 +1027,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       }
 
       final isFront = front ?? _isFrontCamera;
-      _availableCameras = await availableCameras();
+      _availableCameras = await getAvailableCameraInfos();
       if (_availableCameras.isEmpty) {
         if (mounted) {
           setState(() {
@@ -1001,17 +1045,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         orElse: () => _availableCameras.first,
       );
 
-      final oldController = _cameraController;
-      _cameraController = null;
-      await oldController?.dispose();
+      final oldController = _liveStreamController;
+      _liveStreamController = null;
+      if (oldController != null) {
+        await oldController.stop();
+        await oldController.dispose();
+      }
 
-      final controller = CameraController(
-        selectedCam,
-        ResolutionPreset.high,
-        enableAudio: !_isMicMuted,
-        imageFormatGroup: ImageFormatGroup.jpeg,
+      final controller = ApiVideoLiveStreamController(
+        initialAudioConfig: AudioConfig(),
+        initialVideoConfig: VideoConfig.withDefaultBitrate(
+          resolution: Resolution.RESOLUTION_720,
+          fps: 30,
+        ),
+        initialCameraId: selectedCam.id,
       );
 
+      controller.addEventsListener(this);
       await controller.initialize();
       if (!mounted) {
         await controller.dispose();
@@ -1019,7 +1069,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       }
 
       setState(() {
-        _cameraController = controller;
+        _liveStreamController = controller;
         _isCameraInitialized = true;
         _isCameraPermissionGranted = true;
         _isFrontCamera =
@@ -1038,45 +1088,88 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
   Future<void> _flipCamera() async {
     HapticFeedback.lightImpact();
+    if (_liveStreamController != null && _isCameraInitialized) {
+      try {
+        await _liveStreamController!.toggleCamera();
+        setState(() => _isFrontCamera = !_isFrontCamera);
+        return;
+      } catch (_) {}
+    }
     final nextIsFront = !_isFrontCamera;
     setState(() => _isFrontCamera = nextIsFront);
     await _setupCamera(front: nextIsFront);
   }
 
   Future<void> _toggleTorch() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
     HapticFeedback.lightImpact();
-    try {
-      final nextMode = _isTorchOn ? FlashMode.off : FlashMode.torch;
-      await _cameraController!.setFlashMode(nextMode);
-      setState(() => _isTorchOn = !_isTorchOn);
-    } catch (_) {}
+    setState(() => _isTorchOn = !_isTorchOn);
   }
 
   Future<void> _toggleMic() async {
     HapticFeedback.lightImpact();
-    setState(() => _isMicMuted = !_isMicMuted);
+    final nextMute = !_isMicMuted;
+    setState(() => _isMicMuted = nextMute);
+    if (_liveStreamController != null && _isCameraInitialized) {
+      try {
+        await _liveStreamController!.setIsMuted(nextMute);
+      } catch (_) {}
+    }
   }
 
   Future<void> _startRtmpBroadcast(
     LiveStreamDto stream,
     String streamKey,
   ) async {
-    // State scaffolding preserved — actual RTMP push will be wired upon apivideo_live_stream approval
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = true;
-        _streamingError = null;
-      });
+    if (_liveStreamController == null || !_isCameraInitialized) {
+      await _setupCamera(front: _isFrontCamera);
+    }
+    if (_liveStreamController == null || !_isCameraInitialized) {
+      throw Exception('Camera is not ready for live broadcasting.');
+    }
+
+    String targetUrl;
+    if (stream.rtmpIngestUrl != null && stream.rtmpIngestUrl!.isNotEmpty) {
+      targetUrl = stream.rtmpIngestUrl!;
+    } else {
+      targetUrl = Env.rtmpServerUrl;
+    }
+
+    if (!targetUrl.endsWith('/')) {
+      targetUrl = '$targetUrl/';
+    }
+
+    final key = streamKey.isNotEmpty ? streamKey : stream.id;
+
+    try {
+      await _liveStreamController!.startStreaming(
+        streamKey: key,
+        url: targetUrl,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isStreamingRtmp = true;
+          _streamingError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _streamingError = 'RTMP broadcast failed: $e';
+        });
+      }
+      rethrow;
     }
   }
 
   Future<void> _stopRtmpBroadcast() async {
-    // State scaffolding preserved — actual RTMP stop will be wired upon apivideo_live_stream approval
-    if (mounted && _isStreamingRtmp) {
-      setState(() => _isStreamingRtmp = false);
+    if (_isStreamingRtmp && _liveStreamController != null) {
+      try {
+        await _liveStreamController!.stopStreaming();
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _isStreamingRtmp = false);
+      }
     }
   }
 
@@ -1090,13 +1183,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       final updatedState = ref.read(
         broadcasterProvider((streamId, _effectiveChannelId)),
       );
-      final currentStream = updatedState.stream ?? bState.stream;
-      final key = updatedState.streamKey?.rawKey ??
-          updatedState.streamKey?.keyPrefix ??
-          bState.streamKey?.rawKey ??
-          bState.streamKey?.keyPrefix ??
-          '';
-
+      final key = updatedState.streamKey;
+      final currentStream = updatedState.stream;
       if (currentStream != null) {
         await _startRtmpBroadcast(currentStream, key);
       }
@@ -1129,15 +1217,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           // ── Video Preview or Audio Waveform ──
           if (_isVideoStream)
             if (_isCameraInitialized &&
-                _cameraController != null &&
-                _cameraController!.value.isInitialized == true)
+                _liveStreamController != null &&
+                _liveStreamController!.isInitialized)
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
                   child: SizedBox(
-                    width: _cameraController!.value.previewSize?.height ?? 1920,
-                    height: _cameraController!.value.previewSize?.width ?? 1080,
-                    child: CameraPreview(_cameraController!),
+                    width: 1280,
+                    height: 720,
+                    child: ApiVideoCameraPreview(controller: _liveStreamController!),
                   ),
                 ),
               )
