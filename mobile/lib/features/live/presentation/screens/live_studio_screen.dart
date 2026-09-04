@@ -64,6 +64,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   bool _isCameraPermissionGranted = true;
   bool _isTorchOn = false;
   bool _isInitializingCamera = false;
+  bool _isStreamingRtmp = false;
+  String? _streamingError;
 
   // Channel picker state (YouTube style)
   List<LiveStudioChannelItem> _availableChannels = [];
@@ -85,6 +87,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
   @override
   void dispose() {
+    _stopRtmpBroadcast();
     _cameraController?.dispose();
     _titleCtrl.dispose();
     _descCtrl.dispose();
@@ -899,14 +902,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     status: stream.status,
                     isGoingLive: bState.isGoingLive,
                     isEndingStream: bState.isEndingStream,
-                    onGoLive: () => ref
-                        .read(
-                          broadcasterProvider((
-                            streamId,
-                            _effectiveChannelId,
-                          )).notifier,
-                        )
-                        .goLive(),
+                    onGoLive: () => _handleGoLive(streamId, bState),
                     onEndStream: () => _confirmEndStream(context, streamId, bState),
                     onPublishVod: () => ref
                         .read(
@@ -1059,6 +1055,63 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     } catch (_) {}
   }
 
+  Future<void> _toggleMic() async {
+    HapticFeedback.lightImpact();
+    setState(() => _isMicMuted = !_isMicMuted);
+  }
+
+  Future<void> _startRtmpBroadcast(
+    LiveStreamDto stream,
+    String streamKey,
+  ) async {
+    // State scaffolding preserved — actual RTMP push will be wired upon apivideo_live_stream approval
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = true;
+        _streamingError = null;
+      });
+    }
+  }
+
+  Future<void> _stopRtmpBroadcast() async {
+    // State scaffolding preserved — actual RTMP stop will be wired upon apivideo_live_stream approval
+    if (mounted && _isStreamingRtmp) {
+      setState(() => _isStreamingRtmp = false);
+    }
+  }
+
+  Future<void> _handleGoLive(String streamId, BroadcasterState bState) async {
+    try {
+      final notifier = ref.read(
+        broadcasterProvider((streamId, _effectiveChannelId)).notifier,
+      );
+      await notifier.goLive();
+
+      final updatedState = ref.read(
+        broadcasterProvider((streamId, _effectiveChannelId)),
+      );
+      final currentStream = updatedState.stream ?? bState.stream;
+      final key = updatedState.streamKey?.rawKey ??
+          updatedState.streamKey?.keyPrefix ??
+          bState.streamKey?.rawKey ??
+          bState.streamKey?.keyPrefix ??
+          '';
+
+      if (currentStream != null) {
+        await _startRtmpBroadcast(currentStream, key);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start live broadcast: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildLiveMonitor(
     ThemeData theme,
     LiveStreamDto stream,
@@ -1077,7 +1130,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           if (_isVideoStream)
             if (_isCameraInitialized &&
                 _cameraController != null &&
-                _cameraController!.value.isInitialized)
+                _cameraController!.value.isInitialized == true)
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
@@ -1211,7 +1264,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         const Icon(Icons.fiber_manual_record, color: Colors.white, size: 10),
                         const SizedBox(width: 5),
                         Text(
-                          'LIVE ${_formatElapsed(bState.elapsed)}',
+                          _isStreamingRtmp
+                              ? 'LIVE (RTMP) ${_formatElapsed(bState.elapsed)}'
+                              : 'LIVE ${_formatElapsed(bState.elapsed)}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -1303,6 +1358,26 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               ],
             ),
           ),
+
+          if (_streamingError != null)
+            Positioned(
+              bottom: 48,
+              left: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _streamingError!,
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
 
           // Controls Toolbar (bottom overlay)
           Positioned(
@@ -1421,9 +1496,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                 ? Colors.red.withValues(alpha: 0.35)
                                 : Colors.black54,
                           ),
-                          onPressed: () {
-                            setState(() => _isMicMuted = !_isMicMuted);
-                          },
+                          onPressed: _toggleMic,
                         ),
                       ],
                     ),
@@ -1489,6 +1562,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
 
     if (confirm == true && mounted) {
+      await _stopRtmpBroadcast();
       await ref
           .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
           .endStream();
@@ -1593,8 +1667,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         builder: (_) => AlertDialog(
           title: const Text('Leave Studio?'),
           content: const Text(
-            'Your stream is still live. '
-            'It will continue running in the background.',
+            'Your stream is still live. Leaving studio will stop broadcasting.',
           ),
           actions: [
             TextButton(
@@ -1609,11 +1682,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         ),
       );
       if (confirm == true && mounted) {
+        await _stopRtmpBroadcast();
         // ignore: use_build_context_synchronously
         context.pop();
       }
     } else {
-      context.pop();
+      await _stopRtmpBroadcast();
+      if (context.mounted) {
+        context.pop();
+      }
     }
   }
 }

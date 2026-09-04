@@ -228,29 +228,29 @@ export class StreamsController {
   @Post('rtmp/webhook/on_publish')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Nginx-RTMP webhook: Triggered when a stream starts publishing',
+    summary: 'RTMP webhook: Triggered when a stream starts publishing (SRS / Nginx-RTMP)',
   })
   async onPublish(@Body() body: any) {
-    // Nginx-RTMP sends stream key in the 'name' field
-    const streamKey = body.name;
+    // SRS sends 'stream', Nginx-RTMP sends 'name'
+    const streamKey = body.stream || body.name;
     if (!streamKey) {
       throw new BadRequestException('Stream key missing');
     }
     await this.liveStreamingService.handleRtmpOnPublish(streamKey);
-    return 'OK'; // 200 OK tells Nginx to allow the stream
+    return { code: 0, message: 'OK' }; // code 0 allows stream in SRS, HTTP 200 allows in Nginx
   }
 
   @Post('rtmp/webhook/on_done')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Nginx-RTMP webhook: Triggered when a stream ends',
+    summary: 'RTMP webhook: Triggered when a stream ends (SRS / Nginx-RTMP)',
   })
   async onDone(@Body() body: any) {
-    const streamKey = body.name;
+    const streamKey = body.stream || body.name;
     if (!streamKey) {
-      return 'OK';
+      return { code: 0, message: 'OK' };
     }
     await this.liveStreamingService.handleRtmpOnDone(streamKey);
-    return 'OK';
+    return { code: 0, message: 'OK' };
   }
 }

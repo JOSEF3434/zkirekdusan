@@ -46,4 +46,14 @@ class Env {
   }
 
   static String get appName => dotenv.env['APP_NAME'] ?? 'ዝክረ ክዱሳን';
+
+  static String get rtmpServerUrl {
+    final envOverride = dotenv.env['RTMP_SERVER_URL'];
+    if (envOverride != null && envOverride.isNotEmpty) return envOverride;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'rtmp://10.0.2.2:1935/live';
+    }
+    return 'rtmp://localhost:1935/live';
+  }
 }
