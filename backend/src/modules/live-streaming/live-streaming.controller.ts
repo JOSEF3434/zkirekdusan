@@ -243,14 +243,28 @@ export class StreamsController {
   @Post('rtmp/webhook/on_done')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'RTMP webhook: Triggered when a stream ends (SRS / Nginx-RTMP)',
+    summary: 'RTMP webhook: Triggered when a stream ends (SRS / Nginx-RTMP / Cloudinary)',
   })
   async onDone(@Body() body: any) {
+    if (body.public_id || body.notification_type) {
+      await this.liveStreamingService.handleCloudinaryWebhook(body);
+      return { code: 0, message: 'OK' };
+    }
     const streamKey = body.stream || body.name;
     if (!streamKey) {
       return { code: 0, message: 'OK' };
     }
     await this.liveStreamingService.handleRtmpOnDone(streamKey);
     return { code: 0, message: 'OK' };
+  }
+
+  @Post('cloudinary/webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cloudinary notification webhook (archive / upload / live events)',
+  })
+  async handleCloudinaryWebhook(@Body() body: any) {
+    await this.liveStreamingService.handleCloudinaryWebhook(body);
+    return { status: 'ok' };
   }
 }

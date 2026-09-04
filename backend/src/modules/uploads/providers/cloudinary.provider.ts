@@ -11,6 +11,8 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   private readonly logger = new Logger(CloudinaryStorageProvider.name);
   private readonly isConfigured: boolean;
   private readonly cloudName: string;
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
 
   constructor(private readonly configService: ConfigService) {
     const cloud_name = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
@@ -21,10 +23,14 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
       this.isConfigured = true;
       this.cloudName = cloud_name;
+      this.apiKey = api_key;
+      this.apiSecret = api_secret;
       this.logger.log(`Cloudinary configured: cloud=${cloud_name}`);
     } else {
       this.isConfigured = false;
       this.cloudName = '';
+      this.apiKey = '';
+      this.apiSecret = '';
       this.logger.warn('Cloudinary credentials missing — stub mode active');
     }
   }
@@ -311,4 +317,139 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       return null;
     }
   }
+
+  private get basicAuthHeader(): string {
+    return `Basic ${Buffer.from(`${this.apiKey}:${this.apiSecret}`).toString('base64')}`;
+  }
+
+  /**
+   * Create a live stream resource on Cloudinary (RTMP ingest -> HLS + Archive output).
+   */
+  async createLiveStream(
+    name: string,
+    options: { idleTimeoutSec?: number; maxRuntimeSec?: number } = {},
+  ): Promise<CloudinaryLiveStreamResource> {
+    if (!this.isConfigured) {
+      throw new Error('Cloudinary is not configured with credentials');
+    }
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: this.basicAuthHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          input: { type: 'rtmp' },
+          idle_timeout_sec: options.idleTimeoutSec ?? 120,
+          max_runtime_sec: options.maxRuntimeSec ?? 43200,
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      this.logger.error(`Cloudinary createLiveStream failed (${res.status}): ${errBody}`);
+      throw new Error(`Failed to create Cloudinary live stream: ${errBody}`);
+    }
+
+    const json = (await res.json()) as any;
+    const stream = json.data;
+    if (!stream) {
+      throw new Error('Cloudinary live stream creation returned empty data');
+    }
+
+    const hlsOutput = stream.outputs?.find((o: any) => o.type === 'hls');
+    const archiveOutput = stream.outputs?.find((o: any) => o.type === 'archive');
+
+    return {
+      id: stream.id,
+      name: stream.name,
+      status: stream.status,
+      rtmpIngestUrl: stream.input?.uri || 'rtmp://live.cloudinary.com/streams',
+      streamKey: stream.input?.stream_key,
+      hlsUrl:
+        hlsOutput?.uri ||
+        `https://res.cloudinary.com/${this.cloudName}/video/live/live_stream_${stream.id}_hls.m3u8`,
+      archivePublicId:
+        archiveOutput?.public_id || `live_stream_${stream.id}_archive`,
+    };
+  }
+
+  /**
+   * Manually activate a live stream so it is ready to receive RTMP feed immediately.
+   */
+  async activateLiveStream(streamId: string): Promise<void> {
+    if (!this.isConfigured) return;
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}/activate`,
+        {
+          method: 'POST',
+          headers: { Authorization: this.basicAuthHeader },
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        this.logger.warn(`Cloudinary activateLiveStream warning (${res.status}): ${body}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Error activating Cloudinary live stream ${streamId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Manually idle a live stream when broadcasting ends, triggering VOD archiving.
+   */
+  async idleLiveStream(streamId: string): Promise<void> {
+    if (!this.isConfigured) return;
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}/idle`,
+        {
+          method: 'POST',
+          headers: { Authorization: this.basicAuthHeader },
+        },
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        this.logger.warn(`Cloudinary idleLiveStream warning (${res.status}): ${body}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Error idling Cloudinary live stream ${streamId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Query status of a live stream on Cloudinary.
+   */
+  async getLiveStream(streamId: string): Promise<any> {
+    if (!this.isConfigured) return null;
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}`,
+        {
+          headers: { Authorization: this.basicAuthHeader },
+        },
+      );
+      if (!res.ok) return null;
+      const json = (await res.json()) as any;
+      return json.data;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export interface CloudinaryLiveStreamResource {
+  id: string;
+  name: string;
+  status: string;
+  rtmpIngestUrl: string;
+  streamKey: string;
+  hlsUrl: string;
+  archivePublicId: string;
 }

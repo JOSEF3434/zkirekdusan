@@ -10,6 +10,7 @@ import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { PrismaModule } from '../../prisma/prisma.module.js';
 import { StreamProcessingModule } from '../stream-processing/stream-processing.module.js';
 import { LiveGatewayModule } from '../live-gateway/live-gateway.module.js';
+import { UploadsModule } from '../uploads/uploads.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { LiveGatewayModule } from '../live-gateway/live-gateway.module.js';
     PrismaModule,
     StreamProcessingModule,
     forwardRef(() => LiveGatewayModule),
+    UploadsModule,
   ],
   controllers: [LiveStreamingController, StreamsController],
   providers: [LiveStreamingService, LiveStreamingRepository],

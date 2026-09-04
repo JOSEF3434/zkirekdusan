@@ -44,8 +44,7 @@ class LiveStudioScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveStudioScreen> createState() => _LiveStudioScreenState();
 }
 
-class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
-    with ApiVideoLiveStreamEventsListener {
+class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // Setup form controllers (shown before stream exists)
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -60,7 +59,6 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   // Camera & Streaming hardware state (apivideo_live_stream)
   ApiVideoLiveStreamController? _liveStreamController;
-  List<CameraInfo> _availableCameras = [];
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = true;
   bool _isTorchOn = false;
@@ -97,8 +95,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   // ─── apivideo_live_stream callbacks ──────────────────────────────
-  @override
-  void onConnectionSuccess() {
+  void _onConnectionSuccess() {
     if (mounted) {
       setState(() {
         _isStreamingRtmp = true;
@@ -107,8 +104,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     }
   }
 
-  @override
-  void onConnectionFailed(String reason) {
+  void _onConnectionFailed(String reason) {
     if (mounted) {
       setState(() {
         _isStreamingRtmp = false;
@@ -117,26 +113,22 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     }
   }
 
-  @override
-  void onDisconnection() {
+  void _onDisconnection() {
     if (mounted) {
       setState(() {
         _isStreamingRtmp = false;
+        _streamingError = 'Disconnected from RTMP broadcast';
       });
     }
   }
 
-  @override
-  void onError(Exception error) {
+  void _onError(Exception error) {
     if (mounted) {
       setState(() {
         _streamingError = 'RTMP stream error: $error';
       });
     }
   }
-
-  @override
-  void onVideoSizeChanged(Size size) {}
 
   Future<void> _loadChannels() async {
     setState(() {
@@ -1027,29 +1019,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       }
 
       final isFront = front ?? _isFrontCamera;
-      _availableCameras = await getAvailableCameraInfos();
-      if (_availableCameras.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isCameraInitialized = false;
-            _isInitializingCamera = false;
-          });
-        }
-        return;
-      }
-
-      final selectedCam = _availableCameras.firstWhere(
-        (c) =>
-            c.lensDirection ==
-            (isFront ? CameraLensDirection.front : CameraLensDirection.back),
-        orElse: () => _availableCameras.first,
-      );
 
       final oldController = _liveStreamController;
       _liveStreamController = null;
       if (oldController != null) {
-        await oldController.stop();
-        await oldController.dispose();
+        try {
+          await oldController.stop();
+          await oldController.dispose();
+        } catch (_) {}
       }
 
       final controller = ApiVideoLiveStreamController(
@@ -1058,10 +1035,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           resolution: Resolution.RESOLUTION_720,
           fps: 30,
         ),
-        initialCameraId: selectedCam.id,
+        initialCameraPosition:
+            isFront ? CameraPosition.front : CameraPosition.back,
+        onConnectionSuccess: _onConnectionSuccess,
+        onConnectionFailed: _onConnectionFailed,
+        onDisconnection: _onDisconnection,
+        onError: _onError,
       );
 
-      controller.addEventsListener(this);
       await controller.initialize();
       if (!mounted) {
         await controller.dispose();
@@ -1072,8 +1053,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         _liveStreamController = controller;
         _isCameraInitialized = true;
         _isCameraPermissionGranted = true;
-        _isFrontCamera =
-            selectedCam.lensDirection == CameraLensDirection.front;
+        _isFrontCamera = isFront;
         _isInitializingCamera = false;
       });
     } catch (e) {
@@ -1090,8 +1070,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     HapticFeedback.lightImpact();
     if (_liveStreamController != null && _isCameraInitialized) {
       try {
-        await _liveStreamController!.toggleCamera();
-        setState(() => _isFrontCamera = !_isFrontCamera);
+        await _liveStreamController!.switchCamera();
+        final pos = await _liveStreamController!.cameraPosition;
+        if (mounted) {
+          setState(() => _isFrontCamera = pos == CameraPosition.front);
+        }
         return;
       } catch (_) {}
     }
@@ -1178,15 +1161,20 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       final notifier = ref.read(
         broadcasterProvider((streamId, _effectiveChannelId)).notifier,
       );
+      var key = ref.read(broadcasterProvider((streamId, _effectiveChannelId))).streamKey?.rawKey;
+      if (key == null || key.isEmpty) {
+        await notifier.regenerateStreamKey();
+        key = ref.read(broadcasterProvider((streamId, _effectiveChannelId))).streamKey?.rawKey;
+      }
+
       await notifier.goLive();
 
       final updatedState = ref.read(
         broadcasterProvider((streamId, _effectiveChannelId)),
       );
-      final key = updatedState.streamKey;
       final currentStream = updatedState.stream;
       if (currentStream != null) {
-        await _startRtmpBroadcast(currentStream, key);
+        await _startRtmpBroadcast(currentStream, key ?? '');
       }
     } catch (e) {
       if (mounted) {
@@ -1458,11 +1446,36 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   color: Colors.red.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(
-                  _streamingError!,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _streamingError!,
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isLive && !_isStreamingRtmp)
+                      InkWell(
+                        onTap: () {
+                          final key = bState.streamKey?.rawKey ?? '';
+                          _startRtmpBroadcast(stream, key);
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Text(
+                            'Reconnect',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

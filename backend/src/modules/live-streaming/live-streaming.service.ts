@@ -20,6 +20,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { StreamProcessingService } from '../stream-processing/stream-processing.service.js';
 import { LiveGateway } from '../live-gateway/live.gateway.js';
+import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
 import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
@@ -35,6 +36,7 @@ export class LiveStreamingService {
     private readonly streamProcessingService: StreamProcessingService,
     @Inject(forwardRef(() => LiveGateway))
     private readonly liveGateway: LiveGateway,
+    private readonly cloudinaryProvider: CloudinaryStorageProvider,
   ) {}
 
   private generateSlug(title: string): string {
@@ -307,6 +309,9 @@ export class LiveStreamingService {
   // ─── Stream Lifecycle ──────────────────────────────────────────────
 
   private getRtmpServerUrl(): string {
+    if (this.cloudinaryProvider?.configured) {
+      return 'rtmp://live.cloudinary.com/streams';
+    }
     const configured = this.configService.get<string>('RTMP_SERVER_URL');
     if (configured && !configured.includes('localhost') && !configured.includes('127.0.0.1')) {
       return configured;
@@ -352,13 +357,75 @@ export class LiveStreamingService {
     }
 
     // Get stream key for the channel
-    const streamKey = await this.repository.getStreamKeyByChannelId(
+    let streamKey = await this.repository.getStreamKeyByChannelId(
       stream.videoChannelId,
     );
-    const rtmpBaseUrl = this.getRtmpServerUrl();
-    const rtmpIngestUrl = streamKey
+    let rtmpBaseUrl = this.getRtmpServerUrl();
+    let rtmpIngestUrl = streamKey
       ? `${rtmpBaseUrl}?key=${streamKey.keyPrefix}`
       : undefined;
+
+    // If Cloudinary is configured, provision / activate Cloudinary live stream
+    if (this.cloudinaryProvider?.configured) {
+      try {
+        let cldStreamId = stream.webrtcUrl?.replace('cloudinary:', '');
+        let hlsUrl = stream.hlsUrl;
+        let archivePublicId = stream.dashUrl;
+
+        // Check if the channel already has a Cloudinary live stream provisioned via its stream key
+        const cldIdFromKey = streamKey?.keyPrefix?.startsWith('cld_')
+          ? streamKey.keyPrefix.replace('cld_', '')
+          : null;
+
+        if (cldIdFromKey && (!cldStreamId || cldStreamId === cldIdFromKey)) {
+          cldStreamId = cldIdFromKey;
+          hlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
+          archivePublicId = `live_stream_${cldStreamId}_archive`;
+          rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
+          rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
+        } else if (!cldStreamId || !hlsUrl) {
+          // If not already provisioned on Cloudinary, create it now
+          const cld = await this.cloudinaryProvider.createLiveStream(
+            `stream_${stream.slug || stream.id}`,
+          );
+          cldStreamId = cld.id;
+          hlsUrl = cld.hlsUrl;
+          archivePublicId = cld.archivePublicId;
+          rtmpBaseUrl = cld.rtmpIngestUrl;
+          rtmpIngestUrl = cld.rtmpIngestUrl;
+
+          // Upsert channel's stream key to match Cloudinary
+          const keyHash = createHash('sha256').update(cld.streamKey).digest('hex');
+          const keyPrefix = `cld_${cld.id}`;
+          streamKey = await this.repository.upsertStreamKey(
+            stream.videoChannelId,
+            keyHash,
+            keyPrefix,
+          );
+        } else {
+          rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
+          rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
+        }
+
+        // Activate Cloudinary live stream
+        if (cldStreamId) {
+          await this.cloudinaryProvider.activateLiveStream(cldStreamId);
+        }
+
+        // Update stream with Cloudinary playback & ingest URLs
+        await this.prisma.liveStream.update({
+          where: { id: streamId },
+          data: {
+            hlsUrl,
+            rtmpIngestUrl,
+            webrtcUrl: `cloudinary:${cldStreamId}`,
+            dashUrl: archivePublicId,
+          },
+        });
+      } catch (err: any) {
+        this.logger.error(`Error provisioning Cloudinary live stream: ${err.message}`, err.stack);
+      }
+    }
 
     const updatedStream = await this.repository.startStream(
       streamId,
@@ -412,6 +479,14 @@ export class LiveStreamingService {
     const updatedStream = await this.repository.endStream(streamId, duration);
     await this.repository.endStreamSession(streamId);
 
+    // Cloudinary Live Stream idle
+    if (this.cloudinaryProvider?.configured) {
+      const cldStreamId = stream.webrtcUrl?.replace('cloudinary:', '');
+      if (cldStreamId) {
+        await this.cloudinaryProvider.idleLiveStream(cldStreamId);
+      }
+    }
+
     // If recording was enabled, create a recording record for processing & storage
     if (stream.isRecordingEnabled) {
       const recording = await this.repository.createRecording(streamId);
@@ -419,7 +494,10 @@ export class LiveStreamingService {
         this.configService.get<string>('APP_URL') ??
         this.configService.get<string>('RENDER_EXTERNAL_URL') ??
         'https://zikrekidusan.onrender.com';
-      const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
+      const vodHlsUrl =
+        this.cloudinaryProvider?.configured && stream.dashUrl
+          ? `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${stream.dashUrl}.m3u8`
+          : (stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`);
 
       // Mark recording ready so user can immediately view/publish VOD
       await this.prisma.streamRecording.update({
@@ -427,7 +505,7 @@ export class LiveStreamingService {
         data: {
           status: 'READY',
           duration: Math.round(duration ?? 0),
-          hlsUrl: fallbackHlsUrl,
+          hlsUrl: vodHlsUrl,
           fileSize: BigInt(0),
         },
       });
@@ -497,7 +575,14 @@ export class LiveStreamingService {
       });
     }
 
-    const playbackUrl = recording.hlsUrl || stream.hlsUrl || '';
+    const cldArchivePublicId = stream.dashUrl;
+    let playbackUrl = recording.hlsUrl;
+    if ((!playbackUrl || playbackUrl.includes('/uploads/')) && cldArchivePublicId && this.cloudinaryProvider?.configured) {
+      playbackUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${cldArchivePublicId}.m3u8`;
+    }
+    if (!playbackUrl) {
+      playbackUrl = stream.hlsUrl || '';
+    }
 
     const existingVideo = await this.prisma.video.findFirst({
       where: {
@@ -590,19 +675,32 @@ export class LiveStreamingService {
       );
     }
 
-    // Generate secure key: sk_live_<48 hex chars>
-    const rawKey = randomBytes(24).toString('hex');
-    const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    let rawKey: string;
+    let rtmpUrl: string;
 
-    await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+    if (this.cloudinaryProvider?.configured) {
+      const cld = await this.cloudinaryProvider.createLiveStream(
+        `channel_${channel.handle || channel.id}`,
+      );
+      rawKey = cld.streamKey;
+      rtmpUrl = cld.rtmpIngestUrl;
+      const keyPrefix = `cld_${cld.id}`;
+      const keyHash = createHash('sha256').update(rawKey).digest('hex');
+      await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+    } else {
+      rawKey = randomBytes(24).toString('hex');
+      const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
+      const keyHash = createHash('sha256').update(rawKey).digest('hex');
+      rtmpUrl = this.getRtmpServerUrl();
+      await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+    }
 
     // Return raw key ONCE — not stored in plaintext
     return {
       channelId,
       rawKey,
       streamKey: rawKey,
-      rtmpUrl: this.getRtmpServerUrl(),
+      rtmpUrl,
       warning: 'This key will not be shown again. Store it securely.',
     };
   }
@@ -655,5 +753,83 @@ export class LiveStreamingService {
       await this.endStream(activeLiveStream.createdById, activeLiveStream.id);
       this.logger.log(`Nginx-RTMP on_done handled for stream ${activeLiveStream.id}`);
     }
+  }
+
+  /** Cloudinary live stream archive / upload webhook handler */
+  async handleCloudinaryWebhook(payload: any): Promise<void> {
+    this.logger.log(`Received Cloudinary webhook: ${JSON.stringify(payload)}`);
+    const publicId = payload.public_id || payload.asset_id;
+    if (!publicId || typeof publicId !== 'string') {
+      this.logger.warn('Cloudinary webhook missing public_id');
+      return;
+    }
+
+    // Match live stream archive pattern: live_stream_<cldId>_archive
+    let stream = await this.prisma.liveStream.findFirst({
+      where: {
+        OR: [
+          { dashUrl: publicId },
+          { webrtcUrl: { contains: publicId.replace('live_stream_', '').replace('_archive', '') } },
+        ],
+      },
+    });
+
+    if (!stream && publicId.includes('live_stream_')) {
+      const match = publicId.match(/live_stream_([a-zA-Z0-9]+)_/);
+      if (match) {
+        const cldId = match[1];
+        stream = await this.prisma.liveStream.findFirst({
+          where: {
+            webrtcUrl: `cloudinary:${cldId}`,
+          },
+        });
+      }
+    }
+
+    if (!stream) {
+      this.logger.warn(`No matching live stream found for Cloudinary asset: ${publicId}`);
+      return;
+    }
+
+    this.logger.log(`Correlated Cloudinary webhook to stream ${stream.id}`);
+
+    // If stream is still marked live, transition to ended
+    if (stream.status === LiveStreamStatus.LIVE) {
+      const duration = payload.duration ? Number(payload.duration) : undefined;
+      await this.repository.endStream(stream.id, duration);
+      await this.repository.endStreamSession(stream.id);
+    }
+
+    // Update or create recording with the Cloudinary VOD URL
+    const vodHlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${publicId}.m3u8`;
+    const recording = await this.prisma.streamRecording.findFirst({
+      where: { liveStreamId: stream.id },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (recording) {
+      await this.prisma.streamRecording.update({
+        where: { id: recording.id },
+        data: {
+          status: 'READY',
+          duration: payload.duration ? Math.round(Number(payload.duration)) : recording.duration,
+          hlsUrl: vodHlsUrl,
+          fileSize: payload.bytes ? BigInt(payload.bytes) : recording.fileSize,
+        },
+      });
+    } else {
+      const rec = await this.repository.createRecording(stream.id);
+      await this.prisma.streamRecording.update({
+        where: { id: rec.id },
+        data: {
+          status: 'READY',
+          duration: payload.duration ? Math.round(Number(payload.duration)) : 0,
+          hlsUrl: vodHlsUrl,
+          fileSize: payload.bytes ? BigInt(payload.bytes) : BigInt(0),
+        },
+      });
+    }
+
+    this.logger.log(`Cloudinary live stream ${stream.id} archive recorded as VOD: ${vodHlsUrl}`);
   }
 }
