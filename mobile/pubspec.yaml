@@ -37,6 +37,7 @@ dependencies:
 
   # F5: Live Streaming
   camera: ^0.11.0+2
+  apivideo_live_stream: ^1.2.0
   socket_io_client: ^2.0.3+1
   wakelock_plus: ^1.2.10
   shared_preferences: ^2.5.5
