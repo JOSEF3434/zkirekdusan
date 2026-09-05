@@ -388,8 +388,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         try {
           final allDownloads = {...state.downloads, videoId: metadata};
           await _legacyStorage.saveToken(
+            jsonEncode(allDownloads.map((k, v) => MapEntry(k, v.toJson()))),
             key: _kLegacyDownloadsKey,
-            token: jsonEncode(allDownloads.map((k, v) => MapEntry(k, v.toJson()))),
           );
         } catch (_) {}
       } else {
@@ -526,8 +526,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
 
       try {
         await _legacyStorage.saveToken(
+          jsonEncode(newDownloads.map((k, v) => MapEntry(k, v.toJson()))),
           key: _kLegacyDownloadsKey,
-          token: jsonEncode(newDownloads.map((k, v) => MapEntry(k, v.toJson()))),
         );
       } catch (_) {}
     }

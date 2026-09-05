@@ -671,14 +671,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ? Image.file(
                                 File(item.thumbnailUrl!.replaceFirst('file://', '')),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
+                                errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.video_library_rounded, color: Colors.white54),
                                 ),
                               )
                             : Image.network(
                                 item.thumbnailUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
+                                errorBuilder: (_, _, _) => const Center(
                                   child: Icon(Icons.video_library_rounded, color: Colors.white54),
                                 ),
                               )

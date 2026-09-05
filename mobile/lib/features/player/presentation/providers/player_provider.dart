@@ -242,8 +242,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       if (localFilePath == null) {
         try {
-          final docDir = await FileSystemHelper.getVideosDirectory();
-          final metaFile = File('$docDir/video_$_videoId/metadata.json');
+          final docDir = await FileSystemHelper.getApplicationDocumentsPath();
+          final metaFile = File('$docDir/videos/video_$_videoId/metadata.json');
           if (await metaFile.exists()) {
             final Map<String, dynamic> decoded = jsonDecode(await metaFile.readAsString());
             final localPath = decoded['localPath'] as String?;
