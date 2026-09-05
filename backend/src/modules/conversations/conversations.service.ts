@@ -55,64 +55,75 @@ export class ConversationsService {
   }
 
   async getChatDiscovery(userId: string): Promise<ChatDiscoveryResponseDto> {
-    const [conversations, allUsers, publicGroups, myPrivateGroups] =
-      await Promise.all([
-        this.getUserConversations(userId),
-        this.conversationsRepository.getAllUsersSortedNewest(userId),
-        this.conversationsRepository.getAllPublicGroupsSortedNewest(),
-        this.conversationsRepository.getUserPrivateGroups(userId),
-      ]);
+    try {
+      const [conversations, allUsers, publicGroups, myPrivateGroups] =
+        await Promise.all([
+          this.getUserConversations(userId),
+          this.conversationsRepository.getAllUsersSortedNewest(userId),
+          this.conversationsRepository.getAllPublicGroupsSortedNewest(),
+          this.conversationsRepository.getUserPrivateGroups(userId),
+        ]);
 
-    const formattedUsers: ChatUserItemDto[] = allUsers.map((u) => {
-      const isOnline = u.presence?.status === 'ONLINE';
+      const formattedUsers: ChatUserItemDto[] = allUsers.map((u) => {
+        const isOnline = u.presence?.status === 'ONLINE';
+        return {
+          id: u.id,
+          username: u.username,
+          displayName: u.profile?.displayName ?? u.username ?? 'User',
+          avatarUrl: u.profile?.avatar?.url ?? null,
+          bio: u.profile?.bio ?? null,
+          isOnline,
+          lastSeenAt: u.presence?.lastSeenAt ?? u.lastLoginAt ?? null,
+          createdAt: u.createdAt,
+        };
+      });
+
+      const formattedPublicGroups: ChatGroupItemDto[] = publicGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        slug: g.slug,
+        description: g.description,
+        avatarUrl: g.avatarUrl,
+        coverUrl: g.coverUrl,
+        visibility: g.visibility,
+        status: g.status,
+        membersCount: g._count?.members ?? 0,
+        conversationId: g.conversations?.[0]?.id ?? null,
+        isMember: true,
+        createdAt: g.createdAt,
+      }));
+
+      const formattedPrivateGroups: ChatGroupItemDto[] = myPrivateGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        slug: g.slug,
+        description: g.description,
+        avatarUrl: g.avatarUrl,
+        coverUrl: g.coverUrl,
+        visibility: g.visibility,
+        status: g.status,
+        membersCount: g._count?.members ?? 0,
+        conversationId: g.conversations?.[0]?.id ?? null,
+        isMember: true,
+        createdAt: g.createdAt,
+      }));
+
       return {
-        id: u.id,
-        username: u.username,
-        displayName: u.profile?.displayName ?? u.username ?? 'User',
-        avatarUrl: u.profile?.avatar?.url ?? null,
-        bio: u.profile?.bio ?? null,
-        isOnline,
-        lastSeenAt: u.presence?.lastSeenAt ?? u.lastLoginAt ?? null,
-        createdAt: u.createdAt,
+        conversations,
+        publicGroups: formattedPublicGroups,
+        myPrivateGroups: formattedPrivateGroups,
+        allUsers: formattedUsers,
       };
-    });
-
-    const formattedPublicGroups: ChatGroupItemDto[] = publicGroups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      slug: g.slug,
-      description: g.description,
-      avatarUrl: g.avatarUrl,
-      coverUrl: g.coverUrl,
-      visibility: g.visibility,
-      status: g.status,
-      membersCount: g._count?.members ?? 0,
-      conversationId: g.conversations?.[0]?.id ?? null,
-      isMember: true,
-      createdAt: g.createdAt,
-    }));
-
-    const formattedPrivateGroups: ChatGroupItemDto[] = myPrivateGroups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      slug: g.slug,
-      description: g.description,
-      avatarUrl: g.avatarUrl,
-      coverUrl: g.coverUrl,
-      visibility: g.visibility,
-      status: g.status,
-      membersCount: g._count?.members ?? 0,
-      conversationId: g.conversations?.[0]?.id ?? null,
-      isMember: true,
-      createdAt: g.createdAt,
-    }));
-
-    return {
-      conversations,
-      publicGroups: formattedPublicGroups,
-      myPrivateGroups: formattedPrivateGroups,
-      allUsers: formattedUsers,
-    };
+    } catch (error) {
+      console.error('Error in getChatDiscovery:', error);
+      // Return empty data rather than throwing
+      return {
+        conversations: [],
+        publicGroups: [],
+        myPrivateGroups: [],
+        allUsers: [],
+      };
+    }
   }
 
   async getUserConversations(

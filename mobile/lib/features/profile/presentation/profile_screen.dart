@@ -166,7 +166,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           radius: 36,
                           backgroundImage: profile.avatarUrl != null
                               ? NetworkImage(
-                                  MediaUrlResolver.resolve(profile.avatarUrl!) ??
+                                  MediaUrlResolver.resolve(
+                                        profile.avatarUrl!,
+                                      ) ??
                                       profile.avatarUrl!,
                                 )
                               : null,
@@ -194,10 +196,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                 _fullName(profile) ??
                                 profile.username ??
                                 'User',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
                           ),
                           if (profile.username != null)
                             Text(
@@ -252,20 +255,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                      Text(
-                        profile.bio!,
-                        style: const TextStyle(fontSize: 13),
-                      ),
+                      Text(profile.bio!, style: const TextStyle(fontSize: 13)),
                       const SizedBox(height: 12),
                     ],
                     Row(
                       children: [
                         Expanded(
                           child: FilledButton.tonal(
-                            onPressed: () => context.push(
-                              '/profile/edit',
-                              extra: profile,
-                            ),
+                            onPressed: () =>
+                                context.push('/profile/edit', extra: profile),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
@@ -283,7 +281,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               // View channels with RBAC permissions -> Creator Workspace / Channels
                               context.push('/creator/workspace');
                             },
-                            icon: const Icon(Icons.smart_display_outlined, size: 18),
+                            icon: const Icon(
+                              Icons.smart_display_outlined,
+                              size: 18,
+                            ),
                             label: Text(tr('profile.view_channel')),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -298,12 +299,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
             ),
             // ── Watch History Section (Above Tabs) ──────────────────────────
-            SliverToBoxAdapter(
-              child: _WatchHistoryCarousel(),
-            ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 12),
-            ),
+            SliverToBoxAdapter(child: _WatchHistoryCarousel()),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
             // ── Tabs Header ────────────────────────────────────────────────
             SliverPersistentHeader(
               pinned: true,
@@ -330,10 +327,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             _ProfileVideosTab(userId: profile.userId),
             _ProfileStreamsTab(userId: profile.userId),
             _ProfilePlaylistsTab(),
-            ProfilePostsList(
-              userId: profile.userId,
-              isMyProfile: true,
-            ),
+            ProfilePostsList(userId: profile.userId, isMyProfile: true),
             _ProfileAboutTab(profile: profile, authState: authState),
           ],
         ),
@@ -410,7 +404,10 @@ class _WatchHistoryCarousel extends ConsumerWidget {
           data: (response) {
             if (response.data.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: Text(
                   'No watched videos yet.',
                   style: TextStyle(
@@ -476,12 +473,19 @@ class _HistoryItemCard extends ConsumerWidget {
                           ? Image.network(
                               resolvedThumb,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Center(
-                                child: Icon(Icons.play_circle_outline, color: Colors.white54),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Center(
+                                    child: Icon(
+                                      Icons.play_circle_outline,
+                                      color: Colors.white54,
+                                    ),
+                                  ),
                             )
                           : const Center(
-                              child: Icon(Icons.play_circle_outline, color: Colors.white54),
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white54,
+                              ),
                             ),
                     ),
                   ),
@@ -490,7 +494,10 @@ class _HistoryItemCard extends ConsumerWidget {
                       bottom: 4,
                       right: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black87,
                           borderRadius: BorderRadius.circular(4),
@@ -528,7 +535,9 @@ class _HistoryItemCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        video.author.displayName ?? video.author.username ?? 'Channel',
+                        video.author.displayName ??
+                            video.author.username ??
+                            'Channel',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -554,7 +563,11 @@ class _HistoryItemCard extends ConsumerWidget {
     );
   }
 
-  void _showVideoActionModal(BuildContext context, WidgetRef ref, VideoResponseDto video) {
+  void _showVideoActionModal(
+    BuildContext context,
+    WidgetRef ref,
+    VideoResponseDto video,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -575,12 +588,14 @@ class _HistoryItemCard extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(ctx);
                 if (video.renditions.isNotEmpty) {
-                  ref.read(downloadServiceProvider.notifier).startDownload(
-                    videoId: video.id,
-                    url: video.renditions.first.url,
-                    title: video.title,
-                    thumbnailUrl: video.thumbnailUrl,
-                  );
+                  ref
+                      .read(downloadServiceProvider.notifier)
+                      .startDownload(
+                        videoId: video.id,
+                        url: video.renditions.first.url,
+                        title: video.title,
+                        thumbnailUrl: video.thumbnailUrl,
+                      );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Downloading video...')),
@@ -589,7 +604,9 @@ class _HistoryItemCard extends ConsumerWidget {
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Download not available for this video')),
+                      const SnackBar(
+                        content: Text('Download not available for this video'),
+                      ),
                     );
                   }
                 }
@@ -600,7 +617,9 @@ class _HistoryItemCard extends ConsumerWidget {
               title: const Text('Save to Bookmarks / Library'),
               onTap: () async {
                 Navigator.pop(ctx);
-                await ref.read(saveProvider.notifier).toggleSave(video.id, isVideo: true);
+                await ref
+                    .read(saveProvider.notifier)
+                    .toggleSave(video.id, isVideo: true);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Saved to your library')),
@@ -618,15 +637,22 @@ class _HistoryItemCard extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Remove from Watch History', style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Remove from Watch History',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () async {
                 Navigator.pop(ctx);
                 try {
-                  await ref.read(videoRepositoryProvider).removeFromWatchHistory(video.id);
+                  await ref
+                      .read(videoRepositoryProvider)
+                      .removeFromWatchHistory(video.id);
                   ref.invalidate(watchHistoryProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Removed from watch history')),
+                      const SnackBar(
+                        content: Text('Removed from watch history'),
+                      ),
                     );
                   }
                 } catch (_) {
@@ -666,52 +692,129 @@ class _ProfileVideosTab extends ConsumerWidget {
 
     return videosAsync.when(
       data: (videos) {
-        if (videos.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.video_library_outlined,
-                  size: 56,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Nothing to see here yet.',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 15,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(profileVideosProvider(userId)),
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemCount: videos.length,
-            itemBuilder: (context, index) {
-              final video = videos[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: VideoCard(
-                  video: video,
-                  onVideoDeleted: () {
-                    ref.invalidate(profileVideosProvider(userId));
-                  },
+            children: [
+              // Library shortcuts at the top
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.download_done,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      title: const Text(
+                        'Downloads',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.push('/library/downloads'),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.thumb_up_alt_outlined,
+                          color: Colors.red,
+                        ),
+                      ),
+                      title: const Text(
+                        'Liked videos',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Private',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.push('/library/liked'),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.bookmark_outline,
+                          color: Colors.amber,
+                        ),
+                      ),
+                      title: const Text(
+                        'Bookmarked videos',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.push('/library/bookmarks'),
+                    ),
+                    const Divider(height: 24),
+                  ],
                 ),
-              );
-            },
+              ),
+              // Videos list
+              if (videos.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.video_library_outlined,
+                          size: 56,
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Nothing to see here yet.',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...videos.map(
+                  (video) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: VideoCard(
+                      video: video,
+                      onVideoDeleted: () {
+                        ref.invalidate(profileVideosProvider(userId));
+                      },
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(
-        child: Text('Error loading videos: $err'),
-      ),
+      error: (err, _) => Center(child: Text('Error loading videos: $err')),
     );
   }
 }
@@ -816,9 +919,6 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
-            // Quick Action Row for Library shortcuts (YouTube-style)
-            _buildLibraryShortcuts(context),
-            const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -847,62 +947,14 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
                 ),
               )
             else
-              ...playlists.map((playlist) => _PlaylistCardTile(playlist: playlist)),
+              ...playlists.map(
+                (playlist) => _PlaylistCardTile(playlist: playlist),
+              ),
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error loading playlists: $err')),
-    );
-  }
-
-  Widget _buildLibraryShortcuts(BuildContext context) {
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.download_done, color: Colors.blue),
-          ),
-          title: const Text('Downloads', style: TextStyle(fontWeight: FontWeight.w600)),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => context.push('/library/downloads'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.thumb_up_alt_outlined, color: Colors.red),
-          ),
-          title: const Text('Liked videos', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('Private', style: TextStyle(fontSize: 12)),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => context.push('/library/liked'),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.bookmark_outline, color: Colors.amber),
-          ),
-          title: const Text('Bookmarked videos', style: TextStyle(fontWeight: FontWeight.w600)),
-          trailing: const Icon(Icons.chevron_right, size: 20),
-          onTap: () => context.push('/library/bookmarks'),
-        ),
-      ],
     );
   }
 
@@ -931,7 +983,9 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
               if (title.isNotEmpty) {
                 Navigator.pop(dialogCtx);
                 try {
-                  await ref.read(playlistRepositoryProvider).createPlaylist(title: title);
+                  await ref
+                      .read(playlistRepositoryProvider)
+                      .createPlaylist(title: title);
                   ref.invalidate(myPlaylistsProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -980,13 +1034,9 @@ class _PlaylistCardTile extends StatelessWidget {
                   firstThumb,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
-                      const Center(
-                    child: Icon(Icons.playlist_play, size: 28),
-                  ),
+                      const Center(child: Icon(Icons.playlist_play, size: 28)),
                 )
-              : const Center(
-                  child: Icon(Icons.playlist_play, size: 28),
-                ),
+              : const Center(child: Icon(Icons.playlist_play, size: 28)),
         ),
       ),
       title: Text(
@@ -1014,10 +1064,7 @@ class _ProfileAboutTab extends StatelessWidget {
   final ProfileModel profile;
   final AuthState authState;
 
-  const _ProfileAboutTab({
-    required this.profile,
-    required this.authState,
-  });
+  const _ProfileAboutTab({required this.profile, required this.authState});
 
   @override
   Widget build(BuildContext context) {
@@ -1028,7 +1075,9 @@ class _ProfileAboutTab extends StatelessWidget {
       children: [
         Text(
           'About',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 12),
         ListTile(
@@ -1060,7 +1109,9 @@ class _ProfileAboutTab extends StatelessWidget {
         const Divider(height: 32),
         Text(
           'Channel Statistics',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -1068,8 +1119,14 @@ class _ProfileAboutTab extends StatelessWidget {
           children: [
             _StatItem(label: 'Videos', value: '${profile.stats.videosCount}'),
             _StatItem(label: 'Posts', value: '${profile.stats.postsCount}'),
-            _StatItem(label: 'Followers', value: '${profile.stats.followersCount}'),
-            _StatItem(label: 'Following', value: '${profile.stats.followingCount}'),
+            _StatItem(
+              label: 'Followers',
+              value: '${profile.stats.followersCount}',
+            ),
+            _StatItem(
+              label: 'Following',
+              value: '${profile.stats.followingCount}',
+            ),
           ],
         ),
       ],

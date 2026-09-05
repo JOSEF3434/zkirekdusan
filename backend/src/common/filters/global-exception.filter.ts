@@ -134,14 +134,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           message:
             'The change you are trying to make would violate a required relation',
         };
+      case 'P2021':
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Table does not exist in the database',
+        };
+      case 'P2022':
+        return {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Column does not exist in the database',
+        };
       default:
         this.logger.error(
-          `Unhandled Prisma error: ${error.code}`,
-          error.message,
+          `Unhandled Prisma error code: ${error.code}, message: ${error.message}, meta: ${JSON.stringify(error.meta)}`,
         );
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'A database error occurred',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         };
     }
   }

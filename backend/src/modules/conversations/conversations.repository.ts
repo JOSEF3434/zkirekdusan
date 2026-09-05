@@ -282,136 +282,99 @@ export class ConversationsRepository {
   }
 
   async getAllPublicGroupsSortedNewest() {
-    return this.prisma.group.findMany({
-      where: {
-        visibility: 'PUBLIC',
-        status: 'ACTIVE',
-        deletedAt: null,
-      },
-      include: {
-        _count: {
-          select: {
-            members: {
-              where: { removedAt: null },
+    try {
+      return this.prisma.group.findMany({
+        where: {
+          visibility: 'PUBLIC',
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        include: {
+          _count: {
+            select: {
+              members: {
+                where: { removedAt: null },
+              },
             },
           },
+          conversations: {
+            take: 1,
+            orderBy: { createdAt: 'asc' },
+            select: { id: true },
+          },
         },
-        conversations: {
-          take: 1,
-          orderBy: { createdAt: 'asc' },
-          select: { id: true },
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 100,
-    });
+        take: 100,
+      });
+    } catch (error) {
+      console.error('Error fetching public groups:', error);
+      return [];
+    }
   }
 
   async getUserPrivateGroups(userId: string) {
-    return this.prisma.group.findMany({
-      where: {
-        visibility: 'PRIVATE',
-        deletedAt: null,
-        members: {
-          some: {
-            userId,
-            removedAt: null,
-          },
-        },
-      },
-      include: {
-        _count: {
-          select: {
-            members: {
-              where: { removedAt: null },
+    try {
+      return this.prisma.group.findMany({
+        where: {
+          visibility: 'PRIVATE',
+          deletedAt: null,
+          members: {
+            some: {
+              userId,
+              removedAt: null,
             },
           },
         },
-        conversations: {
-          take: 1,
-          orderBy: { createdAt: 'asc' },
-          select: { id: true },
+        include: {
+          _count: {
+            select: {
+              members: {
+                where: { removedAt: null },
+              },
+            },
+          },
+          conversations: {
+            take: 1,
+            orderBy: { createdAt: 'asc' },
+            select: { id: true },
+          },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching user private groups:', error);
+      return [];
+    }
   }
 
   async findOrCreateGroupConversation(groupId: string, userId: string) {
-    // Find existing conversation for this group
-    let conv = await this.prisma.conversation.findFirst({
-      where: {
-        groupId,
-      },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                    avatar: {
-                      select: {
-                        url: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        channel: {
-          select: {
-            name: true,
-            isPrivate: true,
-            groupId: true,
-          },
-        },
-        group: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-        messages: {
-          take: 1,
-          orderBy: {
-            createdAt: 'desc',
-          },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!conv) {
-      conv = await this.prisma.conversation.create({
-        data: {
-          type: 'GROUP_CHANNEL',
-          groupId,
+    try {
+      // First verify the group exists and user is a member
+      const group = await this.prisma.group.findUnique({
+        where: { id: groupId },
+        include: {
           members: {
-            create: [{ userId }],
+            where: { userId },
           },
+        },
+      });
+
+      if (!group) {
+        throw new Error(`Group with id ${groupId} not found`);
+      }
+
+      if (group.members.length === 0) {
+        throw new Error(`User ${userId} is not a member of group ${groupId}`);
+      }
+
+      // Find existing conversation for this group
+      let conv = await this.prisma.conversation.findFirst({
+        where: {
+          groupId,
         },
         include: {
           members: {
@@ -469,25 +432,95 @@ export class ConversationsRepository {
           },
         },
       });
-    } else {
-      // Ensure user is in conversation members
-      const isMember = conv.members.some((m) => m.userId === userId);
-      if (!isMember) {
-        await this.prisma.conversationMember.create({
+
+      if (!conv) {
+        conv = await this.prisma.conversation.create({
           data: {
-            conversationId: conv.id,
-            userId,
+            type: 'GROUP_CHANNEL',
+            groupId,
+            members: {
+              create: [{ userId }],
+            },
+          },
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    profile: {
+                      select: {
+                        displayName: true,
+                        avatar: {
+                          select: {
+                            url: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            channel: {
+              select: {
+                name: true,
+                isPrivate: true,
+                groupId: true,
+              },
+            },
+            group: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+            messages: {
+              take: 1,
+              orderBy: {
+                createdAt: 'desc',
+              },
+              include: {
+                sender: {
+                  select: {
+                    id: true,
+                    username: true,
+                    profile: {
+                      select: {
+                        displayName: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         });
-        // Re-fetch with member included
-        const updated = await this.findById(conv.id);
-        if (updated) {
-          conv = updated as any;
+      } else {
+        // Ensure user is in conversation members
+        const isMember = conv.members.some((m) => m.userId === userId);
+        if (!isMember) {
+          await this.prisma.conversationMember.create({
+            data: {
+              conversationId: conv.id,
+              userId,
+            },
+          });
+          // Re-fetch with member included
+          const updated = await this.findById(conv.id);
+          if (updated) {
+            conv = updated as any;
+          }
         }
       }
-    }
 
-    return conv;
+      return conv;
+    } catch (error) {
+      console.error('Error in findOrCreateGroupConversation:', error);
+      throw error;
+    }
   }
 }
 
