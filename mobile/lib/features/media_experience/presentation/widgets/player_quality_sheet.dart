@@ -13,6 +13,10 @@ class PlayerQualitySheet extends ConsumerWidget {
     return showModalBottomSheet(
       context: context,
       useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => PlayerQualitySheet(videoId: videoId),
     );
   }
@@ -26,37 +30,44 @@ class PlayerQualitySheet extends ConsumerWidget {
     final renditions = state.video?.renditions ?? [];
 
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              tr('player.quality'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  tr('player.quality'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(height: 1),
+              if (renditions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(tr('player.quality_auto')),
+                )
+              else
+                ...renditions.map((rendition) {
+                  final isSelected = state.currentRendition?.id == rendition.id;
+                  return ListTile(
+                    leading: isSelected
+                        ? const Icon(Icons.check, color: Colors.blue)
+                        : const SizedBox(width: 24),
+                    title: Text(rendition.quality),
+                    onTap: () {
+                      notifier.setQuality(rendition);
+                      Navigator.of(context).pop();
+                    },
+                  );
+                }),
+            ],
           ),
-          const Divider(height: 1),
-          if (renditions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Text(tr('player.quality_auto')),
-            )
-          else
-            ...renditions.map((rendition) {
-              final isSelected = state.currentRendition?.id == rendition.id;
-              return ListTile(
-                leading: isSelected
-                    ? const Icon(Icons.check, color: Colors.blue)
-                    : const SizedBox(width: 24),
-                title: Text(rendition.quality),
-                onTap: () {
-                  notifier.setQuality(rendition);
-                  Navigator.of(context).pop();
-                },
-              );
-            }),
-        ],
+        ),
       ),
     );
   }

@@ -6,8 +6,9 @@ import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/widgets/like_button.dart';
 import 'package:mobile/features/social/presentation/widgets/save_button.dart';
-import 'package:mobile/features/social/presentation/widgets/share_button.dart';
 import 'package:mobile/features/social/presentation/comments_sheet.dart';
+import 'package:mobile/features/social/presentation/widgets/share_button.dart';
+import 'package:mobile/features/media_experience/presentation/widgets/download_button.dart';
 import 'package:mobile/features/home/presentation/widgets/video_management_sheet.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -283,6 +284,11 @@ class VideoCard extends StatelessWidget {
                   iconSize: 22,
                   defaultColor: theme.colorScheme.onSurfaceVariant,
                   isVideo: true,
+                ),
+                DownloadButton(
+                  video: video,
+                  iconSize: 22,
+                  defaultColor: theme.colorScheme.onSurfaceVariant,
                 ),
                 ShareButton(
                   postId: video.id,

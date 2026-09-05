@@ -5,6 +5,7 @@ import {
   VideosController,
   VideosPublicController,
 } from './videos.controller.js';
+import { VideoWebController } from './video-web.controller.js';
 import { VideosService } from './videos.service.js';
 import { VideosRepository } from './videos.repository.js';
 import { UploadsModule } from '../uploads/uploads.module.js';
@@ -15,7 +16,7 @@ import { VIDEO_PROCESSING_QUEUE } from '../video-processing/video-processing.pro
     UploadsModule,
     BullModule.registerQueue({ name: VIDEO_PROCESSING_QUEUE }),
   ],
-  controllers: [VideosController, VideosPublicController],
+  controllers: [VideosController, VideosPublicController, VideoWebController],
   providers: [VideosService, VideosRepository],
   exports: [VideosService, VideosRepository],
 })

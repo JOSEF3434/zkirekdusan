@@ -636,11 +636,11 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
           ),
         ),
         // ── Compact overlapping story avatars (right of search) ─────────────
-        if (hasAnyStories) ...
+        if (hasAnyStories && (otherGroups.isNotEmpty || allGroups.isNotEmpty)) ...
           [
             const SizedBox(width: 8),
             _CompactStoryCluster(
-              groups: otherGroups,
+              groups: otherGroups.isNotEmpty ? otherGroups : allGroups,
               allGroups: allGroups,
               isExpanded: _isStoriesExpanded,
               isDark: isDark,
@@ -1123,7 +1123,11 @@ class _CompactStoryCluster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayCount = groups.length.clamp(1, 3);
+    final displayGroups = groups.isNotEmpty ? groups : allGroups;
+    if (displayGroups.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final displayCount = displayGroups.length.clamp(1, 3);
     // Width = first avatar (26px) + (n-1) * 14px overlap
     final totalAvatarWidth = 26.0 + (displayCount - 1) * 14.0;
 
@@ -1146,7 +1150,7 @@ class _CompactStoryCluster extends StatelessWidget {
                     for (int i = 0; i < displayCount; i++)
                       Positioned(
                         left: i * 14.0,
-                        child: _buildAvatar(groups[i], _ringColors[i]),
+                        child: _buildAvatar(displayGroups[i], _ringColors[i % _ringColors.length]),
                       ),
                   ],
                 ),

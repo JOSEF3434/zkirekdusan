@@ -240,6 +240,23 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         } catch (_) {}
       }
 
+      if (localFilePath == null) {
+        try {
+          final docDir = await FileSystemHelper.getVideosDirectory();
+          final metaFile = File('$docDir/video_$_videoId/metadata.json');
+          if (await metaFile.exists()) {
+            final Map<String, dynamic> decoded = jsonDecode(await metaFile.readAsString());
+            final localPath = decoded['localPath'] as String?;
+            offlineTitle = decoded['title'] as String?;
+            offlineThumbnail = decoded['thumbnailUrl'] as String?;
+            if (localPath != null && await FileSystemHelper.fileExists(localPath)) {
+              localFilePath = localPath;
+              localFileUrl = Uri.file(localPath).toString();
+            }
+          }
+        } catch (_) {}
+      }
+
       VideoResponseDto? video;
       try {
         video = await _repository.getVideo(_videoId);

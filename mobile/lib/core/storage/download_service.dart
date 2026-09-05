@@ -261,8 +261,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
 
       final String effectiveDownloadUrl;
       if (MediaUrlResolver.isCloudinary(resolvedUrl)) {
-        final height = int.tryParse(quality.replaceAll('p', '')) ?? 720;
-        effectiveDownloadUrl = MediaUrlResolver.toCloudinaryRendition(resolvedUrl, height);
+        effectiveDownloadUrl = MediaUrlResolver.toCloudinaryRaw(resolvedUrl);
       } else if (resolvedUrl.endsWith('.m3u8')) {
         effectiveDownloadUrl = resolvedUrl.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
       } else {
@@ -384,6 +383,15 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           progress: {...state.progress, videoId: 1.0},
           downloads: {...state.downloads, videoId: metadata},
         );
+
+        // Sync legacy storage so player and other offline providers immediately find it
+        try {
+          final allDownloads = {...state.downloads, videoId: metadata};
+          await _legacyStorage.saveToken(
+            key: _kLegacyDownloadsKey,
+            token: jsonEncode(allDownloads.map((k, v) => MapEntry(k, v.toJson()))),
+          );
+        } catch (_) {}
       } else {
         throw Exception('Download finished but output file not found on disk.');
       }
@@ -515,6 +523,13 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         progress: {...state.progress}..remove(videoId),
         errors: {...state.errors}..remove(videoId),
       );
+
+      try {
+        await _legacyStorage.saveToken(
+          key: _kLegacyDownloadsKey,
+          token: jsonEncode(newDownloads.map((k, v) => MapEntry(k, v.toJson()))),
+        );
+      } catch (_) {}
     }
   }
 }

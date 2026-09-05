@@ -15,6 +15,10 @@ class PlayerSpeedSheet extends ConsumerWidget {
     return showModalBottomSheet(
       context: context,
       useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => PlayerSpeedSheet(videoId: videoId),
     );
   }
@@ -26,31 +30,38 @@ class PlayerSpeedSheet extends ConsumerWidget {
     final tr = ref.watch(trProvider);
 
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              tr('player.speed'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  tr('player.speed'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(height: 1),
+              ...PlaybackPreferences.allowedSpeeds.map((speed) {
+                final isSelected = state.playbackSpeed == speed;
+                return ListTile(
+                  leading: isSelected
+                      ? const Icon(Icons.check, color: Colors.blue)
+                      : const SizedBox(width: 24),
+                  title: Text('${speed}x'),
+                  onTap: () {
+                    notifier.setPlaybackSpeed(speed);
+                    Navigator.of(context).pop();
+                  },
+                );
+              }),
+            ],
           ),
-          const Divider(height: 1),
-          ...PlaybackPreferences.allowedSpeeds.map((speed) {
-            final isSelected = state.playbackSpeed == speed;
-            return ListTile(
-              leading: isSelected
-                  ? const Icon(Icons.check, color: Colors.blue)
-                  : const SizedBox(width: 24),
-              title: Text('${speed}x'),
-              onTap: () {
-                notifier.setPlaybackSpeed(speed);
-                Navigator.of(context).pop();
-              },
-            );
-          }),
-        ],
+        ),
       ),
     );
   }

@@ -138,8 +138,10 @@ async function bootstrap() {
   const uploadDir = path.resolve(process.cwd(), 'uploads');
   app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
 
-  // Set global API prefix
-  app.setGlobalPrefix('api');
+  // Set global API prefix (excluding public web sharing viewer endpoints)
+  app.setGlobalPrefix('api', {
+    exclude: ['posts/:id', 'videos/:id', 'share/:id'],
+  });
 
   // Configure Swagger OpenAPI documentation
   const swaggerConfig = new DocumentBuilder()

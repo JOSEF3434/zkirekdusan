@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
 import 'package:mobile/features/home/presentation/providers/subscription_feed_provider.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
@@ -525,13 +527,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildErrorState(String error, ThemeData theme) {
+    final downloadState = ref.watch(downloadServiceProvider);
+    final downloads = downloadState.downloads.values.toList();
+
+    // If user has offline downloads and encounters a connection failure,
+    // display YouTube-style offline downloads feed instead of a red error screen (matching Screenshot 3)!
+    if (downloads.isNotEmpty) {
+      return SliverList(
+        delegate: SliverChildListDelegate([
+          // Offline status banner
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.wifi_off_rounded, size: 20, color: Colors.orange),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'No connection • Showing your offline downloads',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _onRefresh,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(50, 32),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Section header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Your downloads',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '${downloads.length} video(s)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Downloaded video list matching YouTube offline downloads
+          ...downloads.map((item) => _buildOfflineVideoTile(item, theme)),
+          const SizedBox(height: 32),
+        ]),
+      );
+    }
+
     String friendlyMessage =
         'Unable to load content. Please check your connection.';
     if (error.contains('401') || error.contains('Unauthorized')) {
       friendlyMessage = 'Session expired or sign in required.';
     } else if (error.contains('timeout') || error.contains('connection')) {
       friendlyMessage =
-          'Network connection issue. Please check your internet connection.';
+          'Network connection issue. Downloaded videos will appear here automatically when offline.';
     }
 
     return SliverFillRemaining(
@@ -543,9 +615,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 64, color: Colors.red),
+              const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              Text('Something went wrong', style: theme.textTheme.titleLarge),
+              Text('No Connection', style: theme.textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(
                 friendlyMessage,
@@ -560,6 +632,155 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineVideoTile(DownloadMetadata item, ThemeData theme) {
+    final sizeMb = (item.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          context.push('/video/${item.videoId}');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Thumbnail
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 120,
+                  height: 68,
+                  color: Colors.black87,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
+                        item.thumbnailUrl!.startsWith('/') ||
+                                item.thumbnailUrl!.startsWith('file://')
+                            ? Image.file(
+                                File(item.thumbnailUrl!.replaceFirst('file://', '')),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                                ),
+                              )
+                            : Image.network(
+                                item.thumbnailUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                                ),
+                              )
+                      else
+                        const Center(
+                          child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                        ),
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Video info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.arrow_circle_down_rounded,
+                          size: 14,
+                          color: Color(0xFF00C6FF),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$sizeMb MB • Offline ready',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Options menu
+              IconButton(
+                icon: const Icon(Icons.more_vert, size: 20),
+                onPressed: () {
+                  _showOfflineVideoOptions(item);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showOfflineVideoOptions(DownloadMetadata item) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline, color: Colors.teal),
+              title: const Text('Play Offline'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                context.push('/video/${item.videoId}');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete from downloads'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                ref.read(downloadServiceProvider.notifier).deleteDownload(item.videoId);
+              },
+            ),
+          ],
         ),
       ),
     );
