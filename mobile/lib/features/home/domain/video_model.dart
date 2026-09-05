@@ -67,6 +67,7 @@ class VideoResponseDto {
   final int duration;
   final String? thumbnailUrl;
   final String? hlsUrl;
+  final String? sourceFileUrl;
   final String? uploadedById;
   final String? downloadPermission;
   final bool isDownloadable;
@@ -98,6 +99,7 @@ class VideoResponseDto {
     this.duration = 0,
     this.thumbnailUrl,
     this.hlsUrl,
+    this.sourceFileUrl,
     this.dashUrl,
     this.viewsCount = 0,
     this.likesCount = 0,
@@ -172,6 +174,8 @@ class VideoResponseDto {
       duration: json['duration'] as int? ?? 0,
       thumbnailUrl: json['thumbnailUrl'] as String?,
       hlsUrl: hlsUrl,
+      sourceFileUrl: json['sourceFileUrl'] as String? ??
+          (json['sourceFile'] as Map<String, dynamic>?)?['url'] as String?,
       dashUrl: json['dashUrl'] as String?,
       viewsCount: parsedViews,
       likesCount: json['likesCount'] as int? ?? 0,

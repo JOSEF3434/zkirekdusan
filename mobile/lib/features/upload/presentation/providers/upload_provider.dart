@@ -204,17 +204,51 @@ class UploadNotifier extends StateNotifier<UploadState> {
       }
 
       // 3. Attach Source Video File
-      await _repository.uploadVideoFile(
-        channelId: state.selectedChannel!.id,
-        videoId: initRes.videoId,
-        file: state.file!,
-        cancelToken: _cancelToken!,
-        onProgress: (count, total) {
-          if (total > 0) {
-            state = state.copyWith(uploadProgress: count / total);
+      try {
+        await _repository.uploadVideoFile(
+          channelId: state.selectedChannel!.id,
+          videoId: initRes.videoId,
+          file: state.file!,
+          cancelToken: _cancelToken!,
+          onProgress: (count, total) {
+            if (total > 0) {
+              state = state.copyWith(uploadProgress: count / total);
+            }
+          },
+        );
+      } catch (uploadErr) {
+        if (uploadErr is DioException && uploadErr.type == DioExceptionType.cancel) {
+          return;
+        }
+        // If upload threw a timeout or network glitch, verify if server actually received and saved the video
+        try {
+          final currentStatus = await _repository.getStatus(
+            initRes.videoId,
+            channelId: state.selectedChannel?.id,
+          );
+          if (currentStatus.status == VideoStatus.ready) {
+            state = state.copyWith(
+              video: currentStatus,
+              step: UploadStep.completed,
+              clearError: true,
+            );
+            _ref.invalidate(videoFeedProvider);
+            return;
+          } else if (currentStatus.status == VideoStatus.processing ||
+              currentStatus.status == VideoStatus.queued) {
+            state = state.copyWith(
+              video: currentStatus,
+              step: UploadStep.processing,
+              clearError: true,
+            );
+            _startPolling();
+            return;
           }
-        },
-      );
+        } catch (_) {
+          // If status check also fails, fall through to default error handler below
+        }
+        rethrow;
+      }
 
       // 4. Start Polling Status
       state = state.copyWith(step: UploadStep.processing, clearError: true);

@@ -30,6 +30,9 @@ const VIDEO_INCLUDE = {
     select: { id: true, title: true, startTimeMs: true, order: true },
     orderBy: { order: 'asc' as const },
   },
+  sourceFile: {
+    select: { id: true, url: true, storageKey: true },
+  },
 } as const;
 
 @Injectable()

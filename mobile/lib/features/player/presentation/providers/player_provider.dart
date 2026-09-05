@@ -2,6 +2,7 @@
 // Advanced player with Cloudinary streaming, multi-URL fallback, and progress restore.
 
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
@@ -133,42 +134,59 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
     }
 
-    // ── 1. Primary: Direct HLS or file URL from backend ──────────────────────
+    // ── 1. Direct raw file / sourceFileUrl (Instant playback from Cloudinary CDN) ──
+    if (video.sourceFileUrl != null && video.sourceFileUrl!.isNotEmpty) {
+      final resolved = MediaUrlResolver.resolve(video.sourceFileUrl!);
+      if (resolved != null) {
+        if (MediaUrlResolver.isCloudinary(resolved)) {
+          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
+          addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
+        }
+        addCandidate(resolved);
+      }
+    }
+
+    // ── 2. Primary HLS or Video URL from backend ──────────────────────────────
     if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
       final resolved = MediaUrlResolver.resolve(video.hlsUrl!);
       if (resolved != null) {
-        // Add the direct URL provided by the backend first!
-        addCandidate(resolved);
-
         if (MediaUrlResolver.isCloudinary(resolved)) {
-          // Add Cloudinary MP4 direct streaming
+          // Direct raw MP4 loads in < 1 second and never fails on standard Cloudinary accounts
+          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
           addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
-          if (!resolved.contains('.m3u8')) {
-            addCandidate(MediaUrlResolver.toCloudinaryHls(resolved));
+          // Avoid sp_hd HLS URLs that return 404 on Cloudinary accounts without adaptive streaming
+          if (!resolved.contains('sp_hd')) {
+            addCandidate(resolved);
           }
         } else {
-          // If local HLS (.m3u8), also add direct MP4 fallback
-          if (resolved.endsWith('.m3u8')) {
+          // If local or custom server
+          if (resolved.endsWith('.mp4')) {
+            addCandidate(resolved);
+          } else if (resolved.endsWith('.m3u8')) {
             final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
+            addCandidate(resolved);
             addCandidate(mp4Fallback);
+          } else {
+            addCandidate(resolved);
           }
         }
       }
     }
 
-    // ── 2. Renditions (quality options from transcode) ──────────────────────
+    // ── 3. Renditions (quality options from transcode) ────────────────────────
     for (final rendition in video.renditions) {
       if (rendition.url.isNotEmpty) {
-        addCandidate(rendition.url);
         final resolved = MediaUrlResolver.resolve(rendition.url);
-        if (resolved != null && MediaUrlResolver.isCloudinary(resolved)) {
-          final res = rendition.resolution > 0 ? rendition.resolution : 720;
-          addCandidate(MediaUrlResolver.toCloudinaryRendition(resolved, res));
+        if (resolved != null) {
+          if (MediaUrlResolver.isCloudinary(resolved)) {
+            addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
+          }
+          addCandidate(resolved);
         }
       }
     }
 
-    // ── 3. DASH stream URL fallback ─────────────────────────────────────────
+    // ── 4. DASH stream URL fallback ──────────────────────────────────────────
     if (video.dashUrl != null && video.dashUrl!.isNotEmpty) {
       addCandidate(video.dashUrl);
     }
@@ -306,7 +324,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           }
 
           await ctrl.initialize().timeout(
-            const Duration(seconds: 8),
+            const Duration(seconds: 5),
             onTimeout: () {
               ctrl.dispose();
               throw TimeoutException('Timed out initializing: $url');
@@ -319,8 +337,11 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           initializedController = ctrl;
           successUrl = url;
           break;
-        } catch (_) {
-          // Try next candidate URL
+        } catch (candidateErr) {
+          developer.log(
+            'Candidate URL failed [$url]: $candidateErr',
+            name: 'PlayerNotifier',
+          );
         }
       }
 

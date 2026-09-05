@@ -64,6 +64,10 @@ class UploadRepository {
       '/video-channels/$channelId/videos/$videoId/file',
       data: formData,
       cancelToken: cancelToken,
+      options: Options(
+        sendTimeout: const Duration(minutes: 15),
+        receiveTimeout: const Duration(minutes: 15),
+      ),
       onSendProgress: onProgress,
     );
   }
@@ -88,6 +92,10 @@ class UploadRepository {
     await _dio.post(
       '/video-channels/$channelId/videos/$videoId/thumbnail',
       data: formData,
+      options: Options(
+        sendTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+      ),
     );
   }
 

@@ -64,7 +64,10 @@ class MediaUrlResolver {
             seg.startsWith('h_') ||
             seg.startsWith('w_') ||
             seg.startsWith('q_') ||
-            seg.startsWith('f_')) {
+            seg.startsWith('f_') ||
+            seg.startsWith('c_') ||
+            seg.startsWith('so_') ||
+            seg.startsWith('vc_')) {
           startIdx = i + 1;
         }
       }
@@ -78,11 +81,20 @@ class MediaUrlResolver {
     }
   }
 
+  /// Converts a Cloudinary video URL to the direct raw uploaded MP4 file URL.
+  /// This file is stored directly on Cloudinary CDN and needs zero transformation time,
+  /// providing instantaneous playback on all Android ExoPlayer and iOS AVPlayer devices.
+  static String toCloudinaryRaw(String url) {
+    final parsed = parseCloudinaryUrl(url);
+    if (parsed == null) return url;
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/${parsed.publicId}.mp4';
+  }
+
   /// Converts a Cloudinary video URL to an optimized, universal direct MP4 playback URL.
   static String toCloudinaryMp4(String url) {
     final parsed = parseCloudinaryUrl(url);
     if (parsed == null) return url;
-    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/q_auto,vc_auto,f_mp4/${parsed.publicId}.mp4';
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/q_auto,f_mp4/${parsed.publicId}.mp4';
   }
 
   /// Converts a Cloudinary video URL to an HLS streaming URL.

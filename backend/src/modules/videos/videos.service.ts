@@ -645,10 +645,12 @@ export class VideosService {
 
     // Fallback to sourceFile.url if hlsUrl is not set, then sanitize all URLs
     const rawHlsUrl = video.hlsUrl || video.sourceFile?.url || null;
+    const sourceFileUrl = video.sourceFile?.url || null;
 
     return {
       ...video,
       hlsUrl: this.sanitizeUrl(rawHlsUrl),
+      sourceFileUrl: this.sanitizeUrl(sourceFileUrl),
       thumbnailUrl: this.sanitizeUrl(video.thumbnailUrl),
       previewUrl: this.sanitizeUrl(video.previewUrl),
       dashUrl: this.sanitizeUrl(video.dashUrl),

@@ -146,18 +146,23 @@ export class VideoProcessingService {
           ? video.thumbnailUrl
           : `https://res.cloudinary.com/${cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/so_1,q_auto,f_jpg/${publicId}.jpg`;
 
-      // Update video to READY with HLS URL as primary + direct MP4 as fallback
+      // Determine playback URL: Use sourceFile.url or direct MP4 URL as primary playback URL
+      // (Do NOT use sp_hd .m3u8 as primary because free/standard Cloudinary accounts lack adaptive streaming profiles)
+      const primaryPlaybackUrl =
+        video.sourceFile?.url || directMp4Url || hlsStreamingUrl;
+
+      // Update video to READY with direct playback URL
       await this.prisma.video.update({
         where: { id: videoId },
         data: {
           status: VideoStatus.READY,
-          hlsUrl: hlsStreamingUrl,
+          hlsUrl: primaryPlaybackUrl,
           thumbnailUrl: posterThumbnailUrl,
         },
       });
 
       this.logger.log(
-        `[Cloudinary] Video [${videoId}] marked READY. HLS: ${hlsStreamingUrl}`,
+        `[Cloudinary] Video [${videoId}] marked READY. Playback URL: ${primaryPlaybackUrl}`,
       );
     } catch (err: any) {
       this.logger.error(
