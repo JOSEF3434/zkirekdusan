@@ -12,6 +12,8 @@ import 'package:mobile/features/social/presentation/providers/likes_provider.dar
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/follow_button.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../media_experience/presentation/widgets/player_speed_sheet.dart';
@@ -27,7 +29,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
-  String? _seekFeedback;
+  bool? _isSeekingForward;
   Timer? _seekFeedbackTimer;
 
   // Mini-player drag state
@@ -35,13 +37,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   bool _isDragging = false;
   static const _kMiniDragThreshold = 120.0;
 
-  void _showSeekFeedback(String text) {
+  void _triggerSeek(bool isForward) {
     setState(() {
-      _seekFeedback = text;
+      _isSeekingForward = isForward;
     });
     _seekFeedbackTimer?.cancel();
-    _seekFeedbackTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _seekFeedback = null);
+    _seekFeedbackTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _isSeekingForward = null);
     });
   }
 
@@ -162,73 +164,130 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       ]);
     }
 
-    Widget playerWidget = AspectRatio(
-      aspectRatio: 16 / 9,
-      child: state.controller != null && state.controller!.value.isInitialized
-          ? GestureDetector(
-              onTap: () => ref
-                  .read(playerProvider(widget.videoId).notifier)
-                  .toggleControls(),
-              onDoubleTapDown: (details) {
-                final width = MediaQuery.of(context).size.width;
-                final dx = details.localPosition.dx;
-                final notifier = ref.read(
-                  playerProvider(widget.videoId).notifier,
-                );
+    final videoAspect = state.controller != null &&
+            state.controller!.value.isInitialized &&
+            state.controller!.value.aspectRatio > 0
+        ? state.controller!.value.aspectRatio
+        : 16 / 9;
 
-                if (dx < width / 3) {
-                  notifier.seekBackward();
-                  _showSeekFeedback('-10s');
-                } else if (dx > 2 * width / 3) {
-                  notifier.seekForward();
-                  _showSeekFeedback('+10s');
-                } else {
-                  notifier.togglePlayPause();
-                }
-              },
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  VideoPlayer(state.controller!),
-                  if (_seekFeedback != null)
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Text(
-                          _seekFeedback!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (state.showControls)
-                    _PlayerControlsOverlay(
-                      controller: state.controller!,
-                      notifier: ref.read(
-                        playerProvider(widget.videoId).notifier,
-                      ),
-                      videoId: widget.videoId,
-                      isFullscreen: state.isFullscreen,
-                    ),
-                  if (state.isBuffering)
-                    const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                ],
-              ),
-            )
-          : const Center(child: CircularProgressIndicator()),
+    final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+      thumbnailUrl: state.video?.thumbnailUrl,
+      hlsUrl: state.video?.hlsUrl,
+      renditionUrls:
+          state.video?.renditions.map((r) => r.url).toList(),
     );
+
+    final isInitialized =
+        state.controller != null && state.controller!.value.isInitialized;
+    final isPlaying = isInitialized && state.controller!.value.isPlaying;
+
+    final Widget playerContent = isInitialized
+        ? GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => ref
+                .read(playerProvider(widget.videoId).notifier)
+                .toggleControls(),
+            onDoubleTapDown: (details) {
+              final box = context.findRenderObject() as RenderBox?;
+              final width = box?.size.width ?? MediaQuery.of(context).size.width;
+              final dx = details.localPosition.dx;
+              final notifier = ref.read(
+                playerProvider(widget.videoId).notifier,
+              );
+
+              if (dx < width / 2) {
+                notifier.seekBackward();
+                _triggerSeek(false);
+              } else {
+                notifier.seekForward();
+                _triggerSeek(true);
+              }
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Video player maintaining natural aspect ratio (fixes X and Y stretching)
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: videoAspect,
+                    child: VideoPlayer(state.controller!),
+                  ),
+                ),
+
+                // Show thumbnail preview at beginning when paused instead of black screen
+                if (!isPlaying &&
+                    state.controller!.value.position == Duration.zero &&
+                    resolvedThumb != null &&
+                    resolvedThumb.isNotEmpty)
+                  Positioned.fill(
+                    child: CachedNetworkImage(
+                      imageUrl: resolvedThumb,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) =>
+                          const SizedBox.shrink(),
+                      errorWidget: (context, url, error) =>
+                          const SizedBox.shrink(),
+                    ),
+                  ),
+
+                // YouTube-like double-tap seek feedback animation
+                if (_isSeekingForward != null)
+                  _YouTubeSeekFeedback(isForward: _isSeekingForward!),
+
+                if (state.showControls)
+                  _PlayerControlsOverlay(
+                    controller: state.controller!,
+                    notifier: ref.read(
+                      playerProvider(widget.videoId).notifier,
+                    ),
+                    videoId: widget.videoId,
+                    isFullscreen: state.isFullscreen,
+                    onDoubleTapSeek: (isForward) {
+                      _triggerSeek(isForward);
+                    },
+                  ),
+
+                if (state.isBuffering)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+              ],
+            ),
+          )
+        : Stack(
+            alignment: Alignment.center,
+            children: [
+              if (resolvedThumb != null && resolvedThumb.isNotEmpty)
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: resolvedThumb,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) =>
+                        const SizedBox.shrink(),
+                    errorWidget: (context, url, error) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ],
+          );
+
+    final Widget playerWidget = state.isFullscreen
+        ? Container(
+            color: Colors.black,
+            width: double.infinity,
+            height: double.infinity,
+            child: playerContent,
+          )
+        : AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              color: Colors.black,
+              child: playerContent,
+            ),
+          );
 
     if (state.isFullscreen) {
       return Scaffold(
@@ -721,6 +780,104 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
+// ── YouTube-style Double-tap Seek Feedback ──────────────────────────────────
+
+class _YouTubeSeekFeedback extends StatefulWidget {
+  final bool isForward;
+  const _YouTubeSeekFeedback({required this.isForward});
+
+  @override
+  State<_YouTubeSeekFeedback> createState() => _YouTubeSeekFeedbackState();
+}
+
+class _YouTubeSeekFeedbackState extends State<_YouTubeSeekFeedback>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 650),
+      vsync: this,
+    )..forward();
+
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.05).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
+    );
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isFwd = widget.isForward;
+    return Positioned(
+      left: isFwd ? null : 0,
+      right: isFwd ? 0 : null,
+      top: 0,
+      bottom: 0,
+      width: 140,
+      child: IgnorePointer(
+        child: FadeTransition(
+          opacity: _opacityAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.horizontal(
+                  left: isFwd ? const Radius.circular(100) : Radius.zero,
+                  right: isFwd ? Radius.zero : const Radius.circular(100),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isFwd ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                    color: Colors.white,
+                    size: 38,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isFwd ? '10 seconds ▶▶' : '◀◀ 10 seconds',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black87,
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Player Controls Overlay ──────────────────────────────────────────────────
 
 class _PlayerControlsOverlay extends StatelessWidget {
@@ -728,143 +885,147 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final PlayerNotifier notifier;
   final String videoId;
   final bool isFullscreen;
+  final void Function(bool isForward) onDoubleTapSeek;
 
   const _PlayerControlsOverlay({
     required this.controller,
     required this.notifier,
     required this.videoId,
     required this.isFullscreen,
+    required this.onDoubleTapSeek,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black45,
-      child: Stack(
-        children: [
-          // Top bar (Back button & Settings)
-          Positioned(
-            top: 8,
-            left: 8,
-            right: 8,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.white,
-                    size: 32,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: notifier.toggleControls,
+      onDoubleTapDown: (details) {
+        final box = context.findRenderObject() as RenderBox?;
+        final width = box?.size.width ?? MediaQuery.of(context).size.width;
+        final isForward = details.localPosition.dx >= width / 2;
+        if (isForward) {
+          notifier.seekForward();
+        } else {
+          notifier.seekBackward();
+        }
+        onDoubleTapSeek(isForward);
+      },
+      child: Container(
+        color: Colors.black45,
+        child: Stack(
+          children: [
+            // Top bar (Back button & Settings)
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    onPressed: () {
+                      if (isFullscreen) {
+                        notifier.toggleFullscreen();
+                      } else {
+                        context.pop();
+                      }
+                    },
                   ),
-                  onPressed: () {
-                    if (isFullscreen) {
-                      notifier.toggleFullscreen();
-                    } else {
-                      context.pop();
-                    }
-                  },
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.speed, color: Colors.white),
-                      onPressed: () {
-                        PlayerSpeedSheet.show(context, videoId);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.settings, color: Colors.white),
-                      onPressed: () {
-                        PlayerQualitySheet.show(context, videoId);
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.speed, color: Colors.white),
+                        onPressed: () {
+                          PlayerSpeedSheet.show(context, videoId);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        onPressed: () {
+                          PlayerQualitySheet.show(context, videoId);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Center controls
-          Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  iconSize: 48,
-                  color: Colors.white,
-                  icon: const Icon(Icons.replay_10),
-                  onPressed: notifier.seekBackward,
-                ),
-                const SizedBox(width: 24),
-                ValueListenableBuilder(
-                  valueListenable: controller,
-                  builder: (context, VideoPlayerValue value, child) {
-                    return IconButton(
+            // Center controls - Play / Pause only (10s skip buttons removed in favor of YouTube-style double-tap)
+            Center(
+              child: ValueListenableBuilder(
+                valueListenable: controller,
+                builder: (context, VideoPlayerValue value, child) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.38),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
                       iconSize: 64,
                       color: Colors.white,
                       icon: Icon(
                         value.isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_fill,
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
                       ),
                       onPressed: notifier.togglePlayPause,
-                    );
-                  },
-                ),
-                const SizedBox(width: 24),
-                IconButton(
-                  iconSize: 48,
-                  color: Colors.white,
-                  icon: const Icon(Icons.forward_10),
-                  onPressed: notifier.seekForward,
-                ),
-              ],
-            ),
-          ),
-
-          // Bottom progress bar
-          Positioned(
-            bottom: 8,
-            left: 16,
-            right: 16,
-            child: ValueListenableBuilder(
-              valueListenable: controller,
-              builder: (context, VideoPlayerValue value, child) {
-                return Row(
-                  children: [
-                    Text(
-                      _formatDuration(value.position),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
-                    Expanded(
-                      child: VideoProgressIndicator(
-                        controller,
-                        allowScrubbing: true,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        colors: const VideoProgressColors(
-                          playedColor: Colors.red,
-                          bufferedColor: Colors.white30,
-                          backgroundColor: Colors.white12,
+                  );
+                },
+              ),
+            ),
+
+            // Bottom progress bar
+            Positioned(
+              bottom: 8,
+              left: 16,
+              right: 16,
+              child: ValueListenableBuilder(
+                valueListenable: controller,
+                builder: (context, VideoPlayerValue value, child) {
+                  return Row(
+                    children: [
+                      Text(
+                        _formatDuration(value.position),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                      Expanded(
+                        child: VideoProgressIndicator(
+                          controller,
+                          allowScrubbing: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          colors: const VideoProgressColors(
+                            playedColor: Colors.red,
+                            bufferedColor: Colors.white30,
+                            backgroundColor: Colors.white12,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      _formatDuration(value.duration),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                        color: Colors.white,
+                      Text(
+                        _formatDuration(value.duration),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
-                      onPressed: notifier.toggleFullscreen,
-                    ),
-                  ],
-                );
-              },
+                      IconButton(
+                        icon: Icon(
+                          isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                          color: Colors.white,
+                        ),
+                        onPressed: notifier.toggleFullscreen,
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

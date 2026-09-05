@@ -57,6 +57,11 @@ class _CreatorWorkspaceScreenState
         title: const Text('Creator Workspace'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.upload_file),
+            onPressed: () => context.push('/creator/upload'),
+            tooltip: 'Upload Video',
+          ),
+          IconButton(
             icon: const Icon(Icons.analytics),
             onPressed: () => context.push('/creator/dashboard'),
             tooltip: 'Creator Dashboard',

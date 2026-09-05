@@ -73,28 +73,60 @@ class VideoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (video.thumbnailUrl != null &&
-                      _resolveUrl(video.thumbnailUrl) != null)
-                    CachedNetworkImage(
-                      imageUrl: _resolveUrl(video.thumbnailUrl)!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.broken_image, color: Colors.grey),
-                      ),
-                    )
-                  else
-                    Container(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      child: const Icon(
-                        Icons.video_library,
-                        color: Colors.grey,
-                        size: 48,
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+                        thumbnailUrl: video.thumbnailUrl,
+                        hlsUrl: video.hlsUrl,
+                        renditionUrls:
+                            video.renditions.map((r) => r.url).toList(),
+                      );
+
+                      if (resolvedThumb != null && resolvedThumb.isNotEmpty) {
+                        return CachedNetworkImage(
+                          imageUrl: resolvedThumb,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.surfaceContainerHighest,
+                              theme.colorScheme.surfaceContainerHigh,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: Colors.black38,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white70,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
                   // Duration Badge
                   if (video.duration > 0)

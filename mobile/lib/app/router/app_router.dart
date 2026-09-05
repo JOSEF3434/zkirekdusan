@@ -50,6 +50,7 @@ import 'package:mobile/features/social/presentation/followers_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/creator_workspace_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/create_group_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/channel_selector_screen.dart';
+import 'package:mobile/features/creator/presentation/screens/upload_channel_selector_screen.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/admin_moderation_screen.dart';
@@ -258,11 +259,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateGroupScreen(),
       ),
       GoRoute(
+        path: '/creator/upload',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final groupId = state.uri.queryParameters['groupId'];
+          return UploadChannelSelectorScreen(initialGroupId: groupId);
+        },
+      ),
+      GoRoute(
         path: '/creator/groups/:id/channels',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
-          final group = state.extra as CreatorGroupDto;
-          return ChannelSelectorScreen(group: group);
+          final id = state.pathParameters['id']!;
+          final group = state.extra as CreatorGroupDto?;
+          if (group != null) {
+            return ChannelSelectorScreen(group: group);
+          }
+          return UploadChannelSelectorScreen(initialGroupId: id);
         },
       ),
       GoRoute(

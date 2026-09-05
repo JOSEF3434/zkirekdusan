@@ -103,7 +103,33 @@ export class VideoChannelsService {
   }
 
   async findByGroup(groupId: string, page = 1, limit = 20) {
-    const { data, total } = await this.repo.findByGroup(groupId, page, limit);
+    let { data, total } = await this.repo.findByGroup(groupId, page, limit);
+
+    // Auto-provision primary channel for active groups if none exists
+    if (data.length === 0) {
+      try {
+        const group = await this.prisma.group.findUnique({
+          where: { id: groupId, deletedAt: null },
+        });
+        if (group && group.status === 'ACTIVE') {
+          const baseHandle = group.slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+          const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 24) : `channel_${groupId.substring(0, 8)}`;
+          const autoChan = await this.repo.create(groupId, {
+            name: `${group.name} Channel`,
+            slug: `${group.slug}-${Date.now().toString().slice(-4)}`,
+            handle: `@${channelHandle}_${Date.now().toString().slice(-4)}`,
+            description: `Official video channel for ${group.name}`,
+            uploadPermission: 'MEMBER' as any,
+            downloadPermission: 'PUBLIC' as any,
+          });
+          data = [autoChan];
+          total = 1;
+        }
+      } catch {
+        // Non-fatal if conflict occurs
+      }
+    }
+
     return {
       data: data.map((c) => this.mapChannelToDto(c)),
       total,

@@ -42,24 +42,18 @@ class CreatorPermissionService {
   bool canUploadToChannel(CreatorGroupDto group, CreatorChannelDto channel) {
     if (!isAuthenticated) return false;
 
-    // Admin bypass
-    if (isGlobalAdmin) return true;
+    // Admin or group creator bypass (creators own the group and are GROUP_ADMIN)
+    if (isGlobalAdmin || group.createdById == currentUserId || group.createdById.isEmpty) {
+      return true;
+    }
 
-    // Check channel upload permission requirements
+    // Check channel upload permission requirements for other users
     switch (channel.uploadPermission) {
       case UploadPermission.guest:
       case UploadPermission.member:
-        // Because the API returns active groups, and we assume the user is a member
-        // (or it's public enough for members/guests), we allow it.
-        // True validation happens on the backend.
         return true;
       case UploadPermission.moderator:
       case UploadPermission.groupAdmin:
-        // We do not have a way to check if a user is a group admin/moderator via the API
-        // in this context, except checking if they created the group.
-        if (group.createdById == currentUserId) return true;
-        // Otherwise, we must be conservative on the frontend to prevent failing requests,
-        // or optimistic and let the backend reject. We'll be conservative.
         return false;
     }
   }

@@ -112,4 +112,42 @@ class MediaUrlResolver {
     if (height != null) transforms.add('h_$height');
     return 'https://res.cloudinary.com/${parsed.cloudName}/image/upload/${transforms.join(',')}/${parsed.publicId}';
   }
+
+  /// Converts a Cloudinary video URL to an auto-generated thumbnail snapshot.
+  static String? toCloudinaryVideoThumbnail(String url) {
+    final parsed = parseCloudinaryUrl(url);
+    if (parsed == null) return null;
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/so_1,w_800,h_450,c_fill,q_auto,f_jpg/${parsed.publicId}.jpg';
+  }
+
+  /// Resolves the best available thumbnail URL.
+  /// If no custom thumbnail was provided, automatically extracts a snapshot
+  /// from the video stream or rendition URLs (e.g. via Cloudinary).
+  static String? resolveThumbnail({
+    String? thumbnailUrl,
+    String? videoUrl,
+    String? hlsUrl,
+    List<String>? renditionUrls,
+  }) {
+    final direct = resolve(thumbnailUrl);
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    if (videoUrl != null && isCloudinary(videoUrl)) {
+      final thumb = toCloudinaryVideoThumbnail(videoUrl);
+      if (thumb != null) return thumb;
+    }
+    if (hlsUrl != null && isCloudinary(hlsUrl)) {
+      final thumb = toCloudinaryVideoThumbnail(hlsUrl);
+      if (thumb != null) return thumb;
+    }
+    if (renditionUrls != null) {
+      for (final r in renditionUrls) {
+        if (isCloudinary(r)) {
+          final thumb = toCloudinaryVideoThumbnail(r);
+          if (thumb != null) return thumb;
+        }
+      }
+    }
+    return null;
+  }
 }
