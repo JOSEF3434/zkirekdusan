@@ -66,8 +66,14 @@ export class VideosService {
       return { groupId: channel.groupId, channelId: channel.id };
     }
 
-    const channel = await this.prisma.videoChannel.findUnique({
-      where: { id: videoChannelId, deletedAt: null },
+    const channel = await this.prisma.videoChannel.findFirst({
+      where: {
+        OR: [
+          { id: videoChannelId },
+          { groupId: videoChannelId },
+        ],
+        deletedAt: null,
+      },
       select: {
         id: true,
         groupId: true,
@@ -131,12 +137,13 @@ export class VideosService {
     userId: string,
     dto: UploadVideoDto,
   ) {
-    await this.verifyChannelUploadPermission(videoChannelId, userId);
+    const permission = await this.verifyChannelUploadPermission(videoChannelId, userId);
+    const resolvedChannelId = permission.channelId;
 
     const slug = this.generateSlug(dto.title);
 
     const video = await this.repo.create({
-      videoChannelId,
+      videoChannelId: resolvedChannelId,
       uploadedById: userId,
       title: dto.title,
       slug,

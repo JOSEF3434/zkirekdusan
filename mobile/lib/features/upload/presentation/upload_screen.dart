@@ -309,95 +309,114 @@ class _ChannelSelectorWidgetState
       );
     }
 
+    Future<void> handleSelectChannel(GroupDto group) async {
+      final groupChannels = _channels[group.id] ?? [];
+      VideoChannelDto channel;
+      if (groupChannels.isNotEmpty) {
+        channel = groupChannels.first;
+      } else {
+        try {
+          final repo = ref.read(uploadRepositoryProvider);
+          final fetched = await repo.getGroupChannels(group.id);
+          if (fetched.isNotEmpty) {
+            channel = fetched.first;
+          } else {
+            channel = VideoChannelDto(
+              id: group.id,
+              groupId: group.id,
+              name: group.name,
+              type: 'PUBLIC',
+              uploadPermission: 'MEMBER',
+            );
+          }
+        } catch (_) {
+          channel = VideoChannelDto(
+            id: group.id,
+            groupId: group.id,
+            name: group.name,
+            type: 'PUBLIC',
+            uploadPermission: 'MEMBER',
+          );
+        }
+      }
+
+      ref.read(uploadProvider.notifier).selectChannel(group, channel);
+    }
+
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: _groups!.length,
       itemBuilder: (context, index) {
         final group = _groups![index];
-        final groupChannels = _channels[group.id] ?? [];
         final isPending = group.status == 'PENDING_APPROVAL';
+        final theme = Theme.of(context);
 
         return Card(
-          margin: const EdgeInsets.only(bottom: 16),
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 1,
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  child: const Icon(Icons.video_collection_rounded),
-                ),
-                title: Text(
-                  group.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: isPending
-                    ? const Text(
-                        'Pending Admin Approval',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: isPending ? null : () => handleSelectChannel(group),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: isPending
+                        ? Colors.orange.withValues(alpha: 0.15)
+                        : theme.colorScheme.primaryContainer,
+                    child: isPending
+                        ? const Icon(Icons.lock_outline, color: Colors.orange, size: 22)
+                        : Text(
+                            group.name.isNotEmpty
+                                ? group.name.substring(0, 1).toUpperCase()
+                                : 'C',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          group.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      )
-                    : Text('${groupChannels.length} sub-channel(s) available'),
-              ),
-              if (isPending)
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.4),
+                        if (isPending) ...[
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Pending Admin Approval',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'This channel is pending approval and is not privileged to upload videos. Please communicate with system admin to approve your channel.',
-                          style: TextStyle(color: Colors.orange, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (groupChannels.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Text(
-                    'No video sub-channels found in this channel.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              else
-                ...groupChannels.map(
-                  (channel) => ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.video_collection_outlined),
-                    title: Text(
-                      channel.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text('Type: ${channel.type}'),
-                    trailing: const Icon(
+                  if (!isPending)
+                    const Icon(
                       Icons.arrow_forward_ios_rounded,
-                      size: 14,
+                      size: 16,
+                      color: Colors.grey,
                     ),
-                    onTap: () {
-                      ref
-                          .read(uploadProvider.notifier)
-                          .selectChannel(group, channel);
-                    },
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         );
       },
