@@ -474,12 +474,16 @@ export class VideosRepository {
   }
 
   async getTrending(limit = 20) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return this.prisma.video.findMany({
       where: {
         status: VideoStatus.READY,
         visibility: VideoVisibility.PUBLIC,
         deletedAt: null,
-        publishedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        OR: [
+          { publishedAt: { gte: sevenDaysAgo } },
+          { publishedAt: null, createdAt: { gte: sevenDaysAgo } },
+        ],
       },
       orderBy: [{ viewsCount: 'desc' }, { likesCount: 'desc' }],
       take: limit,

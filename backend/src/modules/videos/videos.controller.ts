@@ -14,6 +14,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -35,6 +36,8 @@ import {
   VideoResponseDto,
 } from './dto/video-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
 import { VideoReportReason, VideoStatus } from '@prisma/client';
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -200,6 +203,8 @@ export class VideosController {
   }
 
   @Get()
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'List videos in a channel' })
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -214,7 +219,7 @@ export class VideosController {
   @ApiResponse({ status: 200, type: VideoListResponseDto })
   listVideos(
     @Param('channelId') channelId: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('cursor') cursor?: string,
@@ -231,13 +236,15 @@ export class VideosController {
   }
 
   @Get(':videoId')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get video details by ID' })
   @ApiParam({ name: 'channelId', description: 'Video Channel ID' })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   @ApiResponse({ status: 200, type: VideoResponseDto })
   getVideo(
     @Param('videoId') videoId: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
   ): Promise<VideoResponseDto> {
     return this.videosService.findById(videoId, userId) as any;
   }
@@ -407,6 +414,8 @@ export class VideosPublicController {
   constructor(private readonly videosService: VideosService) {}
 
   @Get()
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get videos by author or discovery query' })
   @ApiQuery({ name: 'authorId', required: false })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -431,6 +440,8 @@ export class VideosPublicController {
   }
 
   @Get('user/:userId')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get videos uploaded by a specific user' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -452,6 +463,8 @@ export class VideosPublicController {
   }
 
   @Get('latest')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
     summary: 'Get latest public videos sorted by upload date (newest first)',
   })
@@ -462,6 +475,8 @@ export class VideosPublicController {
   }
 
   @Get('trending')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
     summary: 'Get trending videos (last 7 days, sorted by views)',
   })
@@ -471,6 +486,8 @@ export class VideosPublicController {
   }
 
   @Get('search')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Search public videos' })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'category', required: false })
@@ -491,11 +508,13 @@ export class VideosPublicController {
   }
 
   @Get('slug/:slug')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get video by SEO-friendly slug' })
   @ApiParam({ name: 'slug', example: 'introduction-to-nestjs-a1b2c3d4' })
   async getBySlug(
     @Param('slug') slug: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
   ) {
     return this.videosService.findBySlug(slug, userId);
   }
@@ -577,12 +596,14 @@ export class VideosPublicController {
   // ─── Direct video ID endpoints ─────────────────────────────────────────────
 
   @Get(':videoId')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Get video details by ID' })
   @ApiParam({ name: 'videoId', description: 'Video ID' })
   @ApiResponse({ status: 200, type: VideoResponseDto })
   async getVideoById(
     @Param('videoId') videoId: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') userId?: string,
   ): Promise<VideoResponseDto> {
     return this.videosService.findById(videoId, userId) as any;
   }

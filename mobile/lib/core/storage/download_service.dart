@@ -218,6 +218,9 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     }
   }
 
+  /// Reloads local downloads from the database and verifies files on disk.
+  Future<void> loadLocalDownloads() => _loadFromDatabase();
+
   /// Starts downloading a video to deterministic filesystem storage
   Future<void> startDownload({
     required String videoId,

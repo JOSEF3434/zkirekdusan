@@ -53,7 +53,70 @@ export class RecommendationsService {
       }
     }
 
-    // Fallback: pure popularity ranking
+    // Query public READY videos for home feed discovery
+    const videos = await this.prisma.video.findMany({
+      where: { status: 'READY', visibility: 'PUBLIC', deletedAt: null },
+      orderBy: [{ viewsCount: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      skip,
+      include: {
+        videoChannel: {
+          select: { id: true, name: true, handle: true, groupId: true },
+        },
+        uploadedBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true, avatarFileId: true } },
+          },
+        },
+        renditions: {
+          select: {
+            id: true,
+            resolution: true,
+            height: true,
+            width: true,
+            bitrate: true,
+            url: true,
+            isReady: true,
+          },
+        },
+        sourceFile: {
+          select: { id: true, url: true, storageKey: true },
+        },
+      },
+    });
+
+    if (videos.length > 0) {
+      const mappedVideos = videos.map((v) => ({
+        ...v,
+        viewsCount: Number(v.viewsCount ?? 0),
+        duration: v.duration ?? 0,
+        author: v.uploadedBy
+          ? {
+              id: v.uploadedBy.id ?? '',
+              username: v.uploadedBy.username ?? '',
+              displayName: v.uploadedBy.profile?.displayName ?? null,
+              avatarUrl: null,
+            }
+          : { id: '', username: '', displayName: null, avatarUrl: null },
+        channelId: v.videoChannelId ?? v.videoChannel?.id ?? null,
+        channelName: v.videoChannel?.name ?? null,
+        content: v.title,
+        type: 'VIDEO',
+        media: [
+          {
+            id: v.id,
+            url: v.hlsUrl || v.sourceFile?.url || '',
+            fileType: 'video/mp4',
+            order: 0,
+          },
+        ],
+      }));
+      return { data: mappedVideos, page, limit, source: 'videos' };
+    }
+
+    // Fallback: pure popularity ranking of posts if no videos exist
     const posts = await this.prisma.post.findMany({
       where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
       orderBy: [{ likesCount: 'desc' }, { createdAt: 'desc' }],

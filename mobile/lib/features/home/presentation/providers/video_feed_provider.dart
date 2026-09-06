@@ -95,38 +95,32 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
 
     if (category == VideoFeedCategory.recommended) {
       try {
-        final feedResponse = await feedRepo.getRecommendations(
+        response = await repo.getLatestVideos(
           page: 1,
           limit: 10,
           cancelToken: _cancelToken,
         );
-        final videos = feedResponse.data
-            .map((p) => p.toVideoResponseDto())
-            .toList();
-        if (videos.isNotEmpty) {
-          response = VideoListResponseDto(
-            data: videos,
-            meta: feedResponse.meta,
-          );
-        } else {
-          // Fall back to latest videos so feed is never empty when user has 0 recommendations
-          response = await repo.getLatestVideos(
-            page: 1,
-            limit: 10,
-            cancelToken: _cancelToken,
-          );
-        }
       } catch (e) {
-        // Network/parsing error: fall back to local cached latest videos
+        // Network/parsing error: fall back
+      }
+
+      if (response.data.isEmpty) {
         try {
-          response = await repo.getLatestVideos(
+          final feedResponse = await feedRepo.getRecommendations(
             page: 1,
             limit: 10,
             cancelToken: _cancelToken,
           );
-        } catch (_) {
-          // Keep safe empty default
-        }
+          final videos = feedResponse.data
+              .map((p) => p.toVideoResponseDto())
+              .toList();
+          if (videos.isNotEmpty) {
+            response = VideoListResponseDto(
+              data: videos,
+              meta: feedResponse.meta,
+            );
+          }
+        } catch (_) {}
       }
     } else if (category == VideoFeedCategory.latest) {
       response = await repo.getLatestVideos(
@@ -217,24 +211,24 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
       );
       if (_currentCategory == VideoFeedCategory.recommended) {
         try {
-          final feedResponse = await feedRepo.getRecommendations(
+          response = await repo.getLatestVideos(
             page: nextPage,
             limit: 10,
             cancelToken: _cancelToken,
           );
-          final videos = feedResponse.data
-              .map((p) => p.toVideoResponseDto())
-              .toList();
-          response = VideoListResponseDto(
-            data: videos,
-            meta: feedResponse.meta,
-          );
-        } catch (e) {
+        } catch (_) {
           try {
-            response = await repo.getLatestVideos(
+            final feedResponse = await feedRepo.getRecommendations(
               page: nextPage,
               limit: 10,
               cancelToken: _cancelToken,
+            );
+            final videos = feedResponse.data
+                .map((p) => p.toVideoResponseDto())
+                .toList();
+            response = VideoListResponseDto(
+              data: videos,
+              meta: feedResponse.meta,
             );
           } catch (_) {
             // Keep safe empty default

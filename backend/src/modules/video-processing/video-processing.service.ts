@@ -158,6 +158,7 @@ export class VideoProcessingService {
           status: VideoStatus.READY,
           hlsUrl: primaryPlaybackUrl,
           thumbnailUrl: posterThumbnailUrl,
+          publishedAt: video.publishedAt ?? new Date(),
         },
       });
 
@@ -174,12 +175,15 @@ export class VideoProcessingService {
       try {
         const currentVideo = await this.prisma.video.findUnique({
           where: { id: videoId },
-          select: { hlsUrl: true, status: true },
+          select: { hlsUrl: true, status: true, publishedAt: true },
         });
         if (currentVideo && currentVideo.status !== VideoStatus.READY) {
           await this.prisma.video.update({
             where: { id: videoId },
-            data: { status: VideoStatus.READY },
+            data: {
+              status: VideoStatus.READY,
+              publishedAt: currentVideo.publishedAt ?? new Date(),
+            },
           });
           this.logger.warn(
             `[Cloudinary] Video [${videoId}] marked READY as fallback after error`,
@@ -332,6 +336,7 @@ export class VideoProcessingService {
         data: {
           status: VideoStatus.READY, duration, width: videoWidth, height: videoHeight,
           bitrate: meta.bitrate || 2000, thumbnailUrl, hlsUrl: masterUrl,
+          publishedAt: new Date(),
         },
       });
 

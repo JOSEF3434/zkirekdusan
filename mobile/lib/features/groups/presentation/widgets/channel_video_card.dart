@@ -1,7 +1,9 @@
 // lib/features/groups/presentation/widgets/channel_video_card.dart
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/groups/domain/channel_video_dto.dart';
 
 import 'package:mobile/features/home/domain/post_model.dart';
@@ -77,14 +79,24 @@ class ChannelVideoCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: video.thumbnailUrl != null
-                      ? Image.network(
-                          video.thumbnailUrl!,
+                  child: Builder(
+                    builder: (context) {
+                      final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+                        thumbnailUrl: video.thumbnailUrl,
+                        hlsUrl: video.hlsUrl,
+                      );
+                      if (resolvedThumb != null && resolvedThumb.isNotEmpty) {
+                        return CachedNetworkImage(
+                          imageUrl: resolvedThumb,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
+                          placeholder: (context, url) => _buildPlaceholder(theme),
+                          errorWidget: (context, url, error) =>
                               _buildPlaceholder(theme),
-                        )
-                      : _buildPlaceholder(theme),
+                        );
+                      }
+                      return _buildPlaceholder(theme);
+                    },
+                  ),
                 ),
                 // Status badge (Processing/Failed)
                 if (video.isProcessing)

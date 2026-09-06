@@ -352,7 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               RefreshIndicator(
                 onRefresh: () async {
                   if (isOffline) {
-                    ref.read(downloadServiceProvider.notifier).loadLocalDownloads();
+                    await ref.read(downloadServiceProvider.notifier).loadLocalDownloads();
                   } else {
                     await ref
                         .read(videoFeedProvider.notifier)

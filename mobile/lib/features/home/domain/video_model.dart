@@ -171,15 +171,15 @@ class VideoResponseDto {
           json['downloadPermission'] as String? ?? 'PUBLIC',
       isDownloadable: isDownloadable,
       isStream: isStream,
-      duration: json['duration'] as int? ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
       thumbnailUrl: json['thumbnailUrl'] as String?,
       hlsUrl: hlsUrl,
       sourceFileUrl: json['sourceFileUrl'] as String? ??
           (json['sourceFile'] as Map<String, dynamic>?)?['url'] as String?,
       dashUrl: json['dashUrl'] as String?,
       viewsCount: parsedViews,
-      likesCount: json['likesCount'] as int? ?? 0,
-      commentsCount: json['commentsCount'] as int? ?? 0,
+      likesCount: (json['likesCount'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['commentsCount'] as num?)?.toInt() ?? 0,
       author: PostAuthorDto.fromJson(authorJson),
       channelId: channelId,
       channelName: channelName,
@@ -193,13 +193,13 @@ class VideoResponseDto {
       isLiked: json['isLiked'] as bool?,
       isSaved: json['isSaved'] as bool?,
       publishedAt: json['publishedAt'] != null
-          ? DateTime.tryParse(json['publishedAt'] as String)
+          ? DateTime.tryParse(json['publishedAt'].toString())
           : null,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+          ? (DateTime.tryParse(json['updatedAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

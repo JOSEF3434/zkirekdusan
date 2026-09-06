@@ -59,16 +59,24 @@ class MediaUrlResolver {
         if (seg.startsWith('v') && int.tryParse(seg.substring(1)) != null) {
           startIdx = i + 1;
           break;
-        } else if (seg.contains(',') ||
-            seg.startsWith('sp_') ||
-            seg.startsWith('h_') ||
-            seg.startsWith('w_') ||
-            seg.startsWith('q_') ||
-            seg.startsWith('f_') ||
-            seg.startsWith('c_') ||
-            seg.startsWith('so_') ||
-            seg.startsWith('vc_')) {
+        }
+        final isTransform = !seg.contains('.') &&
+            !seg.startsWith('file_') &&
+            (seg.contains(',') ||
+                seg.startsWith('sp_') ||
+                seg.startsWith('h_') ||
+                seg.startsWith('w_') ||
+                seg.startsWith('q_') ||
+                seg.startsWith('f_') ||
+                seg.startsWith('c_') ||
+                seg.startsWith('so_') ||
+                seg.startsWith('vc_'));
+
+        if (isTransform) {
           startIdx = i + 1;
+        } else {
+          // Reached folder or filename — transformations have ended!
+          break;
         }
       }
       final publicWithExt = afterUpload.sublist(startIdx).join('/');

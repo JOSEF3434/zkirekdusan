@@ -224,6 +224,7 @@ export class VideosService {
         data: {
           status: VideoStatus.READY,
           hlsUrl: immediateHlsUrl,
+          publishedAt: new Date(),
         },
       });
       this.logger.log(
@@ -301,7 +302,7 @@ export class VideosService {
 
   async findByChannel(
     videoChannelId: string,
-    userId: string,
+    userId: string | undefined,
     opts: {
       page?: number;
       limit?: number;
@@ -311,13 +312,16 @@ export class VideosService {
     },
   ) {
     // For non-admins, restrict to READY + PUBLIC/GROUP_ONLY
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true },
-    });
-    const isAdmin =
-      user?.role.name === AppRole.SUPER_ADMIN ||
-      user?.role.name === AppRole.ADMIN;
+    let isAdmin = false;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { role: true },
+      });
+      isAdmin =
+        user?.role.name === AppRole.SUPER_ADMIN ||
+        user?.role.name === AppRole.ADMIN;
+    }
 
     const result = await this.repo.findByChannel(videoChannelId, {
       ...opts,
