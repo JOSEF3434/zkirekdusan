@@ -6,6 +6,8 @@ class VideoChannelDto {
   final String name;
   final String? description;
   final String? coverUrl;
+  final String? avatarUrl;
+  final String? handle;
   final String type;
   final String uploadPermission;
 
@@ -15,6 +17,8 @@ class VideoChannelDto {
     required this.name,
     this.description,
     this.coverUrl,
+    this.avatarUrl,
+    this.handle,
     required this.type,
     required this.uploadPermission,
   });
@@ -26,6 +30,8 @@ class VideoChannelDto {
       name: json['name'] as String? ?? '',
       description: json['description'] as String?,
       coverUrl: json['coverUrl'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
+      handle: json['handle'] as String?,
       type: json['type'] as String? ?? '',
       uploadPermission: json['uploadPermission'] as String? ?? '',
     );

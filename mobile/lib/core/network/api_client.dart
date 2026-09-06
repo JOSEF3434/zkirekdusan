@@ -83,7 +83,7 @@ Map<String, dynamic> parseEnvelope(dynamic raw) {
 
   if (map.containsKey('success')) {
     if (map['success'] != true) {
-      final msg = map['message'];
+      final msg = map['message'] ?? map['error'];
       throw AppException(
         msg is List ? (msg).join(', ') : (msg?.toString() ?? 'Request failed.'),
       );

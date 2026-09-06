@@ -679,14 +679,25 @@ export class LiveStreamingService {
     let rtmpUrl: string;
 
     if (this.cloudinaryProvider?.configured) {
-      const cld = await this.cloudinaryProvider.createLiveStream(
-        `channel_${channel.handle || channel.id}`,
-      );
-      rawKey = cld.streamKey;
-      rtmpUrl = cld.rtmpIngestUrl;
-      const keyPrefix = `cld_${cld.id}`;
-      const keyHash = createHash('sha256').update(rawKey).digest('hex');
-      await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+      try {
+        const cld = await this.cloudinaryProvider.createLiveStream(
+          `channel_${channel.handle || channel.id}`,
+        );
+        rawKey = cld.streamKey;
+        rtmpUrl = cld.rtmpIngestUrl;
+        const keyPrefix = `cld_${cld.id}`;
+        const keyHash = createHash('sha256').update(rawKey).digest('hex');
+        await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+      } catch (err: any) {
+        this.logger.warn(
+          `Cloudinary live stream creation failed: ${err?.message || err}. Falling back to internal RTMP server.`,
+        );
+        rawKey = randomBytes(24).toString('hex');
+        const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
+        const keyHash = createHash('sha256').update(rawKey).digest('hex');
+        rtmpUrl = this.getRtmpServerUrl();
+        await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+      }
     } else {
       rawKey = randomBytes(24).toString('hex');
       const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;

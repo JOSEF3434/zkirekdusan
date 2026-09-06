@@ -17,6 +17,7 @@ import 'package:mobile/app/env/env.dart';
 import 'package:mobile/features/live/presentation/widgets/stream_health_indicator.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
+import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 
@@ -31,7 +32,9 @@ class LiveStudioChannelItem {
   String get displayName =>
       channel.name.isNotEmpty ? channel.name : group.name;
   String get groupName => group.name;
-  String? get avatarUrl => group.avatarUrl ?? group.coverUrl;
+  String? get avatarUrl =>
+      channel.avatarUrl ?? group.avatarUrl ?? group.coverUrl;
+  String? get handle => channel.handle;
 }
 
 class LiveStudioScreen extends ConsumerStatefulWidget {
@@ -69,6 +72,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
   // Channel picker state (YouTube style)
   List<LiveStudioChannelItem> _availableChannels = [];
+  List<GroupDto> _myGroups = [];
   LiveStudioChannelItem? _selectedChannelItem;
   bool _loadingChannels = false;
   String? _loadError;
@@ -143,17 +147,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           groups.where((g) => g.status == 'ACTIVE').toList();
 
       final List<LiveStudioChannelItem> items = [];
+      final Set<String> seenIds = {};
       for (final group in activeGroups) {
         try {
           final channels = await repo.getGroupChannels(group.id);
           for (final ch in channels) {
-            items.add(LiveStudioChannelItem(channel: ch, group: group));
+            if (seenIds.add(ch.id)) {
+              items.add(LiveStudioChannelItem(channel: ch, group: group));
+            }
           }
         } catch (_) {}
       }
 
       if (mounted) {
         setState(() {
+          _myGroups = activeGroups;
           _availableChannels = items;
           _loadingChannels = false;
           if (widget.channelId != null) {
@@ -556,141 +564,491 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
+  Future<bool> _confirmAndDeleteChannel(LiveStudioChannelItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (alertCtx) => AlertDialog(
+        title: const Text('Delete Channel?'),
+        content: Text(
+          'Are you sure you want to delete "${item.displayName}"? This channel will be permanently removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(alertCtx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(alertCtx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return false;
+
+    try {
+      final dio = ref.read(apiClientProvider);
+      await dio.delete('/groups/${item.group.id}/video-channels/${item.channel.id}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Channel "${item.displayName}" deleted.')),
+        );
+        setState(() {
+          _availableChannels.removeWhere((c) => c.channel.id == item.channel.id);
+          if (_selectedChannelItem?.channel.id == item.channel.id) {
+            _selectedChannelItem =
+                _availableChannels.isNotEmpty ? _availableChannels.first : null;
+          }
+        });
+        return true;
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '').replaceFirst('AppException: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete channel: $msg'), backgroundColor: Colors.red),
+        );
+      }
+    }
+    return false;
+  }
+
+  Future<void> _showCreateChannelDialog() async {
+    if (_myGroups.isEmpty) {
+      await context.push('/creator/create-group');
+      _loadChannels();
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    final handleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String selectedGroupId = _selectedChannelItem?.group.id ?? _myGroups.first.id;
+    bool isSubmitting = false;
+    String? createErr;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Create Video Channel'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (createErr != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          createErr!,
+                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    if (_myGroups.length > 1) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedGroupId,
+                        decoration: const InputDecoration(
+                          labelText: 'Select Group',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _myGroups.map((g) => DropdownMenuItem(
+                          value: g.id,
+                          child: Text(g.name, overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => selectedGroupId = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Channel Name *',
+                        hintText: 'e.g. My Broadcast Channel',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (val) =>
+                          val == null || val.trim().isEmpty ? 'Name is required' : null,
+                      onChanged: (val) {
+                        if (handleCtrl.text.isEmpty || handleCtrl.text.startsWith('@')) {
+                          final clean = val.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+                          handleCtrl.text = clean.isNotEmpty ? '@$clean' : '';
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: handleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Handle *',
+                        hintText: '@channel_handle',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Handle is required';
+                        if (!val.startsWith('@')) return 'Handle must start with @';
+                        if (val.length < 3) return 'Handle too short';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (Optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setDialogState(() {
+                          isSubmitting = true;
+                          createErr = null;
+                        });
+                        try {
+                          final dio = ref.read(apiClientProvider);
+                          final name = nameCtrl.text.trim();
+                          final rawHandle = handleCtrl.text.trim();
+                          final slug = '${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '-')}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+                          final resp = await dio.post(
+                            '/groups/$selectedGroupId/video-channels',
+                            data: {
+                              'name': name,
+                              'slug': slug,
+                              'handle': rawHandle,
+                              if (descCtrl.text.trim().isNotEmpty)
+                                'description': descCtrl.text.trim(),
+                              'uploadPermission': 'MEMBER',
+                              'downloadPermission': 'PUBLIC',
+                            },
+                          );
+                          final newChannel = VideoChannelDto.fromJson(parseEnvelope(resp.data));
+                          final group = _myGroups.firstWhere(
+                            (g) => g.id == selectedGroupId,
+                            orElse: () => _myGroups.first,
+                          );
+                          if (dialogCtx.mounted) {
+                            Navigator.of(dialogCtx).pop();
+                          }
+                          if (mounted) {
+                            await _loadChannels();
+                            setState(() {
+                              _selectedChannelItem = LiveStudioChannelItem(
+                                channel: newChannel,
+                                group: group,
+                              );
+                            });
+                          }
+                        } catch (e) {
+                          setDialogState(() {
+                            isSubmitting = false;
+                            createErr = e.toString().replaceFirst('Exception: ', '').replaceFirst('AppException: ', '');
+                          });
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _showChannelSwitcherSheet() {
     final theme = Theme.of(context);
+    final searchCtrl = TextEditingController();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(top: 4, bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade400,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final query = searchCtrl.text.trim().toLowerCase();
+            final filtered = _availableChannels.where((item) {
+              if (query.isEmpty) return true;
+              return item.displayName.toLowerCase().contains(query) ||
+                  item.groupName.toLowerCase().contains(query) ||
+                  (item.handle != null && item.handle!.toLowerCase().contains(query));
+            }).toList();
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
                 ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: Row(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.75,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(
-                        child: Text(
-                          'Select Channel',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(top: 8, bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(ctx).pop(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Select Channel',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_availableChannels.length > 3)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: TextField(
+                            controller: searchCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'Search channels…',
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: searchCtrl.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        searchCtrl.clear();
+                                        setSheetState(() {});
+                                      },
+                                    )
+                                  : null,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onChanged: (_) => setSheetState(() {}),
+                          ),
+                        ),
+                      const Divider(height: 1),
+                      Flexible(
+                        child: filtered.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Center(
+                                  child: Text(
+                                    _availableChannels.isEmpty
+                                        ? 'No channels available'
+                                        : 'No matching channels found',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, _) => const Divider(
+                                  height: 1,
+                                  indent: 68,
+                                ),
+                                itemBuilder: (context, i) {
+                                  final item = filtered[i];
+                                  final isSelected =
+                                      _selectedChannelItem?.channel.id ==
+                                          item.channel.id;
+                                  final initial = item.displayName.isNotEmpty
+                                      ? item.displayName[0].toUpperCase()
+                                      : '?';
+
+                                  return ListTile(
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 4),
+                                    leading: CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor:
+                                          theme.colorScheme.primaryContainer,
+                                      backgroundImage: item.avatarUrl != null &&
+                                              item.avatarUrl!.isNotEmpty
+                                          ? NetworkImage(item.avatarUrl!)
+                                          : null,
+                                      child: item.avatarUrl == null ||
+                                              item.avatarUrl!.isEmpty
+                                          ? Text(
+                                              initial,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: theme.colorScheme
+                                                    .onPrimaryContainer,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.displayName,
+                                            style: TextStyle(
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 6),
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: theme.colorScheme.primary,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (item.handle != null &&
+                                            item.handle!.isNotEmpty)
+                                          Text(
+                                            item.handle!,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: theme.colorScheme.primary,
+                                              fontFamily: 'monospace',
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.group_outlined,
+                                              size: 13,
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                item.groupName,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: IconButton(
+                                      icon: Icon(
+                                        Icons.delete_outline,
+                                        size: 20,
+                                        color: theme.colorScheme.error
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                      tooltip: 'Delete channel',
+                                      onPressed: () async {
+                                        final deleted = await _confirmAndDeleteChannel(item);
+                                        if (deleted) {
+                                          setSheetState(() {});
+                                        }
+                                      },
+                                    ),
+                                    onTap: () {
+                                      setState(() => _selectedChannelItem = item);
+                                      Navigator.of(ctx).pop();
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.add,
+                              color: theme.colorScheme.primary, size: 20),
+                        ),
+                        title: const Text('Create new channel',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        trailing: const Icon(Icons.chevron_right, size: 20),
+                        onTap: () async {
+                          Navigator.of(ctx).pop();
+                          await _showCreateChannelDialog();
+                        },
                       ),
                     ],
                   ),
                 ),
-                const Divider(),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.45,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _availableChannels.length,
-                    itemBuilder: (context, i) {
-                      final item = _availableChannels[i];
-                      final isSelected =
-                          _selectedChannelItem?.channel.id == item.channel.id;
-                      final initial = item.displayName.isNotEmpty
-                          ? item.displayName[0].toUpperCase()
-                          : '?';
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          radius: 20,
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          backgroundImage: item.avatarUrl != null &&
-                                  item.avatarUrl!.isNotEmpty
-                              ? NetworkImage(item.avatarUrl!)
-                              : null,
-                          child: item.avatarUrl == null || item.avatarUrl!.isEmpty
-                              ? Text(
-                                  initial,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        title: Text(
-                          item.displayName,
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          item.groupName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: isSelected
-                            ? Icon(Icons.check_circle,
-                                color: theme.colorScheme.primary)
-                            : null,
-                        onTap: () {
-                          setState(() => _selectedChannelItem = item);
-                          Navigator.of(ctx).pop();
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.add,
-                        color: theme.colorScheme.primary, size: 20),
-                  ),
-                  title: const Text('Create new channel',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    await context.push('/creator/create-group');
-                    _loadChannels();
-                  },
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -879,7 +1237,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                                               _effectiveChannelId,
                                                             )).notifier,
                                                           )
-                                                          .goLive();
+                                                          .updateStreamState(updated);
                                                     })
                                                     .catchError((_) {});
                                               },
@@ -1118,9 +1476,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       targetUrl = Env.rtmpServerUrl;
     }
 
-    // Safety fallback: if targetUrl contains emulator loopback or localhost, point to Cloudinary live ingest
+    // Strip any URL query parameters if present
+    if (targetUrl.contains('?')) {
+      targetUrl = targetUrl.split('?').first;
+    }
+
+    // Safety fallback: if targetUrl contains emulator loopback or localhost, point to live ingest
     if (targetUrl.contains('10.0.2.2') || targetUrl.contains('localhost')) {
-      targetUrl = 'rtmp://live.cloudinary.com/streams';
+      final baseUri = Uri.tryParse(Env.apiBaseUrl);
+      if (baseUri != null && baseUri.host.isNotEmpty && baseUri.host != 'localhost' && baseUri.host != '10.0.2.2') {
+        targetUrl = 'rtmp://${baseUri.host}:1935/live';
+      } else {
+        targetUrl = 'rtmp://live.cloudinary.com/streams';
+      }
     }
 
     if (targetUrl.endsWith('/')) {
@@ -1181,13 +1549,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       );
       var key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
       if (key == null || key.isEmpty) {
+        key = _lastStreamKey;
+      }
+      if (key == null || key.isEmpty) {
         await notifier.regenerateStreamKey();
         key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
+      }
+      if (key == null || key.isEmpty) {
+        key = _lastStreamKey;
       }
 
       if (key == null || key.isEmpty) {
         throw Exception(
-          'Could not obtain stream key. Please check your network connection.',
+          'Could not obtain stream key. Please check your network connection and tap Regenerate Key.',
         );
       }
 
@@ -1207,6 +1581,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         String msg = e.toString();
         if (msg.startsWith('Exception: ')) {
           msg = msg.substring('Exception: '.length);
+        }
+        if (msg.startsWith('AppException: ')) {
+          msg = msg.substring('AppException: '.length);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

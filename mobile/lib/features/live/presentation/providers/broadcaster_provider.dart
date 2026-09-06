@@ -197,6 +197,14 @@ class BroadcasterNotifier extends StateNotifier<BroadcasterState> {
     }
   }
 
+  void updateStreamState(LiveStreamDto updated) {
+    state = state.copyWith(stream: updated);
+  }
+
+  void setStreamKey(StreamKeyDto key) {
+    state = state.copyWith(streamKey: key);
+  }
+
   void clearError() => state = state.copyWith(clearError: true);
 
   @override
