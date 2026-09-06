@@ -11,6 +11,7 @@ import 'package:mobile/features/chats/presentation/widgets/date_separator.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -60,6 +61,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final currentUserId = ref.watch(authProvider).user?.id;
     final typingUsers = ref.watch(typingIndicatorProvider(widget.conversationId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isOffline = ref.watch(connectivityProvider).isOffline;
 
     ConversationModel? conversation;
     discoveryAsync.whenData((discovery) {
@@ -310,6 +312,27 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ),
         child: Column(
           children: [
+            if (isOffline)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                color: isDark ? const Color(0xFF1E1A11) : const Color(0xFFFFFBEB),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 14, color: Colors.amber.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Offline • Displaying local cached messages',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Messages list area
             Expanded(
               child: messages.when(
@@ -419,30 +442,75 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
                   ),
                 ),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 48, color: Colors.redAccent),
-                      const SizedBox(height: 12),
-                      const Text('Failed to load messages'),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          ref
-                              .read(chatMessagesProvider(widget.conversationId).notifier)
-                              .loadMessages();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00C6FF),
-                          foregroundColor: Colors.black,
-                        ),
-                        child: const Text('Retry'),
+                error: (error, stack) {
+                  if (isOffline) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.wifi_off_rounded,
+                                size: 48, color: Colors.amber),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Offline Mode',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No cached messages found for this chat.\nConnect to the internet to load messages.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              ref
+                                  .read(chatMessagesProvider(widget.conversationId).notifier)
+                                  .loadMessages();
+                            },
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Check Connection'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline_rounded,
+                            size: 48, color: Colors.redAccent),
+                        const SizedBox(height: 12),
+                        const Text('Failed to load messages'),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            ref
+                                .read(chatMessagesProvider(widget.conversationId).notifier)
+                                .loadMessages();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C6FF),
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
 

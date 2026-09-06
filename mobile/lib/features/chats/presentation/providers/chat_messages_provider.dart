@@ -41,15 +41,29 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   }
 
   Future<void> loadMessages() async {
-    state = const AsyncValue.loading();
+    // 1. Try to hydrate instantly from local database without showing empty spinner
+    try {
+      final cachedResult = await _repository.getMessages(conversationId: conversationId);
+      if (cachedResult.data.isNotEmpty) {
+        _nextCursor = cachedResult.nextCursor;
+        _hasMore = cachedResult.hasMore;
+        state = AsyncValue.data(cachedResult.data.reversed.toList());
+      }
+    } catch (_) {}
+
+    if (state.valueOrNull == null) {
+      state = const AsyncValue.loading();
+    }
+
+    // 2. Fetch latest messages from server
     try {
       final result = await _repository.getMessages(conversationId: conversationId);
       _nextCursor = result.nextCursor;
       _hasMore = result.hasMore;
       state = AsyncValue.data(result.data.reversed.toList());
     } catch (e, st) {
-      if (state.value != null && state.value!.isNotEmpty) {
-        // Keep cached state
+      if (state.valueOrNull != null && state.valueOrNull!.isNotEmpty) {
+        // Keep cached messages for seamless offline viewing
       } else {
         state = AsyncValue.error(e, st);
       }

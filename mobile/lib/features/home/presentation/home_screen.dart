@@ -16,6 +16,8 @@ import 'package:mobile/features/media_experience/presentation/widgets/continue_w
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -129,6 +131,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  void _scrollToTop() {
+    if (_tabController.index == 0 && _recScrollController.hasClients) {
+      _recScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else if (_tabController.index == 1 && _latestScrollController.hasClients) {
+      _latestScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else if (_tabController.index == 2 && _subScrollController.hasClients) {
+      _subScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -143,12 +167,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     });
 
+    // Listen to Home icon taps to scroll to top and refresh
+    ref.listen<int>(homeRefreshSignalProvider, (previous, next) {
+      if (next > (previous ?? 0)) {
+        _scrollToTop();
+        _onRefresh();
+      }
+    });
+
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
     final authStatus = ref.watch(authProvider).status;
     final isAuthenticated = authStatus == AuthStatus.authenticated;
     _syncTabController(isAuthenticated);
     final continueWatchingState = ref.watch(continueWatchingProvider);
+    final connectivity = ref.watch(connectivityProvider);
+    final isOffline = connectivity.isOffline;
+    final downloadState = ref.watch(downloadServiceProvider);
+    final downloads = downloadState.downloads.values.toList();
     return Scaffold(
       body: ResponsiveLayout.maxReadingWidth(
         maxWidth: 1200,
@@ -158,27 +194,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               SliverAppBar(
                 floating: true,
                 pinned: true,
-                title: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      'assets/images/logo.jpg',
-                      height: 32,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.video_library),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        tr('app.name'),
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
+                title: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    _scrollToTop();
+                    _onRefresh();
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/images/logo.jpg',
+                        height: 32,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.video_library),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          tr('app.name'),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 actions: [
                   IconButton(
@@ -239,61 +282,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: CustomScrollView(
                   controller: _recScrollController,
                   slivers: [
-                    // Stories section
-                    const SliverToBoxAdapter(child: StorySection()),
-                    const SliverToBoxAdapter(
-                      child: Divider(height: 1, thickness: 0.5),
-                    ),
-                    if (continueWatchingState.items.isNotEmpty) ...[
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                        sliver: SliverToBoxAdapter(
-                          child: Text(
-                            tr('home.continue_watching'),
-                            style: theme.textTheme.titleLarge,
+                    if (isOffline)
+                      _buildOfflineDownloadsSliver(downloads, theme)
+                    else ...[
+                      // Stories section
+                      const SliverToBoxAdapter(child: StorySection()),
+                      const SliverToBoxAdapter(
+                        child: Divider(height: 1, thickness: 0.5),
+                      ),
+                      if (continueWatchingState.items.isNotEmpty) ...[
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                          sliver: SliverToBoxAdapter(
+                            child: Text(
+                              tr('home.continue_watching'),
+                              style: theme.textTheme.titleLarge,
+                            ),
                           ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 106,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            itemCount: continueWatchingState.items.length,
-                            itemBuilder: (context, index) {
-                              return SizedBox(
-                                width: 320,
-                                child: ContinueWatchingCard(
-                                  progress: continueWatchingState.items[index],
-                                  compact: true,
-                                ),
-                              );
-                            },
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 106,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              itemCount: continueWatchingState.items.length,
+                              itemBuilder: (context, index) {
+                                return SizedBox(
+                                  width: 320,
+                                  child: ContinueWatchingCard(
+                                    progress: continueWatchingState.items[index],
+                                    compact: true,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
+                        const SliverToBoxAdapter(child: Divider(height: 32)),
+                      ],
+                      // Offline Downloaded Videos Shelf (Display alongside online videos when online)
+                      if (downloads.isNotEmpty)
+                        _buildDownloadedShelfSliver(downloads, theme),
+                      // Category filter chips
+                      SliverToBoxAdapter(child: _buildCategoryChips()),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final feedStateAsync = ref.watch(videoFeedProvider);
+                          return feedStateAsync.when(
+                            data: (feedState) => _buildFeedGrid(
+                              feedState.videos,
+                              feedState.isLoadingMore,
+                              feedState.error,
+                              true,
+                            ),
+                            loading: () =>
+                                const SliverFillRemaining(child: FeedSkeleton()),
+                            error: (error, stack) =>
+                                _buildErrorState(error.toString(), theme),
+                          );
+                        },
                       ),
-                      const SliverToBoxAdapter(child: Divider(height: 32)),
                     ],
-                    // Category filter chips
-                    SliverToBoxAdapter(child: _buildCategoryChips()),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final feedStateAsync = ref.watch(videoFeedProvider);
-                        return feedStateAsync.when(
-                          data: (feedState) => _buildFeedGrid(
-                            feedState.videos,
-                            feedState.isLoadingMore,
-                            feedState.error,
-                            true,
-                          ),
-                          loading: () =>
-                              const SliverFillRemaining(child: FeedSkeleton()),
-                          error: (error, stack) =>
-                              _buildErrorState(error.toString(), theme),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),
@@ -301,30 +351,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               // Latest Videos Tab
               RefreshIndicator(
                 onRefresh: () async {
-                  await ref
-                      .read(videoFeedProvider.notifier)
-                      .setCategory(VideoFeedCategory.latest);
+                  if (isOffline) {
+                    ref.read(downloadServiceProvider.notifier).loadLocalDownloads();
+                  } else {
+                    await ref
+                        .read(videoFeedProvider.notifier)
+                        .setCategory(VideoFeedCategory.latest);
+                  }
                 },
                 child: CustomScrollView(
                   controller: _latestScrollController,
                   slivers: [
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final feedStateAsync = ref.watch(videoFeedProvider);
-                        return feedStateAsync.when(
-                          data: (feedState) => _buildFeedGrid(
-                            feedState.videos,
-                            feedState.isLoadingMore,
-                            feedState.error,
-                            false,
-                          ),
-                          loading: () =>
-                              const SliverFillRemaining(child: FeedSkeleton()),
-                          error: (error, stack) =>
-                              _buildErrorState(error.toString(), theme),
-                        );
-                      },
-                    ),
+                    if (isOffline)
+                      _buildOfflineDownloadsSliver(downloads, theme)
+                    else
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final feedStateAsync = ref.watch(videoFeedProvider);
+                          return feedStateAsync.when(
+                            data: (feedState) => _buildFeedGrid(
+                              feedState.videos,
+                              feedState.isLoadingMore,
+                              feedState.error,
+                              false,
+                            ),
+                            loading: () =>
+                                const SliverFillRemaining(child: FeedSkeleton()),
+                            error: (error, stack) =>
+                                _buildErrorState(error.toString(), theme),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -527,85 +584,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildErrorState(String error, ThemeData theme) {
+    final connectivity = ref.watch(connectivityProvider);
     final downloadState = ref.watch(downloadServiceProvider);
     final downloads = downloadState.downloads.values.toList();
 
-    // If user has offline downloads and encounters a connection failure,
-    // display YouTube-style offline downloads feed instead of a red error screen (matching Screenshot 3)!
-    if (downloads.isNotEmpty) {
-      return SliverList(
-        delegate: SliverChildListDelegate([
-          // Offline status banner
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.wifi_off_rounded, size: 20, color: Colors.orange),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'No connection • Showing your offline downloads',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _onRefresh,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Retry', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(50, 32),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Section header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Your downloads',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${downloads.length} video(s)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Downloaded video list matching YouTube offline downloads
-          ...downloads.map((item) => _buildOfflineVideoTile(item, theme)),
-          const SizedBox(height: 32),
-        ]),
-      );
+    // Only fallback to offline downloads if the device is actually offline
+    if (connectivity.isOffline) {
+      return _buildOfflineDownloadsSliver(downloads, theme);
     }
 
-    String friendlyMessage =
-        'Unable to load content. Please check your connection.';
-    if (error.contains('401') || error.contains('Unauthorized')) {
-      friendlyMessage = 'Session expired or sign in required.';
-    } else if (error.contains('timeout') || error.contains('connection')) {
-      friendlyMessage =
-          'Network connection issue. Downloaded videos will appear here automatically when offline.';
-    }
-
+    // Online error state - DO NOT claim the user is offline!
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
@@ -615,20 +603,265 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+              Icon(Icons.cloud_queue_rounded, size: 64, color: theme.colorScheme.primary),
               const SizedBox(height: 16),
-              Text('No Connection', style: theme.textTheme.titleLarge),
+              Text(
+                'Unable to load content',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Text(
-                friendlyMessage,
+                'Could not load videos from server. Pull down to refresh or tap Retry.',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _onRefresh,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineDownloadsSliver(
+    List<DownloadMetadata> downloads,
+    ThemeData theme,
+  ) {
+    if (downloads.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'No Connection • Offline Mode',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Download videos while online to watch them anytime offline without data.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: _onRefresh,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry Connection'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        // Offline status banner
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 20, color: Colors.orange),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Offline Mode • Showing your downloads',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _onRefresh,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(50, 32),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Section header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Your downloads',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${downloads.length} video(s)',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Downloaded video list matching YouTube offline downloads
+        ...downloads.map((item) => _buildOfflineVideoTile(item, theme)),
+        const SizedBox(height: 32),
+      ]),
+    );
+  }
+
+  Widget _buildDownloadedShelfSliver(
+    List<DownloadMetadata> downloads,
+    ThemeData theme,
+  ) {
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.download_done_rounded,
+                        size: 20, color: Color(0xFFE5A93B)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Downloaded Videos',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${downloads.length} offline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 125,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: downloads.length,
+              itemBuilder: (context, index) {
+                final item = downloads[index];
+                return _buildOfflineShelfCard(item, theme);
+              },
+            ),
+          ),
+          const Divider(height: 24, thickness: 0.5),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineShelfCard(DownloadMetadata item, ThemeData theme) {
+    final sizeMb = (item.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+    return Card(
+      margin: const EdgeInsets.only(right: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      child: InkWell(
+        onTap: () => context.push('/video/${item.videoId}'),
+        child: SizedBox(
+          width: 170,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
+                      item.thumbnailUrl!.startsWith('/') ||
+                              item.thumbnailUrl!.startsWith('file://')
+                          ? Image.file(
+                              File(item.thumbnailUrl!.replaceFirst('file://', '')),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(color: Colors.black54),
+                            )
+                          : Image.network(
+                              item.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(color: Colors.black54),
+                            )
+                    else
+                      Container(color: Colors.black87),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle, size: 10, color: Color(0xFFE5A93B)),
+                            SizedBox(width: 3),
+                            Text('Downloaded', style: TextStyle(color: Colors.white, fontSize: 9)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '$sizeMb MB • Offline',
+                      style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

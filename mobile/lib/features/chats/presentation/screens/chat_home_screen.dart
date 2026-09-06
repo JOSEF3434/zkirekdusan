@@ -12,6 +12,7 @@ import 'package:mobile/features/chats/presentation/widgets/conversation_list_til
 import 'package:mobile/features/chats/presentation/widgets/new_chat_sheet.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 
 class ChatHomeScreen extends ConsumerStatefulWidget {
@@ -408,41 +409,54 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                   ),
                 ),
               ),
-              error: (error, stack) => SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        size: 48,
-                        color: Colors.redAccent,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Failed to load chats',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isDark ? Colors.white : Colors.black87,
+              error: (error, stack) {
+                final isOffline = ref.watch(connectivityProvider).isOffline;
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isOffline ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                          size: 48,
+                          color: isOffline ? const Color(0xFF00C6FF) : Colors.redAccent,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          ref
-                              .read(chatDiscoveryProvider.notifier)
-                              .loadDiscovery();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00C6FF),
-                          foregroundColor: Colors.black,
+                        const SizedBox(height: 16),
+                        Text(
+                          isOffline ? 'Offline Mode' : 'Failed to load chats',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          isOffline
+                              ? 'Showing cached chats. Reconnect to send and receive new messages.'
+                              : 'Could not connect to chat service. Please try again.',
+                          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ref
+                                .read(chatDiscoveryProvider.notifier)
+                                .loadDiscovery();
+                          },
+                          icon: const Icon(Icons.refresh, size: 18),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C6FF),
+                            foregroundColor: Colors.black,
+                          ),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),

@@ -9,6 +9,7 @@ import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
@@ -76,6 +77,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       );
       return;
+    }
+
+    // If tapping Home while already on Home branch, trigger home feed refresh & scroll to top
+    if (index == 0 && widget.navigationShell.currentIndex == 0) {
+      ref.read(homeRefreshSignalProvider.notifier).state++;
     }
 
     // Adjust index for shell branches (branch 2 is now a placeholder;

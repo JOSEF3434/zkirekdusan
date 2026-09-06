@@ -28,6 +28,15 @@ class ProfileStatsModel {
       videosCount: (json['videosCount'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'followersCount': followersCount,
+    'followingCount': followingCount,
+    'groupsCount': groupsCount,
+    'postsCount': postsCount,
+    'reelsCount': reelsCount,
+    'videosCount': videosCount,
+  };
 }
 
 class ProfileModel {
@@ -88,4 +97,22 @@ class ProfileModel {
           DateTime.now(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'userId': userId,
+    'username': username,
+    'firstName': firstName,
+    'lastName': lastName,
+    'displayName': displayName,
+    'bio': bio,
+    'website': website,
+    'country': country,
+    'visibility': visibility,
+    'isVerified': isVerified,
+    'avatarUrl': avatarUrl,
+    'coverUrl': coverUrl,
+    'stats': stats.toJson(),
+    'createdAt': createdAt.toIso8601String(),
+  };
 }
