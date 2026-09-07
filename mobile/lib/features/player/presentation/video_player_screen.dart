@@ -64,13 +64,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     // Detach the controller from the provider so it won't be disposed.
     // The provider is autoDispose — when we pop, it normally disposes the
     // controller. We prevent this by overriding with keepAlive via listen.
-    ref.read(miniPlayerProvider.notifier).showVideo(
-      videoId: video.id,
-      title: video.title,
-      channelName: video.author.username,
-      thumbnailUrl: video.thumbnailUrl,
-      controller: ctrl,
-    );
+    ref
+        .read(miniPlayerProvider.notifier)
+        .showVideo(
+          videoId: video.id,
+          title: video.title,
+          channelName: video.author.username,
+          thumbnailUrl: video.thumbnailUrl,
+          controller: ctrl,
+        );
 
     // Null out the controller in provider state before dispose runs.
     ref.read(playerProvider(widget.videoId).notifier).detachController();
@@ -141,11 +143,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
     // Seed like/save state from video DTO so buttons reflect backend state
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(likesProvider.notifier).seed(
-        video.id,
-        video.isLiked ?? false,
-        video.likesCount,
-      );
+      ref
+          .read(likesProvider.notifier)
+          .seed(video.id, video.isLiked ?? false, video.likesCount);
       ref.read(saveProvider.notifier).seed(video.id, video.isSaved ?? false);
     });
 
@@ -164,17 +164,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       ]);
     }
 
-    final videoAspect = state.controller != null &&
-            state.controller!.value.isInitialized &&
-            state.controller!.value.aspectRatio > 0
-        ? state.controller!.value.aspectRatio
-        : 16 / 9;
+    // Force 16:9 aspect ratio for video player
+    final videoAspect = 16 / 9;
 
     final resolvedThumb = MediaUrlResolver.resolveThumbnail(
       thumbnailUrl: state.video?.thumbnailUrl,
       hlsUrl: state.video?.hlsUrl,
-      renditionUrls:
-          state.video?.renditions.map((r) => r.url).toList(),
+      renditionUrls: state.video?.renditions.map((r) => r.url).toList(),
     );
 
     final isInitialized =
@@ -189,7 +185,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 .toggleControls(),
             onDoubleTapDown: (details) {
               final box = context.findRenderObject() as RenderBox?;
-              final width = box?.size.width ?? MediaQuery.of(context).size.width;
+              final width =
+                  box?.size.width ?? MediaQuery.of(context).size.width;
               final dx = details.localPosition.dx;
               final notifier = ref.read(
                 playerProvider(widget.videoId).notifier,
@@ -223,8 +220,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     child: CachedNetworkImage(
                       imageUrl: resolvedThumb,
                       fit: BoxFit.contain,
-                      placeholder: (context, url) =>
-                          const SizedBox.shrink(),
+                      placeholder: (context, url) => const SizedBox.shrink(),
                       errorWidget: (context, url, error) =>
                           const SizedBox.shrink(),
                     ),
@@ -237,9 +233,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 if (state.showControls)
                   _PlayerControlsOverlay(
                     controller: state.controller!,
-                    notifier: ref.read(
-                      playerProvider(widget.videoId).notifier,
-                    ),
+                    notifier: ref.read(playerProvider(widget.videoId).notifier),
                     videoId: widget.videoId,
                     isFullscreen: state.isFullscreen,
                     onDoubleTapSeek: (isForward) {
@@ -262,8 +256,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   child: CachedNetworkImage(
                     imageUrl: resolvedThumb,
                     fit: BoxFit.contain,
-                    placeholder: (context, url) =>
-                        const SizedBox.shrink(),
+                    placeholder: (context, url) => const SizedBox.shrink(),
                     errorWidget: (context, url, error) =>
                         const SizedBox.shrink(),
                   ),
@@ -283,10 +276,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           )
         : AspectRatio(
             aspectRatio: 16 / 9,
-            child: Container(
-              color: Colors.black,
-              child: playerContent,
-            ),
+            child: Container(color: Colors.black, child: playerContent),
           );
 
     if (state.isFullscreen) {
@@ -329,294 +319,314 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.all(16),
-                children: [
-                  Text(video.title, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const Spacer(),
-                      // Offline Mode vs Online Stream indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 9, vertical: 3.5),
-                        decoration: BoxDecoration(
-                          color: state.isOfflinePlayback
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : const Color(0xFF00C6FF).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: state.isOfflinePlayback
-                                ? Colors.green
-                                : const Color(0xFF00C6FF),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(video.title, style: theme.textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        Row(
                           children: [
-                            Icon(
-                              state.isOfflinePlayback
-                                  ? Icons.offline_pin_rounded
-                                  : Icons.cloud_done_rounded,
-                              size: 14,
-                              color: state.isOfflinePlayback
-                                  ? Colors.green
-                                  : const Color(0xFF00C6FF),
-                            ),
-                            const SizedBox(width: 4),
                             Text(
-                              state.isOfflinePlayback
-                                  ? 'Offline Mode'
-                                  : 'Online Stream',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                              '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const Spacer(),
+                            // Offline Mode vs Online Stream indicator
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 3.5,
+                              ),
+                              decoration: BoxDecoration(
                                 color: state.isOfflinePlayback
-                                    ? Colors.green
-                                    : const Color(0xFF00C6FF),
+                                    ? Colors.green.withValues(alpha: 0.15)
+                                    : const Color(
+                                        0xFF00C6FF,
+                                      ).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: state.isOfflinePlayback
+                                      ? Colors.green
+                                      : const Color(0xFF00C6FF),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    state.isOfflinePlayback
+                                        ? Icons.offline_pin_rounded
+                                        : Icons.cloud_done_rounded,
+                                    size: 14,
+                                    color: state.isOfflinePlayback
+                                        ? Colors.green
+                                        : const Color(0xFF00C6FF),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    state.isOfflinePlayback
+                                        ? 'Offline Mode'
+                                        : 'Online Stream',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: state.isOfflinePlayback
+                                          ? Colors.green
+                                          : const Color(0xFF00C6FF),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                  // ── Action Buttons Row ────────────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Like button — uses existing LikeButton widget with animation
-                      _VideoActionLike(videoId: video.id, video: video),
+                        // ── Action Buttons Row ────────────────────────────────────
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            // Like button — uses existing LikeButton widget with animation
+                            _VideoActionLike(videoId: video.id, video: video),
 
-                      // Share button — uses share_plus via existing ShareButton
-                      ShareButton(
-                        postId: video.id,
-                        title: video.title,
-                        iconSize: 24,
-                      ),
+                            // Share button — uses share_plus via existing ShareButton
+                            ShareButton(
+                              postId: video.id,
+                              title: video.title,
+                              iconSize: 24,
+                            ),
 
-                      // Download button
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final downloadState = ref.watch(
-                            downloadServiceProvider,
-                          );
-                          final isDownloading = downloadState.downloading
-                              .contains(video.id);
-                          final isDownloaded = downloadState.downloads
-                              .containsKey(video.id);
-                          final progress =
-                              downloadState.progress[video.id] ?? 0.0;
+                            // Download button
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final downloadState = ref.watch(
+                                  downloadServiceProvider,
+                                );
+                                final isDownloading = downloadState.downloading
+                                    .contains(video.id);
+                                final isDownloaded = downloadState.downloads
+                                    .containsKey(video.id);
+                                final progress =
+                                    downloadState.progress[video.id] ?? 0.0;
 
-                          if (isDownloading) {
-                            return Column(
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    value: progress > 0 ? progress : null,
-                                    strokeWidth: 2,
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF00C6FF)),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${(progress * 100).toInt()}%',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            );
-                          }
-
-                          if (isDownloaded) {
-                            return _ActionButton(
-                              icon: Icons.offline_pin,
-                              iconColor: Colors.green,
-                              label: 'Downloaded',
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (dlgCtx) => AlertDialog(
-                                    title: const Text('Delete Download?'),
-                                    content: const Text(
-                                      'Remove this downloaded video from your device storage?',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(dlgCtx),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      FilledButton(
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: Colors.red,
+                                if (isDownloading) {
+                                  return Column(
+                                    children: [
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          value: progress > 0 ? progress : null,
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              const AlwaysStoppedAnimation<
+                                                Color
+                                              >(Color(0xFF00C6FF)),
                                         ),
-                                        onPressed: () {
-                                          Navigator.pop(dlgCtx);
-                                          ref
-                                              .read(
-                                                downloadServiceProvider.notifier,
-                                              )
-                                              .deleteDownload(video.id);
-                                        },
-                                        child: const Text('Remove'),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${(progress * 100).toInt()}%',
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ],
-                                  ),
+                                  );
+                                }
+
+                                if (isDownloaded) {
+                                  return _ActionButton(
+                                    icon: Icons.offline_pin,
+                                    iconColor: Colors.green,
+                                    label: 'Downloaded',
+                                    onTap: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (dlgCtx) => AlertDialog(
+                                          title: const Text('Delete Download?'),
+                                          content: const Text(
+                                            'Remove this downloaded video from your device storage?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(dlgCtx),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                              ),
+                                              onPressed: () {
+                                                Navigator.pop(dlgCtx);
+                                                ref
+                                                    .read(
+                                                      downloadServiceProvider
+                                                          .notifier,
+                                                    )
+                                                    .deleteDownload(video.id);
+                                              },
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
+
+                                String? candidateDownloadUrl;
+                                for (final r in video.renditions) {
+                                  if (r.url.trim().isNotEmpty) {
+                                    candidateDownloadUrl = r.url;
+                                    break;
+                                  }
+                                }
+                                candidateDownloadUrl ??=
+                                    video.hlsUrl ?? video.dashUrl;
+                                final canDownload =
+                                    candidateDownloadUrl != null &&
+                                    candidateDownloadUrl.trim().isNotEmpty;
+
+                                return _ActionButton(
+                                  icon: Icons.download_outlined,
+                                  label: 'Download',
+                                  onTap: canDownload
+                                      ? () {
+                                          ref
+                                              .read(
+                                                downloadServiceProvider
+                                                    .notifier,
+                                              )
+                                              .startDownload(
+                                                videoId: video.id,
+                                                url: candidateDownloadUrl!,
+                                                title: video.title,
+                                                thumbnailUrl:
+                                                    video.thumbnailUrl,
+                                              );
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Video added to Downloads list!',
+                                              ),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      : () {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Download is unavailable for this video',
+                                              ),
+                                            ),
+                                          );
+                                        },
                                 );
                               },
-                            );
-                          }
+                            ),
 
-                          String? candidateDownloadUrl;
-                          for (final r in video.renditions) {
-                            if (r.url.trim().isNotEmpty) {
-                              candidateDownloadUrl = r.url;
-                              break;
-                            }
-                          }
-                          candidateDownloadUrl ??= video.hlsUrl ?? video.dashUrl;
-                          final canDownload = candidateDownloadUrl != null &&
-                              candidateDownloadUrl.trim().isNotEmpty;
+                            // Save / Bookmark button — uses existing SaveButton widget
+                            _VideoActionSave(videoId: video.id, video: video),
+                          ],
+                        ),
 
-                          return _ActionButton(
-                            icon: Icons.download_outlined,
-                            label: 'Download',
-                            onTap: canDownload
-                                ? () {
-                                    ref
-                                        .read(downloadServiceProvider.notifier)
-                                        .startDownload(
-                                          videoId: video.id,
-                                          url: candidateDownloadUrl!,
-                                          title: video.title,
-                                          thumbnailUrl: video.thumbnailUrl,
-                                        );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Video added to Downloads list!',
-                                        ),
-                                        duration: Duration(seconds: 2),
-                                      ),
+                        const Divider(height: 32),
+
+                        // ── Channel row with Subscribe button ─────────────────────
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                if (video.author.username != null) {
+                                  context.push(
+                                    '/profile/user/${video.author.username}',
+                                  );
+                                }
+                              },
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                child: Text(
+                                  (video.author.displayName?.isNotEmpty == true
+                                          ? video.author.displayName![0]
+                                          : video.author.username?.isNotEmpty ==
+                                                true
+                                          ? video.author.username![0]
+                                          : '?')
+                                      .toUpperCase(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (video.author.username != null) {
+                                    context.push(
+                                      '/profile/user/${video.author.username}',
                                     );
                                   }
-                                : () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Download is unavailable for this video',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                          );
-                        },
-                      ),
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      video.author.displayName ??
+                                          video.author.username ??
+                                          'Unknown',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleMedium,
+                                    ),
+                                    Text(
+                                      video.channelName ?? 'Channel',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Follow/Subscribe button using existing FollowButton widget
+                            FollowButton(
+                              targetUserId: video.author.id,
+                              isDense: false,
+                            ),
+                          ],
+                        ),
 
-                      // Save / Bookmark button — uses existing SaveButton widget
-                      _VideoActionSave(videoId: video.id, video: video),
-                    ],
-                  ),
-
-                  const Divider(height: 32),
-
-                  // ── Channel row with Subscribe button ─────────────────────
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (video.author.username != null) {
-                            context.push(
-                              '/profile/user/${video.author.username}',
-                            );
-                          }
-                        },
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerHighest,
-                          child: Text(
-                            (video.author.displayName?.isNotEmpty == true
-                                    ? video.author.displayName![0]
-                                    : video.author.username?.isNotEmpty == true
-                                    ? video.author.username![0]
-                                    : '?')
-                                .toUpperCase(),
+                        const Divider(height: 32),
+                        if (video.description != null) ...[
+                          _ExpandableDescription(
+                            description: video.description!,
+                          ),
+                          const Divider(height: 32),
+                        ],
+                        Text(
+                          tr('home.recommended'),
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        ...state.recommendations.map(
+                          (rec) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: VideoCard(video: rec),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            if (video.author.username != null) {
-                              context.push(
-                                '/profile/user/${video.author.username}',
-                              );
-                            }
-                          },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                video.author.displayName ??
-                                    video.author.username ??
-                                    'Unknown',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              Text(
-                                video.channelName ?? 'Channel',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Follow/Subscribe button using existing FollowButton widget
-                      FollowButton(
-                        targetUserId: video.author.id,
-                        isDense: false,
-                      ),
-                    ],
-                  ),
-
-                  const Divider(height: 32),
-                  if (video.description != null) ...[
-                    _ExpandableDescription(description: video.description!),
-                    const Divider(height: 32),
-                  ],
-                  Text(
-                    tr('home.recommended'),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  ...state.recommendations.map(
-                    (rec) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: VideoCard(video: rec),
+                      ],
                     ),
                   ),
-                 ],
+                ],
               ),
             ),
-          ],
-        ),
-      ),
           ),
         ),
       ),
@@ -703,7 +713,10 @@ class _VideoActionSave extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(isSaved ? 'Saved' : 'Save', style: const TextStyle(fontSize: 12)),
+          Text(
+            isSaved ? 'Saved' : 'Save',
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );
@@ -848,7 +861,9 @@ class _YouTubeSeekFeedbackState extends State<_YouTubeSeekFeedback>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isFwd ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                    isFwd
+                        ? Icons.fast_forward_rounded
+                        : Icons.fast_rewind_rounded,
                     color: Colors.white,
                     size: 38,
                   ),
@@ -860,12 +875,7 @@ class _YouTubeSeekFeedbackState extends State<_YouTubeSeekFeedback>
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                       letterSpacing: 0.5,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black87,
-                          blurRadius: 4,
-                        ),
-                      ],
+                      shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
                     ),
                   ),
                 ],
@@ -994,7 +1004,10 @@ class _PlayerControlsOverlay extends StatelessWidget {
                     children: [
                       Text(
                         _formatDuration(value.position),
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                       Expanded(
                         child: VideoProgressIndicator(
@@ -1010,11 +1023,16 @@ class _PlayerControlsOverlay extends StatelessWidget {
                       ),
                       Text(
                         _formatDuration(value.duration),
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                       IconButton(
                         icon: Icon(
-                          isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                          isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
                           color: Colors.white,
                         ),
                         onPressed: notifier.toggleFullscreen,

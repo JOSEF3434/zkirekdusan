@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Configurable minimum splash screen display and loading duration
+/// Total splash experience: ~4500ms (allows full entrance animation + branding to complete)
 final splashLoadingDurationProvider = Provider<Duration>((ref) {
-  return const Duration(milliseconds: 1200);
+  return const Duration(milliseconds: 5000);
 });
 
 class SplashNotifier extends StateNotifier<bool> {

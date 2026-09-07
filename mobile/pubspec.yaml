@@ -81,8 +81,8 @@ dev_dependencies:
   # App icon generator
   flutter_launcher_icons: ^0.14.4
 
-  # Native splash screen generator
-  flutter_native_splash: ^2.4.7
+  # Native splash screen generator REMOVED - using custom Flutter SplashScreen widget instead
+  # flutter_native_splash: ^2.4.7
   drift_dev: 2.28.0
 
 dependency_overrides:
@@ -113,15 +113,6 @@ flutter_launcher_icons:
 
   remove_alpha_ios: true
 
-
-flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/images/logo.jpg"
-
-  android_12:
-    color: "#FFFFFF"
-    image: "assets/images/logo.jpg"
-
-  android: true
-  ios: true
-  web: true
+# flutter_native_splash configuration REMOVED
+# We use a custom Flutter SplashScreen widget (lib/features/splash/presentation/splash_screen.dart)
+# instead of native splash to avoid double splash screen issue

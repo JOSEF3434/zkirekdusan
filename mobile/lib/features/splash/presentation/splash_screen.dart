@@ -56,106 +56,101 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // 1. Entrance Choreography (2800ms smooth reverent reveal)
+    // 1. Entrance Choreography (3600ms smooth elegant reveal)
+    // DELAYED START: Wait 450ms before starting text animations for seamless transition from Android splash
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 5000),
     );
 
     // 2. Ambient Candlelight & Text Breathing Animation (4000ms loop)
     _ambientController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 4600),
     );
 
     // 3. Dynamic Text Shimmer Sweep (3000ms repeating wave)
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 5000),
     );
 
-    // 4. Splash Loading Time Progression (5000ms duration)
+    // 4. Splash Loading Time Progression (8000ms duration)
     _loadingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 8000),
     );
 
-    // Logo reveal (0.0 -> 0.35)
-    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
-      ),
-    );
-    _logoSlide =
-        Tween<Offset>(
-          begin: const Offset(0.0, -0.10),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: _entranceController,
-            curve: const Interval(0.0, 0.35, curve: Curves.easeOutCubic),
-          ),
-        );
+    // Logo reveal: IMMEDIATE (no animation for seamless Android→Flutter transition)
+    _logoOpacity = ConstantTween<double>(1.0).animate(_entranceController);
+    _logoSlide = ConstantTween<Offset>(
+      Offset.zero,
+    ).animate(_entranceController);
 
-    // Title reveal (0.15 -> 0.45)
+    // Title reveal: OPTIMIZED START (text animation begins 450ms after Flutter splash appears)
+    // 450ms delay = 0.125 of 3600ms total duration
+    // Title animation: 450ms-1350ms (900ms duration for smooth entrance)
     _titleOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.15, 0.45, curve: Curves.easeOut),
+        curve: const Interval(0.097, 0.35, curve: Curves.easeOut),
       ),
     );
     _titleSlide =
         Tween<Offset>(begin: const Offset(0.0, 0.12), end: Offset.zero).animate(
           CurvedAnimation(
             parent: _entranceController,
-            curve: const Interval(0.15, 0.45, curve: Curves.easeOutCubic),
+            curve: const Interval(0.125, 0.375, curve: Curves.easeOutCubic),
           ),
         );
 
-    // Golden light/glow illumination (0.30 -> 0.70)
+    // Golden light/glow illumination (starts with title, extends longer)
+    // 450ms-1800ms
     _goldenGlowOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.30, 0.70, curve: Curves.easeOut),
+        curve: const Interval(0.125, 0.500, curve: Curves.easeOut),
       ),
     );
 
-    // Quote reveal: Gentle fade-in + upward motion (0.35 -> 0.75)
+    // Quote reveal: Gentle fade-in + upward motion (staggered after title with clear separation)
+    // 1350ms-2400ms (1050ms duration for elegant, readable entrance)
     _quoteOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.35, 0.75, curve: Curves.easeOut),
+        curve: const Interval(0.375, 0.667, curve: Curves.easeOut),
       ),
     );
     _quoteSlide =
         Tween<Offset>(begin: const Offset(0.0, 0.20), end: Offset.zero).animate(
           CurvedAnimation(
             parent: _entranceController,
-            curve: const Interval(0.35, 0.75, curve: Curves.easeOutCubic),
+            curve: const Interval(0.375, 0.667, curve: Curves.easeOutCubic),
           ),
         );
 
-    // Author reveal: Slow elegant fade + slight upward motion (0.65 -> 1.0)
+    // Author reveal: Slow elegant fade + slight upward motion (final text element)
+    // 2250ms-3300ms (1050ms duration, plenty of time to be readable)
     _authorOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.65, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.625, 0.917, curve: Curves.easeOut),
       ),
     );
     _authorSlide =
         Tween<Offset>(begin: const Offset(0.0, 0.15), end: Offset.zero).animate(
           CurvedAnimation(
             parent: _entranceController,
-            curve: const Interval(0.65, 1.0, curve: Curves.easeOutCubic),
+            curve: const Interval(0.625, 0.917, curve: Curves.easeOutCubic),
           ),
         );
 
-    // Loading Indicator & Bar reveal (0.50 -> 0.85)
+    // Loading Indicator & Bar reveal (appears with quote for context)
+    // 1200ms-2550ms
     _loadingIndicatorOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: const Interval(0.50, 0.85, curve: Curves.easeIn),
+        curve: const Interval(0.333, 0.708, curve: Curves.easeIn),
       ),
     );
 
@@ -186,7 +181,13 @@ class _SplashScreenState extends State<SplashScreen>
       );
     });
 
-    _entranceController.forward();
+    // Start entrance animation immediately for quick display
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
+
     _ambientController.repeat(reverse: true);
     _shimmerController.repeat();
     _loadingController.forward();
