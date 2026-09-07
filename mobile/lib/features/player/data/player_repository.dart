@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:mobile/core/database/app_database.dart';
+import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/providers/database_provider.dart';
@@ -63,35 +64,62 @@ class PlayerRepository {
 
         return dto;
       } catch (e) {
-        debugPrint('[PlayerRepo] Remote getVideo failed: $e, falling back to cache');
+        debugPrint('[PlayerRepo] Remote getVideo failed: $e, checking local cache');
+        final local = await _db.videosDao.getVideoById(videoId);
+        if (local != null) {
+          return _mapLocalToDto(local);
+        }
+        if (e is DioException) {
+          throw AppException(_parseDioError(e));
+        }
+        rethrow;
       }
     }
 
     // Offline fallback from local Drift database
     final local = await _db.videosDao.getVideoById(videoId);
     if (local != null) {
-      return VideoResponseDto(
-        id: local.id,
-        title: local.title,
-        description: local.description,
-        status: VideoStatus.ready,
-        visibility: 'PUBLIC',
-        duration: local.duration,
-        thumbnailUrl: local.thumbnailUrl,
-        hlsUrl: local.localFilePath ?? local.hlsUrl,
-        dashUrl: local.dashUrl,
-        author: PostAuthorDto(
-          id: local.creatorId ?? '',
-          username: local.creatorName ?? 'Author',
-          displayName: local.creatorName,
-          avatarUrl: local.creatorAvatar,
-        ),
-        createdAt: local.createdAt ?? DateTime.now(),
-        updatedAt: local.updatedAt ?? DateTime.now(),
-      );
+      return _mapLocalToDto(local);
     }
 
-    throw Exception('Video not available offline.');
+    throw Exception('You are offline and this video is not downloaded.');
+  }
+
+  VideoResponseDto _mapLocalToDto(LocalVideoData local) {
+    return VideoResponseDto(
+      id: local.id,
+      title: local.title,
+      description: local.description,
+      status: VideoStatus.ready,
+      visibility: 'PUBLIC',
+      duration: local.duration,
+      thumbnailUrl: local.thumbnailUrl,
+      hlsUrl: local.localFilePath ?? local.hlsUrl,
+      dashUrl: local.dashUrl,
+      author: PostAuthorDto(
+        id: local.creatorId ?? '',
+        username: local.creatorName ?? 'Author',
+        displayName: local.creatorName,
+        avatarUrl: local.creatorAvatar,
+      ),
+      createdAt: local.createdAt ?? DateTime.now(),
+      updatedAt: local.updatedAt ?? DateTime.now(),
+    );
+  }
+
+  String _parseDioError(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      final msg = data['message'] ?? data['error'];
+      if (msg is String) return msg;
+      if (msg is List) return (msg).join(', ');
+    }
+    return switch (e.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.receiveTimeout => 'Connection timed out.',
+      DioExceptionType.connectionError => 'Could not connect to the server.',
+      _ => 'Failed to load video: ${e.message ?? 'Unknown error'}',
+    };
   }
 
   Future<VideoListResponseDto> getRecommended(String videoId) async {

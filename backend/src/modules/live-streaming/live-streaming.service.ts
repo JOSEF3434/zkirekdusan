@@ -141,6 +141,7 @@ export class LiveStreamingService {
       chatSlowModeSeconds: dto.chatSlowModeSeconds,
       isMembersOnlyChat: dto.isMembersOnlyChat,
       isSubscribersOnlyChat: dto.isSubscribersOnlyChat,
+      rtmpIngestUrl: this.getRtmpServerUrl(),
     });
 
     // Re-fetch with full relations so Flutter can parse the response correctly
@@ -309,24 +310,11 @@ export class LiveStreamingService {
   // ─── Stream Lifecycle ──────────────────────────────────────────────
 
   private getRtmpServerUrl(): string {
-    if (this.cloudinaryProvider?.configured) {
-      return 'rtmp://live.cloudinary.com/streams';
-    }
     const configured = this.configService.get<string>('RTMP_SERVER_URL');
     if (configured && !configured.includes('localhost') && !configured.includes('127.0.0.1')) {
       return configured;
     }
-    const appUrl = this.configService.get<string>('APP_URL');
-    if (appUrl) {
-      try {
-        const parsed = new URL(appUrl);
-        const host = parsed.hostname;
-        if (host && host !== 'localhost' && host !== '127.0.0.1') {
-          return `rtmp://${host}:1935/live`;
-        }
-      } catch {}
-    }
-    return configured ?? 'rtmp://localhost:1935/live';
+    return 'rtmp://live.cloudinary.com/streams';
   }
 
   async startStream(userId: string, streamId: string) {
@@ -361,9 +349,7 @@ export class LiveStreamingService {
       stream.videoChannelId,
     );
     let rtmpBaseUrl = this.getRtmpServerUrl();
-    let rtmpIngestUrl = streamKey
-      ? `${rtmpBaseUrl}?key=${streamKey.keyPrefix}`
-      : undefined;
+    let rtmpIngestUrl = stream.rtmpIngestUrl || rtmpBaseUrl;
 
     // If Cloudinary is configured, provision / activate Cloudinary live stream
     if (this.cloudinaryProvider?.configured) {

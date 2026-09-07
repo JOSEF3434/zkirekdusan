@@ -9,6 +9,7 @@ import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 
 enum UploadStep {
   selectVideo,
@@ -143,6 +144,15 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 
   Future<void> _startUploadProcess() async {
+    final isOnline = _ref.read(connectivityProvider).isOnline;
+    if (!isOnline) {
+      state = state.copyWith(
+        step: UploadStep.failed,
+        error: 'An active internet connection is required to upload videos.',
+      );
+      return;
+    }
+
     if (state.selectedChannel == null ||
         state.formData == null ||
         state.file == null) {

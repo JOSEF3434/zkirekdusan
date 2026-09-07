@@ -18,6 +18,7 @@ import 'package:mobile/features/live/presentation/widgets/stream_health_indicato
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 
@@ -1470,30 +1471,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     }
 
     String targetUrl;
-    if (stream.rtmpIngestUrl != null && stream.rtmpIngestUrl!.isNotEmpty) {
-      targetUrl = stream.rtmpIngestUrl!;
+    if (stream.rtmpIngestUrl != null && stream.rtmpIngestUrl!.trim().isNotEmpty) {
+      targetUrl = stream.rtmpIngestUrl!.trim();
     } else {
-      targetUrl = Env.rtmpServerUrl;
-    }
-
-    // Strip any URL query parameters if present
-    if (targetUrl.contains('?')) {
-      targetUrl = targetUrl.split('?').first;
-    }
-
-    // Safety fallback: if targetUrl contains emulator loopback or localhost, point to live ingest
-    if (targetUrl.contains('10.0.2.2') || targetUrl.contains('localhost')) {
-      final baseUri = Uri.tryParse(Env.apiBaseUrl);
-      if (baseUri != null && baseUri.host.isNotEmpty && baseUri.host != 'localhost' && baseUri.host != '10.0.2.2') {
-        targetUrl = 'rtmp://${baseUri.host}:1935/live';
-      } else {
-        targetUrl = 'rtmp://live.cloudinary.com/streams';
-      }
+      targetUrl = Env.rtmpServerUrl.trim();
     }
 
     if (targetUrl.endsWith('/')) {
       targetUrl = targetUrl.substring(0, targetUrl.length - 1);
     }
+
+    // Safely log RTMP host for debugging (never log stream keys or secrets)
+    try {
+      final uri = Uri.tryParse(targetUrl);
+      debugPrint('[LiveStudio] RTMP broadcasting to scheme=${uri?.scheme} host=${uri?.host} path=${uri?.path}');
+    } catch (_) {}
 
     final key = streamKey.trim();
     if (key.isEmpty) {
@@ -1539,6 +1531,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
   Future<void> _handleGoLive(String streamId, BroadcasterState bState) async {
     try {
+      final isOnline = ref.read(connectivityProvider).isOnline;
+      if (!isOnline) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Live streaming requires an active internet connection.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       final channelId = _effectiveChannelId;
       if (channelId.isEmpty) {
         throw Exception('Please select a streaming channel first.');
@@ -1572,6 +1577,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       final updatedState = ref.read(
         broadcasterProvider((streamId, channelId)),
       );
+      if (updatedState.error != null && updatedState.error!.isNotEmpty) {
+        throw Exception(updatedState.error);
+      }
       final currentStream = updatedState.stream;
       if (currentStream != null) {
         await _startRtmpBroadcast(currentStream, key);

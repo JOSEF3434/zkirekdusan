@@ -321,9 +321,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                         const SliverToBoxAdapter(child: Divider(height: 32)),
                       ],
-                      // Offline Downloaded Videos Shelf (Display alongside online videos when online)
-                      if (downloads.isNotEmpty)
-                        _buildDownloadedShelfSliver(downloads, theme),
                       // Category filter chips
                       SliverToBoxAdapter(child: _buildCategoryChips()),
                       Consumer(
