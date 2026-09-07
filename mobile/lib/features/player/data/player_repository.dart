@@ -38,7 +38,21 @@ class PlayerRepository {
 
     if (isOnline) {
       try {
-        final response = await _dio.get('/videos/$videoId');
+        Response response;
+        try {
+          response = await _dio.get('/videos/$videoId');
+        } on DioException catch (dioErr) {
+          if (dioErr.response?.statusCode == 404 &&
+              _dio.options.baseUrl.endsWith('/api')) {
+            final rootBase = _dio.options.baseUrl.substring(
+              0,
+              _dio.options.baseUrl.length - 4,
+            );
+            response = await _dio.get('$rootBase/videos/$videoId');
+          } else {
+            rethrow;
+          }
+        }
         final data = parseEnvelope(response.data);
         final dto = VideoResponseDto.fromJson(data);
 

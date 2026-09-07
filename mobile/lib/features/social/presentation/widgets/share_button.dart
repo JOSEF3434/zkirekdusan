@@ -17,7 +17,7 @@ class ShareButton extends StatelessWidget {
   });
 
   void _handleShare(BuildContext context) {
-    final link = '${Env.apiBaseUrl.replaceAll('/api', '')}/posts/$postId';
+    final link = '${Env.apiBaseUrl.replaceAll('/api', '')}/share/$postId';
     final shareText = title != null
         ? 'Check out this video on ዝክረ ክዱሳን: $title\n\n$link'
         : 'Check out this video on ዝክረ ክዱሳን!\n\n$link';

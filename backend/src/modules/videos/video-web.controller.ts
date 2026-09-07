@@ -3,32 +3,25 @@ import { Controller, Get, Param, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 @ApiExcludeController()
+@Public()
 @Controller()
 export class VideoWebController {
   constructor(private readonly prisma: PrismaService) {}
 
-  @Get('posts/:id')
-  async handlePostRoute(
-    @Param('id') id: string,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
-    return this.renderMediaPage(id, req, res);
-  }
-
-  @Get('videos/:id')
-  async handleVideoRoute(
-    @Param('id') id: string,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
-    return this.renderMediaPage(id, req, res);
-  }
-
   @Get('share/:id')
   async handleShareRoute(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.renderMediaPage(id, req, res);
+  }
+
+  @Get('web/:id')
+  async handleWebRoute(
     @Param('id') id: string,
     @Req() req: Request,
     @Res() res: Response,

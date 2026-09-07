@@ -23,6 +23,7 @@ final apiClientProvider = Provider<Dio>((ref) {
   );
 
   dio.interceptors.add(AuthInterceptor(ref));
+  dio.interceptors.add(PrefixFallbackInterceptor(dio));
 
   dio.interceptors.add(
     LogInterceptor(
@@ -37,6 +38,113 @@ final apiClientProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+/// Interceptor that handles backend routing discrepancies between environments
+/// where some routes (such as `/videos/*`) are mounted without the global `/api` prefix.
+///
+/// If a request to an `/api/...` endpoint returns a 404 with a routing error
+/// (e.g. `Cannot GET /api/...`) or is a route known to be mounted at root
+/// (e.g. `/videos`), this interceptor automatically strips the `/api` prefix
+/// and retries the request against the root host.
+///
+/// Once confirmed working, the route prefix is memorized in memory so subsequent
+/// requests skip the failed `/api` attempt and execute immediately.
+class PrefixFallbackInterceptor extends Interceptor {
+  final Dio _dio;
+
+  PrefixFallbackInterceptor(this._dio);
+
+  /// Set of route prefixes that have been detected to be mounted at root (without /api)
+  static final Set<String> _rootMountedPrefixes = {};
+
+  /// Resets cached prefixes for testing
+  static void resetRootMountedPrefixes() {
+    _rootMountedPrefixes.clear();
+  }
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final path = options.path;
+    final isRootMounted = _rootMountedPrefixes.any(
+      (prefix) => path.startsWith(prefix) || path.startsWith('/$prefix'),
+    );
+
+    if (isRootMounted && options.baseUrl.endsWith('/api')) {
+      options.baseUrl = options.baseUrl.substring(
+        0,
+        options.baseUrl.length - 4,
+      );
+    }
+
+    handler.next(options);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final response = err.response;
+    final reqOptions = err.requestOptions;
+
+    // Only retry on 404 routing error if not already retried
+    if (response?.statusCode == 404 &&
+        reqOptions.extra['prefix_fallback_retried'] != true) {
+      final uri = reqOptions.uri;
+      final uriPath = uri.path;
+
+      // Check if URL currently has /api
+      if (uriPath.startsWith('/api/') || uriPath == '/api') {
+        final bodyStr = response?.data?.toString() ?? '';
+        final isRoutingNotFound = bodyStr.contains('Cannot GET /api/') ||
+            bodyStr.contains('Cannot POST /api/') ||
+            bodyStr.contains('Cannot PATCH /api/') ||
+            bodyStr.contains('Cannot DELETE /api/') ||
+            bodyStr.contains('Cannot PUT /api/');
+
+        final isKnownRootRoute = reqOptions.path.startsWith('/videos') ||
+            reqOptions.path.startsWith('videos');
+
+        if (isRoutingNotFound || isKnownRootRoute) {
+          final newPath = uriPath.replaceFirst(RegExp(r'^/api(?=/|$)'), '');
+          final fallbackUrl = uri.replace(path: newPath).toString();
+
+          try {
+            developer.log(
+              '[PrefixFallback] 404 on ${reqOptions.uri} -> Retrying without /api: $fallbackUrl',
+            );
+
+            final retryResponse = await _dio.fetch(
+              reqOptions.copyWith(
+                baseUrl: '',
+                path: fallbackUrl,
+                queryParameters: const {},
+                extra: {
+                  ...reqOptions.extra,
+                  'prefix_fallback_retried': true,
+                },
+              ),
+            );
+
+            // Remember that this prefix succeeds without /api
+            if (reqOptions.path.startsWith('/videos') ||
+                reqOptions.path.startsWith('videos')) {
+              _rootMountedPrefixes.add('/videos');
+            }
+
+            return handler.resolve(retryResponse);
+          } catch (retryErr) {
+            developer.log(
+              '[PrefixFallback] Retry failed for $fallbackUrl: $retryErr',
+            );
+            if (retryErr is DioException) {
+              return handler.next(retryErr);
+            }
+          }
+        }
+      }
+    }
+
+    handler.next(err);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
