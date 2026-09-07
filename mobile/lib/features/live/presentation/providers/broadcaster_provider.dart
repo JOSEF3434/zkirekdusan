@@ -168,9 +168,24 @@ class BroadcasterNotifier extends StateNotifier<BroadcasterState> {
   Future<void> goLive() async {
     state = state.copyWith(isGoingLive: true, clearError: true);
     try {
-      final updated = await _repo.startStream(_streamId);
-      state = state.copyWith(stream: updated, isGoingLive: false);
-      _maybeStartTimer(updated);
+      final result = await _repo.startStream(_streamId);
+      // Extract embedded stream key (Cloudinary plain-text key) if provided
+      final embeddedKey = result.streamKey;
+      StreamKeyDto? updatedKey = state.streamKey;
+      if (embeddedKey != null && embeddedKey.isNotEmpty) {
+        updatedKey = StreamKeyDto(
+          channelId: _channelId,
+          keyPrefix: state.streamKey?.keyPrefix,
+          rtmpUrl: state.streamKey?.rtmpUrl ?? result.stream.rtmpIngestUrl,
+          rawKey: embeddedKey,
+        );
+      }
+      state = state.copyWith(
+        stream: result.stream,
+        streamKey: updatedKey,
+        isGoingLive: false,
+      );
+      _maybeStartTimer(result.stream);
     } catch (e) {
       state = state.copyWith(isGoingLive: false, error: e.toString());
     }

@@ -19,6 +19,7 @@ export class StreamResponseDto {
   dashUrl!: string | null;
   webrtcUrl!: string | null;
   rtmpIngestUrl!: string | null;
+  streamKey?: string | null;
   thumbnailUrl!: string | null;
   categories!: string[];
   tags!: string[];

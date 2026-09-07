@@ -1595,34 +1595,36 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       final notifier = ref.read(
         broadcasterProvider((streamId, channelId)).notifier,
       );
-      var key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
+
+      // Step 1: Call go-live — backend provisions Cloudinary and embeds the key in response
+      await notifier.goLive();
+
+      final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
+      if (updatedState.error != null && updatedState.error!.isNotEmpty) {
+        throw Exception(updatedState.error);
+      }
+
+      // Step 2: Prefer the key embedded by the go-live response (Cloudinary plain-text key)
+      var key = updatedState.streamKey?.rawKey;
       if (key == null || key.isEmpty) {
         key = _lastStreamKey;
       }
+      if (key == null || key.isEmpty) {
+        key = bState.streamKey?.rawKey;
+      }
+      // If still missing, ask backend to regenerate
       if (key == null || key.isEmpty) {
         await notifier.regenerateStreamKey();
         key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
       }
       if (key == null || key.isEmpty) {
-        key = _lastStreamKey;
-      }
-
-      if (key == null || key.isEmpty) {
         throw Exception(
-          'Could not obtain stream key. Please check your network connection and tap Regenerate Key.',
+          'Could not obtain stream key. Please tap Regenerate Key and try again.',
         );
       }
 
       _lastStreamKey = key;
 
-      await notifier.goLive();
-
-      final updatedState = ref.read(
-        broadcasterProvider((streamId, channelId)),
-      );
-      if (updatedState.error != null && updatedState.error!.isNotEmpty) {
-        throw Exception(updatedState.error);
-      }
       final currentStream = updatedState.stream;
       if (currentStream != null) {
         await _startRtmpBroadcast(currentStream, key);

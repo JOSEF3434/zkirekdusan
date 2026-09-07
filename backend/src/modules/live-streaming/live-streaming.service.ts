@@ -311,7 +311,14 @@ export class LiveStreamingService {
 
   private getRtmpServerUrl(): string {
     const configured = this.configService.get<string>('RTMP_SERVER_URL');
-    if (configured && !configured.includes('localhost') && !configured.includes('127.0.0.1')) {
+    if (
+      configured &&
+      !configured.includes('localhost') &&
+      !configured.includes('127.0.0.1') &&
+      !configured.includes('10.0.2.2') &&
+      !configured.includes('onrender.com') &&
+      !configured.includes('render.com')
+    ) {
       return configured;
     }
     return 'rtmp://live.cloudinary.com/streams';
@@ -322,9 +329,6 @@ export class LiveStreamingService {
     if (!stream || stream.deletedAt)
       throw new NotFoundException('Stream not found');
 
-    if (stream.status === LiveStreamStatus.LIVE) {
-      throw new ConflictException('Stream is already live');
-    }
     if (
       stream.status === LiveStreamStatus.ENDED ||
       stream.status === LiveStreamStatus.CANCELLED
@@ -350,6 +354,7 @@ export class LiveStreamingService {
     );
     let rtmpBaseUrl = this.getRtmpServerUrl();
     let rtmpIngestUrl = stream.rtmpIngestUrl || rtmpBaseUrl;
+    let activeStreamKey: string | null = null;
 
     // If Cloudinary is configured, provision / activate Cloudinary live stream
     if (this.cloudinaryProvider?.configured) {
@@ -369,16 +374,26 @@ export class LiveStreamingService {
           archivePublicId = `live_stream_${cldStreamId}_archive`;
           rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
           rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
-        } else if (!cldStreamId || !hlsUrl) {
+
+          // Fetch active stream key from Cloudinary to pass to the broadcaster
+          try {
+            const cldData = await this.cloudinaryProvider.getLiveStream(cldStreamId);
+            if (cldData?.input?.stream_key) {
+              activeStreamKey = cldData.input.stream_key;
+            }
+          } catch (_) {}
+        } else if (!cldStreamId || !hlsUrl || !streamKey?.keyPrefix?.startsWith('cld_')) {
           // If not already provisioned on Cloudinary, create it now
+          const safeSlug = (stream.slug || stream.id).replace(/[^a-zA-Z0-9_-]/g, '_');
           const cld = await this.cloudinaryProvider.createLiveStream(
-            `stream_${stream.slug || stream.id}`,
+            `stream_${safeSlug}`,
           );
           cldStreamId = cld.id;
           hlsUrl = cld.hlsUrl;
           archivePublicId = cld.archivePublicId;
           rtmpBaseUrl = cld.rtmpIngestUrl;
           rtmpIngestUrl = cld.rtmpIngestUrl;
+          activeStreamKey = cld.streamKey;
 
           // Upsert channel's stream key to match Cloudinary
           const keyHash = createHash('sha256').update(cld.streamKey).digest('hex');
@@ -429,6 +444,22 @@ export class LiveStreamingService {
         update: {},
       });
     }
+
+    // Broadcast stream started event via WebSocket
+    this.liveGateway.broadcastStreamStarted(streamId, {
+      id: streamId,
+      title: stream.title,
+      status: LiveStreamStatus.LIVE,
+      startedAt: updatedStream.startedAt ?? new Date(),
+      hlsUrl: updatedStream.hlsUrl,
+      dashUrl: updatedStream.dashUrl,
+      webrtcUrl: updatedStream.webrtcUrl,
+    });
+
+    return {
+      ...updatedStream,
+      streamKey: activeStreamKey || undefined,
+    };
 
     this.logger.log(`Stream ${streamId} started by user ${userId}`);
 
@@ -638,9 +669,22 @@ export class LiveStreamingService {
       return { channelId, keyPrefix: null, rtmpUrl: null, hasKey: false };
     }
 
+    let rawKey: string | undefined;
+    if (key.keyPrefix?.startsWith('cld_') && this.cloudinaryProvider?.configured) {
+      const cldId = key.keyPrefix.replace('cld_', '');
+      try {
+        const cld = await this.cloudinaryProvider.getLiveStream(cldId);
+        if (cld?.input?.stream_key) {
+          rawKey = cld.input.stream_key;
+        }
+      } catch (_) {}
+    }
+
     return {
       channelId,
       keyPrefix: key.keyPrefix,
+      rawKey,
+      streamKey: rawKey,
       rtmpUrl: this.getRtmpServerUrl(),
       hasKey: true,
       lastUsedAt: key.lastUsedAt,
@@ -666,11 +710,10 @@ export class LiveStreamingService {
 
     if (this.cloudinaryProvider?.configured) {
       try {
-        const cld = await this.cloudinaryProvider.createLiveStream(
-          `channel_${channel.handle || channel.id}`,
-        );
+        const safeName = `channel_${(channel.handle || channel.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const cld = await this.cloudinaryProvider.createLiveStream(safeName);
         rawKey = cld.streamKey;
-        rtmpUrl = cld.rtmpIngestUrl;
+        rtmpUrl = cld.rtmpIngestUrl || this.getRtmpServerUrl();
         const keyPrefix = `cld_${cld.id}`;
         const keyHash = createHash('sha256').update(rawKey).digest('hex');
         await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);

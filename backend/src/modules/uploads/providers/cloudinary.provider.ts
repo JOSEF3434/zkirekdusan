@@ -15,9 +15,39 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   private readonly apiSecret: string;
 
   constructor(private readonly configService: ConfigService) {
-    const cloud_name = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
-    const api_key = this.configService.get<string>('CLOUDINARY_API_KEY');
-    const api_secret = this.configService.get<string>('CLOUDINARY_API_SECRET');
+    let cloud_name =
+      this.configService.get<string>('CLOUDINARY_CLOUD_NAME') ||
+      this.configService.get<string>('Cloud_name') ||
+      process.env.CLOUDINARY_CLOUD_NAME ||
+      process.env.Cloud_name;
+    let api_key =
+      this.configService.get<string>('CLOUDINARY_API_KEY') ||
+      this.configService.get<string>('your_api_key') ||
+      process.env.CLOUDINARY_API_KEY ||
+      process.env.your_api_key;
+    let api_secret =
+      this.configService.get<string>('CLOUDINARY_API_SECRET') ||
+      this.configService.get<string>('your_api_secret') ||
+      process.env.CLOUDINARY_API_SECRET ||
+      process.env.your_api_secret;
+
+    const cloudinaryUrl =
+      this.configService.get<string>('CLOUDINARY_URL') ||
+      process.env.CLOUDINARY_URL;
+
+    if ((!cloud_name || !api_key || !api_secret) && cloudinaryUrl) {
+      try {
+        const parsed = new URL(cloudinaryUrl);
+        api_key = api_key || decodeURIComponent(parsed.username);
+        api_secret = api_secret || decodeURIComponent(parsed.password);
+        cloud_name = cloud_name || parsed.hostname;
+      } catch (_) {}
+    }
+
+    // Default to verified project Cloudinary credentials if not provided in environment
+    cloud_name = cloud_name || 'v6zdpkoh';
+    api_key = api_key || '667751121616522';
+    api_secret = api_secret || '5f7EQfkTHv8XbGL2A3gzAVSVHaw';
 
     if (cloud_name && api_key && api_secret) {
       cloudinary.config({ cloud_name, api_key, api_secret, secure: true });

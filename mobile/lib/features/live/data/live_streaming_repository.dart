@@ -138,11 +138,17 @@ class LiveStreamingRepository {
   }
 
   /// POST /streams/:id/go-live
-  Future<LiveStreamDto> startStream(String streamId) async {
+  /// Returns the updated stream. The backend may embed a `streamKey` field
+  /// (plain-text Cloudinary key) in the response — we extract and cache it.
+  Future<({LiveStreamDto stream, String? streamKey})> startStream(
+    String streamId,
+  ) async {
     try {
       final response = await _dio.post('/streams/$streamId/go-live');
       final data = parseEnvelope(response.data);
-      return LiveStreamDto.fromJson(data);
+      final stream = LiveStreamDto.fromJson(data);
+      final rawKey = data['streamKey'] as String? ?? data['rawKey'] as String?;
+      return (stream: stream, streamKey: rawKey);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }
