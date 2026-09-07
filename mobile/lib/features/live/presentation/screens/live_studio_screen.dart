@@ -1403,7 +1403,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         onError: _onError,
       );
 
-      await controller.initialize();
+      await controller.initialize().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw Exception(
+          'Camera initialization timed out. Please verify camera permissions and hardware availability.',
+        ),
+      );
       if (!mounted) {
         await controller.dispose();
         return;
@@ -1459,6 +1464,48 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     }
   }
 
+  static bool _isValidRtmpUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    final trimmed = url.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return false;
+    if (uri.scheme != 'rtmp' && uri.scheme != 'rtmps') return false;
+
+    final host = uri.host.toLowerCase();
+    // Reject localhost / loopback
+    if (host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2') {
+      return false;
+    }
+
+    // Reject URLs pointing to the Render web host on port 1935 (port 1935 does not exist on web servers)
+    if (host == 'zikrekidusan.onrender.com' || host.endsWith('.onrender.com')) {
+      return false;
+    }
+
+    final apiUri = Uri.tryParse(Env.apiBaseUrl);
+    if (apiUri != null && apiUri.host.isNotEmpty && host == apiUri.host.toLowerCase()) {
+      return false;
+    }
+
+    // Never accept port 1935 if host is an HTTP web service host
+    if (uri.port == 1935 && host.contains('render')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  static String _resolveAuthoritativeRtmpUrl(String? backendUrl) {
+    if (_isValidRtmpUrl(backendUrl)) {
+      var url = backendUrl!.trim();
+      if (url.endsWith('/')) {
+        url = url.substring(0, url.length - 1);
+      }
+      return url;
+    }
+    return Env.rtmpServerUrl.trim();
+  }
+
   Future<void> _startRtmpBroadcast(
     LiveStreamDto stream,
     String streamKey,
@@ -1470,16 +1517,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       throw Exception('Camera is not ready for live broadcasting.');
     }
 
-    String targetUrl;
-    if (stream.rtmpIngestUrl != null && stream.rtmpIngestUrl!.trim().isNotEmpty) {
-      targetUrl = stream.rtmpIngestUrl!.trim();
-    } else {
-      targetUrl = Env.rtmpServerUrl.trim();
-    }
-
-    if (targetUrl.endsWith('/')) {
-      targetUrl = targetUrl.substring(0, targetUrl.length - 1);
-    }
+    final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
 
     // Safely log RTMP host for debugging (never log stream keys or secrets)
     try {
@@ -1500,6 +1538,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       await _liveStreamController!.startStreaming(
         streamKey: key,
         url: targetUrl,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception(
+          'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
+        ),
       );
 
       if (mounted) {
@@ -2286,18 +2329,7 @@ class _StreamKeyCard extends StatelessWidget {
   });
 
   String _resolveRtmpUrl(String? rawUrl) {
-    if (rawUrl == null || rawUrl.isEmpty) {
-      final baseUri = Uri.tryParse(Env.apiBaseUrl);
-      final host = baseUri?.host.isNotEmpty == true ? baseUri!.host : 'localhost';
-      return 'rtmp://$host:1935/live';
-    }
-    if (rawUrl.contains('localhost') || rawUrl.contains('127.0.0.1')) {
-      final baseUri = Uri.tryParse(Env.apiBaseUrl);
-      if (baseUri != null && baseUri.host.isNotEmpty && baseUri.host != 'localhost' && baseUri.host != '127.0.0.1') {
-        return rawUrl.replaceAll('localhost', baseUri.host).replaceAll('127.0.0.1', baseUri.host);
-      }
-    }
-    return rawUrl;
+    return _LiveStudioScreenState._resolveAuthoritativeRtmpUrl(rawUrl);
   }
 
   @override
