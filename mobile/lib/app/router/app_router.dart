@@ -34,6 +34,7 @@ import 'package:mobile/features/library/presentation/liked_videos_screen.dart';
 import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
+import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
 import 'package:mobile/features/explore/presentation/search_screen.dart';
@@ -101,7 +102,8 @@ class RouterNotifier extends ChangeNotifier {
 
     // Handle Incoming Call: immediately route to /call/incoming
     final callState = _ref.read(callStateProvider);
-    if (callState.status == CallStatus.ringing && location != '/call/incoming') {
+    if (callState.status == CallStatus.ringing &&
+        location != '/call/incoming') {
       return '/call/incoming';
     }
 
@@ -123,7 +125,7 @@ class RouterNotifier extends ChangeNotifier {
 
     // 3. While auth status is initializing (unknown):
     // If on splash '/', stay on splash.
-    // If refreshing on a specific route (e.g. '/home', '/explore', '/profile'), do NOT wipe it out!
+    // If refreshing on a specific route (e.g. '/home', '/calendar', '/profile'), do NOT wipe it out!
     if (authState.status == AuthStatus.unknown) {
       return null;
     }
@@ -515,11 +517,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          // Explorer tab — reuses the existing ExploreScreen implementation
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/explore',
                 builder: (context, state) => const ExploreScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/calendar',
+                builder: (context, state) => const CalendarScreen(),
               ),
             ],
           ),

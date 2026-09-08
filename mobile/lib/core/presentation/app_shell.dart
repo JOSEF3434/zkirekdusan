@@ -40,7 +40,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _onItemTapped(int index, BuildContext context) {
-    if (index == 2) {
+    if (index == 3) {
       // Create button → show options
       showModalBottomSheet(
         context: context,
@@ -84,8 +84,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       ref.read(homeRefreshSignalProvider.notifier).state++;
     }
 
-    // Adjust index for shell branches (branch 2 is now a placeholder;
-    // tapping 3 → chats at branch index 3, etc.)
+    // Adjust index for shell branches (branch 3 is the Create placeholder;
+    // tapping 0 → home, 1 → explorer, 2 → calendar, 4 → chats, 5 → profile)
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -156,7 +156,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 NavigationRail(
                   extended: isDesktop,
                   selectedIndex: _adjustedSelectedIndex,
-                  onDestinationSelected: (index) => _onItemTapped(index, context),
+                  onDestinationSelected: (index) =>
+                      _onItemTapped(index, context),
                   labelType: isDesktop
                       ? NavigationRailLabelType.none
                       : NavigationRailLabelType.all,
@@ -212,7 +213,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                             if (authUser != null) {
                               context.push('/profile/${authUser.id}/following');
                             } else {
-                              context.push('/explore');
+                              context.go('/explore');
                             }
                           },
                         ),
@@ -236,7 +237,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     NavigationRailDestination(
                       icon: Icon(Icons.explore_outlined),
                       selectedIcon: Icon(Icons.explore),
-                      label: Text('Explore'),
+                      label: Text('Explorer'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.calendar_month_outlined),
+                      selectedIcon: Icon(Icons.calendar_month),
+                      label: Text('Calendar'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Icons.add_circle_outline),
@@ -323,7 +329,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             const NavigationDestination(
               icon: Icon(Icons.explore_outlined),
               selectedIcon: Icon(Icons.explore),
-              label: 'Explore',
+              label: 'Explorer',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month),
+              label: 'Calendar',
             ),
             NavigationDestination(
               icon: Icon(
@@ -415,30 +426,43 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.image_outlined,
-                        size: 20, color: Color(0xFF00C6FF)),
+                    const Icon(
+                      Icons.image_outlined,
+                      size: 20,
+                      color: Color(0xFF00C6FF),
+                    ),
                     const SizedBox(width: 10),
-                    const Text('Temporary Image Cache',
-                        style: TextStyle(fontSize: 14)),
+                    const Text(
+                      'Temporary Image Cache',
+                      style: TextStyle(fontSize: 14),
+                    ),
                     const Spacer(),
-                    Text('Auto',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    Text(
+                      'Auto',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
                   ],
                 ),
                 const Divider(height: 20),
                 Row(
                   children: [
-                    const Icon(Icons.offline_pin_rounded,
-                        size: 20, color: Color(0xFF10B981)),
+                    const Icon(
+                      Icons.offline_pin_rounded,
+                      size: 20,
+                      color: Color(0xFF10B981),
+                    ),
                     const SizedBox(width: 10),
-                    const Text('Downloaded Videos',
-                        style: TextStyle(fontSize: 14)),
+                    const Text(
+                      'Downloaded Videos',
+                      style: TextStyle(fontSize: 14),
+                    ),
                     const Spacer(),
                     Text(
                       '${completedDownloads.length} videos ($downloadsSizeMB MB)',
                       style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -535,10 +559,7 @@ class _RailActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Tooltip(
           message: label,
-          child: IconButton(
-            icon: badgedIcon,
-            onPressed: onTap,
-          ),
+          child: IconButton(icon: badgedIcon, onPressed: onTap),
         ),
       );
     }
