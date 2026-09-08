@@ -64,6 +64,9 @@ import { RecommendationsModule } from './modules/recommendations/recommendations
 import { TrendingModule } from './modules/trending/trending.module.js';
 import { ExploreModule } from './modules/explore/explore.module.js';
 
+// Ethiopian Calendar
+import { CalendarModule } from './modules/calendar/calendar.module.js';
+
 // Phase 7 — Admin Platform & Moderation
 import { AdminModule } from './modules/admin/admin.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
@@ -177,6 +180,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     RecommendationsModule,
     TrendingModule,
     ExploreModule,
+
+    // Ethiopian Calendar
+    CalendarModule,
 
     // Phase 7 — Admin Platform & Reports
     AdminModule,
