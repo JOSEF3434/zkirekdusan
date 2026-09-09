@@ -6,7 +6,7 @@ part 'stream_highlight_model.freezed.dart';
 part 'stream_highlight_model.g.dart';
 
 @freezed
-class StreamHighlightDto with _$StreamHighlightDto {
+abstract class StreamHighlightDto with _$StreamHighlightDto {
   const factory StreamHighlightDto({
     required String id,
     required String streamId,

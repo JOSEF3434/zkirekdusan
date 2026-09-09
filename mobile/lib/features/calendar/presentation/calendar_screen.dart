@@ -3,11 +3,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:abushakir/abushakir.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_state_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/day_notes_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
+import 'package:mobile/features/calendar/presentation/widgets/sync_status_indicator.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_sync_provider.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -19,98 +22,123 @@ class CalendarScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // App bar with month/year
-          SliverAppBar(
-            floating: true,
-            pinned: true,
-            expandedHeight: 120,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    EthiopianCalendarUtil.getMonthName(calendarState.month),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontFamilyFallback: const [
-                        'Noto Serif Ethiopic',
-                        'Noto Sans Ethiopic',
-                      ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Trigger manual sync
+          final quickSync = ref.read(quickSyncProvider);
+          await quickSync();
+
+          // Refresh current month notes
+          ref.invalidate(calendarNotesForMonthProvider);
+        },
+        child: CustomScrollView(
+          slivers: [
+            // App bar with month/year
+            SliverAppBar(
+              floating: true,
+              pinned: true,
+              expandedHeight: 120,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                title: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      EthiopianCalendarUtil.getMonthName(calendarState.month),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontFamilyFallback: const [
+                          'Noto Serif Ethiopic',
+                          'Noto Sans Ethiopic',
+                        ],
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${calendarState.year}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color,
+                    Text(
+                      '${calendarState.year}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              // Today button
-              IconButton(
-                icon: const Icon(Icons.today),
-                tooltip: 'Today',
-                onPressed: () =>
-                    ref.read(calendarProvider.notifier).goToToday(),
-              ),
-              // Previous month
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                tooltip: 'Previous Month',
-                onPressed: () =>
-                    ref.read(calendarProvider.notifier).previousMonth(),
-              ),
-              // Next month
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                tooltip: 'Next Month',
-                onPressed: () =>
-                    ref.read(calendarProvider.notifier).nextMonth(),
-              ),
-            ],
-          ),
-
-          // Gregorian equivalent
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                _getGregorianMonthRange(
-                  calendarState.year,
-                  calendarState.month,
+                  ],
                 ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.textTheme.bodySmall?.color?.withValues(
-                    alpha: 0.7,
-                  ),
-                ),
-                textAlign: TextAlign.center,
               ),
+              actions: [
+                // Sync status indicator
+                const Padding(
+                  padding: EdgeInsets.only(right: 8.0),
+                  child: SyncStatusIndicator(),
+                ),
+                // Today button
+                IconButton(
+                  icon: const Icon(Icons.today),
+                  tooltip: 'Today',
+                  onPressed: () =>
+                      ref.read(calendarProvider.notifier).goToToday(),
+                ),
+                // Previous month
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  tooltip: 'Previous Month',
+                  onPressed: () =>
+                      ref.read(calendarProvider.notifier).previousMonth(),
+                ),
+                // Next month
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  tooltip: 'Next Month',
+                  onPressed: () =>
+                      ref.read(calendarProvider.notifier).nextMonth(),
+                ),
+              ],
             ),
-          ),
 
-          // Weekday header
-          SliverToBoxAdapter(child: _buildWeekdayHeader(theme)),
-
-          // Calendar grid
-          SliverPadding(
-            padding: const EdgeInsets.all(8),
-            sliver: _buildCalendarGrid(theme, calendarState, ref),
-          ),
-
-          // Selected date info
-          if (calendarState.selectedDate != null)
+            // Gregorian equivalent
             SliverToBoxAdapter(
-              child: _buildSelectedDateInfo(theme, calendarState),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  _getGregorianMonthRange(
+                    calendarState.year,
+                    calendarState.month,
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
-        ],
+
+            // Weekday header
+            SliverToBoxAdapter(child: _buildWeekdayHeader(theme)),
+
+            // Calendar grid
+            SliverPadding(
+              padding: const EdgeInsets.all(8),
+              sliver: _buildCalendarGrid(theme, calendarState, ref),
+            ),
+
+            // Selected date info
+            if (calendarState.selectedDate != null)
+              SliverToBoxAdapter(
+                child: _buildSelectedDateInfo(theme, calendarState),
+              ),
+          ],
+        ),
       ),
+      floatingActionButton: calendarState.selectedDate != null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                _showAddNoteSheet(context, calendarState.selectedDate!);
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Note'),
+            )
+          : null,
     );
   }
 
@@ -125,9 +153,7 @@ class CalendarScreen extends ConsumerWidget {
                 weekday,
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: theme.textTheme.bodySmall?.color?.withValues(
-                    alpha: 0.6,
-                  ),
+                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                   fontFamilyFallback: const [
                     'Noto Serif Ethiopic',
                     'Noto Sans Ethiopic',
@@ -262,34 +288,39 @@ class CalendarScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              // Note indicator
+              // Note indicator with count
               if (hasNotes)
                 Positioned(
                   bottom: 4,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        noteCount > 9 ? '9+' : '$noteCount',
-                        style: TextStyle(
-                          color: isSelected
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.onPrimary,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.colorScheme.onPrimaryContainer
+                                : theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            noteCount > 9 ? '9+' : '$noteCount',
+                            style: TextStyle(
+                              color: isSelected
+                                  ? theme.colorScheme.primaryContainer
+                                  : theme.colorScheme.onPrimary,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

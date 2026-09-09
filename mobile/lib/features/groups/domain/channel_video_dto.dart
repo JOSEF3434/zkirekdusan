@@ -5,7 +5,7 @@ part 'channel_video_dto.freezed.dart';
 part 'channel_video_dto.g.dart';
 
 @freezed
-class ChannelVideoDto with _$ChannelVideoDto {
+abstract class ChannelVideoDto with _$ChannelVideoDto {
   const factory ChannelVideoDto({
     required String id,
     required String title,

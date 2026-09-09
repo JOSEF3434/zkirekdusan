@@ -4,7 +4,7 @@ part 'follow_model.freezed.dart';
 part 'follow_model.g.dart';
 
 @freezed
-class FollowStatusDto with _$FollowStatusDto {
+abstract class FollowStatusDto with _$FollowStatusDto {
   const factory FollowStatusDto({
     required bool isFollowing,
     required bool isFollowedBy,
@@ -15,7 +15,7 @@ class FollowStatusDto with _$FollowStatusDto {
 }
 
 @freezed
-class FollowerDto with _$FollowerDto {
+abstract class FollowerDto with _$FollowerDto {
   const factory FollowerDto({
     required String id,
     String? username,

@@ -11,7 +11,7 @@ part 'group_context_dto.g.dart';
 // ---------------------------------------------------------------------------
 
 @freezed
-class VideoChannelSummaryDto with _$VideoChannelSummaryDto {
+abstract class VideoChannelSummaryDto with _$VideoChannelSummaryDto {
   const factory VideoChannelSummaryDto({
     required String id,
     required String name,
@@ -36,7 +36,7 @@ class VideoChannelSummaryDto with _$VideoChannelSummaryDto {
 // ---------------------------------------------------------------------------
 
 @freezed
-class GroupCapabilities with _$GroupCapabilities {
+abstract class GroupCapabilities with _$GroupCapabilities {
   const factory GroupCapabilities({
     @Default(false) bool canViewGroup,
     @Default(false) bool canUploadVideo,
@@ -69,7 +69,7 @@ class GroupCapabilities with _$GroupCapabilities {
 // ---------------------------------------------------------------------------
 
 @freezed
-class GroupContextDto with _$GroupContextDto {
+abstract class GroupContextDto with _$GroupContextDto {
   const factory GroupContextDto({
     // Group identity
     required String id,

@@ -22,6 +22,11 @@ export class CalendarService {
         gregorianDate: new Date(dto.gregorianDate),
         title: dto.title,
         content: dto.content,
+        hasReminder: dto.hasReminder ?? false,
+        reminderDateTime: dto.reminderDateTime
+          ? new Date(dto.reminderDateTime)
+          : null,
+        reminderNotified: false,
       },
       include: {
         media: {
@@ -129,6 +134,18 @@ export class CalendarService {
     if (dto.content !== undefined) {
       updateData.content = dto.content;
     }
+    if (dto.hasReminder !== undefined) {
+      updateData.hasReminder = dto.hasReminder;
+      // Reset notification flag when reminder is updated
+      updateData.reminderNotified = false;
+    }
+    if (dto.reminderDateTime !== undefined) {
+      updateData.reminderDateTime = dto.reminderDateTime
+        ? new Date(dto.reminderDateTime)
+        : null;
+      // Reset notification flag when reminder time is updated
+      updateData.reminderNotified = false;
+    }
 
     return this.prisma.calendarNote.update({
       where: { id },
@@ -166,6 +183,143 @@ export class CalendarService {
     // Hard delete (will cascade to media via Prisma schema)
     return this.prisma.calendarNote.delete({
       where: { id },
+    });
+  }
+
+  // Media management
+  async addMedia(
+    userId: string,
+    noteId: string,
+    fileId: string,
+    order: number,
+    caption?: string,
+  ) {
+    // Verify note ownership
+    await this.findOne(userId, noteId);
+
+    // Verify file exists and belongs to user
+    const file = await this.prisma.file.findFirst({
+      where: {
+        id: fileId,
+        uploadedById: userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    return this.prisma.calendarNoteMedia.create({
+      data: {
+        noteId,
+        fileId,
+        order,
+        caption,
+      },
+      include: {
+        file: true,
+      },
+    });
+  }
+
+  async updateMedia(
+    userId: string,
+    noteId: string,
+    mediaId: string,
+    order?: number,
+    caption?: string,
+  ) {
+    // Verify note ownership
+    await this.findOne(userId, noteId);
+
+    // Verify media belongs to note
+    const media = await this.prisma.calendarNoteMedia.findFirst({
+      where: {
+        id: mediaId,
+        noteId,
+      },
+    });
+
+    if (!media) {
+      throw new NotFoundException('Media not found');
+    }
+
+    const updateData: any = {};
+    if (order !== undefined) updateData.order = order;
+    if (caption !== undefined) updateData.caption = caption;
+
+    return this.prisma.calendarNoteMedia.update({
+      where: { id: mediaId },
+      data: updateData,
+      include: {
+        file: true,
+      },
+    });
+  }
+
+  async removeMedia(userId: string, noteId: string, mediaId: string) {
+    // Verify note ownership
+    await this.findOne(userId, noteId);
+
+    // Verify media belongs to note
+    const media = await this.prisma.calendarNoteMedia.findFirst({
+      where: {
+        id: mediaId,
+        noteId,
+      },
+    });
+
+    if (!media) {
+      throw new NotFoundException('Media not found');
+    }
+
+    return this.prisma.calendarNoteMedia.delete({
+      where: { id: mediaId },
+    });
+  }
+
+  // Reminder-specific methods
+  async getUpcomingReminders(userId: string, hoursAhead = 24) {
+    const now = new Date();
+    const futureTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+
+    return this.prisma.calendarNote.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        hasReminder: true,
+        reminderNotified: false,
+        reminderDateTime: {
+          gte: now,
+          lte: futureTime,
+        },
+      },
+      include: {
+        media: {
+          include: {
+            file: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+      orderBy: {
+        reminderDateTime: 'asc',
+      },
+    });
+  }
+
+  async markReminderAsNotified(userId: string, noteId: string) {
+    // Verify ownership
+    await this.findOne(userId, noteId);
+
+    return this.prisma.calendarNote.update({
+      where: { id: noteId },
+      data: {
+        reminderNotified: true,
+      },
     });
   }
 }

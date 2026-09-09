@@ -6,7 +6,7 @@ part 'group_member_dto.freezed.dart';
 part 'group_member_dto.g.dart';
 
 @freezed
-class GroupMemberDto with _$GroupMemberDto {
+abstract class GroupMemberDto with _$GroupMemberDto {
   const factory GroupMemberDto({
     required String id,
     required String userId,

@@ -14,6 +14,9 @@ import 'package:mobile/core/providers/database_provider.dart';
 import 'package:mobile/core/sync/background_sync_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
+import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
+import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
+import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +54,25 @@ void main() async {
   // 4. Initialize Background Sync Service
   if (!kIsWeb) {
     await BackgroundSyncService.initialize();
+
+    // Initialize Calendar Background Sync
+    await CalendarBackgroundSyncManager.initialize(
+      apiBaseUrl: Env.apiBaseUrl,
+      // authToken: null, // Token will be set after user login
+    );
+
+    // Register periodic sync (every 15 minutes)
+    await CalendarBackgroundSyncManager.registerPeriodicSync(
+      apiBaseUrl: Env.apiBaseUrl,
+      frequency: const Duration(minutes: 15),
+    );
+
+    // Initialize Calendar Reminder System
+    final calendarNotifications = CalendarNotificationsService();
+    await calendarNotifications.initialize();
+
+    await CalendarReminderManager.initialize();
+    await CalendarReminderManager.registerPeriodicReminderCheck();
   }
 
   // 5. Initialize SharedPreferences

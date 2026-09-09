@@ -2667,6 +2667,11 @@ model CalendarNote {
   title   String?
   content String? @db.Text
   
+  // Reminders
+  hasReminder       Boolean   @default(false)
+  reminderDateTime  DateTime?
+  reminderNotified  Boolean   @default(false)
+  
   // Media attachments
   media CalendarNoteMedia[]
   

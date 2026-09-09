@@ -6,7 +6,7 @@ part 'creator_group_dto.freezed.dart';
 part 'creator_group_dto.g.dart';
 
 @freezed
-class CreatorGroupDto with _$CreatorGroupDto {
+abstract class CreatorGroupDto with _$CreatorGroupDto {
   const factory CreatorGroupDto({
     required String id,
     required String name,

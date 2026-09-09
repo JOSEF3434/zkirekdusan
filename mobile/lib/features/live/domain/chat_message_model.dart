@@ -18,7 +18,7 @@ enum ChatMessageType {
 }
 
 @freezed
-class ChatSenderDto with _$ChatSenderDto {
+abstract class ChatSenderDto with _$ChatSenderDto {
   const factory ChatSenderDto({
     required String id,
     String? username,
@@ -31,7 +31,7 @@ class ChatSenderDto with _$ChatSenderDto {
 }
 
 @freezed
-class ChatMessageDto with _$ChatMessageDto {
+abstract class ChatMessageDto with _$ChatMessageDto {
   const factory ChatMessageDto({
     required String id,
     required String content,
@@ -50,7 +50,7 @@ class ChatMessageDto with _$ChatMessageDto {
 }
 
 @freezed
-class ChatReactionEvent with _$ChatReactionEvent {
+abstract class ChatReactionEvent with _$ChatReactionEvent {
   const factory ChatReactionEvent({
     required String messageId,
     required String emoji,
@@ -63,7 +63,7 @@ class ChatReactionEvent with _$ChatReactionEvent {
 }
 
 @freezed
-class ChatHistoryResponse with _$ChatHistoryResponse {
+abstract class ChatHistoryResponse with _$ChatHistoryResponse {
   const factory ChatHistoryResponse({
     required List<ChatMessageDto> messages,
     String? nextCursor,

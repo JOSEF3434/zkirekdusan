@@ -14,6 +14,8 @@ import { CalendarService } from './calendar.service.js';
 import { CreateCalendarNoteDto } from './dto/create-calendar-note.dto.js';
 import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
+import { AddNoteMediaDto } from './dto/add-note-media.dto.js';
+import { UpdateNoteMediaDto } from './dto/update-note-media.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -62,5 +64,65 @@ export class CalendarController {
   @ApiOperation({ summary: 'Delete a calendar note (soft delete)' })
   remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.calendarService.remove(userId, id);
+  }
+
+  // Media endpoints
+  @Post(':noteId/media')
+  @ApiOperation({ summary: 'Add media to a calendar note' })
+  addMedia(
+    @CurrentUser('sub') userId: string,
+    @Param('noteId') noteId: string,
+    @Body() dto: AddNoteMediaDto,
+  ) {
+    return this.calendarService.addMedia(
+      userId,
+      noteId,
+      dto.fileId,
+      dto.order,
+      dto.caption,
+    );
+  }
+
+  @Patch(':noteId/media/:mediaId')
+  @ApiOperation({ summary: 'Update note media order/caption' })
+  updateMedia(
+    @CurrentUser('sub') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('mediaId') mediaId: string,
+    @Body() dto: UpdateNoteMediaDto,
+  ) {
+    return this.calendarService.updateMedia(
+      userId,
+      noteId,
+      mediaId,
+      dto.order,
+      dto.caption,
+    );
+  }
+
+  @Delete(':noteId/media/:mediaId')
+  @ApiOperation({ summary: 'Remove media from calendar note' })
+  removeMedia(
+    @CurrentUser('sub') userId: string,
+    @Param('noteId') noteId: string,
+    @Param('mediaId') mediaId: string,
+  ) {
+    return this.calendarService.removeMedia(userId, noteId, mediaId);
+  }
+
+  // Reminder endpoints
+  @Get('reminders/upcoming')
+  @ApiOperation({ summary: 'Get upcoming reminders (next 24 hours)' })
+  getUpcomingReminders(@CurrentUser('sub') userId: string) {
+    return this.calendarService.getUpcomingReminders(userId, 24);
+  }
+
+  @Patch(':id/reminder/mark-notified')
+  @ApiOperation({ summary: 'Mark reminder as notified' })
+  markReminderNotified(
+    @CurrentUser('sub') userId: string,
+    @Param('id') noteId: string,
+  ) {
+    return this.calendarService.markReminderAsNotified(userId, noteId);
   }
 }

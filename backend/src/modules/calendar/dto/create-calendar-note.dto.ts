@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -43,4 +44,17 @@ export class CreateCalendarNoteDto {
   @IsOptional()
   @IsString()
   content?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'Enable reminder' })
+  @IsOptional()
+  @IsBoolean()
+  hasReminder?: boolean;
+
+  @ApiPropertyOptional({
+    example: '2024-09-22T08:00:00.000Z',
+    description: 'Reminder date and time',
+  })
+  @IsOptional()
+  @IsDateString()
+  reminderDateTime?: string;
 }

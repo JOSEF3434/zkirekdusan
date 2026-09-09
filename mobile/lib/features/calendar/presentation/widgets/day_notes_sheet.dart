@@ -10,10 +10,7 @@ import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dar
 class DayNotesSheet extends ConsumerWidget {
   final EtDatetime selectedDate;
 
-  const DayNotesSheet({
-    super.key,
-    required this.selectedDate,
-  });
+  const DayNotesSheet({super.key, required this.selectedDate});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,7 +56,9 @@ class DayNotesSheet extends ConsumerWidget {
                           EthiopianCalendarUtil.toGregorian(selectedDate),
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                          color: theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ],
@@ -87,7 +86,8 @@ class DayNotesSheet extends ConsumerWidget {
                   shrinkWrap: true,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: notes.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
                     final note = notes[index];
                     return _buildNoteItem(context, ref, note);
@@ -167,54 +167,99 @@ class DayNotesSheet extends ConsumerWidget {
     CalendarNoteModel note,
   ) {
     final theme = Theme.of(context);
+    final hasMedia = note.media.isNotEmpty;
 
-    return ListTile(
-      title: note.title != null && note.title!.isNotEmpty
-          ? Text(
-              note.title!,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : null,
-      subtitle: note.content != null && note.content!.isNotEmpty
-          ? Text(
-              note.content!,
-              maxLines: note.title != null ? 2 : 3,
-              overflow: TextOverflow.ellipsis,
-            )
-          : null,
-      trailing: PopupMenuButton<String>(
-        onSelected: (action) => _handleNoteAction(
-          context,
-          ref,
-          note,
-          action,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          title: note.title != null && note.title!.isNotEmpty
+              ? Text(
+                  note.title!,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          subtitle: note.content != null && note.content!.isNotEmpty
+              ? Text(
+                  note.content!,
+                  maxLines: note.title != null ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          trailing: PopupMenuButton<String>(
+            onSelected: (action) =>
+                _handleNoteAction(context, ref, note, action),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 12),
+                    Text('Edit'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 12),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          onTap: () =>
+              _showAddNoteSheet(context, selectedDate, existingNote: note),
         ),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'edit',
-            child: Row(
-              children: [
-                Icon(Icons.edit),
-                SizedBox(width: 12),
-                Text('Edit'),
-              ],
+        // Media gallery
+        if (hasMedia)
+          Container(
+            height: 80,
+            margin: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: note.media.length,
+              itemBuilder: (context, index) {
+                final media = note.media[index];
+                final file = media.file;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: file != null && file['url'] != null
+                        ? Image.network(
+                            file['url'] as String,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                          )
+                        : Container(
+                            width: 80,
+                            height: 80,
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: const Icon(Icons.attach_file),
+                          ),
+                  ),
+                );
+              },
             ),
           ),
-          const PopupMenuItem(
-            value: 'delete',
-            child: Row(
-              children: [
-                Icon(Icons.delete, color: Colors.red),
-                SizedBox(width: 12),
-                Text('Delete', style: TextStyle(color: Colors.red)),
-              ],
-            ),
-          ),
-        ],
-      ),
-      onTap: () => _showAddNoteSheet(context, selectedDate, existingNote: note),
+      ],
     );
   }
 
@@ -256,15 +301,15 @@ class DayNotesSheet extends ConsumerWidget {
           ref.invalidate(calendarNotesForMonthProvider);
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Note deleted')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Note deleted')));
           }
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error deleting note: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Error deleting note: $e')));
           }
         }
       }
@@ -279,10 +324,8 @@ class DayNotesSheet extends ConsumerWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => AddNoteSheet(
-        selectedDate: date,
-        existingNote: existingNote,
-      ),
+      builder: (context) =>
+          AddNoteSheet(selectedDate: date, existingNote: existingNote),
     );
   }
 }
