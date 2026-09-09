@@ -35,13 +35,13 @@ class CalendarState {
 /// Calendar state notifier
 class CalendarNotifier extends StateNotifier<CalendarState> {
   CalendarNotifier()
-      : super(
-          CalendarState(
-            year: EthiopianCalendarUtil.now().year,
-            month: EthiopianCalendarUtil.now().month,
-            today: EthiopianCalendarUtil.now(),
-          ),
-        );
+    : super(
+        CalendarState(
+          year: EthiopianCalendarUtil.now().year,
+          month: EthiopianCalendarUtil.now().month,
+          today: EthiopianCalendarUtil.now(),
+        ),
+      );
 
   /// Navigate to previous month
   void previousMonth() {
@@ -72,11 +72,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   /// Navigate to today's month
   void goToToday() {
     final now = EthiopianCalendarUtil.now();
-    state = state.copyWith(
-      year: now.year,
-      month: now.month,
-      selectedDate: now,
-    );
+    state = state.copyWith(year: now.year, month: now.month, selectedDate: now);
   }
 
   /// Select a specific date
@@ -92,7 +88,8 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
 }
 
 /// Calendar state provider
-final calendarProvider =
-    StateNotifierProvider<CalendarNotifier, CalendarState>((ref) {
-  return CalendarNotifier();
-});
+final calendarProvider = StateNotifierProvider<CalendarNotifier, CalendarState>(
+  (ref) {
+    return CalendarNotifier();
+  },
+);

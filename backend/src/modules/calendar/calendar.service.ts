@@ -8,11 +8,32 @@ import { CreateCalendarNoteDto } from './dto/create-calendar-note.dto.js';
 import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
 
+function validateReminderRule(dto: CreateCalendarNoteDto | UpdateCalendarNoteDto) {
+  const repeat = dto.reminderRepeat;
+  if (repeat === undefined || repeat === 'NONE') return;
+  if (dto.reminderHour === undefined || dto.reminderMinute === undefined) {
+    throw new ForbiddenException('Reminder hour and minute are required');
+  }
+  if (repeat === 'MONTHLY' && dto.reminderEthiopianDay === undefined) {
+    throw new ForbiddenException('Monthly reminders require an Ethiopian day');
+  }
+  if (
+    repeat === 'YEARLY' &&
+    (dto.reminderEthiopianMonth === undefined ||
+      dto.reminderEthiopianDay === undefined)
+  ) {
+    throw new ForbiddenException(
+      'Yearly reminders require an Ethiopian month and day',
+    );
+  }
+}
+
 @Injectable()
 export class CalendarService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(userId: string, dto: CreateCalendarNoteDto) {
+    validateReminderRule(dto);
     return this.prisma.calendarNote.create({
       data: {
         userId,
@@ -27,6 +48,15 @@ export class CalendarService {
           ? new Date(dto.reminderDateTime)
           : null,
         reminderNotified: false,
+        reminderRepeat: dto.reminderRepeat ?? 'NONE',
+        reminderEthiopianMonth: dto.reminderEthiopianMonth,
+        reminderEthiopianDay: dto.reminderEthiopianDay,
+        reminderHour: dto.reminderHour,
+        reminderMinute: dto.reminderMinute,
+        reminderTimezone: dto.reminderTimezone ?? 'Africa/Addis_Ababa',
+        reminderNextOccurrence: dto.reminderDateTime
+          ? new Date(dto.reminderDateTime)
+          : null,
       },
       include: {
         media: {
@@ -113,6 +143,7 @@ export class CalendarService {
   async update(userId: string, id: string, dto: UpdateCalendarNoteDto) {
     // Verify ownership first
     await this.findOne(userId, id);
+    validateReminderRule(dto);
 
     const updateData: any = {};
 
@@ -145,6 +176,28 @@ export class CalendarService {
         : null;
       // Reset notification flag when reminder time is updated
       updateData.reminderNotified = false;
+    }
+    if (dto.reminderRepeat !== undefined) {
+      updateData.reminderRepeat = dto.reminderRepeat;
+      updateData.reminderNotified = false;
+    }
+    if (dto.reminderEthiopianMonth !== undefined) {
+      updateData.reminderEthiopianMonth = dto.reminderEthiopianMonth;
+    }
+    if (dto.reminderEthiopianDay !== undefined) {
+      updateData.reminderEthiopianDay = dto.reminderEthiopianDay;
+    }
+    if (dto.reminderHour !== undefined) updateData.reminderHour = dto.reminderHour;
+    if (dto.reminderMinute !== undefined) updateData.reminderMinute = dto.reminderMinute;
+    if (dto.reminderTimezone !== undefined) {
+      updateData.reminderTimezone = dto.reminderTimezone;
+    }
+    if (dto.reminderRepeat === 'NONE' || dto.hasReminder === false) {
+      updateData.reminderNextOccurrence = null;
+    } else if (dto.reminderDateTime !== undefined) {
+      updateData.reminderNextOccurrence = dto.reminderDateTime
+        ? new Date(dto.reminderDateTime)
+        : null;
     }
 
     return this.prisma.calendarNote.update({

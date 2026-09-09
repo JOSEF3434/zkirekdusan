@@ -149,7 +149,9 @@ class SyncStatusIndicator extends ConsumerWidget {
                     timeago.format(lastSyncTime, locale: 'en_short'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontSize: 10,
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
               ],

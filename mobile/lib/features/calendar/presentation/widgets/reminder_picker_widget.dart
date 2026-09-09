@@ -74,7 +74,9 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
                 : Text(
                     'Get notified about this note',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
             value: _hasReminder,
@@ -92,7 +94,9 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
                   );
                   // If that's in the past, add 1 day
                   if (_selectedDateTime!.isBefore(DateTime.now())) {
-                    _selectedDateTime = _selectedDateTime!.add(const Duration(days: 1));
+                    _selectedDateTime = _selectedDateTime!.add(
+                      const Duration(days: 1),
+                    );
                   }
                 }
                 widget.onChanged(_hasReminder, _selectedDateTime);
@@ -111,7 +115,9 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
                   Text(
                     'Reminder Time',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -124,7 +130,9 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
                           icon: const Icon(Icons.calendar_today, size: 18),
                           label: Text(
                             _selectedDateTime != null
-                                ? DateFormat('MMM dd, yyyy').format(_selectedDateTime!)
+                                ? DateFormat(
+                                    'MMM dd, yyyy',
+                                  ).format(_selectedDateTime!)
                                 : 'Pick Date',
                           ),
                           style: OutlinedButton.styleFrom(
@@ -143,7 +151,9 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
                           icon: const Icon(Icons.access_time, size: 18),
                           label: Text(
                             _selectedDateTime != null
-                                ? DateFormat('h:mm a').format(_selectedDateTime!)
+                                ? DateFormat(
+                                    'h:mm a',
+                                  ).format(_selectedDateTime!)
                                 : 'Pick Time',
                           ),
                           style: OutlinedButton.styleFrom(
@@ -202,8 +212,8 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Theme.of(context).colorScheme.primary,
-                ),
+              primary: Theme.of(context).colorScheme.primary,
+            ),
           ),
           child: child!,
         );
@@ -236,8 +246,8 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Theme.of(context).colorScheme.primary,
-                ),
+              primary: Theme.of(context).colorScheme.primary,
+            ),
           ),
           child: child!,
         );
@@ -301,10 +311,12 @@ class _ReminderPickerWidgetState extends State<ReminderPickerWidget> {
   String _formatReminderTime(DateTime dateTime) {
     final now = DateTime.now();
     final tomorrow = now.add(const Duration(days: 1));
-    final isToday = dateTime.year == now.year &&
+    final isToday =
+        dateTime.year == now.year &&
         dateTime.month == now.month &&
         dateTime.day == now.day;
-    final isTomorrow = dateTime.year == tomorrow.year &&
+    final isTomorrow =
+        dateTime.year == tomorrow.year &&
         dateTime.month == tomorrow.month &&
         dateTime.day == tomorrow.day;
 

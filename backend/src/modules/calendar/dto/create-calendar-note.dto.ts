@@ -6,8 +6,15 @@ import {
   Max,
   IsDateString,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum CalendarReminderRepeat {
+  NONE = 'NONE',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
 
 export class CreateCalendarNoteDto {
   @ApiProperty({ example: 2017, description: 'Ethiopian year' })
@@ -57,4 +64,42 @@ export class CreateCalendarNoteDto {
   @IsOptional()
   @IsDateString()
   reminderDateTime?: string;
+
+  @ApiPropertyOptional({ enum: CalendarReminderRepeat })
+  @IsOptional()
+  @IsEnum(CalendarReminderRepeat)
+  reminderRepeat?: CalendarReminderRepeat;
+
+  @ApiPropertyOptional({ example: 4 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(13)
+  reminderEthiopianMonth?: number;
+
+  @ApiPropertyOptional({ example: 13 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  reminderEthiopianDay?: number;
+
+  @ApiPropertyOptional({ example: 12 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(23)
+  reminderHour?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  reminderMinute?: number;
+
+  @ApiPropertyOptional({ example: 'Africa/Addis_Ababa' })
+  @IsOptional()
+  @IsString()
+  reminderTimezone?: string;
 }

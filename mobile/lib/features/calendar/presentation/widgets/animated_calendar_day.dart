@@ -84,7 +84,9 @@ class _AnimatedCalendarDayState extends State<AnimatedCalendarDay>
             color: widget.isSelected
                 ? theme.colorScheme.primaryContainer
                 : (widget.isToday
-                      ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
+                      ? theme.colorScheme.secondaryContainer.withValues(
+                          alpha: 0.3,
+                        )
                       : Colors.transparent),
             borderRadius: BorderRadius.circular(8),
             border: widget.isToday && !widget.isSelected

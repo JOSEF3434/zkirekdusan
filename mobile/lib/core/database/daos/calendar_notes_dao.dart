@@ -24,11 +24,13 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     required int day,
   }) {
     return (select(localCalendarNotes)
-          ..where((tbl) =>
-              tbl.ethiopianYear.equals(year) &
-              tbl.ethiopianMonth.equals(month) &
-              tbl.ethiopianDay.equals(day) &
-              tbl.deletedAt.isNull())
+          ..where(
+            (tbl) =>
+                tbl.ethiopianYear.equals(year) &
+                tbl.ethiopianMonth.equals(month) &
+                tbl.ethiopianDay.equals(day) &
+                tbl.deletedAt.isNull(),
+          )
           ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]))
         .get();
   }
@@ -39,10 +41,12 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     required int month,
   }) {
     return (select(localCalendarNotes)
-          ..where((tbl) =>
-              tbl.ethiopianYear.equals(year) &
-              tbl.ethiopianMonth.equals(month) &
-              tbl.deletedAt.isNull())
+          ..where(
+            (tbl) =>
+                tbl.ethiopianYear.equals(year) &
+                tbl.ethiopianMonth.equals(month) &
+                tbl.deletedAt.isNull(),
+          )
           ..orderBy([
             (tbl) => OrderingTerm.asc(tbl.ethiopianDay),
             (tbl) => OrderingTerm.desc(tbl.createdAt),
@@ -52,8 +56,9 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
 
   /// Get a single note by ID
   Future<LocalCalendarNoteData?> getNoteById(String id) {
-    return (select(localCalendarNotes)..where((tbl) => tbl.id.equals(id)))
-        .getSingleOrNull();
+    return (select(
+      localCalendarNotes,
+    )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   }
 
   /// Insert or update a note
@@ -70,6 +75,15 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     required DateTime gregorianDate,
     String? title,
     String? content,
+    bool hasReminder = false,
+    DateTime? reminderDateTime,
+    String reminderRepeat = 'NONE',
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    String reminderTimezone = 'Africa/Addis_Ababa',
+    DateTime? reminderNextOccurrence,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
@@ -84,6 +98,15 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
         gregorianDate: gregorianDate,
         title: Value(title),
         content: Value(content),
+        hasReminder: Value(hasReminder),
+        reminderDateTime: Value(reminderDateTime),
+        reminderRepeat: Value(reminderRepeat),
+        reminderEthiopianMonth: Value(reminderEthiopianMonth),
+        reminderEthiopianDay: Value(reminderEthiopianDay),
+        reminderHour: Value(reminderHour),
+        reminderMinute: Value(reminderMinute),
+        reminderTimezone: Value(reminderTimezone),
+        reminderNextOccurrence: Value(reminderNextOccurrence),
         createdAt: now,
         updatedAt: now,
         isSynced: const Value(false),
@@ -98,14 +121,37 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     String id, {
     String? title,
     String? content,
+    bool? hasReminder,
+    DateTime? reminderDateTime,
+    String? reminderRepeat,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    String? reminderTimezone,
+    DateTime? reminderNextOccurrence,
   }) async {
     final now = DateTime.now();
 
-    await (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id)))
-        .write(
+    await (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id))).write(
       LocalCalendarNotesCompanion(
         title: Value(title),
         content: Value(content),
+        hasReminder: hasReminder == null
+            ? const Value.absent()
+            : Value(hasReminder),
+        reminderDateTime: Value(reminderDateTime),
+        reminderRepeat: reminderRepeat == null
+            ? const Value.absent()
+            : Value(reminderRepeat),
+        reminderEthiopianMonth: Value(reminderEthiopianMonth),
+        reminderEthiopianDay: Value(reminderEthiopianDay),
+        reminderHour: Value(reminderHour),
+        reminderMinute: Value(reminderMinute),
+        reminderTimezone: reminderTimezone == null
+            ? const Value.absent()
+            : Value(reminderTimezone),
+        reminderNextOccurrence: Value(reminderNextOccurrence),
         updatedAt: Value(now),
         isSynced: const Value(false),
       ),
@@ -116,8 +162,7 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteNote(String id) async {
     final now = DateTime.now();
 
-    await (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id)))
-        .write(
+    await (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id))).write(
       LocalCalendarNotesCompanion(
         deletedAt: Value(now),
         updatedAt: Value(now),
@@ -135,8 +180,9 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
   /// Mark note as synced
   Future<void> markNoteSynced(String id) {
     final now = DateTime.now();
-    return (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id)))
-        .write(
+    return (update(
+      localCalendarNotes,
+    )..where((tbl) => tbl.id.equals(id))).write(
       LocalCalendarNotesCompanion(
         isSynced: const Value(true),
         lastSyncedAt: Value(now),
@@ -159,8 +205,10 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
   /// Get media for a note
   Future<List<LocalCalendarNoteMediaData>> getMediaForNote(String noteId) {
     return (select(localCalendarNoteMedia)
-          ..where((tbl) =>
-              tbl.noteId.equals(noteId) & tbl.isPendingDelete.equals(false))
+          ..where(
+            (tbl) =>
+                tbl.noteId.equals(noteId) & tbl.isPendingDelete.equals(false),
+          )
           ..orderBy([(tbl) => OrderingTerm.asc(tbl.order)]))
         .get();
   }
@@ -199,13 +247,10 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Update media
-  Future<void> updateMedia(
-    String id, {
-    int? order,
-    String? caption,
-  }) {
-    return (update(localCalendarNoteMedia)..where((tbl) => tbl.id.equals(id)))
-        .write(
+  Future<void> updateMedia(String id, {int? order, String? caption}) {
+    return (update(
+      localCalendarNoteMedia,
+    )..where((tbl) => tbl.id.equals(id))).write(
       LocalCalendarNoteMediaCompanion(
         order: order != null ? Value(order) : const Value.absent(),
         caption: Value(caption),
@@ -216,8 +261,9 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
 
   /// Delete media
   Future<void> deleteMedia(String id) {
-    return (update(localCalendarNoteMedia)..where((tbl) => tbl.id.equals(id)))
-        .write(
+    return (update(
+      localCalendarNoteMedia,
+    )..where((tbl) => tbl.id.equals(id))).write(
       const LocalCalendarNoteMediaCompanion(
         isPendingDelete: Value(true),
         isSynced: Value(false),
@@ -227,18 +273,15 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
 
   /// Hard delete media
   Future<void> hardDeleteMedia(String id) {
-    return (delete(localCalendarNoteMedia)..where((tbl) => tbl.id.equals(id)))
-        .go();
+    return (delete(
+      localCalendarNoteMedia,
+    )..where((tbl) => tbl.id.equals(id))).go();
   }
 
   /// Mark media as synced
   Future<void> markMediaSynced(String id) {
     return (update(localCalendarNoteMedia)..where((tbl) => tbl.id.equals(id)))
-        .write(
-      const LocalCalendarNoteMediaCompanion(
-        isSynced: Value(true),
-      ),
-    );
+        .write(const LocalCalendarNoteMediaCompanion(isSynced: Value(true)));
   }
 
   /// Get unsynced media
@@ -254,8 +297,7 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
   // ═══════════════════════════════════════════════════════════════
 
   /// Batch upsert notes from server
-  Future<void> batchUpsertNotes(
-      List<LocalCalendarNotesCompanion> notes) async {
+  Future<void> batchUpsertNotes(List<LocalCalendarNotesCompanion> notes) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(localCalendarNotes, notes);
     });
@@ -263,7 +305,8 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
 
   /// Batch upsert media from server
   Future<void> batchUpsertMedia(
-      List<LocalCalendarNoteMediaCompanion> mediaList) async {
+    List<LocalCalendarNoteMediaCompanion> mediaList,
+  ) async {
     await batch((batch) {
       batch.insertAllOnConflictUpdate(localCalendarNoteMedia, mediaList);
     });

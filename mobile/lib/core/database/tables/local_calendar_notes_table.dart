@@ -23,6 +23,14 @@ class LocalCalendarNotes extends Table {
   DateTimeColumn get reminderDateTime => dateTime().nullable()();
   BoolColumn get reminderNotified =>
       boolean().withDefault(const Constant(false))();
+  TextColumn get reminderRepeat => text().withDefault(const Constant('NONE'))();
+  IntColumn get reminderEthiopianMonth => integer().nullable()();
+  IntColumn get reminderEthiopianDay => integer().nullable()();
+  IntColumn get reminderHour => integer().nullable()();
+  IntColumn get reminderMinute => integer().nullable()();
+  TextColumn get reminderTimezone =>
+      text().withDefault(const Constant('Africa/Addis_Ababa'))();
+  DateTimeColumn get reminderNextOccurrence => dateTime().nullable()();
 
   // Timestamps
   DateTimeColumn get createdAt => dateTime()();

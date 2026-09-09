@@ -85,6 +85,15 @@ class CalendarOfflineRepository {
     required DateTime gregorianDate,
     String? title,
     String? content,
+    bool hasReminder = false,
+    DateTime? reminderDateTime,
+    ReminderRepeat reminderRepeat = ReminderRepeat.none,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    String reminderTimezone = 'Africa/Addis_Ababa',
+    DateTime? reminderNextOccurrence,
   }) async {
     final noteId = await _dao.createNote(
       userId: userId,
@@ -94,6 +103,15 @@ class CalendarOfflineRepository {
       gregorianDate: gregorianDate,
       title: title,
       content: content,
+      hasReminder: hasReminder,
+      reminderDateTime: reminderDateTime,
+      reminderRepeat: reminderRepeat.name.toUpperCase(),
+      reminderEthiopianMonth: reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
+      reminderTimezone: reminderTimezone,
+      reminderNextOccurrence: reminderNextOccurrence,
     );
 
     // Enqueue sync operation
@@ -109,6 +127,14 @@ class CalendarOfflineRepository {
         'gregorianDate': gregorianDate.toIso8601String(),
         'title': ?title,
         'content': ?content,
+        'hasReminder': hasReminder,
+        'reminderDateTime': ?reminderDateTime?.toIso8601String(),
+        'reminderRepeat': reminderRepeat.name.toUpperCase(),
+        'reminderEthiopianMonth': ?reminderEthiopianMonth,
+        'reminderEthiopianDay': ?reminderEthiopianDay,
+        'reminderHour': ?reminderHour,
+        'reminderMinute': ?reminderMinute,
+        'reminderTimezone': reminderTimezone,
       },
     );
 
@@ -121,15 +147,48 @@ class CalendarOfflineRepository {
     String id, {
     String? title,
     String? content,
+    bool? hasReminder,
+    DateTime? reminderDateTime,
+    ReminderRepeat? reminderRepeat,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    String? reminderTimezone,
+    DateTime? reminderNextOccurrence,
   }) async {
-    await _dao.updateNote(id, title: title, content: content);
+    await _dao.updateNote(
+      id,
+      title: title,
+      content: content,
+      hasReminder: hasReminder,
+      reminderDateTime: reminderDateTime,
+      reminderRepeat: reminderRepeat?.name.toUpperCase(),
+      reminderEthiopianMonth: reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
+      reminderTimezone: reminderTimezone,
+      reminderNextOccurrence: reminderNextOccurrence,
+    );
 
     // Enqueue sync operation
     await _enqueueSyncOperation(
       operationType: 'UPDATE_CALENDAR_NOTE',
       entityType: 'CALENDAR_NOTE',
       entityId: id,
-      payload: {'title': ?title, 'content': ?content},
+      payload: {
+        'title': ?title,
+        'content': ?content,
+        'hasReminder': ?hasReminder,
+        'reminderDateTime': ?reminderDateTime?.toIso8601String(),
+        'reminderRepeat': ?reminderRepeat?.name.toUpperCase(),
+        'reminderEthiopianMonth': ?reminderEthiopianMonth,
+        'reminderEthiopianDay': ?reminderEthiopianDay,
+        'reminderHour': ?reminderHour,
+        'reminderMinute': ?reminderMinute,
+        'reminderTimezone': ?reminderTimezone,
+      },
     );
 
     final note = await getNoteById(id);
@@ -218,6 +277,15 @@ class CalendarOfflineRepository {
           gregorianDate: note.gregorianDate,
           title: Value(note.title),
           content: Value(note.content),
+          hasReminder: Value(note.hasReminder),
+          reminderDateTime: Value(note.reminderDateTime),
+          reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
+          reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
+          reminderEthiopianDay: Value(note.reminderEthiopianDay),
+          reminderHour: Value(note.reminderHour),
+          reminderMinute: Value(note.reminderMinute),
+          reminderTimezone: Value(note.reminderTimezone),
+          reminderNextOccurrence: Value(note.reminderNextOccurrence),
           createdAt: note.createdAt,
           updatedAt: note.updatedAt,
           deletedAt: Value(note.deletedAt),
@@ -258,6 +326,17 @@ class CalendarOfflineRepository {
             gregorianDate: note.gregorianDate.toIso8601String(),
             title: note.title,
             content: note.content,
+            hasReminder: note.hasReminder,
+            reminderDateTime: note.reminderDateTime?.toIso8601String(),
+            reminderRepeat: ReminderRepeat.values.firstWhere(
+              (value) => value.name.toUpperCase() == note.reminderRepeat,
+              orElse: () => ReminderRepeat.none,
+            ),
+            reminderEthiopianMonth: note.reminderEthiopianMonth,
+            reminderEthiopianDay: note.reminderEthiopianDay,
+            reminderHour: note.reminderHour,
+            reminderMinute: note.reminderMinute,
+            reminderTimezone: note.reminderTimezone,
           );
 
           await _remoteRepo.createNote(dto);
@@ -316,6 +395,19 @@ class CalendarOfflineRepository {
       gregorianDate: data.gregorianDate,
       title: data.title,
       content: data.content,
+      hasReminder: data.hasReminder,
+      reminderDateTime: data.reminderDateTime,
+      reminderNotified: data.reminderNotified,
+      reminderRepeat: ReminderRepeat.values.firstWhere(
+        (value) => value.name.toUpperCase() == data.reminderRepeat,
+        orElse: () => ReminderRepeat.none,
+      ),
+      reminderEthiopianMonth: data.reminderEthiopianMonth,
+      reminderEthiopianDay: data.reminderEthiopianDay,
+      reminderHour: data.reminderHour,
+      reminderMinute: data.reminderMinute,
+      reminderTimezone: data.reminderTimezone,
+      reminderNextOccurrence: data.reminderNextOccurrence,
       media:
           media
               ?.map(

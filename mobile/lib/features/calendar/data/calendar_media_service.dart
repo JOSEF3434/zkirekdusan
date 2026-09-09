@@ -98,10 +98,7 @@ class CalendarMediaService {
   }) async {
     final response = await _dio.patch(
       '/calendar/notes/$noteId/media/$mediaId',
-      data: {
-        'order': ?order,
-        'caption': ?caption,
-      },
+      data: {'order': ?order, 'caption': ?caption},
     );
 
     final data = response.data;

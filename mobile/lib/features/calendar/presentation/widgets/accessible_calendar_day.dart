@@ -44,13 +44,10 @@ class AccessibleCalendarDay extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       customSemanticsActions: {
-        if (hasNotes)
-          const CustomSemanticsAction(label: 'View notes'): onTap,
+        if (hasNotes) const CustomSemanticsAction(label: 'View notes'): onTap,
         const CustomSemanticsAction(label: 'Add note'): onLongPress,
       },
-      child: ExcludeSemantics(
-        child: child,
-      ),
+      child: ExcludeSemantics(child: child),
     );
   }
 

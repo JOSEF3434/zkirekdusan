@@ -7,23 +7,25 @@ import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 
 /// Provider for notifications service
-final calendarNotificationsProvider =
-    Provider<CalendarNotificationsService>((ref) {
+final calendarNotificationsProvider = Provider<CalendarNotificationsService>((
+  ref,
+) {
   return CalendarNotificationsService();
 });
 
 /// Provider for scheduling a reminder
-final scheduleReminderProvider = Provider<
-    Future<void> Function(CalendarNoteModel note)>((ref) {
-  return (note) async {
-    final service = ref.read(calendarNotificationsProvider);
-    await service.scheduleReminder(note);
-  };
-});
+final scheduleReminderProvider =
+    Provider<Future<void> Function(CalendarNoteModel note)>((ref) {
+      return (note) async {
+        final service = ref.read(calendarNotificationsProvider);
+        await service.scheduleReminder(note);
+      };
+    });
 
 /// Provider for cancelling a reminder
-final cancelReminderProvider =
-    Provider<Future<void> Function(String noteId)>((ref) {
+final cancelReminderProvider = Provider<Future<void> Function(String noteId)>((
+  ref,
+) {
   return (noteId) async {
     final service = ref.read(calendarNotificationsProvider);
     await service.cancelReminder(noteId);

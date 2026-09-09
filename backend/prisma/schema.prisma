@@ -210,6 +210,12 @@ enum NotificationType {
   SYSTEM
 }
 
+enum CalendarReminderRepeat {
+  NONE
+  MONTHLY
+  YEARLY
+}
+
 enum JoinRequestStatus {
   PENDING
   APPROVED
@@ -2671,6 +2677,13 @@ model CalendarNote {
   hasReminder       Boolean   @default(false)
   reminderDateTime  DateTime?
   reminderNotified  Boolean   @default(false)
+  reminderRepeat    CalendarReminderRepeat @default(NONE)
+  reminderEthiopianMonth Int?
+  reminderEthiopianDay   Int?
+  reminderHour      Int?
+  reminderMinute    Int?
+  reminderTimezone  String @default("Africa/Addis_Ababa")
+  reminderNextOccurrence DateTime?
   
   // Media attachments
   media CalendarNoteMedia[]
@@ -2684,6 +2697,7 @@ model CalendarNote {
   @@index([ethiopianYear, ethiopianMonth])
   @@index([gregorianDate])
   @@index([deletedAt])
+  @@index([userId, hasReminder, reminderNextOccurrence])
   @@map("calendar_notes")
 }
 

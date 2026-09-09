@@ -65,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +102,32 @@ class AppDatabase extends _$AppDatabase {
             localCalendarNotes,
             localCalendarNotes.reminderNotified,
           );
+        }
+      }
+
+      if (from < 4) {
+        final columns = await m.database
+            .customSelect('PRAGMA table_info(local_calendar_notes)')
+            .get();
+        final existingColumns = columns
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        final additions = <String, GeneratedColumn Function()>{
+          'reminder_repeat': () => localCalendarNotes.reminderRepeat,
+          'reminder_ethiopian_month': () =>
+              localCalendarNotes.reminderEthiopianMonth,
+          'reminder_ethiopian_day': () =>
+              localCalendarNotes.reminderEthiopianDay,
+          'reminder_hour': () => localCalendarNotes.reminderHour,
+          'reminder_minute': () => localCalendarNotes.reminderMinute,
+          'reminder_timezone': () => localCalendarNotes.reminderTimezone,
+          'reminder_next_occurrence': () =>
+              localCalendarNotes.reminderNextOccurrence,
+        };
+        for (final entry in additions.entries) {
+          if (!existingColumns.contains(entry.key)) {
+            await m.addColumn(localCalendarNotes, entry.value());
+          }
         }
       }
     },

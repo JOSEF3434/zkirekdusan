@@ -11,6 +11,7 @@ import 'package:mobile/features/calendar/presentation/widgets/day_notes_sheet.da
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/sync_status_indicator.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_sync_provider.dart';
+import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -106,7 +107,9 @@ class CalendarScreen extends ConsumerWidget {
                     calendarState.month,
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                    color: theme.textTheme.bodySmall?.color?.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -153,7 +156,9 @@ class CalendarScreen extends ConsumerWidget {
                 weekday,
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                  color: theme.textTheme.bodySmall?.color?.withValues(
+                    alpha: 0.6,
+                  ),
                   fontFamilyFallback: const [
                     'Noto Serif Ethiopic',
                     'Noto Sans Ethiopic',
@@ -214,6 +219,9 @@ class CalendarScreen extends ConsumerWidget {
         final notesAsync = ref.watch(
           calendarNotesForDateProvider((year: year, month: month, day: day)),
         );
+        final notes = notesAsync.valueOrNull ?? const <CalendarNoteModel>[];
+        final hasReminder = notes.any((note) => note.hasReminder);
+        final hasMedia = notes.any((note) => note.media.isNotEmpty);
 
         return _buildDayCell(
           context: context,
@@ -229,6 +237,8 @@ class CalendarScreen extends ConsumerWidget {
             data: (notes) => notes.length,
             orElse: () => 0,
           ),
+          hasReminder: hasReminder,
+          hasMedia: hasMedia,
           onTap: () {
             ref.read(calendarProvider.notifier).selectDate(year, month, day);
             _showDayNotesSheet(context, cellDate);
@@ -250,6 +260,8 @@ class CalendarScreen extends ConsumerWidget {
     required bool isSelected,
     required bool hasNotes,
     required int noteCount,
+    required bool hasReminder,
+    required bool hasMedia,
     required VoidCallback onTap,
     required VoidCallback onLongPress,
   }) {
@@ -322,6 +334,28 @@ class CalendarScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              if (hasReminder || hasMedia)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasMedia)
+                        Icon(
+                          Icons.attach_file,
+                          size: 11,
+                          color: theme.colorScheme.secondary,
+                        ),
+                      if (hasReminder)
+                        Icon(
+                          Icons.notifications_active_outlined,
+                          size: 12,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                    ],
                   ),
                 ),
             ],

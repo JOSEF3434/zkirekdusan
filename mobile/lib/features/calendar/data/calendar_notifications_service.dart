@@ -7,11 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
 
 final calendarNotificationsServiceProvider =
     Provider<CalendarNotificationsService>((ref) {
-  return CalendarNotificationsService();
-});
+      return CalendarNotificationsService();
+    });
 
 class CalendarNotificationsService {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -26,9 +27,12 @@ class CalendarNotificationsService {
     try {
       // Initialize timezone database
       tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Africa/Addis_Ababa'));
 
       // Android initialization
-      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
 
       // iOS initialization
       const iosSettings = DarwinInitializationSettings(
@@ -51,19 +55,25 @@ class CalendarNotificationsService {
       await _requestPermissions();
 
       _initialized = true;
-      developer.log('✅ Calendar notifications initialized', name: 'CalendarNotifications');
+      developer.log(
+        '✅ Calendar notifications initialized',
+        name: 'CalendarNotifications',
+      );
     } catch (e) {
-      developer.log('❌ Failed to initialize notifications: $e',
-          name: 'CalendarNotifications');
+      developer.log(
+        '❌ Failed to initialize notifications: $e',
+        name: 'CalendarNotifications',
+      );
     }
   }
 
   /// Request notification permissions
   Future<void> _requestPermissions() async {
     // Android 13+ runtime permission
-    final androidPlugin =
-        _notifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     if (androidPlugin != null) {
       await androidPlugin.requestNotificationsPermission();
@@ -71,36 +81,38 @@ class CalendarNotificationsService {
     }
 
     // iOS permission
-    final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
+    final iosPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
 
     if (iosPlugin != null) {
-      await iosPlugin.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      await iosPlugin.requestPermissions(alert: true, badge: true, sound: true);
     }
   }
 
   /// Schedule a notification for a calendar note reminder
   Future<void> scheduleReminder(CalendarNoteModel note) async {
-    if (!note.hasReminder || note.reminderDateTime == null) {
-      developer.log('⚠️ Note has no reminder or datetime', name: 'CalendarNotifications');
+    if (!note.hasReminder) {
+      developer.log(
+        '⚠️ Note has no reminder or datetime',
+        name: 'CalendarNotifications',
+      );
       return;
     }
 
     try {
-      final reminderTime = note.reminderDateTime!;
-      final now = DateTime.now();
-
-      // Don't schedule if reminder time is in the past
-      if (reminderTime.isBefore(now)) {
-        developer.log('⚠️ Reminder time is in the past', name: 'CalendarNotifications');
+      final schedule = CalendarReminderSchedule.nextForNote(note);
+      if (schedule == null) {
+        developer.log(
+          '⚠️ Reminder time is in the past',
+          name: 'CalendarNotifications',
+        );
         return;
       }
+      final reminderTime = schedule.notificationGregorian;
 
-      final notificationId = note.id.hashCode;
+      final notificationId = note.id.hashCode & 0x7fffffff;
 
       // Notification details
       const androidDetails = AndroidNotificationDetails(
@@ -130,7 +142,8 @@ class CalendarNotificationsService {
       await _notifications.zonedSchedule(
         notificationId,
         note.title ?? 'Calendar Reminder',
-        note.content ?? 'You have a calendar note',
+        note.content ??
+            'Tomorrow: ${schedule.event.day} ${schedule.event.month}/${schedule.event.year}',
         tz.TZDateTime.from(reminderTime, tz.local),
         notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -156,13 +169,17 @@ class CalendarNotificationsService {
   /// Cancel a scheduled reminder
   Future<void> cancelReminder(String noteId) async {
     try {
-      final notificationId = noteId.hashCode;
+      final notificationId = noteId.hashCode & 0x7fffffff;
       await _notifications.cancel(notificationId);
-      developer.log('✅ Reminder cancelled for note $noteId',
-          name: 'CalendarNotifications');
+      developer.log(
+        '✅ Reminder cancelled for note $noteId',
+        name: 'CalendarNotifications',
+      );
     } catch (e) {
-      developer.log('❌ Failed to cancel reminder: $e',
-          name: 'CalendarNotifications');
+      developer.log(
+        '❌ Failed to cancel reminder: $e',
+        name: 'CalendarNotifications',
+      );
     }
   }
 
@@ -172,8 +189,10 @@ class CalendarNotificationsService {
       await _notifications.cancelAll();
       developer.log('✅ All reminders cancelled', name: 'CalendarNotifications');
     } catch (e) {
-      developer.log('❌ Failed to cancel all reminders: $e',
-          name: 'CalendarNotifications');
+      developer.log(
+        '❌ Failed to cancel all reminders: $e',
+        name: 'CalendarNotifications',
+      );
     }
   }
 

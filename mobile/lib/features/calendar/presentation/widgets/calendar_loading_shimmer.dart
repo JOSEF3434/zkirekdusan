@@ -36,7 +36,7 @@ class CalendarLoadingShimmer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Calendar grid (6 rows x 7 columns)
             ...List.generate(
               6,

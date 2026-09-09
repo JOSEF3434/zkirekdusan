@@ -9,7 +9,8 @@ import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/data/calendar_media_service.dart';
 import 'package:mobile/features/calendar/presentation/widgets/media_picker_sheet.dart';
-import 'package:mobile/features/calendar/presentation/widgets/reminder_picker_widget.dart';
+import 'package:mobile/features/calendar/presentation/widgets/recurring_reminder_picker.dart';
+import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
 
 class AddNoteSheet extends ConsumerStatefulWidget {
   final EtDatetime selectedDate;
@@ -33,8 +34,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   final Map<String, double> _uploadProgress = {};
 
   // Reminder state
-  late bool _hasReminder;
-  late DateTime? _reminderDateTime;
+  DateTime? _reminderDateTime;
+  ReminderRepeat _reminderRepeat = ReminderRepeat.none;
+  int _reminderHour = 8;
+  int _reminderMinute = 0;
 
   @override
   void initState() {
@@ -47,8 +50,11 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     );
 
     // Initialize reminder state
-    _hasReminder = widget.existingNote?.hasReminder ?? false;
     _reminderDateTime = widget.existingNote?.reminderDateTime;
+    _reminderRepeat =
+        widget.existingNote?.reminderRepeat ?? ReminderRepeat.none;
+    _reminderHour = widget.existingNote?.reminderHour ?? 8;
+    _reminderMinute = widget.existingNote?.reminderMinute ?? 0;
   }
 
   @override
@@ -106,6 +112,15 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           content: _contentController.text.isEmpty
               ? null
               : _contentController.text,
+          hasReminder: _reminderRepeat != ReminderRepeat.none,
+          reminderDateTime: _reminderDateTime,
+          reminderRepeat: _reminderRepeat,
+          reminderEthiopianMonth: widget.selectedDate.month,
+          reminderEthiopianDay: widget.selectedDate.day,
+          reminderHour: _reminderHour,
+          reminderMinute: _reminderMinute,
+          reminderTimezone: 'Africa/Addis_Ababa',
+          reminderNextOccurrence: _reminderDateTime,
         );
       } else {
         // Create new note
@@ -124,6 +139,15 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           content: _contentController.text.isEmpty
               ? null
               : _contentController.text,
+          hasReminder: _reminderRepeat != ReminderRepeat.none,
+          reminderDateTime: _reminderDateTime,
+          reminderRepeat: _reminderRepeat,
+          reminderEthiopianMonth: widget.selectedDate.month,
+          reminderEthiopianDay: widget.selectedDate.day,
+          reminderHour: _reminderHour,
+          reminderMinute: _reminderMinute,
+          reminderTimezone: 'Africa/Addis_Ababa',
+          reminderNextOccurrence: _reminderDateTime,
         );
       }
 
@@ -365,14 +389,29 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             const SizedBox(height: 16),
 
             // Reminder picker
-            ReminderPickerWidget(
-              hasReminder: _hasReminder,
-              reminderDateTime: _reminderDateTime,
-              minDate: EthiopianCalendarUtil.toGregorian(widget.selectedDate),
-              onChanged: (hasReminder, dateTime) {
+            RecurringReminderPicker(
+              selectedDate: widget.selectedDate,
+              settings: ReminderSettings(
+                enabled: _reminderRepeat != ReminderRepeat.none,
+                repeat: _reminderRepeat,
+                hour: _reminderHour,
+                minute: _reminderMinute,
+              ),
+              onChanged: (settings) {
+                final schedule = CalendarReminderSchedule.forEvent(
+                  year: widget.selectedDate.year,
+                  month: widget.selectedDate.month,
+                  day: widget.selectedDate.day,
+                  hour: settings.hour,
+                  minute: settings.minute,
+                );
                 setState(() {
-                  _hasReminder = hasReminder;
-                  _reminderDateTime = dateTime;
+                  _reminderRepeat = settings.repeat;
+                  _reminderHour = settings.hour;
+                  _reminderMinute = settings.minute;
+                  _reminderDateTime = settings.enabled
+                      ? schedule.notificationGregorian
+                      : null;
                 });
               },
             ),

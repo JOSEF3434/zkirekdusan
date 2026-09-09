@@ -7,11 +7,7 @@ class CalendarErrorWidget extends StatelessWidget {
   final String error;
   final VoidCallback? onRetry;
 
-  const CalendarErrorWidget({
-    super.key,
-    required this.error,
-    this.onRetry,
-  });
+  const CalendarErrorWidget({super.key, required this.error, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +19,7 @@ class CalendarErrorWidget extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: theme.colorScheme.error,
-            ),
+            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
               'Something went wrong',

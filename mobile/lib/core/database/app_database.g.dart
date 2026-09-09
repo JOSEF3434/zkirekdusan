@@ -7839,6 +7839,83 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _reminderRepeatMeta = const VerificationMeta(
+    'reminderRepeat',
+  );
+  @override
+  late final GeneratedColumn<String> reminderRepeat = GeneratedColumn<String>(
+    'reminder_repeat',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('NONE'),
+  );
+  static const VerificationMeta _reminderEthiopianMonthMeta =
+      const VerificationMeta('reminderEthiopianMonth');
+  @override
+  late final GeneratedColumn<int> reminderEthiopianMonth = GeneratedColumn<int>(
+    'reminder_ethiopian_month',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderEthiopianDayMeta =
+      const VerificationMeta('reminderEthiopianDay');
+  @override
+  late final GeneratedColumn<int> reminderEthiopianDay = GeneratedColumn<int>(
+    'reminder_ethiopian_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderHourMeta = const VerificationMeta(
+    'reminderHour',
+  );
+  @override
+  late final GeneratedColumn<int> reminderHour = GeneratedColumn<int>(
+    'reminder_hour',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderMinuteMeta = const VerificationMeta(
+    'reminderMinute',
+  );
+  @override
+  late final GeneratedColumn<int> reminderMinute = GeneratedColumn<int>(
+    'reminder_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderTimezoneMeta = const VerificationMeta(
+    'reminderTimezone',
+  );
+  @override
+  late final GeneratedColumn<String> reminderTimezone = GeneratedColumn<String>(
+    'reminder_timezone',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Africa/Addis_Ababa'),
+  );
+  static const VerificationMeta _reminderNextOccurrenceMeta =
+      const VerificationMeta('reminderNextOccurrence');
+  @override
+  late final GeneratedColumn<DateTime> reminderNextOccurrence =
+      GeneratedColumn<DateTime>(
+        'reminder_next_occurrence',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -7926,6 +8003,13 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
     hasReminder,
     reminderDateTime,
     reminderNotified,
+    reminderRepeat,
+    reminderEthiopianMonth,
+    reminderEthiopianDay,
+    reminderHour,
+    reminderMinute,
+    reminderTimezone,
+    reminderNextOccurrence,
     createdAt,
     updatedAt,
     deletedAt,
@@ -8041,6 +8125,69 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
         ),
       );
     }
+    if (data.containsKey('reminder_repeat')) {
+      context.handle(
+        _reminderRepeatMeta,
+        reminderRepeat.isAcceptableOrUnknown(
+          data['reminder_repeat']!,
+          _reminderRepeatMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_ethiopian_month')) {
+      context.handle(
+        _reminderEthiopianMonthMeta,
+        reminderEthiopianMonth.isAcceptableOrUnknown(
+          data['reminder_ethiopian_month']!,
+          _reminderEthiopianMonthMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_ethiopian_day')) {
+      context.handle(
+        _reminderEthiopianDayMeta,
+        reminderEthiopianDay.isAcceptableOrUnknown(
+          data['reminder_ethiopian_day']!,
+          _reminderEthiopianDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_hour')) {
+      context.handle(
+        _reminderHourMeta,
+        reminderHour.isAcceptableOrUnknown(
+          data['reminder_hour']!,
+          _reminderHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_minute')) {
+      context.handle(
+        _reminderMinuteMeta,
+        reminderMinute.isAcceptableOrUnknown(
+          data['reminder_minute']!,
+          _reminderMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_timezone')) {
+      context.handle(
+        _reminderTimezoneMeta,
+        reminderTimezone.isAcceptableOrUnknown(
+          data['reminder_timezone']!,
+          _reminderTimezoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_next_occurrence')) {
+      context.handle(
+        _reminderNextOccurrenceMeta,
+        reminderNextOccurrence.isAcceptableOrUnknown(
+          data['reminder_next_occurrence']!,
+          _reminderNextOccurrenceMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -8140,6 +8287,34 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
         DriftSqlType.bool,
         data['${effectivePrefix}reminder_notified'],
       )!,
+      reminderRepeat: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_repeat'],
+      )!,
+      reminderEthiopianMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_ethiopian_month'],
+      ),
+      reminderEthiopianDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_ethiopian_day'],
+      ),
+      reminderHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_hour'],
+      ),
+      reminderMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_minute'],
+      ),
+      reminderTimezone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_timezone'],
+      )!,
+      reminderNextOccurrence: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reminder_next_occurrence'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -8186,6 +8361,13 @@ class LocalCalendarNoteData extends DataClass
   final bool hasReminder;
   final DateTime? reminderDateTime;
   final bool reminderNotified;
+  final String reminderRepeat;
+  final int? reminderEthiopianMonth;
+  final int? reminderEthiopianDay;
+  final int? reminderHour;
+  final int? reminderMinute;
+  final String reminderTimezone;
+  final DateTime? reminderNextOccurrence;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -8204,6 +8386,13 @@ class LocalCalendarNoteData extends DataClass
     required this.hasReminder,
     this.reminderDateTime,
     required this.reminderNotified,
+    required this.reminderRepeat,
+    this.reminderEthiopianMonth,
+    this.reminderEthiopianDay,
+    this.reminderHour,
+    this.reminderMinute,
+    required this.reminderTimezone,
+    this.reminderNextOccurrence,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -8231,6 +8420,25 @@ class LocalCalendarNoteData extends DataClass
       map['reminder_date_time'] = Variable<DateTime>(reminderDateTime);
     }
     map['reminder_notified'] = Variable<bool>(reminderNotified);
+    map['reminder_repeat'] = Variable<String>(reminderRepeat);
+    if (!nullToAbsent || reminderEthiopianMonth != null) {
+      map['reminder_ethiopian_month'] = Variable<int>(reminderEthiopianMonth);
+    }
+    if (!nullToAbsent || reminderEthiopianDay != null) {
+      map['reminder_ethiopian_day'] = Variable<int>(reminderEthiopianDay);
+    }
+    if (!nullToAbsent || reminderHour != null) {
+      map['reminder_hour'] = Variable<int>(reminderHour);
+    }
+    if (!nullToAbsent || reminderMinute != null) {
+      map['reminder_minute'] = Variable<int>(reminderMinute);
+    }
+    map['reminder_timezone'] = Variable<String>(reminderTimezone);
+    if (!nullToAbsent || reminderNextOccurrence != null) {
+      map['reminder_next_occurrence'] = Variable<DateTime>(
+        reminderNextOccurrence,
+      );
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -8263,6 +8471,23 @@ class LocalCalendarNoteData extends DataClass
           ? const Value.absent()
           : Value(reminderDateTime),
       reminderNotified: Value(reminderNotified),
+      reminderRepeat: Value(reminderRepeat),
+      reminderEthiopianMonth: reminderEthiopianMonth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderEthiopianMonth),
+      reminderEthiopianDay: reminderEthiopianDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderEthiopianDay),
+      reminderHour: reminderHour == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderHour),
+      reminderMinute: reminderMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderMinute),
+      reminderTimezone: Value(reminderTimezone),
+      reminderNextOccurrence: reminderNextOccurrence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderNextOccurrence),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -8295,6 +8520,19 @@ class LocalCalendarNoteData extends DataClass
         json['reminderDateTime'],
       ),
       reminderNotified: serializer.fromJson<bool>(json['reminderNotified']),
+      reminderRepeat: serializer.fromJson<String>(json['reminderRepeat']),
+      reminderEthiopianMonth: serializer.fromJson<int?>(
+        json['reminderEthiopianMonth'],
+      ),
+      reminderEthiopianDay: serializer.fromJson<int?>(
+        json['reminderEthiopianDay'],
+      ),
+      reminderHour: serializer.fromJson<int?>(json['reminderHour']),
+      reminderMinute: serializer.fromJson<int?>(json['reminderMinute']),
+      reminderTimezone: serializer.fromJson<String>(json['reminderTimezone']),
+      reminderNextOccurrence: serializer.fromJson<DateTime?>(
+        json['reminderNextOccurrence'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -8318,6 +8556,15 @@ class LocalCalendarNoteData extends DataClass
       'hasReminder': serializer.toJson<bool>(hasReminder),
       'reminderDateTime': serializer.toJson<DateTime?>(reminderDateTime),
       'reminderNotified': serializer.toJson<bool>(reminderNotified),
+      'reminderRepeat': serializer.toJson<String>(reminderRepeat),
+      'reminderEthiopianMonth': serializer.toJson<int?>(reminderEthiopianMonth),
+      'reminderEthiopianDay': serializer.toJson<int?>(reminderEthiopianDay),
+      'reminderHour': serializer.toJson<int?>(reminderHour),
+      'reminderMinute': serializer.toJson<int?>(reminderMinute),
+      'reminderTimezone': serializer.toJson<String>(reminderTimezone),
+      'reminderNextOccurrence': serializer.toJson<DateTime?>(
+        reminderNextOccurrence,
+      ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -8339,6 +8586,13 @@ class LocalCalendarNoteData extends DataClass
     bool? hasReminder,
     Value<DateTime?> reminderDateTime = const Value.absent(),
     bool? reminderNotified,
+    String? reminderRepeat,
+    Value<int?> reminderEthiopianMonth = const Value.absent(),
+    Value<int?> reminderEthiopianDay = const Value.absent(),
+    Value<int?> reminderHour = const Value.absent(),
+    Value<int?> reminderMinute = const Value.absent(),
+    String? reminderTimezone,
+    Value<DateTime?> reminderNextOccurrence = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -8359,6 +8613,21 @@ class LocalCalendarNoteData extends DataClass
         ? reminderDateTime.value
         : this.reminderDateTime,
     reminderNotified: reminderNotified ?? this.reminderNotified,
+    reminderRepeat: reminderRepeat ?? this.reminderRepeat,
+    reminderEthiopianMonth: reminderEthiopianMonth.present
+        ? reminderEthiopianMonth.value
+        : this.reminderEthiopianMonth,
+    reminderEthiopianDay: reminderEthiopianDay.present
+        ? reminderEthiopianDay.value
+        : this.reminderEthiopianDay,
+    reminderHour: reminderHour.present ? reminderHour.value : this.reminderHour,
+    reminderMinute: reminderMinute.present
+        ? reminderMinute.value
+        : this.reminderMinute,
+    reminderTimezone: reminderTimezone ?? this.reminderTimezone,
+    reminderNextOccurrence: reminderNextOccurrence.present
+        ? reminderNextOccurrence.value
+        : this.reminderNextOccurrence,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -8393,6 +8662,27 @@ class LocalCalendarNoteData extends DataClass
       reminderNotified: data.reminderNotified.present
           ? data.reminderNotified.value
           : this.reminderNotified,
+      reminderRepeat: data.reminderRepeat.present
+          ? data.reminderRepeat.value
+          : this.reminderRepeat,
+      reminderEthiopianMonth: data.reminderEthiopianMonth.present
+          ? data.reminderEthiopianMonth.value
+          : this.reminderEthiopianMonth,
+      reminderEthiopianDay: data.reminderEthiopianDay.present
+          ? data.reminderEthiopianDay.value
+          : this.reminderEthiopianDay,
+      reminderHour: data.reminderHour.present
+          ? data.reminderHour.value
+          : this.reminderHour,
+      reminderMinute: data.reminderMinute.present
+          ? data.reminderMinute.value
+          : this.reminderMinute,
+      reminderTimezone: data.reminderTimezone.present
+          ? data.reminderTimezone.value
+          : this.reminderTimezone,
+      reminderNextOccurrence: data.reminderNextOccurrence.present
+          ? data.reminderNextOccurrence.value
+          : this.reminderNextOccurrence,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -8420,6 +8710,13 @@ class LocalCalendarNoteData extends DataClass
           ..write('hasReminder: $hasReminder, ')
           ..write('reminderDateTime: $reminderDateTime, ')
           ..write('reminderNotified: $reminderNotified, ')
+          ..write('reminderRepeat: $reminderRepeat, ')
+          ..write('reminderEthiopianMonth: $reminderEthiopianMonth, ')
+          ..write('reminderEthiopianDay: $reminderEthiopianDay, ')
+          ..write('reminderHour: $reminderHour, ')
+          ..write('reminderMinute: $reminderMinute, ')
+          ..write('reminderTimezone: $reminderTimezone, ')
+          ..write('reminderNextOccurrence: $reminderNextOccurrence, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -8431,7 +8728,7 @@ class LocalCalendarNoteData extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     userId,
     ethiopianYear,
@@ -8443,13 +8740,20 @@ class LocalCalendarNoteData extends DataClass
     hasReminder,
     reminderDateTime,
     reminderNotified,
+    reminderRepeat,
+    reminderEthiopianMonth,
+    reminderEthiopianDay,
+    reminderHour,
+    reminderMinute,
+    reminderTimezone,
+    reminderNextOccurrence,
     createdAt,
     updatedAt,
     deletedAt,
     isSynced,
     isPendingDelete,
     lastSyncedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8465,6 +8769,13 @@ class LocalCalendarNoteData extends DataClass
           other.hasReminder == this.hasReminder &&
           other.reminderDateTime == this.reminderDateTime &&
           other.reminderNotified == this.reminderNotified &&
+          other.reminderRepeat == this.reminderRepeat &&
+          other.reminderEthiopianMonth == this.reminderEthiopianMonth &&
+          other.reminderEthiopianDay == this.reminderEthiopianDay &&
+          other.reminderHour == this.reminderHour &&
+          other.reminderMinute == this.reminderMinute &&
+          other.reminderTimezone == this.reminderTimezone &&
+          other.reminderNextOccurrence == this.reminderNextOccurrence &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
@@ -8486,6 +8797,13 @@ class LocalCalendarNotesCompanion
   final Value<bool> hasReminder;
   final Value<DateTime?> reminderDateTime;
   final Value<bool> reminderNotified;
+  final Value<String> reminderRepeat;
+  final Value<int?> reminderEthiopianMonth;
+  final Value<int?> reminderEthiopianDay;
+  final Value<int?> reminderHour;
+  final Value<int?> reminderMinute;
+  final Value<String> reminderTimezone;
+  final Value<DateTime?> reminderNextOccurrence;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -8505,6 +8823,13 @@ class LocalCalendarNotesCompanion
     this.hasReminder = const Value.absent(),
     this.reminderDateTime = const Value.absent(),
     this.reminderNotified = const Value.absent(),
+    this.reminderRepeat = const Value.absent(),
+    this.reminderEthiopianMonth = const Value.absent(),
+    this.reminderEthiopianDay = const Value.absent(),
+    this.reminderHour = const Value.absent(),
+    this.reminderMinute = const Value.absent(),
+    this.reminderTimezone = const Value.absent(),
+    this.reminderNextOccurrence = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -8525,6 +8850,13 @@ class LocalCalendarNotesCompanion
     this.hasReminder = const Value.absent(),
     this.reminderDateTime = const Value.absent(),
     this.reminderNotified = const Value.absent(),
+    this.reminderRepeat = const Value.absent(),
+    this.reminderEthiopianMonth = const Value.absent(),
+    this.reminderEthiopianDay = const Value.absent(),
+    this.reminderHour = const Value.absent(),
+    this.reminderMinute = const Value.absent(),
+    this.reminderTimezone = const Value.absent(),
+    this.reminderNextOccurrence = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
@@ -8552,6 +8884,13 @@ class LocalCalendarNotesCompanion
     Expression<bool>? hasReminder,
     Expression<DateTime>? reminderDateTime,
     Expression<bool>? reminderNotified,
+    Expression<String>? reminderRepeat,
+    Expression<int>? reminderEthiopianMonth,
+    Expression<int>? reminderEthiopianDay,
+    Expression<int>? reminderHour,
+    Expression<int>? reminderMinute,
+    Expression<String>? reminderTimezone,
+    Expression<DateTime>? reminderNextOccurrence,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -8572,6 +8911,16 @@ class LocalCalendarNotesCompanion
       if (hasReminder != null) 'has_reminder': hasReminder,
       if (reminderDateTime != null) 'reminder_date_time': reminderDateTime,
       if (reminderNotified != null) 'reminder_notified': reminderNotified,
+      if (reminderRepeat != null) 'reminder_repeat': reminderRepeat,
+      if (reminderEthiopianMonth != null)
+        'reminder_ethiopian_month': reminderEthiopianMonth,
+      if (reminderEthiopianDay != null)
+        'reminder_ethiopian_day': reminderEthiopianDay,
+      if (reminderHour != null) 'reminder_hour': reminderHour,
+      if (reminderMinute != null) 'reminder_minute': reminderMinute,
+      if (reminderTimezone != null) 'reminder_timezone': reminderTimezone,
+      if (reminderNextOccurrence != null)
+        'reminder_next_occurrence': reminderNextOccurrence,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -8594,6 +8943,13 @@ class LocalCalendarNotesCompanion
     Value<bool>? hasReminder,
     Value<DateTime?>? reminderDateTime,
     Value<bool>? reminderNotified,
+    Value<String>? reminderRepeat,
+    Value<int?>? reminderEthiopianMonth,
+    Value<int?>? reminderEthiopianDay,
+    Value<int?>? reminderHour,
+    Value<int?>? reminderMinute,
+    Value<String>? reminderTimezone,
+    Value<DateTime?>? reminderNextOccurrence,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -8614,6 +8970,15 @@ class LocalCalendarNotesCompanion
       hasReminder: hasReminder ?? this.hasReminder,
       reminderDateTime: reminderDateTime ?? this.reminderDateTime,
       reminderNotified: reminderNotified ?? this.reminderNotified,
+      reminderRepeat: reminderRepeat ?? this.reminderRepeat,
+      reminderEthiopianMonth:
+          reminderEthiopianMonth ?? this.reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay ?? this.reminderEthiopianDay,
+      reminderHour: reminderHour ?? this.reminderHour,
+      reminderMinute: reminderMinute ?? this.reminderMinute,
+      reminderTimezone: reminderTimezone ?? this.reminderTimezone,
+      reminderNextOccurrence:
+          reminderNextOccurrence ?? this.reminderNextOccurrence,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -8660,6 +9025,31 @@ class LocalCalendarNotesCompanion
     if (reminderNotified.present) {
       map['reminder_notified'] = Variable<bool>(reminderNotified.value);
     }
+    if (reminderRepeat.present) {
+      map['reminder_repeat'] = Variable<String>(reminderRepeat.value);
+    }
+    if (reminderEthiopianMonth.present) {
+      map['reminder_ethiopian_month'] = Variable<int>(
+        reminderEthiopianMonth.value,
+      );
+    }
+    if (reminderEthiopianDay.present) {
+      map['reminder_ethiopian_day'] = Variable<int>(reminderEthiopianDay.value);
+    }
+    if (reminderHour.present) {
+      map['reminder_hour'] = Variable<int>(reminderHour.value);
+    }
+    if (reminderMinute.present) {
+      map['reminder_minute'] = Variable<int>(reminderMinute.value);
+    }
+    if (reminderTimezone.present) {
+      map['reminder_timezone'] = Variable<String>(reminderTimezone.value);
+    }
+    if (reminderNextOccurrence.present) {
+      map['reminder_next_occurrence'] = Variable<DateTime>(
+        reminderNextOccurrence.value,
+      );
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -8698,6 +9088,13 @@ class LocalCalendarNotesCompanion
           ..write('hasReminder: $hasReminder, ')
           ..write('reminderDateTime: $reminderDateTime, ')
           ..write('reminderNotified: $reminderNotified, ')
+          ..write('reminderRepeat: $reminderRepeat, ')
+          ..write('reminderEthiopianMonth: $reminderEthiopianMonth, ')
+          ..write('reminderEthiopianDay: $reminderEthiopianDay, ')
+          ..write('reminderHour: $reminderHour, ')
+          ..write('reminderMinute: $reminderMinute, ')
+          ..write('reminderTimezone: $reminderTimezone, ')
+          ..write('reminderNextOccurrence: $reminderNextOccurrence, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -13737,6 +14134,13 @@ typedef $$LocalCalendarNotesTableCreateCompanionBuilder =
       Value<bool> hasReminder,
       Value<DateTime?> reminderDateTime,
       Value<bool> reminderNotified,
+      Value<String> reminderRepeat,
+      Value<int?> reminderEthiopianMonth,
+      Value<int?> reminderEthiopianDay,
+      Value<int?> reminderHour,
+      Value<int?> reminderMinute,
+      Value<String> reminderTimezone,
+      Value<DateTime?> reminderNextOccurrence,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<DateTime?> deletedAt,
@@ -13758,6 +14162,13 @@ typedef $$LocalCalendarNotesTableUpdateCompanionBuilder =
       Value<bool> hasReminder,
       Value<DateTime?> reminderDateTime,
       Value<bool> reminderNotified,
+      Value<String> reminderRepeat,
+      Value<int?> reminderEthiopianMonth,
+      Value<int?> reminderEthiopianDay,
+      Value<int?> reminderHour,
+      Value<int?> reminderMinute,
+      Value<String> reminderTimezone,
+      Value<DateTime?> reminderNextOccurrence,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
@@ -13828,6 +14239,41 @@ class $$LocalCalendarNotesTableFilterComposer
 
   ColumnFilters<bool> get reminderNotified => $composableBuilder(
     column: $table.reminderNotified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13926,6 +14372,41 @@ class $$LocalCalendarNotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -14013,6 +14494,41 @@ class $$LocalCalendarNotesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -14087,6 +14603,13 @@ class $$LocalCalendarNotesTableTableManager
                 Value<bool> hasReminder = const Value.absent(),
                 Value<DateTime?> reminderDateTime = const Value.absent(),
                 Value<bool> reminderNotified = const Value.absent(),
+                Value<String> reminderRepeat = const Value.absent(),
+                Value<int?> reminderEthiopianMonth = const Value.absent(),
+                Value<int?> reminderEthiopianDay = const Value.absent(),
+                Value<int?> reminderHour = const Value.absent(),
+                Value<int?> reminderMinute = const Value.absent(),
+                Value<String> reminderTimezone = const Value.absent(),
+                Value<DateTime?> reminderNextOccurrence = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -14106,6 +14629,13 @@ class $$LocalCalendarNotesTableTableManager
                 hasReminder: hasReminder,
                 reminderDateTime: reminderDateTime,
                 reminderNotified: reminderNotified,
+                reminderRepeat: reminderRepeat,
+                reminderEthiopianMonth: reminderEthiopianMonth,
+                reminderEthiopianDay: reminderEthiopianDay,
+                reminderHour: reminderHour,
+                reminderMinute: reminderMinute,
+                reminderTimezone: reminderTimezone,
+                reminderNextOccurrence: reminderNextOccurrence,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -14127,6 +14657,13 @@ class $$LocalCalendarNotesTableTableManager
                 Value<bool> hasReminder = const Value.absent(),
                 Value<DateTime?> reminderDateTime = const Value.absent(),
                 Value<bool> reminderNotified = const Value.absent(),
+                Value<String> reminderRepeat = const Value.absent(),
+                Value<int?> reminderEthiopianMonth = const Value.absent(),
+                Value<int?> reminderEthiopianDay = const Value.absent(),
+                Value<int?> reminderHour = const Value.absent(),
+                Value<int?> reminderMinute = const Value.absent(),
+                Value<String> reminderTimezone = const Value.absent(),
+                Value<DateTime?> reminderNextOccurrence = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -14146,6 +14683,13 @@ class $$LocalCalendarNotesTableTableManager
                 hasReminder: hasReminder,
                 reminderDateTime: reminderDateTime,
                 reminderNotified: reminderNotified,
+                reminderRepeat: reminderRepeat,
+                reminderEthiopianMonth: reminderEthiopianMonth,
+                reminderEthiopianDay: reminderEthiopianDay,
+                reminderHour: reminderHour,
+                reminderMinute: reminderMinute,
+                reminderTimezone: reminderTimezone,
+                reminderNextOccurrence: reminderNextOccurrence,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,

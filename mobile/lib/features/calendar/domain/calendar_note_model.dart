@@ -4,6 +4,15 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'calendar_note_model.freezed.dart';
 part 'calendar_note_model.g.dart';
 
+enum ReminderRepeat {
+  @JsonValue('NONE')
+  none,
+  @JsonValue('MONTHLY')
+  monthly,
+  @JsonValue('YEARLY')
+  yearly,
+}
+
 @freezed
 abstract class CalendarNoteModel with _$CalendarNoteModel {
   const factory CalendarNoteModel({
@@ -18,6 +27,13 @@ abstract class CalendarNoteModel with _$CalendarNoteModel {
     @Default(false) bool hasReminder,
     DateTime? reminderDateTime,
     @Default(false) bool reminderNotified,
+    @Default(ReminderRepeat.none) ReminderRepeat reminderRepeat,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    @Default('Africa/Addis_Ababa') String reminderTimezone,
+    DateTime? reminderNextOccurrence,
     @Default([]) List<CalendarNoteMedia> media,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -57,6 +73,12 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     String? content,
     @Default(false) bool hasReminder,
     String? reminderDateTime,
+    @Default(ReminderRepeat.none) ReminderRepeat reminderRepeat,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    @Default('Africa/Addis_Ababa') String reminderTimezone,
   }) = _CreateCalendarNoteDto;
 
   factory CreateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -71,8 +93,15 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     if (title != null) 'title': title,
     if (content != null) 'content': content,
     'hasReminder': hasReminder,
-    if (reminderDateTime != null)
-      'reminderDateTime': reminderDateTime,
+    if (reminderDateTime != null) 'reminderDateTime': reminderDateTime,
+    'reminderRepeat': _$ReminderRepeatEnumMap[reminderRepeat],
+    if (reminderEthiopianMonth != null)
+      'reminderEthiopianMonth': reminderEthiopianMonth,
+    if (reminderEthiopianDay != null)
+      'reminderEthiopianDay': reminderEthiopianDay,
+    if (reminderHour != null) 'reminderHour': reminderHour,
+    if (reminderMinute != null) 'reminderMinute': reminderMinute,
+    'reminderTimezone': reminderTimezone,
   };
 }
 
@@ -89,6 +118,12 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     String? content,
     bool? hasReminder,
     String? reminderDateTime,
+    ReminderRepeat? reminderRepeat,
+    int? reminderEthiopianMonth,
+    int? reminderEthiopianDay,
+    int? reminderHour,
+    int? reminderMinute,
+    String? reminderTimezone,
   }) = _UpdateCalendarNoteDto;
 
   factory UpdateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -109,6 +144,18 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     if (reminderDateTime != null) {
       map['reminderDateTime'] = reminderDateTime;
     }
+    if (reminderRepeat != null) {
+      map['reminderRepeat'] = _$ReminderRepeatEnumMap[reminderRepeat];
+    }
+    if (reminderEthiopianMonth != null) {
+      map['reminderEthiopianMonth'] = reminderEthiopianMonth;
+    }
+    if (reminderEthiopianDay != null) {
+      map['reminderEthiopianDay'] = reminderEthiopianDay;
+    }
+    if (reminderHour != null) map['reminderHour'] = reminderHour;
+    if (reminderMinute != null) map['reminderMinute'] = reminderMinute;
+    if (reminderTimezone != null) map['reminderTimezone'] = reminderTimezone;
     return map;
   }
 }

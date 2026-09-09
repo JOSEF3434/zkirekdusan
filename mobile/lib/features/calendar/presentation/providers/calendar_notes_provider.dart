@@ -41,6 +41,15 @@ final createCalendarNoteProvider =
         required DateTime gregorianDate,
         String? title,
         String? content,
+        bool? hasReminder,
+        DateTime? reminderDateTime,
+        ReminderRepeat? reminderRepeat,
+        int? reminderEthiopianMonth,
+        int? reminderEthiopianDay,
+        int? reminderHour,
+        int? reminderMinute,
+        String? reminderTimezone,
+        DateTime? reminderNextOccurrence,
       })
     >(
       (ref) =>
@@ -52,6 +61,15 @@ final createCalendarNoteProvider =
             required DateTime gregorianDate,
             String? title,
             String? content,
+            bool? hasReminder,
+            DateTime? reminderDateTime,
+            ReminderRepeat? reminderRepeat,
+            int? reminderEthiopianMonth,
+            int? reminderEthiopianDay,
+            int? reminderHour,
+            int? reminderMinute,
+            String? reminderTimezone,
+            DateTime? reminderNextOccurrence,
           }) {
             final repository = ref.read(calendarOfflineRepositoryProvider);
             return repository.createNote(
@@ -62,6 +80,15 @@ final createCalendarNoteProvider =
               gregorianDate: gregorianDate,
               title: title,
               content: content,
+              hasReminder: hasReminder ?? false,
+              reminderDateTime: reminderDateTime,
+              reminderRepeat: reminderRepeat ?? ReminderRepeat.none,
+              reminderEthiopianMonth: reminderEthiopianMonth,
+              reminderEthiopianDay: reminderEthiopianDay,
+              reminderHour: reminderHour,
+              reminderMinute: reminderMinute,
+              reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
+              reminderNextOccurrence: reminderNextOccurrence,
             );
           },
     );
@@ -73,12 +100,48 @@ final updateCalendarNoteProvider =
         String, {
         String? title,
         String? content,
+        bool? hasReminder,
+        DateTime? reminderDateTime,
+        ReminderRepeat? reminderRepeat,
+        int? reminderEthiopianMonth,
+        int? reminderEthiopianDay,
+        int? reminderHour,
+        int? reminderMinute,
+        String? reminderTimezone,
+        DateTime? reminderNextOccurrence,
       })
     >(
-      (ref) => (id, {title, content}) {
-        final repository = ref.read(calendarOfflineRepositoryProvider);
-        return repository.updateNote(id, title: title, content: content);
-      },
+      (ref) =>
+          (
+            id, {
+            title,
+            content,
+            hasReminder,
+            reminderDateTime,
+            reminderRepeat,
+            reminderEthiopianMonth,
+            reminderEthiopianDay,
+            reminderHour,
+            reminderMinute,
+            reminderTimezone,
+            reminderNextOccurrence,
+          }) {
+            final repository = ref.read(calendarOfflineRepositoryProvider);
+            return repository.updateNote(
+              id,
+              title: title,
+              content: content,
+              hasReminder: hasReminder,
+              reminderDateTime: reminderDateTime,
+              reminderRepeat: reminderRepeat ?? ReminderRepeat.none,
+              reminderEthiopianMonth: reminderEthiopianMonth,
+              reminderEthiopianDay: reminderEthiopianDay,
+              reminderHour: reminderHour,
+              reminderMinute: reminderMinute,
+              reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
+              reminderNextOccurrence: reminderNextOccurrence,
+            );
+          },
     );
 
 /// Provider for deleting a note (offline-first)

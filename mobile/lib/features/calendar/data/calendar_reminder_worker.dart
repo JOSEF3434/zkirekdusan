@@ -25,23 +25,9 @@ void calendarReminderCallbackDispatcher() {
       final notificationsService = CalendarNotificationsService();
       await notificationsService.initialize();
 
-      // Get notes with upcoming reminders (next 24 hours)
-      final now = DateTime.now();
-      final tomorrow = now.add(const Duration(hours: 24));
-
       final upcomingNotes =
           await (db.select(db.localCalendarNotes)..where(
-                (tbl) => Expression.and([
-                  tbl.hasReminder.equals(true),
-                  tbl.reminderNotified.equals(false),
-                  tbl.deletedAt.isNull(),
-                  tbl.reminderDateTime
-                      .dartCast<DateTime>()
-                      .isBiggerOrEqualValue(now),
-                  tbl.reminderDateTime
-                      .dartCast<DateTime>()
-                      .isSmallerOrEqualValue(tomorrow),
-                ]),
+                (tbl) => tbl.hasReminder.equals(true) & tbl.deletedAt.isNull(),
               ))
               .get();
 
@@ -65,6 +51,16 @@ void calendarReminderCallbackDispatcher() {
             hasReminder: noteData.hasReminder,
             reminderDateTime: noteData.reminderDateTime,
             reminderNotified: noteData.reminderNotified,
+            reminderRepeat: ReminderRepeat.values.firstWhere(
+              (value) => value.name.toUpperCase() == noteData.reminderRepeat,
+              orElse: () => ReminderRepeat.none,
+            ),
+            reminderEthiopianMonth: noteData.reminderEthiopianMonth,
+            reminderEthiopianDay: noteData.reminderEthiopianDay,
+            reminderHour: noteData.reminderHour,
+            reminderMinute: noteData.reminderMinute,
+            reminderTimezone: noteData.reminderTimezone,
+            reminderNextOccurrence: noteData.reminderNextOccurrence,
             media: const [],
             createdAt: noteData.createdAt,
             updatedAt: noteData.updatedAt,

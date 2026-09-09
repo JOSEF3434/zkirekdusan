@@ -21,7 +21,7 @@ class CalendarSyncService {
     bool downloadOnly = false,
   }) async {
     developer.log('🔄 Starting calendar sync...', name: 'CalendarSync');
-    
+
     try {
       if (!downloadOnly) {
         // Step 1: Push unsynced notes to server
@@ -33,28 +33,28 @@ class CalendarSyncService {
       if (!uploadOnly) {
         // Step 2: Pull updates from server
         developer.log('⬇️ Pulling server updates...', name: 'CalendarSync');
-        
+
         // Sync current month
         final now = DateTime.now();
         final currentEthiopianYear = now.year - 7; // Rough conversion
         final currentEthiopianMonth = now.month;
-        
+
         await _repository.syncNotesFromServer(
           year: currentEthiopianYear,
           month: currentEthiopianMonth,
         );
-        
+
         // Optionally sync adjacent months for better offline experience
         await _repository.syncNotesFromServer(
           year: currentEthiopianYear,
           month: currentEthiopianMonth - 1,
         );
-        
+
         await _repository.syncNotesFromServer(
           year: currentEthiopianYear,
           month: currentEthiopianMonth + 1,
         );
-        
+
         developer.log('✅ Pull complete', name: 'CalendarSync');
       }
 
@@ -74,21 +74,21 @@ class CalendarSyncService {
   /// Perform a quick sync (current month only)
   Future<bool> performQuickSync() async {
     developer.log('⚡ Quick sync started', name: 'CalendarSync');
-    
+
     try {
       // Only push local changes
       await _repository.pushUnsyncedNotes();
-      
+
       // Only pull current month
       final now = DateTime.now();
       final currentEthiopianYear = now.year - 7;
       final currentEthiopianMonth = now.month;
-      
+
       await _repository.syncNotesFromServer(
         year: currentEthiopianYear,
         month: currentEthiopianMonth,
       );
-      
+
       developer.log('✅ Quick sync complete', name: 'CalendarSync');
       return true;
     } catch (e) {
