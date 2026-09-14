@@ -41,7 +41,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _onItemTapped(int index, BuildContext context) {
-    if (index == 3) {
+    if (index == 2) {
       final tr = ref.read(trProvider);
       // Create button → show options
       showModalBottomSheet(
@@ -86,8 +86,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       ref.read(homeRefreshSignalProvider.notifier).state++;
     }
 
-    // Adjust index for shell branches (branch 3 is the Create placeholder;
-    // tapping 0 → home, 1 → explorer, 2 → calendar, 4 → chats, 5 → profile)
+    // Adjust index for shell branches (branch 2 is the Create placeholder;
+    // tapping 0 → home, 1 → calendar, 3 → chats, 4 → profile)
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -216,7 +216,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                             if (authUser != null) {
                               context.push('/profile/${authUser.id}/following');
                             } else {
-                              context.go('/explore');
+                              context.push('/explore');
                             }
                           },
                         ),
@@ -236,11 +236,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                       icon: const Icon(Icons.home_outlined),
                       selectedIcon: const Icon(Icons.home),
                       label: Text(tr('nav.home')),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.explore_outlined),
-                      selectedIcon: const Icon(Icons.explore),
-                      label: Text(tr('nav.explore')),
                     ),
                     NavigationRailDestination(
                       icon: const Icon(Icons.calendar_month_outlined),
@@ -328,11 +323,6 @@ class _AppShellState extends ConsumerState<AppShell> {
               icon: const Icon(Icons.home_outlined),
               selectedIcon: const Icon(Icons.home),
               label: tr('nav.home'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.explore_outlined),
-              selectedIcon: const Icon(Icons.explore),
-              label: tr('nav.explore'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.calendar_month_outlined),

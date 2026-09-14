@@ -234,6 +234,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/explore',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ExploreScreen(),
+      ),
+      GoRoute(
         path: '/story/create',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const StoryCreationScreen(),
@@ -613,15 +618,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
-              ),
-            ],
-          ),
-          // Explorer tab — reuses the existing ExploreScreen implementation
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/explore',
-                builder: (context, state) => const ExploreScreen(),
               ),
             ],
           ),

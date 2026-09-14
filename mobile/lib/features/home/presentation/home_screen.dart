@@ -20,6 +20,8 @@ import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -234,10 +236,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.cast_rounded),
-                    onPressed: () {},
-                  ),
-                  IconButton(
                     icon: const Icon(Icons.search_rounded),
                     onPressed: () => context.push('/search'),
                   ),
@@ -261,6 +259,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     },
                   ),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final auth = ref.watch(authProvider);
+                      final isAuth = auth.status == AuthStatus.authenticated;
+                      final profile = isAuth ? ref.watch(profileProvider).profile : null;
+                      final avatarUrl = profile?.avatarUrl;
+                      final resolvedAvatar = avatarUrl != null && avatarUrl.isNotEmpty
+                          ? MediaUrlResolver.resolve(avatarUrl)
+                          : null;
+
+                      return IconButton(
+                        tooltip: tr('nav.profile'),
+                        icon: resolvedAvatar != null && resolvedAvatar.isNotEmpty
+                            ? CircleAvatar(
+                                radius: 13,
+                                backgroundImage: CachedNetworkImageProvider(resolvedAvatar),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                              )
+                            : const Icon(Icons.account_circle_outlined),
+                        onPressed: () {
+                          if (isAuth) {
+                            context.push('/profile');
+                          } else {
+                            context.push('/login');
+                          }
+                        },
+                      );
+                    },
+                  ),
                   if (!isAuthenticated)
                     Padding(
                       padding: const EdgeInsets.only(right: 8.0),
@@ -268,7 +296,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         onPressed: () => context.push('/login'),
                         child: Text(tr('auth.login')),
                       ),
-                    ),
+                    )
+                  else
+                    const SizedBox(width: 4),
                 ],
                 bottom: TabBar(
                   controller: _tabController,
