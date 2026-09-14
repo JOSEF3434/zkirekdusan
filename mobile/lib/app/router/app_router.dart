@@ -34,6 +34,7 @@ import 'package:mobile/features/library/presentation/liked_videos_screen.dart';
 import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
+import 'package:mobile/features/books/presentation/screens/books_screen.dart';
 import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
@@ -237,6 +238,45 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/explore',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ExploreScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ProfileScreen(),
+        routes: [
+          GoRoute(
+            path: 'edit',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final profile = state.extra as ProfileModel?;
+              return EditProfileScreen(initialProfile: profile);
+            },
+          ),
+          GoRoute(
+            path: 'user/:username',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final username = state.pathParameters['username']!;
+              return PublicProfileScreen(username: username);
+            },
+          ),
+          GoRoute(
+            path: ':id/followers',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return FollowersScreen(profileId: id, initialTabIndex: 0);
+            },
+          ),
+          GoRoute(
+            path: ':id/following',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return FollowersScreen(profileId: id, initialTabIndex: 1);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/story/create',
@@ -650,42 +690,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/profile',
-                builder: (context, state) => const ProfileScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'edit',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) {
-                      final profile = state.extra as ProfileModel?;
-                      return EditProfileScreen(initialProfile: profile);
-                    },
-                  ),
-                  GoRoute(
-                    path: 'user/:username',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) {
-                      final username = state.pathParameters['username']!;
-                      return PublicProfileScreen(username: username);
-                    },
-                  ),
-                  GoRoute(
-                    path: ':id/followers',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) {
-                      final id = state.pathParameters['id']!;
-                      return FollowersScreen(profileId: id, initialTabIndex: 0);
-                    },
-                  ),
-                  GoRoute(
-                    path: ':id/following',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) {
-                      final id = state.pathParameters['id']!;
-                      return FollowersScreen(profileId: id, initialTabIndex: 1);
-                    },
-                  ),
-                ],
+                path: '/books',
+                builder: (context, state) => const BooksScreen(),
               ),
             ],
           ),

@@ -221,6 +221,7 @@ class SearchNotifier extends Notifier<SearchState> {
           newResults.videos.length +
           newResults.users.length +
           newResults.groups.length +
+          newResults.channels.length +
           newResults.streams.length +
           newResults.reels.length;
       final hasMore = totalInPage >= 20;
@@ -257,6 +258,7 @@ class SearchNotifier extends Notifier<SearchState> {
     final existingVideoIds = existing.videos.map((v) => v.id).toSet();
     final existingUserIds = existing.users.map((u) => u.id).toSet();
     final existingGroupIds = existing.groups.map((g) => g.id).toSet();
+    final existingChannelIds = existing.channels.map((c) => c.id).toSet();
     final existingStreamIds = existing.streams.map((s) => s.id).toSet();
     final existingReelIds = existing.reels.map((r) => r.id).toSet();
 
@@ -272,6 +274,10 @@ class SearchNotifier extends Notifier<SearchState> {
       groups: [
         ...existing.groups,
         ...newPage.groups.where((g) => !existingGroupIds.contains(g.id)),
+      ],
+      channels: [
+        ...existing.channels,
+        ...newPage.channels.where((c) => !existingChannelIds.contains(c.id)),
       ],
       streams: [
         ...existing.streams,

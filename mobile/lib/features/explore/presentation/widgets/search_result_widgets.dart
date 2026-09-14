@@ -89,22 +89,27 @@ class SearchUserTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
-        backgroundImage: user.avatarUrl != null
+        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
             ? CachedNetworkImageProvider(user.avatarUrl!)
             : null,
-        child: user.avatarUrl == null
+        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
             ? Text(
                 (user.displayName ?? user.username ?? '?')[0].toUpperCase(),
                 style: theme.textTheme.titleSmall,
               )
             : null,
       ),
-      title: Text(user.displayName ?? user.username ?? 'User'),
+      title: Text(
+        user.displayName ?? user.username ?? 'User',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: user.username != null ? Text('@${user.username}') : null,
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: () {
-        if (user.username != null) {
+        if (user.username != null && user.username!.isNotEmpty) {
           context.push('/profile/user/${user.username}');
+        } else if (user.id.isNotEmpty) {
+          context.push('/profile/${user.id}');
         }
       },
     );
@@ -124,16 +129,112 @@ class SearchGroupTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: theme.colorScheme.primaryContainer,
-        backgroundImage: group.avatarUrl != null
+        backgroundImage: group.avatarUrl != null && group.avatarUrl!.isNotEmpty
             ? CachedNetworkImageProvider(group.avatarUrl!)
             : null,
-        child: group.avatarUrl == null ? const Icon(Icons.group) : null,
+        child: group.avatarUrl == null || group.avatarUrl!.isEmpty
+            ? const Icon(Icons.group_rounded)
+            : null,
       ),
-      title: Text(group.name ?? 'Group'),
-      subtitle: group.slug != null ? Text('@${group.slug}') : null,
+      title: Text(
+        group.name ?? 'Group',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        group.slug != null ? '@${group.slug}' : (group.description ?? ''),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: () {
-        // Navigate to group if route exists
+        if (group.id.isNotEmpty) {
+          context.push('/groups/${group.id}');
+        }
+      },
+    );
+  }
+}
+
+// ── Channel Tile ──────────────────────────────────────────────────────────────
+
+class SearchChannelTile extends StatelessWidget {
+  final SearchChannelDto channel;
+  const SearchChannelTile({super.key, required this.channel});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: CircleAvatar(
+        radius: 22,
+        backgroundColor: theme.colorScheme.secondaryContainer,
+        backgroundImage:
+            channel.avatarUrl != null && channel.avatarUrl!.isNotEmpty
+                ? CachedNetworkImageProvider(channel.avatarUrl!)
+                : null,
+        child: channel.avatarUrl == null || channel.avatarUrl!.isEmpty
+            ? const Icon(Icons.tv_rounded)
+            : null,
+      ),
+      title: Text(
+        channel.name ?? 'Channel',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        channel.handle != null
+            ? '@${channel.handle}'
+            : (channel.description ?? ''),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+      onTap: () {
+        if (channel.id.isNotEmpty) {
+          context.push('/channels/${channel.id}');
+        }
+      },
+    );
+  }
+}
+
+// ── Reel Tile ─────────────────────────────────────────────────────────────────
+
+class SearchReelTile extends StatelessWidget {
+  final SearchReelDto reel;
+  const SearchReelTile({super.key, required this.reel});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 44,
+          height: 56,
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: reel.thumbnailUrl != null && reel.thumbnailUrl!.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: reel.thumbnailUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) =>
+                      const Icon(Icons.movie_creation_outlined),
+                )
+              : const Icon(Icons.movie_creation_outlined),
+        ),
+      ),
+      title: Text(
+        reel.description ?? 'Reel',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      subtitle: reel.authorUsername != null
+          ? Text('@${reel.authorUsername} · ${reel.viewsCount ?? 0} views')
+          : Text('${reel.viewsCount ?? 0} views'),
+      trailing: const Icon(Icons.play_arrow_rounded),
+      onTap: () {
+        context.push('/reels');
       },
     );
   }

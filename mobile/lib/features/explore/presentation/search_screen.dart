@@ -243,12 +243,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   int _countItems(SearchResultsDto results) {
     int count = 0;
-    if (results.users.isNotEmpty) {
-      count += results.users.length + 1; // +1 header
-    }
+    if (results.users.isNotEmpty) count += results.users.length + 1; // +1 header
     if (results.videos.isNotEmpty) count += results.videos.length + 1;
     if (results.groups.isNotEmpty) count += results.groups.length + 1;
+    if (results.channels.isNotEmpty) count += results.channels.length + 1;
     if (results.streams.isNotEmpty) count += results.streams.length + 1;
+    if (results.reels.isNotEmpty) count += results.reels.length + 1;
     return count;
   }
 
@@ -276,10 +276,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     }
 
+    if (results.channels.isNotEmpty) {
+      widgets.add(const SearchSectionHeader(title: 'Channels'));
+      for (final c in results.channels) {
+        widgets.add(SearchChannelTile(channel: c));
+      }
+    }
+
     if (results.streams.isNotEmpty) {
       widgets.add(const SearchSectionHeader(title: 'Live Streams'));
       for (final s in results.streams) {
         widgets.add(SearchStreamTile(stream: s));
+      }
+    }
+
+    if (results.reels.isNotEmpty) {
+      widgets.add(const SearchSectionHeader(title: 'Reels'));
+      for (final r in results.reels) {
+        widgets.add(SearchReelTile(reel: r));
       }
     }
 
@@ -300,6 +314,8 @@ class _FilterChips extends ConsumerWidget {
       (SearchEntityType.videos, 'Videos'),
       (SearchEntityType.users, 'People'),
       (SearchEntityType.groups, 'Groups'),
+      (SearchEntityType.channels, 'Channels'),
+      (SearchEntityType.reels, 'Reels'),
       (SearchEntityType.streams, 'Live'),
     ];
 

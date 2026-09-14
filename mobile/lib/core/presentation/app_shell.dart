@@ -87,7 +87,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     // Adjust index for shell branches (branch 2 is the Create placeholder;
-    // tapping 0 → home, 1 → calendar, 3 → chats, 4 → profile)
+    // tapping 0 → home, 1 → calendar, 3 → chats, 4 → books)
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -253,9 +253,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                       label: Text(tr('nav.chats')),
                     ),
                     NavigationRailDestination(
-                      icon: const Icon(Icons.person_outline),
-                      selectedIcon: const Icon(Icons.person),
-                      label: Text(tr('nav.profile')),
+                      icon: const Icon(Icons.menu_book_outlined),
+                      selectedIcon: const Icon(Icons.menu_book),
+                      label: Text(tr('nav.books')),
                     ),
                   ],
                 ),
@@ -348,9 +348,9 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: tr('nav.chats'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.person_outline),
-              selectedIcon: const Icon(Icons.person),
-              label: tr('nav.profile'),
+              icon: const Icon(Icons.menu_book_outlined),
+              selectedIcon: const Icon(Icons.menu_book),
+              label: tr('nav.books'),
             ),
           ],
         ),

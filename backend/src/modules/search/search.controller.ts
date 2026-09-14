@@ -37,11 +37,17 @@ export class SearchController {
     @Query(new ValidationPipe({ transform: true })) query: SearchQueryDto,
   ) {
     const cacheKey = `search:user:${userId || 'anon'}:q:${JSON.stringify(query)}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
+    try {
+      const cached = await this.cacheManager.get(cacheKey);
+      if (cached) return cached;
+    } catch (_) {}
 
     const result = await this.searchService.search(userId, query);
-    await this.cacheManager.set(cacheKey, result, 60000); // 60s TTL
+
+    try {
+      await this.cacheManager.set(cacheKey, result, 60000); // 60s TTL
+    } catch (_) {}
+
     return result;
   }
 }

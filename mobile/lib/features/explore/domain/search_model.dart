@@ -44,12 +44,14 @@ class SearchGroupDto {
   final String id;
   final String? name;
   final String? slug;
+  final String? description;
   final String? avatarUrl;
 
   const SearchGroupDto({
     required this.id,
     this.name,
     this.slug,
+    this.description,
     this.avatarUrl,
   });
 
@@ -58,7 +60,40 @@ class SearchGroupDto {
       id: json['id'] as String? ?? '',
       name: json['name'] as String?,
       slug: json['slug'] as String?,
+      description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+    );
+  }
+}
+
+// ── Channel ───────────────────────────────────────────────────────────────────
+
+class SearchChannelDto {
+  final String id;
+  final String? name;
+  final String? handle;
+  final String? description;
+  final String? avatarUrl;
+  final int subscribersCount;
+
+  const SearchChannelDto({
+    required this.id,
+    this.name,
+    this.handle,
+    this.description,
+    this.avatarUrl,
+    this.subscribersCount = 0,
+  });
+
+  factory SearchChannelDto.fromJson(Map<String, dynamic> json) {
+    final avatarFile = json['avatarFile'] as Map<String, dynamic>?;
+    return SearchChannelDto(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String?,
+      handle: json['handle'] as String?,
+      description: json['description'] as String?,
+      avatarUrl: avatarFile?['url'] as String? ?? json['avatarUrl'] as String?,
+      subscribersCount: (json['subscribersCount'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -90,7 +125,7 @@ class SearchStreamDto {
       id: json['id'] as String? ?? '',
       title: json['title'] as String?,
       status: json['status'] as String?,
-      viewerCount: json['currentViewerCount'] as int?,
+      viewerCount: (json['currentViewerCount'] as num?)?.toInt(),
       creatorUsername: createdBy?['username'] as String?,
       scheduledAt: json['scheduledAt'] != null
           ? DateTime.tryParse(json['scheduledAt'] as String)
@@ -120,9 +155,10 @@ class SearchReelDto {
     final author = json['author'] as Map<String, dynamic>?;
     return SearchReelDto(
       id: json['id'] as String? ?? '',
-      description: json['description'] as String?,
+      description:
+          json['description'] as String? ?? json['caption'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,
-      viewsCount: json['viewsCount'] as int?,
+      viewsCount: (json['viewsCount'] as num?)?.toInt(),
       authorUsername: author?['username'] as String?,
     );
   }
@@ -134,6 +170,7 @@ class SearchResultsDto {
   final List<SearchUserDto> users;
   final List<VideoResponseDto> videos;
   final List<SearchGroupDto> groups;
+  final List<SearchChannelDto> channels;
   final List<SearchStreamDto> streams;
   final List<SearchReelDto> reels;
 
@@ -141,6 +178,7 @@ class SearchResultsDto {
     this.users = const [],
     this.videos = const [],
     this.groups = const [],
+    this.channels = const [],
     this.streams = const [],
     this.reels = const [],
   });
@@ -149,6 +187,7 @@ class SearchResultsDto {
       users.isEmpty &&
       videos.isEmpty &&
       groups.isEmpty &&
+      channels.isEmpty &&
       streams.isEmpty &&
       reels.isEmpty;
 
@@ -157,6 +196,7 @@ class SearchResultsDto {
       users: _parseList(json['users'], SearchUserDto.fromJson),
       videos: _parseList(json['videos'], VideoResponseDto.fromJson),
       groups: _parseList(json['groups'], SearchGroupDto.fromJson),
+      channels: _parseList(json['channels'], SearchChannelDto.fromJson),
       streams: _parseList(json['streams'], SearchStreamDto.fromJson),
       reels: _parseList(json['reels'], SearchReelDto.fromJson),
     );
@@ -193,12 +233,14 @@ class SearchResponseDto {
   });
 
   factory SearchResponseDto.fromJson(Map<String, dynamic> json) {
+    final rawResults = json['results'];
+    final Map<String, dynamic> resultsMap =
+        rawResults is Map<String, dynamic> ? rawResults : {};
+
     return SearchResponseDto(
-      results: SearchResultsDto.fromJson(
-        json['results'] as Map<String, dynamic>? ?? {},
-      ),
-      page: json['page'] as int? ?? 1,
-      limit: json['limit'] as int? ?? 20,
+      results: SearchResultsDto.fromJson(resultsMap),
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      limit: (json['limit'] as num?)?.toInt() ?? 20,
     );
   }
 }
