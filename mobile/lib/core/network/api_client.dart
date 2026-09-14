@@ -150,19 +150,21 @@ class PrefixFallbackInterceptor extends Interceptor {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Safely casts [raw] to `Map<String, dynamic>`. Returns null on failure.
-Map<String, dynamic>? _tryAsMap(dynamic raw) {
+/// Safely converts any [raw] map-like object to `Map<String, dynamic>`. Returns null on failure.
+Map<String, dynamic>? safeMap(dynamic raw) {
   if (raw == null) return null;
   if (raw is Map<String, dynamic>) return raw;
   if (raw is Map) {
     try {
-      return raw.cast<String, dynamic>();
+      return Map<String, dynamic>.from(raw);
     } catch (_) {
       return null;
     }
   }
   return null;
 }
+
+Map<String, dynamic>? _tryAsMap(dynamic raw) => safeMap(raw);
 
 // ---------------------------------------------------------------------------
 // Public envelope helpers
@@ -179,14 +181,14 @@ Map<String, dynamic>? _tryAsMap(dynamic raw) {
 Map<String, dynamic> parseEnvelope(dynamic raw) {
   if (raw == null) {
     developer.log('[parseEnvelope] null response → returning {}');
-    return {};
+    return <String, dynamic>{};
   }
 
   final map = _tryAsMap(raw);
   if (map == null) {
-    if (raw is List) return {'items': raw};
+    if (raw is List) return <String, dynamic>{'items': raw};
     developer.log('[parseEnvelope] unexpected type ${raw.runtimeType} → {}');
-    return {};
+    return <String, dynamic>{};
   }
 
   if (map.containsKey('success')) {
@@ -199,10 +201,10 @@ Map<String, dynamic> parseEnvelope(dynamic raw) {
     final payload = map['data'];
     final payloadMap = _tryAsMap(payload);
     if (payloadMap != null) return payloadMap;
-    if (payload == null) return {};
-    if (payload is List) return {'items': payload};
+    if (payload == null) return <String, dynamic>{};
+    if (payload is List) return <String, dynamic>{'items': payload};
     developer.log('[parseEnvelope] data is ${payload.runtimeType} → {}');
-    return {};
+    return <String, dynamic>{};
   }
 
   return map;
@@ -269,11 +271,11 @@ List<dynamic> parseEnvelopeList(dynamic raw) {
 Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
   if (raw == null) {
     developer.log('[parsePaginatedEnvelope] null → empty result');
-    return {'data': [], 'meta': {}};
+    return <String, dynamic>{'data': <dynamic>[], 'meta': <String, dynamic>{}};
   }
 
   if (raw is List) {
-    return {'data': raw, 'meta': {}};
+    return <String, dynamic>{'data': raw, 'meta': <String, dynamic>{}};
   }
 
   final map = _tryAsMap(raw);
@@ -281,7 +283,7 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
     developer.log(
       '[parsePaginatedEnvelope] unexpected type ${raw.runtimeType} → empty',
     );
-    return {'data': [], 'meta': {}};
+    return <String, dynamic>{'data': <dynamic>[], 'meta': <String, dynamic>{}};
   }
 
   Map<String, dynamic> dataMap;
@@ -295,17 +297,17 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
     final payload = map['data'];
     if (payload == null) {
       developer.log('[parsePaginatedEnvelope] data is null → empty');
-      return {'data': [], 'meta': {}};
+      return <String, dynamic>{'data': <dynamic>[], 'meta': <String, dynamic>{}};
     }
     if (payload is List) {
-      return {'data': payload, 'meta': {}};
+      return <String, dynamic>{'data': payload, 'meta': <String, dynamic>{}};
     }
     final payloadMap = _tryAsMap(payload);
     if (payloadMap == null) {
       developer.log(
         '[parsePaginatedEnvelope] data is ${payload.runtimeType} → empty',
       );
-      return {'data': [], 'meta': {}};
+      return <String, dynamic>{'data': <dynamic>[], 'meta': <String, dynamic>{}};
     }
     dataMap = payloadMap;
   } else {
@@ -331,12 +333,12 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
 
   // Normalise: extract meta
   final rawMeta = dataMap['meta'] ?? dataMap['pagination'];
-  Map<String, dynamic> meta = _tryAsMap(rawMeta) ?? {};
+  Map<String, dynamic> meta = _tryAsMap(rawMeta) ?? <String, dynamic>{};
   if (meta.isEmpty) {
     if (dataMap.containsKey('page') ||
         dataMap.containsKey('limit') ||
         dataMap.containsKey('total')) {
-      meta = {
+      meta = <String, dynamic>{
         'page': dataMap['page'] ?? 1,
         'limit': dataMap['limit'] ?? (items.isNotEmpty ? items.length : 20),
         'total': dataMap['total'] ?? items.length,
@@ -347,5 +349,5 @@ Map<String, dynamic> parsePaginatedEnvelope(dynamic raw) {
     }
   }
 
-  return {'data': items, 'meta': meta};
+  return <String, dynamic>{'data': items, 'meta': meta};
 }

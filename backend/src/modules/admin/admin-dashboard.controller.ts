@@ -4,32 +4,25 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { AdminDashboardService } from './services/admin-dashboard.service.js';
 
 @ApiTags('Admin Dashboard')
 @Controller('admin/dashboard')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
+@Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR, AppRole.SUPPORT)
 @ApiBearerAuth()
 export class AdminDashboardController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dashboardService: AdminDashboardService) {}
 
   @Get('metrics')
-  @ApiOperation({ summary: 'Get high-level platform metrics' })
+  @ApiOperation({ summary: 'Get comprehensive platform metrics and stats' })
   async getMetrics() {
-    const [totalUsers, totalGroups, totalPosts, totalStreams] =
-      await Promise.all([
-        this.prisma.user.count(),
-        this.prisma.group.count(),
-        this.prisma.post.count(),
-        this.prisma.liveStream.count(),
-      ]);
+    return this.dashboardService.getPlatformMetrics();
+  }
 
-    return {
-      totalUsers,
-      totalGroups,
-      totalPosts,
-      totalStreams,
-    };
+  @Get('summary')
+  @ApiOperation({ summary: 'Get executive dashboard summary' })
+  async getSummary() {
+    return this.dashboardService.getPlatformMetrics();
   }
 }

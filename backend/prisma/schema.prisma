@@ -10,10 +10,12 @@ datasource db {
 // ENUMS
 // ─────────────────────────────────────────────
 
-/// Global platform roles — only 3 at platform level
+/// Global platform roles — 5 tiers at platform level
 enum GlobalRole {
   SUPER_ADMIN
   ADMIN
+  MODERATOR
+  SUPPORT
   USER
 }
 
@@ -1284,18 +1286,44 @@ model Notification {
 }
 
 model AuditLog {
-  id        String  @id @default(uuid())
-  userId    String?
-  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  resource  String
-  details   Json?
-  ipAddress String?
+  id         String  @id @default(uuid())
 
-  createdAt DateTime @default(now())
+  /// Admin or system actor who performed the action (userId = actorId)
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Machine-readable action name: USER_BANNED, GROUP_SUSPENDED, ROLE_ASSIGNED, etc.
+  action     String
+
+  /// Legacy field — kept for backward compat; new code uses targetType
+  resource   String
+
+  /// Type of entity affected: USER | GROUP | CHANNEL | POST | VIDEO | STREAM | MESSAGE | ROLE | SYSTEM
+  targetType String?
+
+  /// ID of the affected entity
+  targetId   String?
+
+  /// JSON snapshot of entity state BEFORE the action
+  before     Json?
+
+  /// JSON snapshot of entity state AFTER the action
+  after      Json?
+
+  /// Admin-provided reason (required for destructive actions)
+  reason     String? @db.Text
+
+  /// Extra context: IP, user-agent, etc.
+  details    Json?
+  metadata   Json?
+  ipAddress  String?
+
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 

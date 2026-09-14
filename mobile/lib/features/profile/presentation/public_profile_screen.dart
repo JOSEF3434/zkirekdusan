@@ -225,6 +225,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
 
     final displayName = profile.displayName ?? profile.username ?? 'User';
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
+    final tr = ref.watch(trProvider);
 
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
