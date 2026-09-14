@@ -1,6 +1,7 @@
 // lib/features/settings/presentation/data_usage_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
@@ -12,11 +13,12 @@ class DataUsageSettingsScreen extends ConsumerWidget {
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Data Usage'),
+        title: Text(tr('settings.data_usage')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -25,21 +27,21 @@ class DataUsageSettingsScreen extends ConsumerWidget {
         children: [
           // ── Data Saving ────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'DATA SAVING',
+            label: tr('settings.data_usage.data_saving'),
             children: [
               SettingsSwitchTile(
                 icon: Icons.data_saver_on_outlined,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Data Saver Mode',
-                subtitle: 'Reduces video quality and pauses auto-downloads',
+                title: tr('settings.data_usage.data_saver'),
+                subtitle: tr('settings.data_usage.data_saver_desc'),
                 value: s.dataSaver,
                 onChanged: n.setDataSaver,
               ),
               SettingsSwitchTile(
                 icon: Icons.phone_in_talk_outlined,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Low Data Calls',
-                subtitle: 'Use less data for voice and video calls',
+                title: tr('settings.data_usage.low_data_calls'),
+                subtitle: tr('settings.data_usage.low_data_calls_desc'),
                 value: s.lowDataCalls,
                 onChanged: n.setLowDataCalls,
                 isLast: true,
@@ -50,7 +52,7 @@ class DataUsageSettingsScreen extends ConsumerWidget {
 
           // ── Network Statistics ─────────────────────────────────────────────
           SettingsGroup(
-            label: 'NETWORK STATISTICS',
+            label: tr('settings.data_usage.network_stats'),
             children: [
               _NetworkStatsCard(
                 isDark: isDark,
@@ -58,13 +60,14 @@ class DataUsageSettingsScreen extends ConsumerWidget {
                 receivedMobile: s.cellularReceivedMB,
                 sentWifi: s.wifiSentMB,
                 receivedWifi: s.wifiReceivedMB,
+                tr: tr,
               ),
               SettingsNavTile(
                 icon: Icons.refresh_rounded,
                 iconColor: Colors.red,
-                title: 'Reset Statistics',
-                subtitle: 'Clear all network usage data',
-                onTap: () => _confirmReset(context, ref),
+                title: tr('settings.data_usage.reset_stats'),
+                subtitle: tr('settings.data_usage.reset_stats_desc'),
+                onTap: () => _confirmReset(context, ref, tr),
                 isLast: true,
               ),
             ],
@@ -73,14 +76,14 @@ class DataUsageSettingsScreen extends ConsumerWidget {
 
           // ── Connection ────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'CONNECTION',
+            label: tr('settings.data_usage.connection'),
             children: [
               SettingsNavTile(
                 icon: Icons.network_check_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Run Network Diagnostics',
-                subtitle: 'Check your connection speed and stability',
-                onTap: () => _runDiagnostics(context),
+                title: tr('settings.data_usage.diagnostics'),
+                subtitle: tr('settings.data_usage.diagnostics_desc'),
+                onTap: () => _runDiagnostics(context, tr),
                 isLast: true,
               ),
             ],
@@ -91,40 +94,43 @@ class DataUsageSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmReset(BuildContext context, WidgetRef ref) {
+  void _confirmReset(BuildContext context, WidgetRef ref, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Reset Network Stats'),
-        content: const Text('This will clear all cellular and Wi-Fi usage statistics. This cannot be undone.'),
+        title: Text(tr('settings.data_usage.reset_confirm_title')),
+        content: Text(tr('settings.data_usage.reset_confirm_body')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
               ref.read(socialSettingsProvider.notifier).resetNetworkStats();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(tr('settings.data_usage.stats_reset'))),
+              );
             },
-            child: const Text('Reset', style: TextStyle(color: Colors.white)),
+            child: Text(tr('settings.data_usage.reset_confirm_btn'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _runDiagnostics(BuildContext context) {
+  void _runDiagnostics(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('Running Diagnostics...'),
+        title: Text(tr('settings.data_usage.running_diagnostics')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            CircularProgressIndicator(color: Color(0xFF00C6FF)),
-            SizedBox(height: 16),
-            Text('Testing connection speed and latency'),
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF00C6FF)),
+            const SizedBox(height: 16),
+            Text(tr('settings.data_usage.testing_connection')),
           ],
         ),
       ),
@@ -136,26 +142,26 @@ class DataUsageSettingsScreen extends ConsumerWidget {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Row(children: [
-            Icon(Icons.check_circle_rounded, color: Color(0xFF43E97B)),
-            SizedBox(width: 8),
-            Text('Diagnostics Complete'),
+          title: Row(children: [
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF43E97B)),
+            const SizedBox(width: 8),
+            Text(tr('settings.data_usage.diagnostics_complete')),
           ]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _DiagRow('Download Speed', '42.5 Mbps'),
-              _DiagRow('Upload Speed', '18.3 Mbps'),
-              _DiagRow('Ping / Latency', '23 ms'),
-              _DiagRow('Connection Type', 'Wi-Fi (5GHz)'),
-              _DiagRow('Status', 'Excellent ✓'),
+            children: [
+              _DiagRow(tr('settings.data_usage.download_speed'), '42.5 Mbps'),
+              _DiagRow(tr('settings.data_usage.upload_speed'), '18.3 Mbps'),
+              _DiagRow(tr('settings.data_usage.ping_latency'), '23 ms'),
+              _DiagRow(tr('settings.data_usage.connection_type'), 'Wi-Fi (5GHz)'),
+              _DiagRow(tr('settings.data_usage.status'), tr('settings.data_usage.status_excellent')),
             ],
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close')),
+                child: Text(tr('common.close'))),
           ],
         ),
       );
@@ -190,6 +196,7 @@ class _NetworkStatsCard extends StatelessWidget {
   final double receivedMobile;
   final double sentWifi;
   final double receivedWifi;
+  final String Function(String, [Map<String, dynamic>?]) tr;
 
   const _NetworkStatsCard({
     required this.isDark,
@@ -197,6 +204,7 @@ class _NetworkStatsCard extends StatelessWidget {
     required this.receivedMobile,
     required this.sentWifi,
     required this.receivedWifi,
+    required this.tr,
   });
 
   String _fmt(double mb) {
@@ -216,7 +224,7 @@ class _NetworkStatsCard extends StatelessWidget {
                 child: _StatBlock(
                   icon: Icons.signal_cellular_alt_rounded,
                   color: const Color(0xFFFF9F43),
-                  label: 'Cellular',
+                  label: tr('settings.data_usage.cellular'),
                   sent: _fmt(sentMobile),
                   received: _fmt(receivedMobile),
                 ),
@@ -226,7 +234,7 @@ class _NetworkStatsCard extends StatelessWidget {
                 child: _StatBlock(
                   icon: Icons.wifi_rounded,
                   color: const Color(0xFF00C6FF),
-                  label: 'Wi-Fi',
+                  label: tr('settings.data_usage.wifi'),
                   sent: _fmt(sentWifi),
                   received: _fmt(receivedWifi),
                 ),
@@ -235,13 +243,13 @@ class _NetworkStatsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _StatRow(
-            label: 'Total Sent',
+            label: tr('settings.data_usage.total_sent'),
             value: _fmt(sentMobile + sentWifi),
             icon: Icons.upload_rounded,
             color: const Color(0xFF43E97B),
           ),
           _StatRow(
-            label: 'Total Received',
+            label: tr('settings.data_usage.total_received'),
             value: _fmt(receivedMobile + receivedWifi),
             icon: Icons.download_rounded,
             color: const Color(0xFF6C63FF),

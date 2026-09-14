@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -78,6 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     final cs = Theme.of(context).colorScheme;
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -112,14 +114,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Welcome back',
+                      tr('auth.welcome_back'),
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sign in to ዝክረ ክዱሳን',
+                      tr('auth.sign_in_to'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -173,7 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
-                        labelText: 'Email / Phone / Username',
+                        labelText: tr('auth.identifier_label'),
                         prefixIcon: const Icon(Icons.person_outline),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -181,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
-                          return 'Please enter your email, phone, or username';
+                          return tr('auth.validation.identifier_required');
                         }
                         return null;
                       },
@@ -195,7 +197,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: tr('auth.password_label'),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -213,10 +215,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
-                          return 'Password is required';
+                          return tr('auth.validation.password_required');
                         }
                         if (v.length < 8) {
-                          return 'Password must be at least 8 characters';
+                          return tr('auth.validation.password_min_length');
                         }
                         return null;
                       },
@@ -241,9 +243,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Sign In',
-                              style: TextStyle(fontSize: 16),
+                          : Text(
+                              tr('auth.sign_in'),
+                              style: const TextStyle(fontSize: 16),
                             ),
                     ),
                     const SizedBox(height: 24),
@@ -253,13 +255,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "Don't have an account? ",
+                          tr('auth.no_account'),
                           style: TextStyle(color: cs.onSurfaceVariant),
                         ),
                         GestureDetector(
                           onTap: () => context.go('/register'),
                           child: Text(
-                            'Sign Up',
+                            tr('auth.sign_up'),
                             style: TextStyle(
                               color: cs.primary,
                               fontWeight: FontWeight.bold,

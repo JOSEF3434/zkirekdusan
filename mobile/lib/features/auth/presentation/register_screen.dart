@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -72,6 +73,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     final cs = Theme.of(context).colorScheme;
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -79,7 +81,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
         ),
-        title: const Text('Create Account'),
+        title: Text(tr('auth.register')),
         centerTitle: true,
         elevation: 0,
       ),
@@ -151,7 +153,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             textInputAction: TextInputAction.next,
                             textCapitalization: TextCapitalization.words,
                             decoration: InputDecoration(
-                              labelText: 'First Name',
+                              labelText: tr('auth.first_name_label'),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -166,7 +168,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             textInputAction: TextInputAction.next,
                             textCapitalization: TextCapitalization.words,
                             decoration: InputDecoration(
-                              labelText: 'Last Name',
+                              labelText: tr('auth.last_name_label'),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -185,7 +187,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
-                        labelText: 'Email Address *',
+                        labelText: tr('auth.email_label'),
                         prefixIcon: const Icon(Icons.email_outlined),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -193,12 +195,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
-                          return 'Email is required';
+                          return tr('auth.validation.email_required');
                         }
                         if (!RegExp(
                           r'^[^@]+@[^@]+\.[^@]+',
                         ).hasMatch(v.trim())) {
-                          return 'Enter a valid email address';
+                          return tr('auth.validation.email_invalid');
                         }
                         return null;
                       },
@@ -211,9 +213,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       textInputAction: TextInputAction.next,
                       autocorrect: false,
                       decoration: InputDecoration(
-                        labelText: 'Username (optional)',
-                        helperText:
-                            'Can be set or changed later in Profile Settings',
+                        labelText: tr('auth.username_label'),
+                        helperText: tr('auth.username_helper'),
                         prefixIcon: const Icon(Icons.alternate_email),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -224,10 +225,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           return null; // optional
                         }
                         if (v.trim().length < 3) {
-                          return 'Username must be at least 3 characters';
+                          return tr('auth.validation.username_min_length');
                         }
                         if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(v.trim())) {
-                          return 'Only letters, numbers, _ and - allowed';
+                          return tr('auth.validation.username_chars');
                         }
                         return null;
                       },
@@ -240,7 +241,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
-                        labelText: 'Password *',
+                        labelText: tr('auth.password_required_label'),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -258,10 +259,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
-                          return 'Password is required';
+                          return tr('auth.validation.password_required');
                         }
                         if (v.length < 8) {
-                          return 'Password must be at least 8 characters';
+                          return tr('auth.validation.password_min_length');
                         }
                         return null;
                       },
@@ -275,7 +276,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
-                        labelText: 'Confirm Password *',
+                        labelText: tr('auth.password_confirm_label'),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -293,7 +294,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       validator: (v) {
                         if (v != _passwordCtrl.text) {
-                          return 'Passwords do not match';
+                          return tr('auth.validation.passwords_mismatch');
                         }
                         return null;
                       },
@@ -318,9 +319,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Create Account',
-                              style: TextStyle(fontSize: 16),
+                          : Text(
+                              tr('auth.register'),
+                              style: const TextStyle(fontSize: 16),
                             ),
                     ),
                     const SizedBox(height: 24),
@@ -330,13 +331,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Already have an account? ',
+                          tr('auth.have_account'),
                           style: TextStyle(color: cs.onSurfaceVariant),
                         ),
                         GestureDetector(
                           onTap: () => context.go('/login'),
                           child: Text(
-                            'Sign In',
+                            tr('auth.sign_in'),
                             style: TextStyle(
                               color: cs.primary,
                               fontWeight: FontWeight.bold,

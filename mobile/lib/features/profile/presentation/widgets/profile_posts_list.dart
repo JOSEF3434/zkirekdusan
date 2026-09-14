@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/post_card.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_posts_provider.dart';
 
@@ -36,7 +37,7 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 400) {
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(profilePostsProvider(widget.userId).notifier).loadMore();
     }
   }
@@ -45,6 +46,7 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
   Widget build(BuildContext context) {
     final state = ref.watch(profilePostsProvider(widget.userId));
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -74,7 +76,7 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
                     .read(profilePostsProvider(widget.userId).notifier)
                     .refresh(),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -97,8 +99,8 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
               const SizedBox(height: 16),
               Text(
                 widget.isMyProfile
-                    ? "You haven't shared any posts yet"
-                    : 'No posts yet',
+                    ? tr('profile.posts.my_empty_title')
+                    : tr('profile.posts.empty_title'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -107,8 +109,8 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
               const SizedBox(height: 6),
               Text(
                 widget.isMyProfile
-                    ? 'Create a post to share your thoughts with your community'
-                    : 'Check back later for new posts from this user',
+                    ? tr('profile.posts.my_empty_desc')
+                    : tr('profile.posts.empty_desc'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,

@@ -115,22 +115,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _Field(ctrl: _firstNameCtrl, label: 'First Name'),
+                    child: _Field(ctrl: _firstNameCtrl, label: tr('auth.first_name_label')),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _Field(ctrl: _lastNameCtrl, label: 'Last Name'),
+                    child: _Field(ctrl: _lastNameCtrl, label: tr('auth.last_name_label')),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              _Field(ctrl: _displayNameCtrl, label: 'Display Name'),
+              _Field(ctrl: _displayNameCtrl, label: tr('profile.display_name_label')),
               const SizedBox(height: 16),
-              _Field(ctrl: _bioCtrl, label: 'Bio', maxLines: 3),
+              _Field(ctrl: _bioCtrl, label: tr('profile.bio_label'), maxLines: 3),
               const SizedBox(height: 16),
-              _Field(ctrl: _websiteCtrl, label: 'Website'),
+              _Field(ctrl: _websiteCtrl, label: tr('profile.website_label')),
               const SizedBox(height: 16),
-              _Field(ctrl: _countryCtrl, label: 'Country'),
+              _Field(ctrl: _countryCtrl, label: tr('profile.country_label')),
               const SizedBox(height: 32),
               FilledButton(
                 onPressed: state.isSaving ? null : _save,

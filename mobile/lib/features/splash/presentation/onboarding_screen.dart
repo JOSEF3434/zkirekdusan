@@ -40,7 +40,7 @@ class OnboardingScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Welcome! Let\'s set up your experience.', // Could localize
+                          tr('onboarding.welcome'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -96,7 +96,7 @@ class OnboardingScreen extends ConsumerWidget {
                           children: [
                             Expanded(
                               child: _SelectionCard(
-                                title: 'System',
+                                title: tr('onboarding.theme.system'),
                                 icon: Icons.brightness_auto,
                                 isSelected:
                                     prefsState.themeMode == ThemeMode.system,
@@ -108,7 +108,7 @@ class OnboardingScreen extends ConsumerWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _SelectionCard(
-                                title: 'Light',
+                                title: tr('onboarding.theme.light'),
                                 icon: Icons.light_mode,
                                 isSelected:
                                     prefsState.themeMode == ThemeMode.light,
@@ -119,7 +119,7 @@ class OnboardingScreen extends ConsumerWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _SelectionCard(
-                                title: 'Dark',
+                                title: tr('onboarding.theme.dark'),
                                 icon: Icons.dark_mode,
                                 isSelected:
                                     prefsState.themeMode == ThemeMode.dark,
@@ -143,9 +143,9 @@ class OnboardingScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Continue',
-                            style: TextStyle(fontSize: 16),
+                          child: Text(
+                            tr('onboarding.continue'),
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ),
                       ],

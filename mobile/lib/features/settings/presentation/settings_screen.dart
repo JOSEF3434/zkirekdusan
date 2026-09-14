@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/domain/entities/auth_user.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -10,6 +11,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final user = ref.watch(authProvider).user;
     final isAdmin = user?.role == 'ADMIN' || user?.role == 'SUPER_ADMIN';
     final theme = Theme.of(context);
@@ -19,7 +21,7 @@ class SettingsScreen extends ConsumerWidget {
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       body: CustomScrollView(
         slivers: [
-          _buildSliverAppBar(context, theme, isDark, user),
+          _buildSliverAppBar(context, theme, isDark, user, tr),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -27,127 +29,127 @@ class SettingsScreen extends ConsumerWidget {
                 children: [
                   const SizedBox(height: 16),
                   // ── Account Management ─────────────────────────────────────
-                  _SectionHeader(label: 'ACCOUNT MANAGEMENT'),
+                  _SectionHeader(label: tr('settings.section.account_management')),
                   _SettingsTile(
                     icon: Icons.manage_accounts_outlined,
                     iconColor: const Color(0xFF6C63FF),
-                    title: 'Profile Management',
-                    subtitle: 'Edit name, bio, avatar & links',
+                    title: tr('settings.profile'),
+                    subtitle: tr('settings.profile_subtitle'),
                     onTap: () => context.push('/profile'),
                   ),
                   _SettingsTile(
                     icon: Icons.security_outlined,
                     iconColor: const Color(0xFF00C6FF),
-                    title: 'Security & Sessions',
-                    subtitle: 'Password, 2FA, active devices',
+                    title: tr('settings.security'),
+                    subtitle: tr('settings.security_subtitle'),
                     onTap: () => context.push('/settings/security'),
                   ),
                   const SizedBox(height: 20),
                   // ── Appearance & Theme ─────────────────────────────────────
-                  _SectionHeader(label: 'APPEARANCE & THEME'),
+                  _SectionHeader(label: tr('settings.section.appearance_theme')),
                   _SettingsTile(
                     icon: Icons.palette_outlined,
                     iconColor: const Color(0xFFFF6584),
-                    title: 'Appearance & Theme',
-                    subtitle: 'Dark mode, colors, font size',
+                    title: tr('settings.appearance'),
+                    subtitle: tr('settings.appearance_subtitle'),
                     onTap: () => context.push('/settings/appearance'),
                   ),
                   _SettingsTile(
                     icon: Icons.language_outlined,
                     iconColor: const Color(0xFF43E97B),
-                    title: 'Language',
-                    subtitle: 'English, አማርኛ, ግእዝ',
+                    title: tr('settings.language'),
+                    subtitle: tr('settings.language_subtitle'),
                     onTap: () => context.push('/settings/language'),
                   ),
                   const SizedBox(height: 20),
                   // ── Privacy ─────────────────────────────────────────────────
-                  _SectionHeader(label: 'PRIVACY'),
+                  _SectionHeader(label: tr('settings.section.privacy')),
                   _SettingsTile(
                     icon: Icons.shield_outlined,
                     iconColor: const Color(0xFFFF9F43),
-                    title: 'Privacy',
-                    subtitle: 'Last seen, blocked users, read receipts',
+                    title: tr('settings.privacy'),
+                    subtitle: tr('settings.privacy_subtitle'),
                     onTap: () => context.push('/settings/privacy'),
                   ),
                   _SettingsTile(
                     icon: Icons.notifications_active_outlined,
                     iconColor: const Color(0xFFEE5A24),
-                    title: 'Notification Preferences',
-                    subtitle: 'Messages, stories, live alerts',
+                    title: tr('settings.notifications'),
+                    subtitle: tr('settings.notifications_subtitle'),
                     onTap: () => context.push('/settings/notifications'),
                   ),
                   _SettingsTile(
                     icon: Icons.tune_outlined,
                     iconColor: const Color(0xFF9B59B6),
-                    title: 'Content Preferences',
-                    subtitle: 'Filters, autoplay, sensitive content',
+                    title: tr('settings.content_preferences'),
+                    subtitle: tr('settings.content_preferences_subtitle'),
                     onTap: () => context.push('/settings/content'),
                   ),
                   _SettingsTile(
                     icon: Icons.play_circle_outline_rounded,
                     iconColor: const Color(0xFF00B894),
-                    title: 'Playback & Media',
-                    subtitle: 'Speed, quality, autoplay behavior',
+                    title: tr('settings.playback'),
+                    subtitle: tr('settings.playback_subtitle'),
                     onTap: () => context.push('/settings/playback'),
                   ),
                   const SizedBox(height: 20),
                   // ── Downloads & Storage ─────────────────────────────────────
-                  _SectionHeader(label: 'DOWNLOADS & STORAGE'),
+                  _SectionHeader(label: tr('settings.section.downloads_storage')),
                   _SettingsTile(
                     icon: Icons.download_for_offline_outlined,
                     iconColor: const Color(0xFF00C6FF),
-                    title: 'Downloads & Storage',
-                    subtitle: 'Quality, location, auto-download',
+                    title: tr('settings.downloads'),
+                    subtitle: tr('settings.downloads_subtitle'),
                     onTap: () => context.push('/settings/downloads'),
                   ),
                   _SettingsTile(
                     icon: Icons.data_usage_outlined,
                     iconColor: const Color(0xFF6C63FF),
-                    title: 'Data Usage',
-                    subtitle: 'Data saver, network statistics',
+                    title: tr('settings.data_usage'),
+                    subtitle: tr('settings.data_usage_subtitle'),
                     onTap: () => context.push('/settings/data-usage'),
                   ),
                   _SettingsTile(
                     icon: Icons.cleaning_services_outlined,
                     iconColor: const Color(0xFFFF6584),
-                    title: 'Cache Management',
-                    subtitle: 'Clear videos, images, app data',
+                    title: tr('settings.cache'),
+                    subtitle: tr('settings.cache_subtitle'),
                     onTap: () => context.push('/settings/cache'),
                     isLast: true,
                   ),
                   const SizedBox(height: 20),
                   // ── Support ─────────────────────────────────────────────────
-                  _SectionHeader(label: 'SUPPORT & INFO'),
+                  _SectionHeader(label: tr('settings.section.support_info')),
                   _SettingsTile(
                     icon: Icons.help_outline_rounded,
                     iconColor: const Color(0xFF00C6FF),
-                    title: 'Help & FAQ',
-                    subtitle: 'Get support, FAQs, community',
+                    title: tr('settings.help'),
+                    subtitle: tr('settings.help_subtitle'),
                     onTap: () {},
                   ),
                   _SettingsTile(
                     icon: Icons.info_outline_rounded,
                     iconColor: const Color(0xFF43E97B),
-                    title: 'About',
-                    subtitle: 'App version, terms, privacy policy',
-                    onTap: () => _showAboutDialog(context, theme),
+                    title: tr('settings.about'),
+                    subtitle: tr('settings.about_subtitle'),
+                    onTap: () => _showAboutDialog(context, theme, tr),
                   ),
                   _SettingsTile(
                     icon: Icons.bug_report_outlined,
                     iconColor: const Color(0xFFFF9F43),
-                    title: 'Report a Problem',
-                    subtitle: 'Send feedback to the dev team',
+                    title: tr('settings.report_problem'),
+                    subtitle: tr('settings.report_problem_subtitle'),
                     onTap: () {},
                     isLast: true,
                   ),
                   if (isAdmin) ...[
                     const SizedBox(height: 20),
-                    _SectionHeader(label: 'ADMINISTRATION'),
+                    _SectionHeader(label: tr('settings.section.administration')),
                     _SettingsTile(
                       icon: Icons.admin_panel_settings_outlined,
                       iconColor: Colors.redAccent,
-                      title: 'Admin Panel',
-                      subtitle: 'Manage users, content, platform',
+                      title: tr('settings.admin.panel'),
+                      subtitle: tr('settings.admin.panel_subtitle'),
                       titleColor: Colors.redAccent,
                       onTap: () => context.push('/settings/admin'),
                       isLast: true,
@@ -155,11 +157,14 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                   const SizedBox(height: 24),
                   // ── Logout ──────────────────────────────────────────────────
-                  _LogoutButton(onTap: () => _confirmLogout(context, ref)),
+                  _LogoutButton(
+                    label: tr('settings.logout'),
+                    onTap: () => _confirmLogout(context, ref, tr),
+                  ),
                   const SizedBox(height: 12),
                   // ── App Version ─────────────────────────────────────────────
                   Text(
-                    'Zkirek Dusan v1.0.0 (build 42)',
+                    tr('app.version'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
@@ -174,7 +179,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, ThemeData theme, bool isDark, AuthUser? user) {
+  Widget _buildSliverAppBar(BuildContext context, ThemeData theme, bool isDark, AuthUser? user, String Function(String, [Map<String, dynamic>?]) tr) {
     return SliverAppBar(
       expandedHeight: 160,
       floating: false,
@@ -182,9 +187,9 @@ class SettingsScreen extends ConsumerWidget {
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-        title: const Text(
-          'Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        title: Text(
+          tr('settings.title'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
         ),
         background: Container(
           decoration: BoxDecoration(
@@ -251,45 +256,45 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context, ThemeData theme) {
+  void _showAboutDialog(BuildContext context, ThemeData theme, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('About'),
+        title: Text(tr('dialog.about_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Zkirek Dusan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            SizedBox(height: 4),
-            Text('Version 1.0.0 (build 42)'),
-            SizedBox(height: 16),
-            Text('A modern social media platform for sharing, streaming, and connecting.'),
-            SizedBox(height: 16),
-            Text('© 2026 Zkirek Dusan. All rights reserved.'),
+          children: [
+            Text(tr('app.name'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            const SizedBox(height: 4),
+            Text(tr('dialog.about_version')),
+            const SizedBox(height: 16),
+            Text(tr('dialog.about_description')),
+            const SizedBox(height: 16),
+            Text(tr('dialog.about_copyright')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () {}, child: const Text('Privacy Policy')),
-          TextButton(onPressed: () {}, child: const Text('Terms of Service')),
+          TextButton(onPressed: () {}, child: Text(tr('dialog.privacy_policy'))),
+          TextButton(onPressed: () {}, child: Text(tr('dialog.terms_of_service'))),
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+              child: Text(tr('common.close'))),
         ],
       ),
     );
   }
 
-  void _confirmLogout(BuildContext context, WidgetRef ref) {
+  void _confirmLogout(BuildContext context, WidgetRef ref, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out of your account?'),
+        title: Text(tr('dialog.logout_title')),
+        content: Text(tr('dialog.logout_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -297,7 +302,7 @@ class SettingsScreen extends ConsumerWidget {
               Navigator.pop(context);
               ref.read(authProvider.notifier).logout();
             },
-            child: const Text('Log Out', style: TextStyle(color: Colors.white)),
+            child: Text(tr('dialog.logout_btn_settings'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -401,7 +406,8 @@ class _SettingsTile extends StatelessWidget {
 
 class _LogoutButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _LogoutButton({required this.onTap});
+  final String label;
+  const _LogoutButton({required this.onTap, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -410,9 +416,9 @@ class _LogoutButton extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: onTap,
         icon: const Icon(Icons.logout_rounded, color: Colors.red, size: 20),
-        label: const Text(
-          'Log Out',
-          style: TextStyle(
+        label: Text(
+          label,
+          style: const TextStyle(
             color: Colors.red,
             fontWeight: FontWeight.bold,
             fontSize: 16,

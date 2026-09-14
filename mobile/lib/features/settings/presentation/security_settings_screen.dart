@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
 class SecuritySettingsScreen extends ConsumerWidget {
@@ -9,6 +10,7 @@ class SecuritySettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
     final theme = Theme.of(context);
@@ -17,7 +19,7 @@ class SecuritySettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Security & Sessions'),
+        title: Text(tr('settings.security')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -26,23 +28,23 @@ class SecuritySettingsScreen extends ConsumerWidget {
         children: [
           // ── Authentication ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'AUTHENTICATION',
+            label: tr('settings.security.authentication'),
             children: [
               SettingsSwitchTile(
                 icon: Icons.lock_outlined,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Two-Factor Authentication',
+                title: tr('settings.security.two_factor'),
                 subtitle: s.twoFactorEnabled
-                    ? 'Enabled — your account is extra secure'
-                    : 'Off — tap to add a second security layer',
+                    ? tr('settings.security.two_factor_enabled')
+                    : tr('settings.security.two_factor_disabled'),
                 value: s.twoFactorEnabled,
                 onChanged: (v) => n.setTwoFactor(v),
               ),
               SettingsSwitchTile(
                 icon: Icons.fingerprint_rounded,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Biometric Lock',
-                subtitle: 'Use fingerprint or face ID to unlock app',
+                title: tr('settings.security.biometric'),
+                subtitle: tr('settings.security.biometric_desc'),
                 value: s.biometricLockEnabled,
                 onChanged: (v) => n.setBiometricLock(v),
                 isLast: true,
@@ -52,28 +54,28 @@ class SecuritySettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           // ── Alerts ────────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'SECURITY ALERTS',
+            label: tr('settings.security.alerts'),
             children: [
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
                 iconColor: const Color(0xFFFF9F43),
-                title: 'Login Alerts',
-                subtitle: 'Notify me of new sign-ins to my account',
+                title: tr('settings.security.login_alerts'),
+                subtitle: tr('settings.security.login_alerts_desc'),
                 value: s.loginAlerts,
                 onChanged: (v) => n.setLoginAlerts(v),
               ),
               SettingsNavTile(
                 icon: Icons.key_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Change Password',
-                subtitle: 'Update your account password',
-                onTap: () => _showChangePassword(context),
+                title: tr('settings.security.change_password_label'),
+                subtitle: tr('settings.security.change_password_desc'),
+                onTap: () => _showChangePassword(context, tr),
               ),
               SettingsNavTile(
                 icon: Icons.email_outlined,
                 iconColor: const Color(0xFFFF6584),
-                title: 'Change Email',
-                subtitle: 'Update your login email address',
+                title: tr('settings.security.change_email'),
+                subtitle: tr('settings.security.change_email_desc'),
                 onTap: () {},
                 isLast: true,
               ),
@@ -82,13 +84,15 @@ class SecuritySettingsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           // ── Active Sessions ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'ACTIVE SESSIONS',
+            label: tr('settings.security.active_sessions'),
             children: [
               ...s.sessions.map((session) => _SessionTile(
                     session: session,
+                    thisDeviceLabel: tr('settings.security.this_device'),
+                    terminateTooltip: tr('settings.security.terminate_tooltip'),
                     onTerminate: session.isCurrent
                         ? null
-                        : () => _confirmTerminate(context, ref, session.id, session.deviceName),
+                        : () => _confirmTerminate(context, ref, session.id, session.deviceName, tr),
                   )),
             ],
           ),
@@ -98,16 +102,16 @@ class SecuritySettingsScreen extends ConsumerWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.phonelink_erase_rounded, color: Colors.red),
-                label: const Text(
-                  'Terminate All Other Sessions',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                label: Text(
+                  tr('settings.security.terminate_all_other'),
+                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: const BorderSide(color: Colors.red),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () => _confirmTerminateAll(context, ref),
+                onPressed: () => _confirmTerminateAll(context, ref, tr),
               ),
             ),
           const SizedBox(height: 32),
@@ -116,7 +120,7 @@ class SecuritySettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showChangePassword(BuildContext context) {
+  void _showChangePassword(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
@@ -135,36 +139,36 @@ class SecuritySettingsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Change Password',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(tr('settings.security.change_password_label'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             TextField(
               controller: currentCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Current Password',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock_outlined),
+              decoration: InputDecoration(
+                labelText: tr('settings.security.current_password'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_outlined),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: newCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'New Password',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock_reset_outlined),
+              decoration: InputDecoration(
+                labelText: tr('settings.security.new_password'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_reset_outlined),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: confirmCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Confirm New Password',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.check_circle_outline),
+              decoration: InputDecoration(
+                labelText: tr('settings.security.confirm_new_password'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.check_circle_outline),
               ),
             ),
             const SizedBox(height: 20),
@@ -180,11 +184,11 @@ class SecuritySettingsScreen extends ConsumerWidget {
                 onPressed: () {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Password updated successfully')),
+                    SnackBar(content: Text(tr('settings.security.password_changed'))),
                   );
                 },
-                child: const Text('Update Password',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(tr('settings.security.update_password'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -193,48 +197,47 @@ class SecuritySettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmTerminate(BuildContext context, WidgetRef ref, String id, String deviceName) {
+  void _confirmTerminate(BuildContext context, WidgetRef ref, String id, String deviceName, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Terminate Session'),
-        content: Text('Remove "$deviceName" from your active sessions?'),
+        title: Text(tr('settings.security.terminate_session')),
+        content: Text(tr('settings.security.terminate_session_confirm', {'device': deviceName})),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
               ref.read(socialSettingsProvider.notifier).terminateSession(id);
             },
-            child: const Text('Remove', style: TextStyle(color: Colors.white)),
+            child: Text(tr('settings.security.remove'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _confirmTerminateAll(BuildContext context, WidgetRef ref) {
+  void _confirmTerminateAll(BuildContext context, WidgetRef ref, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Terminate All Sessions'),
-        content: const Text(
-            'This will log you out of all other devices. You will remain logged in on this device.'),
+        title: Text(tr('settings.security.terminate_all_title')),
+        content: Text(tr('settings.security.terminate_all_desc')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
               ref.read(socialSettingsProvider.notifier).terminateAllOtherSessions();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All other sessions terminated')),
+                SnackBar(content: Text(tr('settings.security.all_sessions_terminated'))),
               );
             },
-            child: const Text('Terminate All', style: TextStyle(color: Colors.white)),
+            child: Text(tr('settings.security.terminate_all_other'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -244,9 +247,16 @@ class SecuritySettingsScreen extends ConsumerWidget {
 
 class _SessionTile extends StatelessWidget {
   final SessionItem session;
+  final String thisDeviceLabel;
+  final String terminateTooltip;
   final VoidCallback? onTerminate;
 
-  const _SessionTile({required this.session, this.onTerminate});
+  const _SessionTile({
+    required this.session,
+    required this.thisDeviceLabel,
+    required this.terminateTooltip,
+    this.onTerminate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -287,9 +297,9 @@ class _SessionTile extends StatelessWidget {
                 color: const Color(0xFF43E97B).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'This device',
-                style: TextStyle(
+              child: Text(
+                thisDeviceLabel,
+                style: const TextStyle(
                     color: Color(0xFF43E97B), fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
@@ -312,7 +322,7 @@ class _SessionTile extends StatelessWidget {
           ? IconButton(
               icon: const Icon(Icons.close_rounded, color: Colors.red, size: 20),
               onPressed: onTerminate,
-              tooltip: 'Terminate session',
+              tooltip: terminateTooltip,
             )
           : null,
     );

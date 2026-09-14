@@ -568,6 +568,7 @@ class _HistoryItemCard extends ConsumerWidget {
     WidgetRef ref,
     VideoResponseDto video,
   ) {
+    final tr = ref.read(trProvider);
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -576,7 +577,7 @@ class _HistoryItemCard extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.play_arrow_outlined),
-              title: const Text('Play Video'),
+              title: Text(tr('video.play')),
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/video/${video.id}');
@@ -584,7 +585,7 @@ class _HistoryItemCard extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('Download'),
+              title: Text(tr('video.download')),
               onTap: () {
                 Navigator.pop(ctx);
                 if (video.renditions.isNotEmpty) {
@@ -598,14 +599,14 @@ class _HistoryItemCard extends ConsumerWidget {
                       );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Downloading video...')),
+                      SnackBar(content: Text(tr('video.downloading'))),
                     );
                   }
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Download not available for this video'),
+                      SnackBar(
+                        content: Text(tr('video.download_not_available')),
                       ),
                     );
                   }
@@ -614,7 +615,7 @@ class _HistoryItemCard extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.bookmark_outline),
-              title: const Text('Save to Bookmarks / Library'),
+              title: Text(tr('video.save_to_library')),
               onTap: () async {
                 Navigator.pop(ctx);
                 await ref
@@ -622,14 +623,14 @@ class _HistoryItemCard extends ConsumerWidget {
                     .toggleSave(video.id, isVideo: true);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Saved to your library')),
+                    SnackBar(content: Text(tr('video.saved_to_library'))),
                   );
                 }
               },
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Share'),
+              title: Text(tr('common.share')),
               onTap: () {
                 Navigator.pop(ctx);
                 ShareButton(postId: video.id, title: video.title);
@@ -637,9 +638,9 @@ class _HistoryItemCard extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text(
-                'Remove from Watch History',
-                style: TextStyle(color: Colors.red),
+              title: Text(
+                tr('video.remove_from_history'),
+                style: const TextStyle(color: Colors.red),
               ),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -650,8 +651,8 @@ class _HistoryItemCard extends ConsumerWidget {
                   ref.invalidate(watchHistoryProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Removed from watch history'),
+                      SnackBar(
+                        content: Text(tr('video.removed_from_history')),
                       ),
                     );
                   }
@@ -814,7 +815,7 @@ class _ProfileVideosTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error loading videos: $err')),
+      error: (err, _) => Center(child: Text('${ref.read(trProvider)('profile.error_loading_videos')}: $err')),
     );
   }
 }
@@ -830,6 +831,7 @@ class _ProfileStreamsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final streamsAsync = ref.watch(profileStreamsProvider(userId));
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return streamsAsync.when(
       data: (streams) {
@@ -847,7 +849,7 @@ class _ProfileStreamsTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No streaming recordings yet.',
+                  tr('profile.no_streams'),
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 15,
@@ -855,7 +857,7 @@ class _ProfileStreamsTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Recorded live streams will automatically appear here.',
+                  tr('profile.streams_auto_appear'),
                   style: TextStyle(
                     color: theme.colorScheme.outline,
                     fontSize: 12,
@@ -893,11 +895,11 @@ class _ProfileStreamsTab extends ConsumerWidget {
           children: [
             Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
             const SizedBox(height: 8),
-            Text('Error loading streams: $err'),
+            Text('${tr('profile.error_loading_streams')}: $err'),
             const SizedBox(height: 12),
             FilledButton.tonal(
               onPressed: () => ref.invalidate(profileStreamsProvider(userId)),
-              child: const Text('Retry'),
+              child: Text(tr('common.retry')),
             ),
           ],
         ),
@@ -913,6 +915,7 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playlistsAsync = ref.watch(myPlaylistsProvider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return playlistsAsync.when(
       data: (playlists) {
@@ -923,14 +926,14 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Created Playlists',
+                  tr('profile.created_playlists'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
-                  tooltip: 'Create Playlist',
+                  tooltip: tr('profile.create_playlist'),
                   onPressed: () => _showCreatePlaylistDialog(context, ref),
                 ),
               ],
@@ -941,7 +944,7 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Center(
                   child: Text(
-                    'No playlists created yet.',
+                    tr('profile.no_playlists'),
                     style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
@@ -954,28 +957,29 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error loading playlists: $err')),
+      error: (err, _) => Center(child: Text('${tr('profile.error_loading_playlists')}: $err')),
     );
   }
 
   void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
+    final tr = ref.read(trProvider);
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('New Playlist'),
+        title: Text(tr('profile.new_playlist')),
         content: TextField(
           controller: titleController,
-          decoration: const InputDecoration(
-            hintText: 'Playlist Title',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: tr('profile.playlist_title_hint'),
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -989,19 +993,19 @@ class _ProfilePlaylistsTab extends ConsumerWidget {
                   ref.invalidate(myPlaylistsProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Playlist created')),
+                      SnackBar(content: Text(tr('profile.playlist_created'))),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to create playlist: $e')),
+                      SnackBar(content: Text('${tr('profile.playlist_create_failed')}: $e')),
                     );
                   }
                 }
               }
             },
-            child: const Text('Create'),
+            child: Text(tr('common.create')),
           ),
         ],
       ),
@@ -1060,21 +1064,22 @@ class _PlaylistCardTile extends StatelessWidget {
 
 // ── About Tab ────────────────────────────────────────────────────────────────
 
-class _ProfileAboutTab extends StatelessWidget {
+class _ProfileAboutTab extends ConsumerWidget {
   final ProfileModel profile;
   final AuthState authState;
 
   const _ProfileAboutTab({required this.profile, required this.authState});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'About',
+          tr('profile.about_label'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -1083,32 +1088,32 @@ class _ProfileAboutTab extends StatelessWidget {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.email_outlined),
-          title: const Text('Email'),
+          title: Text(tr('profile.email_label')),
           subtitle: Text(authState.user?.email ?? '—'),
         ),
         if (profile.website != null)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.link),
-            title: const Text('Website'),
+            title: Text(tr('profile.website_label')),
             subtitle: Text(profile.website!),
           ),
         if (profile.country != null)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.location_on_outlined),
-            title: const Text('Country'),
+            title: Text(tr('profile.country_label')),
             subtitle: Text(profile.country!),
           ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.calendar_today_outlined),
-          title: const Text('Joined'),
+          title: Text(tr('profile.joined_label')),
           subtitle: Text(profile.createdAt.toString().split(' ')[0]),
         ),
         const Divider(height: 32),
         Text(
-          'Channel Statistics',
+          tr('profile.channel_stats'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -1117,14 +1122,14 @@ class _ProfileAboutTab extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _StatItem(label: 'Videos', value: '${profile.stats.videosCount}'),
-            _StatItem(label: 'Posts', value: '${profile.stats.postsCount}'),
+            _StatItem(label: tr('profile.videos'), value: '${profile.stats.videosCount}'),
+            _StatItem(label: tr('profile.posts'), value: '${profile.stats.postsCount}'),
             _StatItem(
-              label: 'Followers',
+              label: tr('profile.followers'),
               value: '${profile.stats.followersCount}',
             ),
             _StatItem(
-              label: 'Following',
+              label: tr('profile.following'),
               value: '${profile.stats.followingCount}',
             ),
           ],

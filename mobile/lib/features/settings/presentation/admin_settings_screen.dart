@@ -16,7 +16,7 @@ class AdminSettingsScreen extends ConsumerWidget {
     if (user?.role != 'ADMIN' && user?.role != 'SUPER_ADMIN') {
       return Scaffold(
         appBar: AppBar(title: Text(tr('settings.admin'))),
-        body: Center(child: Text('${tr('state.error')} Access Denied.')),
+        body: Center(child: Text(tr('settings.admin.access_denied'))),
       );
     }
 
@@ -42,14 +42,14 @@ class AdminSettingsScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.flag_rounded, color: Colors.orange),
-            title: const Text('User Reports & Moderation'),
-            subtitle: const Text('Review spam, harassment, and ban accounts'),
+            title: Text(tr('settings.admin.reports_moderation')),
+            subtitle: Text(tr('settings.admin.reports_moderation_subtitle')),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/admin/reports'),
           ),
           ListTile(
             leading: const Icon(Icons.groups_rounded),
-            title: const Text('Group Approvals'),
+            title: Text(tr('settings.admin.group_approvals')),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/admin/groups'),
           ),
