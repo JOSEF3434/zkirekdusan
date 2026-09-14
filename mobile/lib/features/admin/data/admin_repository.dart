@@ -140,6 +140,9 @@ class AdminGroupItemDto {
   final String id;
   final String name;
   final String? handle;
+  final String? slug;
+  final String? description;
+  final String? creatorUsername;
   final String status;
   final int memberCount;
   final DateTime createdAt;
@@ -148,6 +151,9 @@ class AdminGroupItemDto {
     required this.id,
     required this.name,
     this.handle,
+    this.slug,
+    this.description,
+    this.creatorUsername,
     required this.status,
     required this.memberCount,
     required this.createdAt,
@@ -155,10 +161,15 @@ class AdminGroupItemDto {
 
   factory AdminGroupItemDto.fromJson(Map<String, dynamic> json) {
     final count = safeMap(json['_count']);
+    final createdBy = safeMap(json['createdBy']);
+    final slugVal = json['slug'] as String?;
     return AdminGroupItemDto(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      handle: json['handle'] as String?,
+      handle: json['handle'] as String? ?? slugVal,
+      slug: slugVal,
+      description: json['description'] as String?,
+      creatorUsername: createdBy?['username'] as String?,
       status: json['status'] as String? ?? 'ACTIVE',
       memberCount: (count?['members'] as num?)?.toInt() ?? 0,
       createdAt: json['createdAt'] != null
@@ -466,19 +477,37 @@ class AdminRepository {
     }
   }
 
-  Future<void> approveGroup(String groupId, {String? reason}) async {
+  Future<bool> approveGroup(String groupId, {String? reason}) async {
     try {
-      await _dio.post('/admin/groups/$groupId/approve', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.post(
+        '/admin/groups/$groupId/approve',
+        data: {if (reason != null) 'reason': reason},
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
-      await _dio.patch('/groups/$groupId/approve');
+      try {
+        final res = await _dio.patch('/groups/$groupId/approve');
+        return res.statusCode == 200 || res.statusCode == 201;
+      } catch (_) {
+        return false;
+      }
     }
   }
 
-  Future<void> rejectGroup(String groupId, {String? reason}) async {
+  Future<bool> rejectGroup(String groupId, {String? reason}) async {
     try {
-      await _dio.post('/admin/groups/$groupId/reject', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.post(
+        '/admin/groups/$groupId/reject',
+        data: {if (reason != null) 'reason': reason},
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
-      await _dio.patch('/groups/$groupId/reject');
+      try {
+        final res = await _dio.patch('/groups/$groupId/reject');
+        return res.statusCode == 200 || res.statusCode == 201;
+      } catch (_) {
+        return false;
+      }
     }
   }
 

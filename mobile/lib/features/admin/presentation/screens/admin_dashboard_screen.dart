@@ -112,11 +112,14 @@ class AdminDashboardScreen extends ConsumerWidget {
     final int activeUsers = users?['active'] ?? totalUsers;
     final int totalGroups = groups?['total'] ?? payload['totalGroups'] ?? 0;
     final int pendingGroups = groups?['pending'] ?? 0;
+    final int activeGroups = groups?['active'] ?? (totalGroups - pendingGroups);
     final int pendingReports = reports?['pending'] ?? 0;
     final int totalReports = reports?['total'] ?? payload['totalReports'] ?? 0;
     final int totalPosts = content?['posts'] ?? payload['totalPosts'] ?? 0;
     final int totalVideos = content?['videos'] ?? payload['totalVideos'] ?? 0;
-    final int activeStreams = live?['activeStreams'] ?? payload['totalStreams'] ?? 0;
+    final int totalContent = content?['total'] ?? (totalPosts + totalVideos);
+    final int activeStreams = live?['activeStreams'] ?? 0;
+    final int totalStreams = live?['total'] ?? payload['totalStreams'] ?? activeStreams;
 
     final cards = <Widget>[];
 
@@ -140,7 +143,9 @@ class AdminDashboardScreen extends ConsumerWidget {
           value: '$totalGroups',
           icon: Icons.groups_rounded,
           color: Colors.deepPurple,
-          subtitle: '$pendingGroups ${tr('admin.stats.pending_groups')}',
+          subtitle: pendingGroups > 0
+              ? '$pendingGroups ${tr('admin.stats.pending_groups')}'
+              : '$activeGroups active',
           onTap: () => context.push('/admin/groups'),
         ),
       );
@@ -163,10 +168,10 @@ class AdminDashboardScreen extends ConsumerWidget {
       cards.add(
         AdminStatCard(
           title: tr('admin.stats.content'),
-          value: '$totalPosts',
+          value: '$totalContent',
           icon: Icons.article_rounded,
           color: Colors.teal,
-          subtitle: '$totalVideos videos',
+          subtitle: '$totalVideos videos • $totalPosts posts',
           onTap: () => context.push('/admin/content'),
         ),
       );
@@ -176,10 +181,10 @@ class AdminDashboardScreen extends ConsumerWidget {
       cards.add(
         AdminStatCard(
           title: tr('admin.stats.live'),
-          value: '$activeStreams',
+          value: '$totalStreams',
           icon: Icons.live_tv_rounded,
           color: Colors.red,
-          subtitle: tr('admin.stats.active_streams'),
+          subtitle: '$activeStreams ${tr('admin.stats.active_streams')}',
           onTap: () => context.push('/admin/live'),
         ),
       );
