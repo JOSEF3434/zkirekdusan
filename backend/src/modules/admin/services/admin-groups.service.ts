@@ -35,7 +35,9 @@ export class AdminGroupsService {
       limit = 20,
     } = filters;
 
-    const skip = (page - 1) * Math.min(limit, 100);
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
     const where: any = {};
 
     if (search) {
@@ -44,8 +46,8 @@ export class AdminGroupsService {
         { slug: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (status) where.status = status;
-    if (visibility) where.visibility = visibility;
+    if (status && status !== 'ALL') where.status = status;
+    if (visibility && visibility !== 'ALL') where.visibility = visibility;
 
     const orderBy: any = {};
     const allowed = ['createdAt', 'name', 'status'];
@@ -55,7 +57,7 @@ export class AdminGroupsService {
       this.prisma.group.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy,
         include: {
           createdBy: {
@@ -73,10 +75,10 @@ export class AdminGroupsService {
     return {
       items,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page * limit < total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      hasNext: pageNum * limitNum < total,
     };
   }
 

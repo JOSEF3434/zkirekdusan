@@ -62,13 +62,13 @@ export class AdminContentService {
             select: {
               id: true,
               name: true,
-              handle: true,
+              slug: true,
             },
           },
           media: {
             select: {
               id: true,
-              position: true,
+              order: true,
               file: {
                 select: {
                   url: true,
@@ -250,7 +250,7 @@ export class AdminContentService {
             select: {
               url: true,
               mimeType: true,
-              sizeBytes: true,
+              size: true,
             },
           },
         },
@@ -354,7 +354,7 @@ export class AdminContentService {
             select: {
               url: true,
               mimeType: true,
-              sizeBytes: true,
+              size: true,
             },
           },
         },

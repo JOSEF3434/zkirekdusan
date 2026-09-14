@@ -54,7 +54,7 @@ export class AdminLiveService {
             select: {
               id: true,
               name: true,
-              handle: true,
+              slug: true,
             },
           },
           videoChannel: {
@@ -103,7 +103,6 @@ export class AdminLiveService {
         },
         group: true,
         videoChannel: true,
-        streamKey: true,
         chatRoom: {
           include: {
             _count: {

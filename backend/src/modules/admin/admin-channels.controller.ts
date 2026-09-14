@@ -60,7 +60,7 @@ export class AdminChannelsController {
         take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
-          group: { select: { id: true, name: true, handle: true } },
+          group: { select: { id: true, name: true, slug: true } },
           _count: { select: { messages: true } },
         },
       }),

@@ -37,7 +37,9 @@ export class AdminUsersService {
       limit = 20,
     } = filters;
 
-    const skip = (page - 1) * Math.min(limit, 100);
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
     if (search) {
@@ -47,8 +49,8 @@ export class AdminUsersService {
         { profile: { displayName: { contains: search, mode: 'insensitive' } } },
       ];
     }
-    if (status) where.status = status;
-    if (role) where.role = { name: role };
+    if (status && status !== 'ALL') where.status = status;
+    if (role && role !== 'ALL') where.role = { name: role };
 
     const orderBy: any = {};
     const allowedSortFields = ['createdAt', 'username', 'email', 'status', 'lastLoginAt'];
@@ -59,7 +61,7 @@ export class AdminUsersService {
       this.prisma.user.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy,
         include: {
           role: { select: { name: true } },
@@ -88,7 +90,7 @@ export class AdminUsersService {
         email: u.email,
         phoneNumber: u.phoneNumber,
         status: u.status,
-        role: (u.role as any).name,
+        role: (u.role as any)?.name ?? 'USER',
         displayName: (u.profile as any)?.displayName,
         avatarUrl: (u.profile as any)?.avatar?.url,
         lastLoginAt: u.lastLoginAt,
@@ -98,10 +100,10 @@ export class AdminUsersService {
         sessionCount: (u._count as any).sessions,
       })),
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page * limit < total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      hasNext: pageNum * limitNum < total,
     };
   }
 
