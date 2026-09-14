@@ -18,7 +18,7 @@ export async function seed(prisma: PrismaClient) {
       create: role,
     });
   }
-  console.log('✅ Global Roles seeded (SUPER_ADMIN, ADMIN, USER)');
+  console.log('✅ Global Roles seeded (SUPER_ADMIN, ADMIN, MODERATOR, SUPPORT, USER)');
 
   /**
    * 2. Seed Permissions
@@ -99,21 +99,8 @@ export async function seed(prisma: PrismaClient) {
     console.log(`✅ Super Admin created: ${adminUser.email}`);
   }
 
-  /**
-   * 5. Migrate any existing users assigned to removed global roles (MODERATOR/CREATOR) to USER
-   */
-  if (userRole) {
-    const staleRoles = await prisma.role.findMany({
-      where: { name: { in: ['MODERATOR', 'CREATOR'] } },
-    });
-
-    for (const staleRole of staleRoles) {
-      await prisma.user.updateMany({
-        where: { roleId: staleRole.id },
-        data: { roleId: userRole.id },
-      });
-    }
-  }
+  // MODERATOR and SUPPORT are now valid platform roles — do NOT migrate them to USER.
+  // If there are any genuinely stale custom roles (not in the enum), they can be cleaned up manually.
 
   console.log('🎉 Database seed completed successfully!');
 }

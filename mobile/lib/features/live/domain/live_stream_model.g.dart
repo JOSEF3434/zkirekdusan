@@ -6,51 +6,43 @@ part of 'live_stream_model.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$StreamCreatorDtoImpl _$$StreamCreatorDtoImplFromJson(
-  Map<String, dynamic> json,
-) => _$StreamCreatorDtoImpl(
-  id: json['id'] as String,
-  username: json['username'] as String?,
-  avatarUrl: json['avatarUrl'] as String?,
-);
-
-Map<String, dynamic> _$$StreamCreatorDtoImplToJson(
-  _$StreamCreatorDtoImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'username': instance.username,
-  'avatarUrl': instance.avatarUrl,
-};
-
-_$StreamChannelDtoImpl _$$StreamChannelDtoImplFromJson(
-  Map<String, dynamic> json,
-) => _$StreamChannelDtoImpl(
-  id: json['id'] as String,
-  name: json['name'] as String,
-  avatarUrl: json['avatarUrl'] as String?,
-);
-
-Map<String, dynamic> _$$StreamChannelDtoImplToJson(
-  _$StreamChannelDtoImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'name': instance.name,
-  'avatarUrl': instance.avatarUrl,
-};
-
-_$StreamGroupDtoImpl _$$StreamGroupDtoImplFromJson(Map<String, dynamic> json) =>
-    _$StreamGroupDtoImpl(
+_StreamCreatorDto _$StreamCreatorDtoFromJson(Map<String, dynamic> json) =>
+    _StreamCreatorDto(
       id: json['id'] as String,
-      name: json['name'] as String,
+      username: json['username'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
     );
 
-Map<String, dynamic> _$$StreamGroupDtoImplToJson(
-  _$StreamGroupDtoImpl instance,
-) => <String, dynamic>{'id': instance.id, 'name': instance.name};
+Map<String, dynamic> _$StreamCreatorDtoToJson(_StreamCreatorDto instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'username': instance.username,
+      'avatarUrl': instance.avatarUrl,
+    };
 
-_$LiveStreamDtoImpl _$$LiveStreamDtoImplFromJson(
+_StreamChannelDto _$StreamChannelDtoFromJson(Map<String, dynamic> json) =>
+    _StreamChannelDto(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      avatarUrl: json['avatarUrl'] as String?,
+    );
+
+Map<String, dynamic> _$StreamChannelDtoToJson(_StreamChannelDto instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'avatarUrl': instance.avatarUrl,
+    };
+
+_StreamGroupDto _$StreamGroupDtoFromJson(Map<String, dynamic> json) =>
+    _StreamGroupDto(id: json['id'] as String, name: json['name'] as String);
+
+Map<String, dynamic> _$StreamGroupDtoToJson(_StreamGroupDto instance) =>
+    <String, dynamic>{'id': instance.id, 'name': instance.name};
+
+_LiveStreamDto _$LiveStreamDtoFromJson(
   Map<String, dynamic> json,
-) => _$LiveStreamDtoImpl(
+) => _LiveStreamDto(
   id: json['id'] as String,
   videoChannelId: json['videoChannelId'] as String,
   groupId: json['groupId'] as String,
@@ -108,7 +100,7 @@ _$LiveStreamDtoImpl _$$LiveStreamDtoImplFromJson(
       : StreamChannelDto.fromJson(json['videoChannel'] as Map<String, dynamic>),
 );
 
-Map<String, dynamic> _$$LiveStreamDtoImplToJson(_$LiveStreamDtoImpl instance) =>
+Map<String, dynamic> _$LiveStreamDtoToJson(_LiveStreamDto instance) =>
     <String, dynamic>{
       'id': instance.id,
       'videoChannelId': instance.videoChannelId,
@@ -177,15 +169,15 @@ const _$StreamProtocolEnumMap = {
   StreamProtocol.hlsPull: 'HLS_PULL',
 };
 
-_$StreamKeyDtoImpl _$$StreamKeyDtoImplFromJson(Map<String, dynamic> json) =>
-    _$StreamKeyDtoImpl(
+_StreamKeyDto _$StreamKeyDtoFromJson(Map<String, dynamic> json) =>
+    _StreamKeyDto(
       channelId: json['channelId'] as String,
       keyPrefix: json['keyPrefix'] as String?,
       rtmpUrl: json['rtmpUrl'] as String?,
       rawKey: json['rawKey'] as String?,
     );
 
-Map<String, dynamic> _$$StreamKeyDtoImplToJson(_$StreamKeyDtoImpl instance) =>
+Map<String, dynamic> _$StreamKeyDtoToJson(_StreamKeyDto instance) =>
     <String, dynamic>{
       'channelId': instance.channelId,
       'keyPrefix': instance.keyPrefix,

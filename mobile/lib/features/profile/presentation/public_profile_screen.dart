@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_call_dialog.dart';
@@ -53,6 +54,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     final feedAsync = ref.watch(storyFeedProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
@@ -87,9 +89,9 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                 final canonicalUrl = 'https://app.zikrekidusan.com/u/${widget.username}';
                 Clipboard.setData(ClipboardData(text: canonicalUrl));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile link copied!'),
-                    backgroundColor: Color(0xFF10B981),
+                  SnackBar(
+                    content: Text(tr('profile.link_copied')),
+                    backgroundColor: const Color(0xFF10B981),
                   ),
                 );
               } else if (val == 'report') {
@@ -103,53 +105,53 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                 );
               } else if (val == 'block') {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('User blocked'),
+                  SnackBar(
+                    content: Text(tr('profile.user_blocked')),
                     backgroundColor: Colors.redAccent,
                   ),
                 );
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'share',
                 child: Row(
                   children: [
-                    Icon(Icons.qr_code_2_rounded, size: 20),
-                    SizedBox(width: 12),
-                    Text('QR Code & Share'),
+                    const Icon(Icons.qr_code_2_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text(tr('profile.qr_and_share')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'copy',
                 child: Row(
                   children: [
-                    Icon(Icons.link_rounded, size: 20),
-                    SizedBox(width: 12),
-                    Text('Copy Link'),
+                    const Icon(Icons.link_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text(tr('profile.copy_link')),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'report',
                 child: Row(
                   children: [
-                    Icon(Icons.flag_rounded, color: Colors.orange, size: 20),
-                    SizedBox(width: 12),
-                    Text('Report User', style: TextStyle(color: Colors.orange)),
+                    const Icon(Icons.flag_rounded, color: Colors.orange, size: 20),
+                    const SizedBox(width: 12),
+                    Text(tr('profile.report_user'), style: const TextStyle(color: Colors.orange)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'block',
                 child: Row(
                   children: [
-                    Icon(Icons.block_rounded, color: Colors.redAccent, size: 20),
-                    SizedBox(width: 12),
+                    const Icon(Icons.block_rounded, color: Colors.redAccent, size: 20),
+                    const SizedBox(width: 12),
                     Text(
-                      'Block User',
-                      style: TextStyle(color: Colors.redAccent),
+                      tr('profile.block_user'),
+                      style: const TextStyle(color: Colors.redAccent),
                     ),
                   ],
                 ),
@@ -192,7 +194,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                     backgroundColor: const Color(0xFF00C6FF),
                     foregroundColor: Colors.black,
                   ),
-                  child: const Text('Retry'),
+                  child: Text(tr('common.retry')),
                 ),
               ],
             ),
@@ -223,6 +225,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
 
     final displayName = profile.displayName ?? profile.username ?? 'User';
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
+    final tr = ref.watch(trProvider);
 
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -420,16 +423,16 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                         // Phone / Mobile Row
                         _buildInfoTile(
                           title: '+251 940346902',
-                          subtitle: 'Mobile',
+                          subtitle: tr('settings.data_usage.mobile'),
                           isDark: isDark,
                           onTap: () {
                             Clipboard.setData(
                               const ClipboardData(text: '+251940346902'),
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Phone number copied!'),
-                                backgroundColor: Color(0xFF10B981),
+                              SnackBar(
+                                content: Text(tr('profile.phone_copied')),
+                                backgroundColor: const Color(0xFF10B981),
                               ),
                             );
                           },
@@ -448,13 +451,13 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                           title: profile.bio != null && profile.bio!.isNotEmpty
                               ? profile.bio!
                               : 'Manage your entire business from ONE screen!',
-                          subtitle: 'Bio',
+                          subtitle: tr('profile.bio_label'),
                           isDark: isDark,
                           onTap: () {
                             if (profile.bio != null) {
                               Clipboard.setData(ClipboardData(text: profile.bio!));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Bio copied!')),
+                                SnackBar(content: Text(tr('profile.bio_copied'))),
                               );
                             }
                           },
@@ -471,7 +474,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                         // Username Row with QR Code Icon (Screenshot 1: "@CNET_CS_manager")
                         _buildInfoTile(
                           title: '@${profile.username ?? "user"}',
-                          subtitle: 'Username',
+                          subtitle: tr('auth.username_label'),
                           isDark: isDark,
                           trailing: IconButton(
                             icon: const Icon(
@@ -479,7 +482,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                               size: 26,
                               color: Color(0xFF00C6FF),
                             ),
-                            tooltip: 'Show QR Code',
+                            tooltip: tr('profile.qr_and_share'),
                             onPressed: () {
                               final canonicalUrl = 'https://app.zikrekidusan.com/u/${profile.username ?? widget.username}';
                               TelegramQrSheet.show(
@@ -496,7 +499,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                               ClipboardData(text: '@${profile.username}'),
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Username copied!')),
+                              SnackBar(content: Text(tr('profile.username_copied'))),
                             );
                           },
                         ),
@@ -893,8 +896,9 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
           trailing: IconButton(
             icon: const Icon(Icons.download_rounded),
             onPressed: () {
+              final tr = ref.read(trProvider);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Downloading ${f["name"]}...')),
+                SnackBar(content: Text(tr('video.downloading_file', {'name': f["name"]}))),
               );
             },
           ),
@@ -945,9 +949,10 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
             ),
           ),
           onTap: () {
+            final tr = ref.read(trProvider);
             Clipboard.setData(ClipboardData(text: l['url']!));
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Link copied to clipboard!')),
+              SnackBar(content: Text(tr('profile.link_copied_clipboard'))),
             );
           },
         );
@@ -1000,6 +1005,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
 
   Future<void> _openDirectChat(String targetUserId) async {
     setState(() => _isOpeningChat = true);
+    final tr = ref.read(trProvider);
     try {
       final conv = await ref
           .read(chatDiscoveryProvider.notifier)
@@ -1011,7 +1017,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open chat: $e'),
+            content: Text(tr('profile.chat_open_error', {'error': e.toString()})),
             backgroundColor: Colors.redAccent,
           ),
         );

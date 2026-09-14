@@ -54,7 +54,7 @@ enum StreamProtocol {
 // ---------------------------------------------------------------------------
 
 @freezed
-class StreamCreatorDto with _$StreamCreatorDto {
+abstract class StreamCreatorDto with _$StreamCreatorDto {
   const factory StreamCreatorDto({
     required String id,
     String? username,
@@ -66,7 +66,7 @@ class StreamCreatorDto with _$StreamCreatorDto {
 }
 
 @freezed
-class StreamChannelDto with _$StreamChannelDto {
+abstract class StreamChannelDto with _$StreamChannelDto {
   const factory StreamChannelDto({
     required String id,
     required String name,
@@ -78,7 +78,7 @@ class StreamChannelDto with _$StreamChannelDto {
 }
 
 @freezed
-class StreamGroupDto with _$StreamGroupDto {
+abstract class StreamGroupDto with _$StreamGroupDto {
   const factory StreamGroupDto({required String id, required String name}) =
       _StreamGroupDto;
 
@@ -91,7 +91,7 @@ class StreamGroupDto with _$StreamGroupDto {
 // ---------------------------------------------------------------------------
 
 @freezed
-class LiveStreamDto with _$LiveStreamDto {
+abstract class LiveStreamDto with _$LiveStreamDto {
   const factory LiveStreamDto({
     required String id,
     required String videoChannelId,
@@ -145,7 +145,7 @@ class LiveStreamDto with _$LiveStreamDto {
 // ---------------------------------------------------------------------------
 
 @freezed
-class StreamKeyDto with _$StreamKeyDto {
+abstract class StreamKeyDto with _$StreamKeyDto {
   const factory StreamKeyDto({
     required String channelId,
     String? keyPrefix,

@@ -10,6 +10,7 @@ import 'tables/local_message_attachments_table.dart';
 import 'tables/local_watch_history_table.dart';
 import 'tables/local_search_history_table.dart';
 import 'tables/local_feed_items_table.dart';
+import 'tables/local_calendar_notes_table.dart';
 import 'tables/sync_queue_table.dart';
 
 import 'daos/users_dao.dart';
@@ -20,6 +21,7 @@ import 'daos/watch_history_dao.dart';
 import 'daos/sync_queue_dao.dart';
 import 'daos/feed_dao.dart';
 import 'daos/search_history_dao.dart';
+import 'daos/calendar_notes_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -33,6 +35,8 @@ part 'app_database.g.dart';
     LocalWatchHistory,
     LocalSearchHistory,
     LocalFeedItems,
+    LocalCalendarNotes,
+    LocalCalendarNoteMedia,
     SyncQueue,
   ],
   daos: [
@@ -44,6 +48,7 @@ part 'app_database.g.dart';
     SyncQueueDao,
     FeedDao,
     SearchHistoryDao,
+    CalendarNotesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -60,22 +65,76 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (Migrator m) async {
-          await m.createAll();
-        },
-        onUpgrade: (Migrator m, int from, int to) async {
-          // Future migrations will be added here step-by-step
-          // Example:
-          // if (from < 2) { ... }
-        },
-        beforeOpen: (OpeningDetails details) async {
-          // Enable WAL mode and foreign keys for SQLite
-          await customStatement('PRAGMA foreign_keys = ON;');
-          await customStatement('PRAGMA journal_mode = WAL;');
-        },
-      );
+    onCreate: (Migrator m) async {
+      await m.createAll();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      // Version 2: Add calendar notes tables
+      if (from < 2) {
+        await m.createTable(localCalendarNotes);
+        await m.createTable(localCalendarNoteMedia);
+      }
+
+      // Version 3: Add reminder fields to calendar notes
+      if (from < 3) {
+        final columns = await m.database
+            .customSelect('PRAGMA table_info(local_calendar_notes)')
+            .get();
+        final existingColumns = columns
+            .map((row) => row.read<String>('name'))
+            .toSet();
+
+        if (!existingColumns.contains('has_reminder')) {
+          await m.addColumn(localCalendarNotes, localCalendarNotes.hasReminder);
+        }
+        if (!existingColumns.contains('reminder_date_time')) {
+          await m.addColumn(
+            localCalendarNotes,
+            localCalendarNotes.reminderDateTime,
+          );
+        }
+        if (!existingColumns.contains('reminder_notified')) {
+          await m.addColumn(
+            localCalendarNotes,
+            localCalendarNotes.reminderNotified,
+          );
+        }
+      }
+
+      if (from < 4) {
+        final columns = await m.database
+            .customSelect('PRAGMA table_info(local_calendar_notes)')
+            .get();
+        final existingColumns = columns
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        final additions = <String, GeneratedColumn Function()>{
+          'reminder_repeat': () => localCalendarNotes.reminderRepeat,
+          'reminder_ethiopian_month': () =>
+              localCalendarNotes.reminderEthiopianMonth,
+          'reminder_ethiopian_day': () =>
+              localCalendarNotes.reminderEthiopianDay,
+          'reminder_hour': () => localCalendarNotes.reminderHour,
+          'reminder_minute': () => localCalendarNotes.reminderMinute,
+          'reminder_timezone': () => localCalendarNotes.reminderTimezone,
+          'reminder_next_occurrence': () =>
+              localCalendarNotes.reminderNextOccurrence,
+        };
+        for (final entry in additions.entries) {
+          if (!existingColumns.contains(entry.key)) {
+            await m.addColumn(localCalendarNotes, entry.value());
+          }
+        }
+      }
+    },
+    beforeOpen: (OpeningDetails details) async {
+      // Enable WAL mode and foreign keys for SQLite
+      await customStatement('PRAGMA foreign_keys = ON;');
+      await customStatement('PRAGMA journal_mode = WAL;');
+    },
+  );
 }

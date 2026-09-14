@@ -10,10 +10,12 @@ datasource db {
 // ENUMS
 // ─────────────────────────────────────────────
 
-/// Global platform roles — only 3 at platform level
+/// Global platform roles — 5 tiers at platform level
 enum GlobalRole {
   SUPER_ADMIN
   ADMIN
+  MODERATOR
+  SUPPORT
   USER
 }
 
@@ -210,6 +212,12 @@ enum NotificationType {
   SYSTEM
 }
 
+enum CalendarReminderRepeat {
+  NONE
+  MONTHLY
+  YEARLY
+}
+
 enum JoinRequestStatus {
   PENDING
   APPROVED
@@ -373,6 +381,9 @@ model User {
   searchHistory SearchHistory[] @relation("UserSearchHistory")
   reports       Report[]        @relation("UserReports")
   deviceTokens  DeviceToken[]   @relation("UserDeviceTokens")
+
+  // Ethiopian Calendar
+  calendarNotes CalendarNote[] @relation("UserCalendarNotes")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -650,6 +661,9 @@ model File {
   streamThumbnails     LiveStream[]      @relation("StreamThumbnail")
   streamRecordings     StreamRecording[] @relation("StreamRecordingFile")
   streamHighlightFiles StreamHighlight[] @relation("StreamHighlightFile")
+
+  /// Ethiopian Calendar references
+  calendarNoteMedia CalendarNoteMedia[] @relation("CalendarNoteMediaFiles")
 
   /// Soft delete
   deletedAt DateTime?
@@ -1272,18 +1286,44 @@ model Notification {
 }
 
 model AuditLog {
-  id        String  @id @default(uuid())
-  userId    String?
-  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  resource  String
-  details   Json?
-  ipAddress String?
+  id         String  @id @default(uuid())
 
-  createdAt DateTime @default(now())
+  /// Admin or system actor who performed the action (userId = actorId)
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Machine-readable action name: USER_BANNED, GROUP_SUSPENDED, ROLE_ASSIGNED, etc.
+  action     String
+
+  /// Legacy field — kept for backward compat; new code uses targetType
+  resource   String
+
+  /// Type of entity affected: USER | GROUP | CHANNEL | POST | VIDEO | STREAM | MESSAGE | ROLE | SYSTEM
+  targetType String?
+
+  /// ID of the affected entity
+  targetId   String?
+
+  /// JSON snapshot of entity state BEFORE the action
+  before     Json?
+
+  /// JSON snapshot of entity state AFTER the action
+  after      Json?
+
+  /// Admin-provided reason (required for destructive actions)
+  reason     String? @db.Text
+
+  /// Extra context: IP, user-agent, etc.
+  details    Json?
+  metadata   Json?
+  ipAddress  String?
+
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -2636,4 +2676,77 @@ model Report {
   @@index([targetType])
   @@index([status])
   @@map("reports")
+}
+
+// ─────────────────────────────────────────────
+// ETHIOPIAN CALENDAR NOTES
+// ─────────────────────────────────────────────
+
+model CalendarNote {
+  id    String @id @default(uuid())
+  
+  // Owner
+  userId String
+  user   User   @relation("UserCalendarNotes", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Ethiopian date (primary)
+  ethiopianYear  Int
+  ethiopianMonth Int // 1-13 (Pagumen is 13)
+  ethiopianDay   Int
+  
+  // Gregorian date (for queries and sorting)
+  gregorianDate DateTime
+  
+  // Content
+  title   String?
+  content String? @db.Text
+  
+  // Reminders
+  hasReminder       Boolean   @default(false)
+  reminderDateTime  DateTime?
+  reminderNotified  Boolean   @default(false)
+  reminderRepeat    CalendarReminderRepeat @default(NONE)
+  reminderEthiopianMonth Int?
+  reminderEthiopianDay   Int?
+  reminderHour      Int?
+  reminderMinute    Int?
+  reminderTimezone  String @default("Africa/Addis_Ababa")
+  reminderNextOccurrence DateTime?
+  
+  // Media attachments
+  media CalendarNoteMedia[]
+  
+  // Timestamps
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  
+  @@index([userId])
+  @@index([ethiopianYear, ethiopianMonth])
+  @@index([gregorianDate])
+  @@index([deletedAt])
+  @@index([userId, hasReminder, reminderNextOccurrence])
+  @@map("calendar_notes")
+}
+
+model CalendarNoteMedia {
+  id String @id @default(uuid())
+  
+  // Note reference
+  noteId String
+  note   CalendarNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  
+  // File reference (reuse existing File model)
+  fileId String
+  file   File   @relation("CalendarNoteMediaFiles", fields: [fileId], references: [id], onDelete: Cascade)
+  
+  // Display order and optional caption
+  order   Int
+  caption String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([noteId])
+  @@index([fileId])
+  @@map("calendar_note_media")
 }

@@ -19,6 +19,7 @@ import 'package:mobile/features/notifications/presentation/providers/unread_coun
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
+import 'package:mobile/features/explore/presentation/explore_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,14 +29,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _recScrollController = ScrollController();
   final ScrollController _latestScrollController = ScrollController();
   final ScrollController _subScrollController = ScrollController();
   bool _isAuthenticated = false;
 
-  int get _tabCount => _isAuthenticated ? 3 : 2;
+  // Recommended + Latest + (Subscriptions if auth) + Explore
+  int get _tabCount => _isAuthenticated ? 4 : 3;
 
   void _initTabController() {
     _tabController = TabController(length: _tabCount, vsync: this);
@@ -45,15 +47,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) {
       if (_tabController.index == 0) {
-        ref.read(videoFeedProvider.notifier).setCategory(VideoFeedCategory.recommended);
+        ref
+            .read(videoFeedProvider.notifier)
+            .setCategory(VideoFeedCategory.recommended);
       } else if (_tabController.index == 1) {
-        ref.read(videoFeedProvider.notifier).setCategory(VideoFeedCategory.latest);
+        ref
+            .read(videoFeedProvider.notifier)
+            .setCategory(VideoFeedCategory.latest);
       }
     }
   }
 
   void _syncTabController(bool isAuthenticated) {
-    final tabCount = isAuthenticated ? 3 : 2;
+    final tabCount = isAuthenticated ? 4 : 3;
     if (_tabController.length == tabCount) {
       return;
     }
@@ -138,7 +144,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
-    } else if (_tabController.index == 1 && _latestScrollController.hasClients) {
+    } else if (_tabController.index == 1 &&
+        _latestScrollController.hasClients) {
       _latestScrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 300),
@@ -158,6 +165,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.listen<AuthState>(authProvider, (previous, next) {
       final isAuth = next.status == AuthStatus.authenticated;
       if (isAuth != _isAuthenticated) {
+        // Rebuild the controller BEFORE setState so the new frame
+        // never sees a disposed controller.
+        _syncTabController(isAuth);
         setState(() {
           _isAuthenticated = isAuth;
         });
@@ -179,7 +189,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final tr = ref.watch(trProvider);
     final authStatus = ref.watch(authProvider).status;
     final isAuthenticated = authStatus == AuthStatus.authenticated;
-    _syncTabController(isAuthenticated);
     final continueWatchingState = ref.watch(continueWatchingProvider);
     final connectivity = ref.watch(connectivityProvider);
     final isOffline = connectivity.isOffline;
@@ -263,11 +272,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
                 bottom: TabBar(
                   controller: _tabController,
-                  isScrollable: _tabCount > 2,
+                  isScrollable: true,
                   tabs: [
                     Tab(text: tr('home.recommended')),
                     const Tab(text: 'Latest'),
                     if (isAuthenticated) Tab(text: tr('home.subscriptions')),
+                    const Tab(text: 'Explore'),
                   ],
                 ),
               ),
@@ -305,13 +315,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             height: 106,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               itemCount: continueWatchingState.items.length,
                               itemBuilder: (context, index) {
                                 return SizedBox(
                                   width: 320,
                                   child: ContinueWatchingCard(
-                                    progress: continueWatchingState.items[index],
+                                    progress:
+                                        continueWatchingState.items[index],
                                     compact: true,
                                   ),
                                 );
@@ -333,8 +346,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               feedState.error,
                               true,
                             ),
-                            loading: () =>
-                                const SliverFillRemaining(child: FeedSkeleton()),
+                            loading: () => const SliverFillRemaining(
+                              child: FeedSkeleton(),
+                            ),
                             error: (error, stack) =>
                                 _buildErrorState(error.toString(), theme),
                           );
@@ -349,7 +363,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               RefreshIndicator(
                 onRefresh: () async {
                   if (isOffline) {
-                    await ref.read(downloadServiceProvider.notifier).loadLocalDownloads();
+                    await ref
+                        .read(downloadServiceProvider.notifier)
+                        .loadLocalDownloads();
                   } else {
                     await ref
                         .read(videoFeedProvider.notifier)
@@ -372,8 +388,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               feedState.error,
                               false,
                             ),
-                            loading: () =>
-                                const SliverFillRemaining(child: FeedSkeleton()),
+                            loading: () => const SliverFillRemaining(
+                              child: FeedSkeleton(),
+                            ),
                             error: (error, stack) =>
                                 _buildErrorState(error.toString(), theme),
                           );
@@ -424,6 +441,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                   ),
                 ),
+
+              // Explore Tab — displays the existing ExploreScreen
+              const ExploreScreen(),
             ],
           ),
         ),
@@ -491,10 +511,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                     ),
                     child: Icon(
                       Icons.auto_awesome_outlined,
@@ -506,8 +525,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   Text(
                     'No recommendations yet',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -515,8 +534,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     'Check back soon — as you watch and interact with videos, we\'ll recommend content tailored for you.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).textTheme.bodySmall?.color,
-                        ),
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
                   ),
                 ],
               ),
@@ -600,11 +619,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_queue_rounded, size: 64, color: theme.colorScheme.primary),
+              Icon(
+                Icons.cloud_queue_rounded,
+                size: 64,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Unable to load content',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -641,11 +666,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey),
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'No Connection • Offline Mode',
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -676,7 +707,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.6,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
@@ -684,7 +717,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           child: Row(
             children: [
-              const Icon(Icons.wifi_off_rounded, size: 20, color: Colors.orange),
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 20,
+                color: Colors.orange,
+              ),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
@@ -761,32 +798,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
+                      if (item.thumbnailUrl != null &&
+                          item.thumbnailUrl!.isNotEmpty)
                         item.thumbnailUrl!.startsWith('/') ||
                                 item.thumbnailUrl!.startsWith('file://')
                             ? Image.file(
-                                File(item.thumbnailUrl!.replaceFirst('file://', '')),
+                                File(
+                                  item.thumbnailUrl!.replaceFirst(
+                                    'file://',
+                                    '',
+                                  ),
+                                ),
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                                  child: Icon(
+                                    Icons.video_library_rounded,
+                                    color: Colors.white54,
+                                  ),
                                 ),
                               )
                             : Image.network(
                                 item.thumbnailUrl!,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                                  child: Icon(
+                                    Icons.video_library_rounded,
+                                    color: Colors.white54,
+                                  ),
                                 ),
                               )
                       else
                         const Center(
-                          child: Icon(Icons.video_library_rounded, color: Colors.white54),
+                          child: Icon(
+                            Icons.video_library_rounded,
+                            color: Colors.white54,
+                          ),
                         ),
                       Positioned(
                         bottom: 4,
                         right: 4,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.75),
                             borderRadius: BorderRadius.circular(4),
@@ -861,7 +916,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_circle_outline, color: Colors.teal),
+              leading: const Icon(
+                Icons.play_circle_outline,
+                color: Colors.teal,
+              ),
               title: const Text('Play Offline'),
               onTap: () {
                 Navigator.of(ctx).pop();
@@ -873,7 +931,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               title: const Text('Delete from downloads'),
               onTap: () {
                 Navigator.of(ctx).pop();
-                ref.read(downloadServiceProvider.notifier).deleteDownload(item.videoId);
+                ref
+                    .read(downloadServiceProvider.notifier)
+                    .deleteDownload(item.videoId);
               },
             ),
           ],

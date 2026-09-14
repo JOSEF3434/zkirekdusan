@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
 class AppearanceSettingsScreen extends ConsumerWidget {
@@ -9,6 +10,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final prefsState = ref.watch(preferencesProvider);
     final prefsNotifier = ref.read(preferencesProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -16,7 +18,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Appearance & Theme'),
+        title: Text(tr('settings.appearance')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -25,27 +27,27 @@ class AppearanceSettingsScreen extends ConsumerWidget {
         children: [
           // ── Theme Selection ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'THEME',
+            label: tr('settings.appearance.theme'),
             children: [
               _ThemeTile(
-                title: 'System Default',
-                subtitle: 'Follow device theme setting',
+                title: tr('settings.appearance.system_default'),
+                subtitle: tr('settings.appearance.system_default_desc'),
                 icon: Icons.brightness_auto_rounded,
                 iconColor: const Color(0xFF9B59B6),
                 selected: prefsState.themeMode == ThemeMode.system,
                 onTap: () => prefsNotifier.setThemeMode(ThemeMode.system),
               ),
               _ThemeTile(
-                title: 'Light Mode',
-                subtitle: 'Clean white interface',
+                title: tr('settings.appearance.light_mode'),
+                subtitle: tr('settings.appearance.light_mode_desc'),
                 icon: Icons.light_mode_rounded,
                 iconColor: const Color(0xFFFF9F43),
                 selected: prefsState.themeMode == ThemeMode.light,
                 onTap: () => prefsNotifier.setThemeMode(ThemeMode.light),
               ),
               _ThemeTile(
-                title: 'Dark Mode',
-                subtitle: 'Easy on the eyes at night',
+                title: tr('settings.appearance.dark_mode'),
+                subtitle: tr('settings.appearance.dark_mode_desc'),
                 icon: Icons.dark_mode_rounded,
                 iconColor: const Color(0xFF6C63FF),
                 selected: prefsState.themeMode == ThemeMode.dark,
@@ -58,20 +60,20 @@ class AppearanceSettingsScreen extends ConsumerWidget {
 
           // ── Chat Bubble Colors Preview ─────────────────────────────────────
           SettingsGroup(
-            label: 'CHAT BUBBLES',
+            label: tr('settings.appearance.chat_bubbles'),
             children: [
               SettingsNavTile(
                 icon: Icons.color_lens_outlined,
                 iconColor: const Color(0xFFFF6584),
-                title: 'Accent Color',
-                subtitle: 'Customize chat bubble and UI accent color',
-                onTap: () => _showColorPicker(context),
+                title: tr('settings.appearance.accent_color'),
+                subtitle: tr('settings.appearance.accent_color_desc'),
+                onTap: () => _showColorPicker(context, tr),
               ),
               SettingsNavTile(
                 icon: Icons.wallpaper_outlined,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Chat Wallpaper',
-                subtitle: 'Set a custom background for chats',
+                title: tr('settings.appearance.chat_wallpaper'),
+                subtitle: tr('settings.appearance.chat_wallpaper_desc'),
                 onTap: () {},
                 isLast: true,
               ),
@@ -81,20 +83,20 @@ class AppearanceSettingsScreen extends ConsumerWidget {
 
           // ── Text & Display ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'TEXT & DISPLAY',
+            label: tr('settings.appearance.text_display'),
             children: [
               SettingsNavTile(
                 icon: Icons.format_size_rounded,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Font Size',
-                subtitle: 'Adjust the text size across the app',
-                onTap: () => _showFontSizeSheet(context),
+                title: tr('settings.appearance.font_size'),
+                subtitle: tr('settings.appearance.font_size_desc'),
+                onTap: () => _showFontSizeSheet(context, tr),
               ),
               SettingsNavTile(
                 icon: Icons.animation_outlined,
                 iconColor: const Color(0xFF00B894),
-                title: 'Animations',
-                subtitle: 'Reduce motion for accessibility',
+                title: tr('settings.appearance.animations'),
+                subtitle: tr('settings.appearance.animations_desc'),
                 onTap: () {},
                 isLast: true,
               ),
@@ -106,7 +108,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showColorPicker(BuildContext context) {
+  void _showColorPicker(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     final colors = [
       const Color(0xFF00C6FF),
       const Color(0xFF6C63FF),
@@ -129,8 +131,8 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Accent Color',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(tr('settings.appearance.accent_color'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
@@ -169,8 +171,8 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Apply Color',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(tr('settings.appearance.apply_color'),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -180,7 +182,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showFontSizeSheet(BuildContext context) {
+  void _showFontSizeSheet(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     double size = 14.0;
     showModalBottomSheet(
       context: context,
@@ -192,8 +194,8 @@ class AppearanceSettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Font Size',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(tr('settings.appearance.font_size'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -202,7 +204,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Preview text at ${size.round()}px — The quick brown fox jumps.',
+                  tr('settings.appearance.font_preview', {'size': size.round()}),
                   style: TextStyle(fontSize: size),
                   textAlign: TextAlign.center,
                 ),
@@ -218,10 +220,10 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('Small', style: TextStyle(fontSize: 11)),
-                  Text('Default', style: TextStyle(fontSize: 14)),
-                  Text('Large', style: TextStyle(fontSize: 18)),
+                children: [
+                  Text(tr('settings.appearance.font_small'), style: const TextStyle(fontSize: 11)),
+                  Text(tr('settings.appearance.font_default'), style: const TextStyle(fontSize: 14)),
+                  Text(tr('settings.appearance.font_large'), style: const TextStyle(fontSize: 18)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -236,8 +238,8 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Apply',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(tr('common.apply'),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -323,6 +325,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final prefsState = ref.watch(preferencesProvider);
     final prefsNotifier = ref.read(preferencesProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -330,7 +333,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Language'),
+        title: Text(tr('settings.language')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -338,7 +341,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           SettingsGroup(
-            label: 'APP LANGUAGE',
+            label: tr('settings.appearance.app_language'),
             children: [
               ..._languages.asMap().entries.map((entry) {
                 final i = entry.key;

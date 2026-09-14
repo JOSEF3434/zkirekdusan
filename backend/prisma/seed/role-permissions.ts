@@ -1,41 +1,6 @@
 // prisma/seed/role-permissions.ts
-import { PERMISSIONS } from '../../src/common/constants/permissions.js';
-import { AppRole } from '../../src/common/constants/roles.js';
+// Idempotent role→permission mapping used by seed.ts
+// Source of truth is now permissions.ts ROLE_PERMISSIONS export.
+// This file re-exports it so seed.ts can import from a relative path.
 
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  [AppRole.SUPER_ADMIN]: ['*'],
-
-  [AppRole.ADMIN]: [
-    PERMISSIONS.USERS.READ,
-    PERMISSIONS.USERS.CREATE,
-    PERMISSIONS.USERS.UPDATE,
-    PERMISSIONS.USERS.DELETE,
-    PERMISSIONS.USERS.BAN,
-
-    PERMISSIONS.ROLES.READ,
-    PERMISSIONS.PERMISSIONS.READ,
-
-    PERMISSIONS.GROUPS.READ,
-    PERMISSIONS.GROUPS.CREATE,
-    PERMISSIONS.GROUPS.UPDATE,
-    PERMISSIONS.GROUPS.DELETE,
-    PERMISSIONS.GROUPS.APPROVE,
-    PERMISSIONS.GROUPS.SUSPEND,
-
-    PERMISSIONS.ANALYTICS.READ,
-    PERMISSIONS.SYSTEM.MANAGE,
-  ],
-
-  [AppRole.USER]: [
-    PERMISSIONS.PROFILE.READ,
-    PERMISSIONS.PROFILE.UPDATE,
-
-    PERMISSIONS.GROUPS.CREATE,
-    PERMISSIONS.GROUPS.READ,
-
-    PERMISSIONS.POSTS.CREATE,
-    PERMISSIONS.COMMENTS.CREATE,
-    PERMISSIONS.CHAT.WRITE,
-    PERMISSIONS.UPLOADS.CREATE,
-  ],
-};
+export { ROLE_PERMISSIONS } from '../../src/common/constants/permissions.js';

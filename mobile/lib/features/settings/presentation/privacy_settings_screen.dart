@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
 class PrivacySettingsScreen extends ConsumerWidget {
@@ -12,14 +13,20 @@ class PrivacySettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final optionLabels = {
+      'Everyone': tr('settings.privacy.option.everyone'),
+      'My Contacts': tr('settings.privacy.option.my_contacts'),
+      'Nobody': tr('settings.privacy.option.nobody'),
+    };
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Privacy'),
+        title: Text(tr('settings.privacy')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -28,30 +35,33 @@ class PrivacySettingsScreen extends ConsumerWidget {
         children: [
           // ── Who can see ────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'WHO CAN SEE',
+            label: tr('settings.privacy.who_can_see'),
             children: [
               SettingsDropdownTile(
                 icon: Icons.access_time_rounded,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Last Seen & Online',
+                title: tr('settings.privacy.last_seen'),
                 value: s.lastSeenPrivacy,
                 options: _whoCanSeeOptions,
+                optionLabels: optionLabels,
                 onChanged: n.setLastSeenPrivacy,
               ),
               SettingsDropdownTile(
                 icon: Icons.photo_outlined,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Profile Photo',
+                title: tr('settings.privacy.profile_photo'),
                 value: s.profilePhotoPrivacy,
                 options: _whoCanSeeOptions,
+                optionLabels: optionLabels,
                 onChanged: n.setProfilePhotoPrivacy,
               ),
               SettingsDropdownTile(
                 icon: Icons.auto_stories_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Stories',
+                title: tr('settings.privacy.stories'),
                 value: s.storyPrivacy,
                 options: _whoCanSeeOptions,
+                optionLabels: optionLabels,
                 onChanged: n.setStoryPrivacy,
                 isLast: true,
               ),
@@ -61,22 +71,23 @@ class PrivacySettingsScreen extends ConsumerWidget {
 
           // ── Messaging ─────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'MESSAGING',
+            label: tr('settings.privacy.messaging'),
             children: [
               SettingsSwitchTile(
                 icon: Icons.done_all_rounded,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Read Receipts',
-                subtitle: 'Show double blue ticks when messages are read',
+                title: tr('settings.privacy.read_receipts'),
+                subtitle: tr('settings.privacy.read_receipts_desc'),
                 value: s.readReceipts,
                 onChanged: n.setReadReceipts,
               ),
               SettingsDropdownTile(
                 icon: Icons.group_add_outlined,
                 iconColor: const Color(0xFFFF9F43),
-                title: 'Who Can Add Me to Groups',
+                title: tr('settings.privacy.who_can_add_to_group'),
                 value: s.groupAddPrivacy,
                 options: _groupOptions,
+                optionLabels: optionLabels,
                 onChanged: n.setGroupAddPrivacy,
                 isLast: true,
               ),
@@ -86,14 +97,14 @@ class PrivacySettingsScreen extends ConsumerWidget {
 
           // ── Blocked Users ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'BLOCKED USERS (${s.blockedUsers.length})',
+            label: '${tr('settings.privacy.blocked_users')} (${s.blockedUsers.length})',
             children: [
               if (s.blockedUsers.isEmpty)
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: const Icon(Icons.block, color: Colors.grey),
-                  title: const Text('No blocked users'),
-                  subtitle: const Text('Blocked users cannot message you or view your profile'),
+                  title: Text(tr('settings.privacy.no_blocked_users')),
+                  subtitle: Text(tr('settings.privacy.no_blocked_users_desc')),
                 ),
               ...s.blockedUsers.asMap().entries.map((entry) {
                 final i = entry.key;
@@ -118,13 +129,13 @@ class PrivacySettingsScreen extends ConsumerWidget {
                       subtitle: Text(u.username,
                           style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       trailing: TextButton(
-                        onPressed: () => _confirmUnblock(context, ref, u),
-                        child: const Text('Unblock',
-                            style: TextStyle(color: Color(0xFF00C6FF))),
+                        onPressed: () => _confirmUnblock(context, ref, u, tr),
+                        child: Text(tr('settings.privacy.unblock'),
+                            style: const TextStyle(color: Color(0xFF00C6FF))),
                       ),
                     ),
                     if (i < s.blockedUsers.length - 1)
-                      Divider(height: 1, indent: 66),
+                      const Divider(height: 1, indent: 66),
                   ],
                 );
               }),
@@ -134,21 +145,21 @@ class PrivacySettingsScreen extends ConsumerWidget {
 
           // ── Data & Privacy ────────────────────────────────────────────────
           SettingsGroup(
-            label: 'DATA & PRIVACY',
+            label: tr('settings.privacy.data_privacy'),
             children: [
               SettingsNavTile(
                 icon: Icons.download_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Download My Data',
-                subtitle: 'Request an export of all your data',
-                onTap: () => _requestDataExport(context),
+                title: tr('settings.privacy.download_data'),
+                subtitle: tr('settings.privacy.download_data_desc'),
+                onTap: () => _requestDataExport(context, tr),
               ),
               SettingsNavTile(
                 icon: Icons.delete_forever_outlined,
                 iconColor: Colors.red,
-                title: 'Delete Account',
-                subtitle: 'Permanently remove your account and data',
-                onTap: () => _showDeleteAccountWarning(context),
+                title: tr('settings.privacy.delete_account'),
+                subtitle: tr('settings.privacy.delete_account_desc'),
+                onTap: () => _showDeleteAccountWarning(context, tr),
                 isLast: true,
               ),
             ],
@@ -159,52 +170,49 @@ class PrivacySettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmUnblock(BuildContext context, WidgetRef ref, BlockedUserItem u) {
+  void _confirmUnblock(BuildContext context, WidgetRef ref, BlockedUserItem u, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Unblock ${u.name}?'),
-        content:
-            Text('${u.name} will be able to see your profile and contact you again.'),
+        title: Text(tr('settings.privacy.unblock_title', {'name': u.name})),
+        content: Text(tr('settings.privacy.unblock_desc', {'name': u.name})),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C6FF)),
             onPressed: () {
               Navigator.pop(context);
               ref.read(socialSettingsProvider.notifier).unblockUser(u.id);
             },
-            child: const Text('Unblock', style: TextStyle(color: Colors.black)),
+            child: Text(tr('settings.privacy.unblock'), style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
     );
   }
 
-  void _requestDataExport(BuildContext context) {
+  void _requestDataExport(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content:
-              Text('Data export requested. You\'ll receive an email within 48 hours.')),
+      SnackBar(
+          content: Text(tr('settings.privacy.data_export_requested'))),
     );
   }
 
-  void _showDeleteAccountWarning(BuildContext context) {
+  void _showDeleteAccountWarning(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
-        content: const Text(
-            'This action is PERMANENT and IRREVERSIBLE.\n\nAll your posts, messages, followers, and data will be deleted forever.'),
+        title: Text(tr('settings.privacy.delete_account'), style: const TextStyle(color: Colors.red)),
+        content: Text(tr('settings.privacy.delete_account_warning')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context),
-            child: const Text('I Understand, Delete',
-                style: TextStyle(color: Colors.white)),
+            child: Text(tr('settings.privacy.confirm_delete'),
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

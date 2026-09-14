@@ -6,7 +6,7 @@ part 'creator_channel_dto.freezed.dart';
 part 'creator_channel_dto.g.dart';
 
 @freezed
-class CreatorChannelDto with _$CreatorChannelDto {
+abstract class CreatorChannelDto with _$CreatorChannelDto {
   const factory CreatorChannelDto({
     required String id,
     required String groupId,

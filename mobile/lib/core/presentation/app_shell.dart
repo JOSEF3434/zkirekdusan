@@ -12,6 +12,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -40,7 +41,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _onItemTapped(int index, BuildContext context) {
-    if (index == 2) {
+    if (index == 3) {
+      final tr = ref.read(trProvider);
       // Create button → show options
       showModalBottomSheet(
         context: context,
@@ -50,7 +52,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             children: [
               ListTile(
                 leading: const Icon(Icons.upload_file),
-                title: const Text('Upload Video'),
+                title: Text(tr('shell.upload_video')),
                 onTap: () {
                   context.pop(); // close sheet
                   context.push('/creator/upload');
@@ -58,7 +60,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               ListTile(
                 leading: const Icon(Icons.live_tv),
-                title: const Text('Go Live'),
+                title: Text(tr('shell.go_live')),
                 onTap: () {
                   context.pop(); // close sheet
                   context.push('/live/studio');
@@ -66,7 +68,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
               ListTile(
                 leading: const Icon(Icons.tv),
-                title: const Text('Create Channel'),
+                title: Text(tr('shell.create_channel')),
                 onTap: () {
                   context.pop(); // close sheet
                   context.push('/creator/create-group');
@@ -84,8 +86,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       ref.read(homeRefreshSignalProvider.notifier).state++;
     }
 
-    // Adjust index for shell branches (branch 2 is now a placeholder;
-    // tapping 3 → chats at branch index 3, etc.)
+    // Adjust index for shell branches (branch 3 is the Create placeholder;
+    // tapping 0 → home, 1 → explorer, 2 → calendar, 4 → chats, 5 → profile)
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -97,6 +99,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final connectivity = ref.watch(connectivityProvider);
     final isWideScreen = !ResponsiveLayout.isMobile(context);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     // Show connectivity banner on state transition
     if (_previousStatus != null && connectivity.isInitialized) {
@@ -110,11 +113,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           if (current == ConnectivityStatus.offline) {
             messenger.showSnackBar(
               SnackBar(
-                content: const Row(
+                content: Row(
                   children: [
-                    Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text("You're offline. Some content may be unavailable."),
+                    const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(tr('shell.offline')),
                   ],
                 ),
                 backgroundColor: Colors.grey[800],
@@ -125,11 +128,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           } else {
             messenger.showSnackBar(
               SnackBar(
-                content: const Row(
+                content: Row(
                   children: [
-                    Icon(Icons.wifi, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text("You're back online."),
+                    const Icon(Icons.wifi, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(tr('shell.back_online')),
                   ],
                 ),
                 backgroundColor: Colors.green[700],
@@ -156,7 +159,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 NavigationRail(
                   extended: isDesktop,
                   selectedIndex: _adjustedSelectedIndex,
-                  onDestinationSelected: (index) => _onItemTapped(index, context),
+                  onDestinationSelected: (index) =>
+                      _onItemTapped(index, context),
                   labelType: isDesktop
                       ? NavigationRailLabelType.none
                       : NavigationRailLabelType.all,
@@ -176,7 +180,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                         _RailActionButton(
                           icon: Icons.notifications_outlined,
                           selectedIcon: Icons.notifications,
-                          label: 'Notifications',
+                          label: tr('nav.notifications'),
                           isExtended: isDesktop,
                           badgeCount: unreadCount > 0 ? unreadCount : null,
                           onTap: () => context.push('/notifications'),
@@ -184,42 +188,42 @@ class _AppShellState extends ConsumerState<AppShell> {
                         // 2. Downloaded Videos
                         _RailActionButton(
                           icon: Icons.download_done_rounded,
-                          label: 'Downloads',
+                          label: tr('nav.downloads'),
                           isExtended: isDesktop,
                           onTap: () => context.push('/library/downloads'),
                         ),
                         // 3. Watch History
                         _RailActionButton(
                           icon: Icons.history_rounded,
-                          label: 'Watch History',
+                          label: tr('nav.history'),
                           isExtended: isDesktop,
                           onTap: () => context.push('/library/history'),
                         ),
                         // 4. Liked Videos
                         _RailActionButton(
                           icon: Icons.thumb_up_alt_outlined,
-                          label: 'Liked Videos',
+                          label: tr('nav.liked'),
                           isExtended: isDesktop,
                           onTap: () => context.push('/library/liked'),
                         ),
                         // 5. Follow Channels
                         _RailActionButton(
                           icon: Icons.subscriptions_outlined,
-                          label: 'Channels',
+                          label: tr('nav.channels'),
                           isExtended: isDesktop,
                           onTap: () {
                             final authUser = ref.read(authProvider).user;
                             if (authUser != null) {
                               context.push('/profile/${authUser.id}/following');
                             } else {
-                              context.push('/explore');
+                              context.go('/explore');
                             }
                           },
                         ),
                         // 6. Cache & Storage
                         _RailActionButton(
                           icon: Icons.cleaning_services_outlined,
-                          label: 'Cache & Storage',
+                          label: tr('nav.cache_storage'),
                           isExtended: isDesktop,
                           onTap: () => _showCacheStorageDialog(context, ref),
                         ),
@@ -227,31 +231,36 @@ class _AppShellState extends ConsumerState<AppShell> {
                       ],
                     ),
                   ),
-                  destinations: const [
+                  destinations: [
                     NavigationRailDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home),
-                      label: Text('Home'),
+                      icon: const Icon(Icons.home_outlined),
+                      selectedIcon: const Icon(Icons.home),
+                      label: Text(tr('nav.home')),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.explore_outlined),
-                      selectedIcon: Icon(Icons.explore),
-                      label: Text('Explore'),
+                      icon: const Icon(Icons.explore_outlined),
+                      selectedIcon: const Icon(Icons.explore),
+                      label: Text(tr('nav.explore')),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.add_circle_outline),
-                      selectedIcon: Icon(Icons.add_circle),
-                      label: Text('Create'),
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      selectedIcon: const Icon(Icons.calendar_month),
+                      label: Text(tr('nav.calendar')),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.chat_bubble_outline),
-                      selectedIcon: Icon(Icons.chat_bubble),
-                      label: Text('Chats'),
+                      icon: const Icon(Icons.add_circle_outline),
+                      selectedIcon: const Icon(Icons.add_circle),
+                      label: Text(tr('nav.create')),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.person_outline),
-                      selectedIcon: Icon(Icons.person),
-                      label: Text('Profile'),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      selectedIcon: const Icon(Icons.chat_bubble),
+                      label: Text(tr('nav.chats')),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.person_outline),
+                      selectedIcon: const Icon(Icons.person),
+                      label: Text(tr('nav.profile')),
                     ),
                   ],
                 ),
@@ -315,15 +324,20 @@ class _AppShellState extends ConsumerState<AppShell> {
           onDestinationSelected: (index) => _onItemTapped(index, context),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
           destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
+            NavigationDestination(
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home),
+              label: tr('nav.home'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: 'Explore',
+            NavigationDestination(
+              icon: const Icon(Icons.explore_outlined),
+              selectedIcon: const Icon(Icons.explore),
+              label: tr('nav.explore'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.calendar_month_outlined),
+              selectedIcon: const Icon(Icons.calendar_month),
+              label: tr('nav.calendar'),
             ),
             NavigationDestination(
               icon: Icon(
@@ -336,17 +350,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                 size: 40,
                 color: theme.colorScheme.primary,
               ),
-              label: 'Create',
+              label: tr('nav.create'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              selectedIcon: Icon(Icons.chat_bubble),
-              label: 'Chats',
+            NavigationDestination(
+              icon: const Icon(Icons.chat_bubble_outline),
+              selectedIcon: const Icon(Icons.chat_bubble),
+              label: tr('nav.chats'),
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
+            NavigationDestination(
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: tr('nav.profile'),
             ),
           ],
         ),
@@ -367,6 +381,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 // ──────────────────────────────────────────────────────────────────────────────
 
 void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
+  final tr = ref.read(trProvider);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final downloadState = ref.read(downloadServiceProvider);
   final completedDownloads = downloadState.downloads.values.toList();
@@ -381,13 +396,13 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
     builder: (ctx) => AlertDialog(
       backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.cleaning_services_rounded, color: Color(0xFF00C6FF)),
-          SizedBox(width: 12),
+          const Icon(Icons.cleaning_services_rounded, color: Color(0xFF00C6FF)),
+          const SizedBox(width: 12),
           Text(
-            'Cache & Storage',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            tr('dialog.cache_title'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -396,7 +411,7 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Manage app temporary cache and downloaded media files on your device.',
+            tr('dialog.cache_desc'),
             style: TextStyle(fontSize: 13, color: Colors.grey[500]),
           ),
           const SizedBox(height: 16),
@@ -415,30 +430,43 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.image_outlined,
-                        size: 20, color: Color(0xFF00C6FF)),
+                    const Icon(
+                      Icons.image_outlined,
+                      size: 20,
+                      color: Color(0xFF00C6FF),
+                    ),
                     const SizedBox(width: 10),
-                    const Text('Temporary Image Cache',
-                        style: TextStyle(fontSize: 14)),
+                    Text(
+                      tr('dialog.cache_temp'),
+                      style: const TextStyle(fontSize: 14),
+                    ),
                     const Spacer(),
-                    Text('Auto',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    Text(
+                      tr('settings.auto'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
                   ],
                 ),
                 const Divider(height: 20),
                 Row(
                   children: [
-                    const Icon(Icons.offline_pin_rounded,
-                        size: 20, color: Color(0xFF10B981)),
+                    const Icon(
+                      Icons.offline_pin_rounded,
+                      size: 20,
+                      color: Color(0xFF10B981),
+                    ),
                     const SizedBox(width: 10),
-                    const Text('Downloaded Videos',
-                        style: TextStyle(fontSize: 14)),
+                    Text(
+                      tr('dialog.cache_downloaded'),
+                      style: const TextStyle(fontSize: 14),
+                    ),
                     const Spacer(),
                     Text(
-                      '${completedDownloads.length} videos ($downloadsSizeMB MB)',
+                      '${completedDownloads.length} ${tr(completedDownloads.length == 1 ? 'common.video' : 'common.videos')} ($downloadsSizeMB MB)',
                       style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -450,11 +478,11 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Close'),
+          child: Text(tr('common.close')),
         ),
         OutlinedButton.icon(
           icon: const Icon(Icons.download_rounded, size: 16),
-          label: const Text('View Downloads'),
+          label: Text(tr('settings.downloads')),
           onPressed: () {
             Navigator.pop(ctx);
             context.push('/library/downloads');
@@ -466,7 +494,7 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
             foregroundColor: Colors.black,
           ),
           icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-          label: const Text('Clear Cache'),
+          label: Text(tr('dialog.cache_clear')),
           onPressed: () async {
             try {
               PaintingBinding.instance.imageCache.clear();
@@ -476,10 +504,10 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
             if (ctx.mounted) {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Temporary cache cleared successfully!'),
-                  backgroundColor: Color(0xFF10B981),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(tr('dialog.cache_cleared')),
+                  backgroundColor: const Color(0xFF10B981),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }
@@ -535,10 +563,7 @@ class _RailActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Tooltip(
           message: label,
-          child: IconButton(
-            icon: badgedIcon,
-            onPressed: onTap,
-          ),
+          child: IconButton(icon: badgedIcon, onPressed: onTap),
         ),
       );
     }

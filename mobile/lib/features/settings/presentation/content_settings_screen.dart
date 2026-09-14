@@ -1,6 +1,7 @@
 // lib/features/settings/presentation/content_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
@@ -23,11 +24,12 @@ class ContentSettingsScreen extends ConsumerWidget {
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Content Preferences'),
+        title: Text(tr('settings.content_preferences')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -36,22 +38,27 @@ class ContentSettingsScreen extends ConsumerWidget {
         children: [
           // ── Content Filtering ─────────────────────────────────────────────
           SettingsGroup(
-            label: 'CONTENT FILTERING',
+            label: tr('settings.content.filtering'),
             children: [
               SettingsDropdownTile(
                 icon: Icons.filter_alt_outlined,
                 iconColor: const Color(0xFF9B59B6),
-                title: 'Sensitive Content Filter',
+                title: tr('settings.content.sensitive_filter'),
                 value: s.sensitiveFilter,
                 options: _filterOptions,
+                optionLabels: {
+                  'Strict': tr('settings.content.filter.strict'),
+                  'Standard': tr('settings.content.filter.standard'),
+                  'Off': tr('settings.content.filter.off'),
+                },
                 onChanged: n.setSensitiveFilter,
               ),
               SettingsNavTile(
                 icon: Icons.not_interested_outlined,
                 iconColor: const Color(0xFFFF6584),
-                title: 'Interests & Blocked Topics',
-                subtitle: 'Customize what appears in your feed',
-                onTap: () => _showInterestsSheet(context),
+                title: tr('settings.content.interests'),
+                subtitle: tr('settings.content.interests_desc'),
+                onTap: () => _showInterestsSheet(context, tr),
                 isLast: true,
               ),
             ],
@@ -60,29 +67,42 @@ class ContentSettingsScreen extends ConsumerWidget {
 
           // ── Playback ──────────────────────────────────────────────────────
           SettingsGroup(
-            label: 'PLAYBACK',
+            label: tr('settings.content.playback'),
             children: [
               SettingsDropdownTile(
                 icon: Icons.play_circle_outline_rounded,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Autoplay Videos',
+                title: tr('settings.content.autoplay_videos'),
                 value: s.autoplayMode,
                 options: _autoplayOptions,
+                optionLabels: {
+                  'Always': tr('settings.content.autoplay.always'),
+                  'Wi-Fi Only': tr('settings.content.autoplay.wifi_only'),
+                  'Never': tr('settings.content.autoplay.never'),
+                },
                 onChanged: n.setAutoplayMode,
               ),
               SettingsDropdownTile(
                 icon: Icons.hd_outlined,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Streaming Quality',
+                title: tr('settings.content.streaming_quality'),
                 value: s.streamingQuality,
                 options: _qualityOptions,
+                optionLabels: {
+                  'Auto (Recommended)': tr('settings.content.quality.auto'),
+                  '4K Ultra HD': tr('settings.content.quality.4k'),
+                  '1080p Full HD': tr('settings.content.quality.1080p'),
+                  '720p HD': tr('settings.content.quality.720p'),
+                  '480p SD': tr('settings.content.quality.480p'),
+                  '360p Low': tr('settings.content.quality.360p'),
+                },
                 onChanged: n.setStreamingQuality,
               ),
               SettingsSwitchTile(
                 icon: Icons.subtitles_outlined,
                 iconColor: const Color(0xFFFF9F43),
-                title: 'Subtitles & Captions',
-                subtitle: 'Enable automatically when available',
+                title: tr('settings.content.subtitles_captions'),
+                subtitle: tr('settings.content.subtitles_desc'),
                 value: s.subtitlesEnabled,
                 onChanged: n.setSubtitlesEnabled,
                 isLast: true,
@@ -93,20 +113,20 @@ class ContentSettingsScreen extends ConsumerWidget {
 
           // ── Feed Customization ─────────────────────────────────────────────
           SettingsGroup(
-            label: 'FEED CUSTOMIZATION',
+            label: tr('settings.content.feed_customization'),
             children: [
               SettingsNavTile(
                 icon: Icons.recommend_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Recommendation Engine',
-                subtitle: 'Manage what the algorithm prioritizes',
+                title: tr('settings.content.recommendation_engine'),
+                subtitle: tr('settings.content.recommendation_engine_desc'),
                 onTap: () {},
               ),
               SettingsNavTile(
                 icon: Icons.history_toggle_off_outlined,
                 iconColor: const Color(0xFF00B894),
-                title: 'Watch History',
-                subtitle: 'View or clear your watch history',
+                title: tr('settings.content.watch_history'),
+                subtitle: tr('settings.content.watch_history_desc'),
                 onTap: () {},
                 isLast: true,
               ),
@@ -118,7 +138,7 @@ class ContentSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showInterestsSheet(BuildContext context) {
+  void _showInterestsSheet(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     final interests = [
       'Technology', 'Music', 'Sports', 'Gaming', 'Cooking',
       'Travel', 'Fashion', 'Science', 'Art', 'Finance',
@@ -137,19 +157,19 @@ class ContentSettingsScreen extends ConsumerWidget {
           initialChildSize: 0.7,
           builder: (_, controller) => Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                 child: Row(
                   children: [
-                    Text('Interests',
-                        style: TextStyle(
+                    Text(tr('settings.content.interests_title'),
+                        style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Text('Select topics you enjoy to personalize your feed'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Text(tr('settings.content.interests_subtitle')),
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -160,7 +180,7 @@ class ContentSettingsScreen extends ConsumerWidget {
                     runSpacing: 8,
                     children: interests
                         .map((i) => FilterChip(
-                              label: Text(i),
+                              label: Text(tr('settings.content.interest.${i.toLowerCase()}')),
                               selected: selected.contains(i),
                               onSelected: (v) => setState(() {
                                 if (v) {
@@ -189,8 +209,8 @@ class ContentSettingsScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Save Interests',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(tr('settings.content.save_interests'),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ),

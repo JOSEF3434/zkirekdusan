@@ -1,6 +1,7 @@
 // lib/features/settings/presentation/downloads_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 
@@ -21,11 +22,12 @@ class DownloadsSettingsScreen extends ConsumerWidget {
     final n = ref.read(socialSettingsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Downloads & Storage'),
+        title: Text(tr('settings.downloads')),
         backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
         elevation: 0,
       ),
@@ -33,26 +35,33 @@ class DownloadsSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // ── Storage Summary Card ───────────────────────────────────────────
-          _StorageSummaryCard(isDark: isDark, theme: theme),
+          _StorageSummaryCard(isDark: isDark, theme: theme, tr: tr),
           const SizedBox(height: 16),
 
           // ── Download Quality ───────────────────────────────────────────────
           SettingsGroup(
-            label: 'DOWNLOAD QUALITY',
+            label: tr('settings.downloads.download_quality'),
             children: [
               SettingsDropdownTile(
                 icon: Icons.high_quality_outlined,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Video Quality',
+                title: tr('settings.downloads.video_quality'),
                 value: s.downloadQuality,
                 options: _qualityOptions,
+                optionLabels: {
+                  '4K Ultra HD': tr('settings.downloads.quality.4k'),
+                  '1080p Full HD': tr('settings.downloads.quality.1080p'),
+                  '720p HD': tr('settings.downloads.quality.720p'),
+                  '480p SD': tr('settings.downloads.quality.480p'),
+                  '360p Low (Saves Space)': tr('settings.downloads.quality.360p'),
+                },
                 onChanged: n.setDownloadQuality,
               ),
               SettingsSwitchTile(
                 icon: Icons.wifi_outlined,
                 iconColor: const Color(0xFF43E97B),
-                title: 'Download on Wi-Fi Only',
-                subtitle: 'Save mobile data by only downloading over Wi-Fi',
+                title: tr('settings.downloads.wifi_only'),
+                subtitle: tr('settings.downloads.wifi_only_desc'),
                 value: s.downloadWifiOnly,
                 onChanged: n.setDownloadWifiOnly,
                 isLast: true,
@@ -63,29 +72,29 @@ class DownloadsSettingsScreen extends ConsumerWidget {
 
           // ── Auto-Download ─────────────────────────────────────────────────
           SettingsGroup(
-            label: 'AUTO-DOWNLOAD',
+            label: tr('settings.downloads.auto_download'),
             children: [
               SettingsSwitchTile(
                 icon: Icons.image_outlined,
                 iconColor: const Color(0xFF9B59B6),
-                title: 'Photos & Images',
-                subtitle: 'Auto-download images from messages',
+                title: tr('settings.downloads.photos'),
+                subtitle: tr('settings.downloads.photos_desc'),
                 value: s.autoDownloadPhotos,
                 onChanged: n.setAutoDownloadPhotos,
               ),
               SettingsSwitchTile(
                 icon: Icons.video_file_outlined,
                 iconColor: const Color(0xFFFF9F43),
-                title: 'Videos',
-                subtitle: 'Auto-download video clips from messages',
+                title: tr('settings.downloads.videos'),
+                subtitle: tr('settings.downloads.videos_desc'),
                 value: s.autoDownloadVideos,
                 onChanged: n.setAutoDownloadVideos,
               ),
               SettingsSwitchTile(
                 icon: Icons.insert_drive_file_outlined,
                 iconColor: const Color(0xFF6C63FF),
-                title: 'Documents & Files',
-                subtitle: 'Auto-download files, PDFs and attachments',
+                title: tr('settings.downloads.docs'),
+                subtitle: tr('settings.downloads.docs_desc'),
                 value: s.autoDownloadDocs,
                 onChanged: n.setAutoDownloadDocs,
                 isLast: true,
@@ -96,12 +105,12 @@ class DownloadsSettingsScreen extends ConsumerWidget {
 
           // ── Download Location ─────────────────────────────────────────────
           SettingsGroup(
-            label: 'STORAGE LOCATION',
+            label: tr('settings.downloads.storage_location'),
             children: [
               SettingsNavTile(
                 icon: Icons.folder_outlined,
                 iconColor: const Color(0xFFFF6584),
-                title: 'Save Location',
+                title: tr('settings.downloads.save_location'),
                 subtitle: s.storageLocation,
                 onTap: () {},
                 isLast: true,
@@ -112,21 +121,21 @@ class DownloadsSettingsScreen extends ConsumerWidget {
 
           // ── Downloaded Videos List Link ────────────────────────────────────
           SettingsGroup(
-            label: 'MANAGE DOWNLOADS',
+            label: tr('settings.downloads.manage_downloads'),
             children: [
               SettingsNavTile(
                 icon: Icons.download_done_rounded,
                 iconColor: const Color(0xFF00C6FF),
-                title: 'Downloaded Videos',
-                subtitle: 'View and manage offline content',
+                title: tr('settings.downloads.downloaded_videos'),
+                subtitle: tr('settings.downloads.downloaded_videos_desc'),
                 onTap: () {},
               ),
               SettingsNavTile(
                 icon: Icons.delete_sweep_outlined,
                 iconColor: Colors.red,
-                title: 'Clear All Downloads',
-                subtitle: 'Remove all offline videos and files',
-                onTap: () => _confirmClearDownloads(context),
+                title: tr('settings.downloads.clear_all'),
+                subtitle: tr('settings.downloads.clear_all_desc'),
+                onTap: () => _confirmClearDownloads(context, tr),
                 isLast: true,
               ),
             ],
@@ -137,24 +146,24 @@ class DownloadsSettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmClearDownloads(BuildContext context) {
+  void _confirmClearDownloads(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Clear All Downloads'),
-        content: const Text('All downloaded videos and files will be removed. This cannot be undone.'),
+        title: Text(tr('settings.downloads.clear_confirm_title')),
+        content: Text(tr('settings.downloads.clear_confirm_desc')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context), child: Text(tr('common.cancel'))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All downloads cleared')),
+                SnackBar(content: Text(tr('settings.downloads.clear_cleared'))),
               );
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.white)),
+            child: Text(tr('common.delete'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -165,8 +174,13 @@ class DownloadsSettingsScreen extends ConsumerWidget {
 class _StorageSummaryCard extends StatelessWidget {
   final bool isDark;
   final ThemeData theme;
+  final String Function(String, [Map<String, dynamic>?]) tr;
 
-  const _StorageSummaryCard({required this.isDark, required this.theme});
+  const _StorageSummaryCard({
+    required this.isDark,
+    required this.theme,
+    required this.tr,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -187,13 +201,13 @@ class _StorageSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.storage_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 10),
+              const Icon(Icons.storage_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 10),
               Text(
-                'Device Storage',
-                style: TextStyle(
+                tr('settings.downloads.device_storage'),
+                style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 16),
@@ -214,20 +228,20 @@ class _StorageSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${usedGB.toStringAsFixed(1)} GB used',
+              Text(tr('settings.downloads.used', {'gb': usedGB.toStringAsFixed(1)}),
                   style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              Text('${(totalGB - usedGB).toStringAsFixed(1)} GB free',
+              Text(tr('settings.downloads.free', {'gb': (totalGB - usedGB).toStringAsFixed(1)}),
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              _StorageChip(label: 'App', value: '4.2 GB', color: Colors.white),
+              _StorageChip(label: tr('settings.downloads.chip_app'), value: '4.2 GB', color: Colors.white),
               const SizedBox(width: 8),
-              _StorageChip(label: 'Media', value: '12.8 GB', color: Colors.white70),
+              _StorageChip(label: tr('settings.downloads.chip_media'), value: '12.8 GB', color: Colors.white70),
               const SizedBox(width: 8),
-              _StorageChip(label: 'Other', value: '1.4 GB', color: Colors.white54),
+              _StorageChip(label: tr('settings.downloads.chip_other'), value: '1.4 GB', color: Colors.white54),
             ],
           ),
         ],

@@ -30,27 +30,37 @@ class LocalizationService {
     }
   }
 
-  String translate(String key) {
+  String translate(String key, [Map<String, dynamic>? args]) {
+    String text = '';
     final langMap = _localizedStrings[_currentLang];
     if (langMap != null && langMap.containsKey(key)) {
       final val = langMap[key]?.toString() ?? '';
       if (val.isNotEmpty) {
-        return val;
+        text = val;
       }
     }
     // Fallback to english if value is missing or empty (specifically for Ge'ez)
-    final enMap = _localizedStrings['en'];
-    if (enMap != null && enMap.containsKey(key)) {
-      return enMap[key]?.toString() ?? key;
+    if (text.isEmpty) {
+      final enMap = _localizedStrings['en'];
+      if (enMap != null && enMap.containsKey(key)) {
+        text = enMap[key]?.toString() ?? key;
+      } else {
+        text = key;
+      }
     }
-    return key;
+    if (args != null && args.isNotEmpty) {
+      args.forEach((k, v) {
+        text = text.replaceAll('{$k}', v.toString());
+      });
+    }
+    return text;
   }
 }
 
 // Global helper for easiest usage if we have context to ref, but Riverpod is preferred.
 // Best to expose a simple provider that watches preferences and returns a closure or class.
 
-final trProvider = Provider<String Function(String)>((ref) {
+final trProvider = Provider<String Function(String, [Map<String, dynamic>?])>((ref) {
   final service = ref.watch(localizationServiceProvider);
   final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
   service.updateLanguage(langCode);

@@ -6,7 +6,7 @@ part 'message_model.freezed.dart';
 part 'message_model.g.dart';
 
 @freezed
-class MessageModel with _$MessageModel {
+abstract class MessageModel with _$MessageModel {
   const factory MessageModel({
     required String id,
     required String conversationId,
@@ -34,7 +34,7 @@ class MessageModel with _$MessageModel {
 }
 
 @freezed
-class MessageSenderModel with _$MessageSenderModel {
+abstract class MessageSenderModel with _$MessageSenderModel {
   const factory MessageSenderModel({
     required String id,
     required String username,
@@ -47,7 +47,7 @@ class MessageSenderModel with _$MessageSenderModel {
 }
 
 @freezed
-class MessageReplyModel with _$MessageReplyModel {
+abstract class MessageReplyModel with _$MessageReplyModel {
   const factory MessageReplyModel({
     required String id,
     String? content,
@@ -60,7 +60,7 @@ class MessageReplyModel with _$MessageReplyModel {
 }
 
 @freezed
-class MessageAttachmentModel with _$MessageAttachmentModel {
+abstract class MessageAttachmentModel with _$MessageAttachmentModel {
   const factory MessageAttachmentModel({
     required String fileId,
     required String url,
@@ -79,7 +79,7 @@ class MessageAttachmentModel with _$MessageAttachmentModel {
 }
 
 @freezed
-class MessageReactionModel with _$MessageReactionModel {
+abstract class MessageReactionModel with _$MessageReactionModel {
   const factory MessageReactionModel({
     required String emoji,
     required int count,
@@ -91,7 +91,7 @@ class MessageReactionModel with _$MessageReactionModel {
 }
 
 @freezed
-class MessageVoiceNoteModel with _$MessageVoiceNoteModel {
+abstract class MessageVoiceNoteModel with _$MessageVoiceNoteModel {
   const factory MessageVoiceNoteModel({
     required String fileId,
     required String url,
@@ -104,7 +104,7 @@ class MessageVoiceNoteModel with _$MessageVoiceNoteModel {
 }
 
 @freezed
-class MessageForwardModel with _$MessageForwardModel {
+abstract class MessageForwardModel with _$MessageForwardModel {
   const factory MessageForwardModel({
     required String originalMessageId,
     required MessageSenderModel originalSender,
@@ -116,7 +116,7 @@ class MessageForwardModel with _$MessageForwardModel {
 }
 
 @freezed
-class PaginatedMessagesModel with _$PaginatedMessagesModel {
+abstract class PaginatedMessagesModel with _$PaginatedMessagesModel {
   const factory PaginatedMessagesModel({
     required List<MessageModel> data,
     String? nextCursor,

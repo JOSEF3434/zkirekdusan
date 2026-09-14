@@ -1,5 +1,5 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// coverage:ignore-file
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
@@ -9,439 +9,547 @@ part of 'follow_model.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
-
-FollowStatusDto _$FollowStatusDtoFromJson(Map<String, dynamic> json) {
-  return _FollowStatusDto.fromJson(json);
-}
 
 /// @nodoc
 mixin _$FollowStatusDto {
-  bool get isFollowing => throw _privateConstructorUsedError;
-  bool get isFollowedBy => throw _privateConstructorUsedError;
+
+ bool get isFollowing; bool get isFollowedBy;
+/// Create a copy of FollowStatusDto
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FollowStatusDtoCopyWith<FollowStatusDto> get copyWith => _$FollowStatusDtoCopyWithImpl<FollowStatusDto>(this as FollowStatusDto, _$identity);
 
   /// Serializes this FollowStatusDto to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+  Map<String, dynamic> toJson();
 
-  /// Create a copy of FollowStatusDto
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $FollowStatusDtoCopyWith<FollowStatusDto> get copyWith =>
-      throw _privateConstructorUsedError;
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FollowStatusDto&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing)&&(identical(other.isFollowedBy, isFollowedBy) || other.isFollowedBy == isFollowedBy));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,isFollowing,isFollowedBy);
+
+@override
+String toString() {
+  return 'FollowStatusDto(isFollowing: $isFollowing, isFollowedBy: $isFollowedBy)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $FollowStatusDtoCopyWith<$Res> {
-  factory $FollowStatusDtoCopyWith(
-    FollowStatusDto value,
-    $Res Function(FollowStatusDto) then,
-  ) = _$FollowStatusDtoCopyWithImpl<$Res, FollowStatusDto>;
-  @useResult
-  $Res call({bool isFollowing, bool isFollowedBy});
-}
+abstract mixin class $FollowStatusDtoCopyWith<$Res>  {
+  factory $FollowStatusDtoCopyWith(FollowStatusDto value, $Res Function(FollowStatusDto) _then) = _$FollowStatusDtoCopyWithImpl;
+@useResult
+$Res call({
+ bool isFollowing, bool isFollowedBy
+});
 
+
+
+
+}
 /// @nodoc
-class _$FollowStatusDtoCopyWithImpl<$Res, $Val extends FollowStatusDto>
+class _$FollowStatusDtoCopyWithImpl<$Res>
     implements $FollowStatusDtoCopyWith<$Res> {
-  _$FollowStatusDtoCopyWithImpl(this._value, this._then);
+  _$FollowStatusDtoCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final FollowStatusDto _self;
+  final $Res Function(FollowStatusDto) _then;
 
-  /// Create a copy of FollowStatusDto
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? isFollowing = null, Object? isFollowedBy = null}) {
-    return _then(
-      _value.copyWith(
-            isFollowing: null == isFollowing
-                ? _value.isFollowing
-                : isFollowing // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            isFollowedBy: null == isFollowedBy
-                ? _value.isFollowedBy
-                : isFollowedBy // ignore: cast_nullable_to_non_nullable
-                      as bool,
-          )
-          as $Val,
-    );
-  }
+/// Create a copy of FollowStatusDto
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? isFollowing = null,Object? isFollowedBy = null,}) {
+  return _then(_self.copyWith(
+isFollowing: null == isFollowing ? _self.isFollowing : isFollowing // ignore: cast_nullable_to_non_nullable
+as bool,isFollowedBy: null == isFollowedBy ? _self.isFollowedBy : isFollowedBy // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
 }
 
-/// @nodoc
-abstract class _$$FollowStatusDtoImplCopyWith<$Res>
-    implements $FollowStatusDtoCopyWith<$Res> {
-  factory _$$FollowStatusDtoImplCopyWith(
-    _$FollowStatusDtoImpl value,
-    $Res Function(_$FollowStatusDtoImpl) then,
-  ) = __$$FollowStatusDtoImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({bool isFollowing, bool isFollowedBy});
 }
 
-/// @nodoc
-class __$$FollowStatusDtoImplCopyWithImpl<$Res>
-    extends _$FollowStatusDtoCopyWithImpl<$Res, _$FollowStatusDtoImpl>
-    implements _$$FollowStatusDtoImplCopyWith<$Res> {
-  __$$FollowStatusDtoImplCopyWithImpl(
-    _$FollowStatusDtoImpl _value,
-    $Res Function(_$FollowStatusDtoImpl) _then,
-  ) : super(_value, _then);
 
-  /// Create a copy of FollowStatusDto
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({Object? isFollowing = null, Object? isFollowedBy = null}) {
-    return _then(
-      _$FollowStatusDtoImpl(
-        isFollowing: null == isFollowing
-            ? _value.isFollowing
-            : isFollowing // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        isFollowedBy: null == isFollowedBy
-            ? _value.isFollowedBy
-            : isFollowedBy // ignore: cast_nullable_to_non_nullable
-                  as bool,
-      ),
-    );
-  }
+/// Adds pattern-matching-related methods to [FollowStatusDto].
+extension FollowStatusDtoPatterns on FollowStatusDto {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FollowStatusDto value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FollowStatusDto() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FollowStatusDto value)  $default,){
+final _that = this;
+switch (_that) {
+case _FollowStatusDto():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FollowStatusDto value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FollowStatusDto() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool isFollowing,  bool isFollowedBy)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FollowStatusDto() when $default != null:
+return $default(_that.isFollowing,_that.isFollowedBy);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool isFollowing,  bool isFollowedBy)  $default,) {final _that = this;
+switch (_that) {
+case _FollowStatusDto():
+return $default(_that.isFollowing,_that.isFollowedBy);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool isFollowing,  bool isFollowedBy)?  $default,) {final _that = this;
+switch (_that) {
+case _FollowStatusDto() when $default != null:
+return $default(_that.isFollowing,_that.isFollowedBy);case _:
+  return null;
+
+}
+}
+
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$FollowStatusDtoImpl implements _FollowStatusDto {
-  const _$FollowStatusDtoImpl({
-    required this.isFollowing,
-    required this.isFollowedBy,
-  });
 
-  factory _$FollowStatusDtoImpl.fromJson(Map<String, dynamic> json) =>
-      _$$FollowStatusDtoImplFromJson(json);
+class _FollowStatusDto implements FollowStatusDto {
+  const _FollowStatusDto({required this.isFollowing, required this.isFollowedBy});
+  factory _FollowStatusDto.fromJson(Map<String, dynamic> json) => _$FollowStatusDtoFromJson(json);
 
-  @override
-  final bool isFollowing;
-  @override
-  final bool isFollowedBy;
+@override final  bool isFollowing;
+@override final  bool isFollowedBy;
 
-  @override
-  String toString() {
-    return 'FollowStatusDto(isFollowing: $isFollowing, isFollowedBy: $isFollowedBy)';
-  }
+/// Create a copy of FollowStatusDto
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FollowStatusDtoCopyWith<_FollowStatusDto> get copyWith => __$FollowStatusDtoCopyWithImpl<_FollowStatusDto>(this, _$identity);
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$FollowStatusDtoImpl &&
-            (identical(other.isFollowing, isFollowing) ||
-                other.isFollowing == isFollowing) &&
-            (identical(other.isFollowedBy, isFollowedBy) ||
-                other.isFollowedBy == isFollowedBy));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(runtimeType, isFollowing, isFollowedBy);
-
-  /// Create a copy of FollowStatusDto
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$FollowStatusDtoImplCopyWith<_$FollowStatusDtoImpl> get copyWith =>
-      __$$FollowStatusDtoImplCopyWithImpl<_$FollowStatusDtoImpl>(
-        this,
-        _$identity,
-      );
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$FollowStatusDtoImplToJson(this);
-  }
+@override
+Map<String, dynamic> toJson() {
+  return _$FollowStatusDtoToJson(this, );
 }
 
-abstract class _FollowStatusDto implements FollowStatusDto {
-  const factory _FollowStatusDto({
-    required final bool isFollowing,
-    required final bool isFollowedBy,
-  }) = _$FollowStatusDtoImpl;
-
-  factory _FollowStatusDto.fromJson(Map<String, dynamic> json) =
-      _$FollowStatusDtoImpl.fromJson;
-
-  @override
-  bool get isFollowing;
-  @override
-  bool get isFollowedBy;
-
-  /// Create a copy of FollowStatusDto
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$FollowStatusDtoImplCopyWith<_$FollowStatusDtoImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FollowStatusDto&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing)&&(identical(other.isFollowedBy, isFollowedBy) || other.isFollowedBy == isFollowedBy));
 }
 
-FollowerDto _$FollowerDtoFromJson(Map<String, dynamic> json) {
-  return _FollowerDto.fromJson(json);
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,isFollowing,isFollowedBy);
+
+@override
+String toString() {
+  return 'FollowStatusDto(isFollowing: $isFollowing, isFollowedBy: $isFollowedBy)';
 }
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FollowStatusDtoCopyWith<$Res> implements $FollowStatusDtoCopyWith<$Res> {
+  factory _$FollowStatusDtoCopyWith(_FollowStatusDto value, $Res Function(_FollowStatusDto) _then) = __$FollowStatusDtoCopyWithImpl;
+@override @useResult
+$Res call({
+ bool isFollowing, bool isFollowedBy
+});
+
+
+
+
+}
+/// @nodoc
+class __$FollowStatusDtoCopyWithImpl<$Res>
+    implements _$FollowStatusDtoCopyWith<$Res> {
+  __$FollowStatusDtoCopyWithImpl(this._self, this._then);
+
+  final _FollowStatusDto _self;
+  final $Res Function(_FollowStatusDto) _then;
+
+/// Create a copy of FollowStatusDto
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? isFollowing = null,Object? isFollowedBy = null,}) {
+  return _then(_FollowStatusDto(
+isFollowing: null == isFollowing ? _self.isFollowing : isFollowing // ignore: cast_nullable_to_non_nullable
+as bool,isFollowedBy: null == isFollowedBy ? _self.isFollowedBy : isFollowedBy // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
+
 
 /// @nodoc
 mixin _$FollowerDto {
-  String get id => throw _privateConstructorUsedError;
-  String? get username => throw _privateConstructorUsedError;
-  String? get displayName => throw _privateConstructorUsedError;
-  String? get avatarUrl => throw _privateConstructorUsedError;
-  bool get isFollowing => throw _privateConstructorUsedError;
+
+ String get id; String? get username; String? get displayName; String? get avatarUrl; bool get isFollowing;
+/// Create a copy of FollowerDto
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FollowerDtoCopyWith<FollowerDto> get copyWith => _$FollowerDtoCopyWithImpl<FollowerDto>(this as FollowerDto, _$identity);
 
   /// Serializes this FollowerDto to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+  Map<String, dynamic> toJson();
 
-  /// Create a copy of FollowerDto
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $FollowerDtoCopyWith<FollowerDto> get copyWith =>
-      throw _privateConstructorUsedError;
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FollowerDto&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,username,displayName,avatarUrl,isFollowing);
+
+@override
+String toString() {
+  return 'FollowerDto(id: $id, username: $username, displayName: $displayName, avatarUrl: $avatarUrl, isFollowing: $isFollowing)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $FollowerDtoCopyWith<$Res> {
-  factory $FollowerDtoCopyWith(
-    FollowerDto value,
-    $Res Function(FollowerDto) then,
-  ) = _$FollowerDtoCopyWithImpl<$Res, FollowerDto>;
-  @useResult
-  $Res call({
-    String id,
-    String? username,
-    String? displayName,
-    String? avatarUrl,
-    bool isFollowing,
-  });
-}
+abstract mixin class $FollowerDtoCopyWith<$Res>  {
+  factory $FollowerDtoCopyWith(FollowerDto value, $Res Function(FollowerDto) _then) = _$FollowerDtoCopyWithImpl;
+@useResult
+$Res call({
+ String id, String? username, String? displayName, String? avatarUrl, bool isFollowing
+});
 
+
+
+
+}
 /// @nodoc
-class _$FollowerDtoCopyWithImpl<$Res, $Val extends FollowerDto>
+class _$FollowerDtoCopyWithImpl<$Res>
     implements $FollowerDtoCopyWith<$Res> {
-  _$FollowerDtoCopyWithImpl(this._value, this._then);
+  _$FollowerDtoCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final FollowerDto _self;
+  final $Res Function(FollowerDto) _then;
 
-  /// Create a copy of FollowerDto
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? username = freezed,
-    Object? displayName = freezed,
-    Object? avatarUrl = freezed,
-    Object? isFollowing = null,
-  }) {
-    return _then(
-      _value.copyWith(
-            id: null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as String,
-            username: freezed == username
-                ? _value.username
-                : username // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            displayName: freezed == displayName
-                ? _value.displayName
-                : displayName // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            avatarUrl: freezed == avatarUrl
-                ? _value.avatarUrl
-                : avatarUrl // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            isFollowing: null == isFollowing
-                ? _value.isFollowing
-                : isFollowing // ignore: cast_nullable_to_non_nullable
-                      as bool,
-          )
-          as $Val,
-    );
-  }
+/// Create a copy of FollowerDto
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? username = freezed,Object? displayName = freezed,Object? avatarUrl = freezed,Object? isFollowing = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,username: freezed == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
+as String?,isFollowing: null == isFollowing ? _self.isFollowing : isFollowing // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
 }
 
-/// @nodoc
-abstract class _$$FollowerDtoImplCopyWith<$Res>
-    implements $FollowerDtoCopyWith<$Res> {
-  factory _$$FollowerDtoImplCopyWith(
-    _$FollowerDtoImpl value,
-    $Res Function(_$FollowerDtoImpl) then,
-  ) = __$$FollowerDtoImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({
-    String id,
-    String? username,
-    String? displayName,
-    String? avatarUrl,
-    bool isFollowing,
-  });
 }
 
-/// @nodoc
-class __$$FollowerDtoImplCopyWithImpl<$Res>
-    extends _$FollowerDtoCopyWithImpl<$Res, _$FollowerDtoImpl>
-    implements _$$FollowerDtoImplCopyWith<$Res> {
-  __$$FollowerDtoImplCopyWithImpl(
-    _$FollowerDtoImpl _value,
-    $Res Function(_$FollowerDtoImpl) _then,
-  ) : super(_value, _then);
 
-  /// Create a copy of FollowerDto
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? username = freezed,
-    Object? displayName = freezed,
-    Object? avatarUrl = freezed,
-    Object? isFollowing = null,
-  }) {
-    return _then(
-      _$FollowerDtoImpl(
-        id: null == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as String,
-        username: freezed == username
-            ? _value.username
-            : username // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        displayName: freezed == displayName
-            ? _value.displayName
-            : displayName // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        avatarUrl: freezed == avatarUrl
-            ? _value.avatarUrl
-            : avatarUrl // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        isFollowing: null == isFollowing
-            ? _value.isFollowing
-            : isFollowing // ignore: cast_nullable_to_non_nullable
-                  as bool,
-      ),
-    );
-  }
+/// Adds pattern-matching-related methods to [FollowerDto].
+extension FollowerDtoPatterns on FollowerDto {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _FollowerDto value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _FollowerDto() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _FollowerDto value)  $default,){
+final _that = this;
+switch (_that) {
+case _FollowerDto():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _FollowerDto value)?  $default,){
+final _that = this;
+switch (_that) {
+case _FollowerDto() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? username,  String? displayName,  String? avatarUrl,  bool isFollowing)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _FollowerDto() when $default != null:
+return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl,_that.isFollowing);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? username,  String? displayName,  String? avatarUrl,  bool isFollowing)  $default,) {final _that = this;
+switch (_that) {
+case _FollowerDto():
+return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl,_that.isFollowing);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? username,  String? displayName,  String? avatarUrl,  bool isFollowing)?  $default,) {final _that = this;
+switch (_that) {
+case _FollowerDto() when $default != null:
+return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl,_that.isFollowing);case _:
+  return null;
+
+}
+}
+
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$FollowerDtoImpl implements _FollowerDto {
-  const _$FollowerDtoImpl({
-    required this.id,
-    this.username,
-    this.displayName,
-    this.avatarUrl,
-    this.isFollowing = false,
-  });
 
-  factory _$FollowerDtoImpl.fromJson(Map<String, dynamic> json) =>
-      _$$FollowerDtoImplFromJson(json);
+class _FollowerDto implements FollowerDto {
+  const _FollowerDto({required this.id, this.username, this.displayName, this.avatarUrl, this.isFollowing = false});
+  factory _FollowerDto.fromJson(Map<String, dynamic> json) => _$FollowerDtoFromJson(json);
 
-  @override
-  final String id;
-  @override
-  final String? username;
-  @override
-  final String? displayName;
-  @override
-  final String? avatarUrl;
-  @override
-  @JsonKey()
-  final bool isFollowing;
+@override final  String id;
+@override final  String? username;
+@override final  String? displayName;
+@override final  String? avatarUrl;
+@override@JsonKey() final  bool isFollowing;
 
-  @override
-  String toString() {
-    return 'FollowerDto(id: $id, username: $username, displayName: $displayName, avatarUrl: $avatarUrl, isFollowing: $isFollowing)';
-  }
+/// Create a copy of FollowerDto
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$FollowerDtoCopyWith<_FollowerDto> get copyWith => __$FollowerDtoCopyWithImpl<_FollowerDto>(this, _$identity);
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$FollowerDtoImpl &&
-            (identical(other.id, id) || other.id == id) &&
-            (identical(other.username, username) ||
-                other.username == username) &&
-            (identical(other.displayName, displayName) ||
-                other.displayName == displayName) &&
-            (identical(other.avatarUrl, avatarUrl) ||
-                other.avatarUrl == avatarUrl) &&
-            (identical(other.isFollowing, isFollowing) ||
-                other.isFollowing == isFollowing));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    username,
-    displayName,
-    avatarUrl,
-    isFollowing,
-  );
-
-  /// Create a copy of FollowerDto
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$FollowerDtoImplCopyWith<_$FollowerDtoImpl> get copyWith =>
-      __$$FollowerDtoImplCopyWithImpl<_$FollowerDtoImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$FollowerDtoImplToJson(this);
-  }
+@override
+Map<String, dynamic> toJson() {
+  return _$FollowerDtoToJson(this, );
 }
 
-abstract class _FollowerDto implements FollowerDto {
-  const factory _FollowerDto({
-    required final String id,
-    final String? username,
-    final String? displayName,
-    final String? avatarUrl,
-    final bool isFollowing,
-  }) = _$FollowerDtoImpl;
-
-  factory _FollowerDto.fromJson(Map<String, dynamic> json) =
-      _$FollowerDtoImpl.fromJson;
-
-  @override
-  String get id;
-  @override
-  String? get username;
-  @override
-  String? get displayName;
-  @override
-  String? get avatarUrl;
-  @override
-  bool get isFollowing;
-
-  /// Create a copy of FollowerDto
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$FollowerDtoImplCopyWith<_$FollowerDtoImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FollowerDto&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing));
 }
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,username,displayName,avatarUrl,isFollowing);
+
+@override
+String toString() {
+  return 'FollowerDto(id: $id, username: $username, displayName: $displayName, avatarUrl: $avatarUrl, isFollowing: $isFollowing)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$FollowerDtoCopyWith<$Res> implements $FollowerDtoCopyWith<$Res> {
+  factory _$FollowerDtoCopyWith(_FollowerDto value, $Res Function(_FollowerDto) _then) = __$FollowerDtoCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String? username, String? displayName, String? avatarUrl, bool isFollowing
+});
+
+
+
+
+}
+/// @nodoc
+class __$FollowerDtoCopyWithImpl<$Res>
+    implements _$FollowerDtoCopyWith<$Res> {
+  __$FollowerDtoCopyWithImpl(this._self, this._then);
+
+  final _FollowerDto _self;
+  final $Res Function(_FollowerDto) _then;
+
+/// Create a copy of FollowerDto
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? username = freezed,Object? displayName = freezed,Object? avatarUrl = freezed,Object? isFollowing = null,}) {
+  return _then(_FollowerDto(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,username: freezed == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
+as String?,isFollowing: null == isFollowing ? _self.isFollowing : isFollowing // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
+
+// dart format on

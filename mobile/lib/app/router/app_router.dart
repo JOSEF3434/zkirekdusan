@@ -34,6 +34,7 @@ import 'package:mobile/features/library/presentation/liked_videos_screen.dart';
 import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
+import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
 import 'package:mobile/features/explore/presentation/search_screen.dart';
@@ -59,6 +60,18 @@ import 'package:mobile/features/creator_analytics/presentation/screens/creator_c
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_dashboard_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart';
 import 'package:mobile/features/creator_analytics/presentation/screens/creator_video_management_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_users_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_roles_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_channels_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_content_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_live_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_chat_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_storage_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_notifications_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_audit_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_system_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_spam_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.dart';
 import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
@@ -101,7 +114,8 @@ class RouterNotifier extends ChangeNotifier {
 
     // Handle Incoming Call: immediately route to /call/incoming
     final callState = _ref.read(callStateProvider);
-    if (callState.status == CallStatus.ringing && location != '/call/incoming') {
+    if (callState.status == CallStatus.ringing &&
+        location != '/call/incoming') {
       return '/call/incoming';
     }
 
@@ -123,7 +137,7 @@ class RouterNotifier extends ChangeNotifier {
 
     // 3. While auth status is initializing (unknown):
     // If on splash '/', stay on splash.
-    // If refreshing on a specific route (e.g. '/home', '/explore', '/profile'), do NOT wipe it out!
+    // If refreshing on a specific route (e.g. '/home', '/calendar', '/profile'), do NOT wipe it out!
     if (authState.status == AuthStatus.unknown) {
       return null;
     }
@@ -133,6 +147,26 @@ class RouterNotifier extends ChangeNotifier {
       if (isAuthRoute || isSplashRoute) {
         return '/home';
       }
+
+      // Administration route permission checks
+      if (location.startsWith('/admin')) {
+        final role = authState.user?.role ?? 'USER';
+        final isAdminUser = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT'].contains(role);
+        if (!isAdminUser) {
+          return '/home';
+        }
+        if (location == '/admin/system' && role != 'SUPER_ADMIN') {
+          return '/admin';
+        }
+        if ((location == '/admin/roles' ||
+                location == '/admin/audit' ||
+                location == '/admin/storage' ||
+                location == '/admin/notifications') &&
+            !(role == 'SUPER_ADMIN' || role == 'ADMIN')) {
+          return '/admin';
+        }
+      }
+
       return null; // Stay on requested route
     }
 
@@ -143,6 +177,7 @@ class RouterNotifier extends ChangeNotifier {
       }
 
       final isProtectedRoute =
+          location.startsWith('/admin') ||
           location.startsWith('/creator') ||
           location.startsWith('/live/studio') ||
           location.startsWith('/profile/edit') ||
@@ -330,6 +365,72 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      // Administration Routes
+      GoRoute(
+        path: '/admin',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/admin/dashboard',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminUsersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/roles',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminRolesScreen(),
+      ),
+      GoRoute(
+        path: '/admin/channels',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminChannelsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/content',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminContentScreen(),
+      ),
+      GoRoute(
+        path: '/admin/live',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminLiveScreen(),
+      ),
+      GoRoute(
+        path: '/admin/chat',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminChatScreen(),
+      ),
+      GoRoute(
+        path: '/admin/storage',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminStorageScreen(),
+      ),
+      GoRoute(
+        path: '/admin/notifications',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminNotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/audit',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminAuditScreen(),
+      ),
+      GoRoute(
+        path: '/admin/system',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminSystemScreen(),
+      ),
+      GoRoute(
+        path: '/admin/spam',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AdminSpamScreen(),
+      ),
       GoRoute(
         path: '/admin/moderation',
         parentNavigatorKey: rootNavigatorKey,
@@ -515,11 +616,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          // Explorer tab — reuses the existing ExploreScreen implementation
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/explore',
                 builder: (context, state) => const ExploreScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/calendar',
+                builder: (context, state) => const CalendarScreen(),
               ),
             ],
           ),

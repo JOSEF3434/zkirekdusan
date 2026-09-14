@@ -173,6 +173,7 @@ class SettingsDropdownTile extends StatelessWidget {
   final String title;
   final String value;
   final List<String> options;
+  final Map<String, String>? optionLabels;
   final ValueChanged<String> onChanged;
   final bool isLast;
 
@@ -183,6 +184,7 @@ class SettingsDropdownTile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.options,
+    this.optionLabels,
     required this.onChanged,
     this.isLast = false,
   });
@@ -213,7 +215,13 @@ class SettingsDropdownTile extends StatelessWidget {
                 if (v != null) onChanged(v);
               },
               items: options
-                  .map((o) => DropdownMenuItem(value: o, child: Text(o, style: const TextStyle(fontSize: 13))))
+                  .map((o) => DropdownMenuItem(
+                        value: o,
+                        child: Text(
+                          optionLabels?[o] ?? o,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ))
                   .toList(),
             ),
           ),

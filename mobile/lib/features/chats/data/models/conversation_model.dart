@@ -6,7 +6,7 @@ part 'conversation_model.freezed.dart';
 part 'conversation_model.g.dart';
 
 @freezed
-class ConversationModel with _$ConversationModel {
+abstract class ConversationModel with _$ConversationModel {
   const factory ConversationModel({
     required String id,
     required String type,
@@ -25,7 +25,7 @@ class ConversationModel with _$ConversationModel {
 }
 
 @freezed
-class ConversationMemberModel with _$ConversationMemberModel {
+abstract class ConversationMemberModel with _$ConversationMemberModel {
   const factory ConversationMemberModel({
     required String userId,
     required String username,
@@ -44,7 +44,7 @@ class ConversationMemberModel with _$ConversationMemberModel {
 }
 
 @freezed
-class MessagePreviewModel with _$MessagePreviewModel {
+abstract class MessagePreviewModel with _$MessagePreviewModel {
   const factory MessagePreviewModel({
     required String id,
     String? content,
@@ -59,7 +59,7 @@ class MessagePreviewModel with _$MessagePreviewModel {
 }
 
 @freezed
-class ConversationMetadataModel with _$ConversationMetadataModel {
+abstract class ConversationMetadataModel with _$ConversationMetadataModel {
   const factory ConversationMetadataModel({
     String? groupName,
     String? groupAvatar,
@@ -74,7 +74,7 @@ class ConversationMetadataModel with _$ConversationMetadataModel {
 }
 
 @freezed
-class TypingStatusModel with _$TypingStatusModel {
+abstract class TypingStatusModel with _$TypingStatusModel {
   const factory TypingStatusModel({
     required bool isTyping,
     DateTime? startedAt,

@@ -6,4 +6,15 @@ part of 'conversations_dao.dart';
 mixin _$ConversationsDaoMixin on DatabaseAccessor<AppDatabase> {
   $LocalConversationsTable get localConversations =>
       attachedDatabase.localConversations;
+  ConversationsDaoManager get managers => ConversationsDaoManager(this);
+}
+
+class ConversationsDaoManager {
+  final _$ConversationsDaoMixin _db;
+  ConversationsDaoManager(this._db);
+  $$LocalConversationsTableTableManager get localConversations =>
+      $$LocalConversationsTableTableManager(
+        _db.attachedDatabase,
+        _db.localConversations,
+      );
 }

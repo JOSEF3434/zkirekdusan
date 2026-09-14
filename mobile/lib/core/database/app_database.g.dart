@@ -7708,6 +7708,2122 @@ class LocalFeedItemsCompanion extends UpdateCompanion<LocalFeedItemData> {
   }
 }
 
+class $LocalCalendarNotesTable extends LocalCalendarNotes
+    with TableInfo<$LocalCalendarNotesTable, LocalCalendarNoteData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalCalendarNotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ethiopianYearMeta = const VerificationMeta(
+    'ethiopianYear',
+  );
+  @override
+  late final GeneratedColumn<int> ethiopianYear = GeneratedColumn<int>(
+    'ethiopian_year',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ethiopianMonthMeta = const VerificationMeta(
+    'ethiopianMonth',
+  );
+  @override
+  late final GeneratedColumn<int> ethiopianMonth = GeneratedColumn<int>(
+    'ethiopian_month',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ethiopianDayMeta = const VerificationMeta(
+    'ethiopianDay',
+  );
+  @override
+  late final GeneratedColumn<int> ethiopianDay = GeneratedColumn<int>(
+    'ethiopian_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _gregorianDateMeta = const VerificationMeta(
+    'gregorianDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> gregorianDate =
+      GeneratedColumn<DateTime>(
+        'gregorian_date',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hasReminderMeta = const VerificationMeta(
+    'hasReminder',
+  );
+  @override
+  late final GeneratedColumn<bool> hasReminder = GeneratedColumn<bool>(
+    'has_reminder',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_reminder" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _reminderDateTimeMeta = const VerificationMeta(
+    'reminderDateTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> reminderDateTime =
+      GeneratedColumn<DateTime>(
+        'reminder_date_time',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _reminderNotifiedMeta = const VerificationMeta(
+    'reminderNotified',
+  );
+  @override
+  late final GeneratedColumn<bool> reminderNotified = GeneratedColumn<bool>(
+    'reminder_notified',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("reminder_notified" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _reminderRepeatMeta = const VerificationMeta(
+    'reminderRepeat',
+  );
+  @override
+  late final GeneratedColumn<String> reminderRepeat = GeneratedColumn<String>(
+    'reminder_repeat',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('NONE'),
+  );
+  static const VerificationMeta _reminderEthiopianMonthMeta =
+      const VerificationMeta('reminderEthiopianMonth');
+  @override
+  late final GeneratedColumn<int> reminderEthiopianMonth = GeneratedColumn<int>(
+    'reminder_ethiopian_month',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderEthiopianDayMeta =
+      const VerificationMeta('reminderEthiopianDay');
+  @override
+  late final GeneratedColumn<int> reminderEthiopianDay = GeneratedColumn<int>(
+    'reminder_ethiopian_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderHourMeta = const VerificationMeta(
+    'reminderHour',
+  );
+  @override
+  late final GeneratedColumn<int> reminderHour = GeneratedColumn<int>(
+    'reminder_hour',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderMinuteMeta = const VerificationMeta(
+    'reminderMinute',
+  );
+  @override
+  late final GeneratedColumn<int> reminderMinute = GeneratedColumn<int>(
+    'reminder_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderTimezoneMeta = const VerificationMeta(
+    'reminderTimezone',
+  );
+  @override
+  late final GeneratedColumn<String> reminderTimezone = GeneratedColumn<String>(
+    'reminder_timezone',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Africa/Addis_Ababa'),
+  );
+  static const VerificationMeta _reminderNextOccurrenceMeta =
+      const VerificationMeta('reminderNextOccurrence');
+  @override
+  late final GeneratedColumn<DateTime> reminderNextOccurrence =
+      GeneratedColumn<DateTime>(
+        'reminder_next_occurrence',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isPendingDeleteMeta = const VerificationMeta(
+    'isPendingDelete',
+  );
+  @override
+  late final GeneratedColumn<bool> isPendingDelete = GeneratedColumn<bool>(
+    'is_pending_delete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_pending_delete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
+    'lastSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+    'last_synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    ethiopianYear,
+    ethiopianMonth,
+    ethiopianDay,
+    gregorianDate,
+    title,
+    content,
+    hasReminder,
+    reminderDateTime,
+    reminderNotified,
+    reminderRepeat,
+    reminderEthiopianMonth,
+    reminderEthiopianDay,
+    reminderHour,
+    reminderMinute,
+    reminderTimezone,
+    reminderNextOccurrence,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+    isPendingDelete,
+    lastSyncedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_calendar_notes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalCalendarNoteData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('ethiopian_year')) {
+      context.handle(
+        _ethiopianYearMeta,
+        ethiopianYear.isAcceptableOrUnknown(
+          data['ethiopian_year']!,
+          _ethiopianYearMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ethiopianYearMeta);
+    }
+    if (data.containsKey('ethiopian_month')) {
+      context.handle(
+        _ethiopianMonthMeta,
+        ethiopianMonth.isAcceptableOrUnknown(
+          data['ethiopian_month']!,
+          _ethiopianMonthMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ethiopianMonthMeta);
+    }
+    if (data.containsKey('ethiopian_day')) {
+      context.handle(
+        _ethiopianDayMeta,
+        ethiopianDay.isAcceptableOrUnknown(
+          data['ethiopian_day']!,
+          _ethiopianDayMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ethiopianDayMeta);
+    }
+    if (data.containsKey('gregorian_date')) {
+      context.handle(
+        _gregorianDateMeta,
+        gregorianDate.isAcceptableOrUnknown(
+          data['gregorian_date']!,
+          _gregorianDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_gregorianDateMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    }
+    if (data.containsKey('has_reminder')) {
+      context.handle(
+        _hasReminderMeta,
+        hasReminder.isAcceptableOrUnknown(
+          data['has_reminder']!,
+          _hasReminderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_date_time')) {
+      context.handle(
+        _reminderDateTimeMeta,
+        reminderDateTime.isAcceptableOrUnknown(
+          data['reminder_date_time']!,
+          _reminderDateTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_notified')) {
+      context.handle(
+        _reminderNotifiedMeta,
+        reminderNotified.isAcceptableOrUnknown(
+          data['reminder_notified']!,
+          _reminderNotifiedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_repeat')) {
+      context.handle(
+        _reminderRepeatMeta,
+        reminderRepeat.isAcceptableOrUnknown(
+          data['reminder_repeat']!,
+          _reminderRepeatMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_ethiopian_month')) {
+      context.handle(
+        _reminderEthiopianMonthMeta,
+        reminderEthiopianMonth.isAcceptableOrUnknown(
+          data['reminder_ethiopian_month']!,
+          _reminderEthiopianMonthMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_ethiopian_day')) {
+      context.handle(
+        _reminderEthiopianDayMeta,
+        reminderEthiopianDay.isAcceptableOrUnknown(
+          data['reminder_ethiopian_day']!,
+          _reminderEthiopianDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_hour')) {
+      context.handle(
+        _reminderHourMeta,
+        reminderHour.isAcceptableOrUnknown(
+          data['reminder_hour']!,
+          _reminderHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_minute')) {
+      context.handle(
+        _reminderMinuteMeta,
+        reminderMinute.isAcceptableOrUnknown(
+          data['reminder_minute']!,
+          _reminderMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_timezone')) {
+      context.handle(
+        _reminderTimezoneMeta,
+        reminderTimezone.isAcceptableOrUnknown(
+          data['reminder_timezone']!,
+          _reminderTimezoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_next_occurrence')) {
+      context.handle(
+        _reminderNextOccurrenceMeta,
+        reminderNextOccurrence.isAcceptableOrUnknown(
+          data['reminder_next_occurrence']!,
+          _reminderNextOccurrenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    if (data.containsKey('is_pending_delete')) {
+      context.handle(
+        _isPendingDeleteMeta,
+        isPendingDelete.isAcceptableOrUnknown(
+          data['is_pending_delete']!,
+          _isPendingDeleteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+        _lastSyncedAtMeta,
+        lastSyncedAt.isAcceptableOrUnknown(
+          data['last_synced_at']!,
+          _lastSyncedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalCalendarNoteData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalCalendarNoteData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      ethiopianYear: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ethiopian_year'],
+      )!,
+      ethiopianMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ethiopian_month'],
+      )!,
+      ethiopianDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ethiopian_day'],
+      )!,
+      gregorianDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}gregorian_date'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      ),
+      hasReminder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_reminder'],
+      )!,
+      reminderDateTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reminder_date_time'],
+      ),
+      reminderNotified: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}reminder_notified'],
+      )!,
+      reminderRepeat: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_repeat'],
+      )!,
+      reminderEthiopianMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_ethiopian_month'],
+      ),
+      reminderEthiopianDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_ethiopian_day'],
+      ),
+      reminderHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_hour'],
+      ),
+      reminderMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_minute'],
+      ),
+      reminderTimezone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_timezone'],
+      )!,
+      reminderNextOccurrence: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reminder_next_occurrence'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+      isPendingDelete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_pending_delete'],
+      )!,
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_synced_at'],
+      ),
+    );
+  }
+
+  @override
+  $LocalCalendarNotesTable createAlias(String alias) {
+    return $LocalCalendarNotesTable(attachedDatabase, alias);
+  }
+}
+
+class LocalCalendarNoteData extends DataClass
+    implements Insertable<LocalCalendarNoteData> {
+  final String id;
+  final String userId;
+  final int ethiopianYear;
+  final int ethiopianMonth;
+  final int ethiopianDay;
+  final DateTime gregorianDate;
+  final String? title;
+  final String? content;
+  final bool hasReminder;
+  final DateTime? reminderDateTime;
+  final bool reminderNotified;
+  final String reminderRepeat;
+  final int? reminderEthiopianMonth;
+  final int? reminderEthiopianDay;
+  final int? reminderHour;
+  final int? reminderMinute;
+  final String reminderTimezone;
+  final DateTime? reminderNextOccurrence;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isSynced;
+  final bool isPendingDelete;
+  final DateTime? lastSyncedAt;
+  const LocalCalendarNoteData({
+    required this.id,
+    required this.userId,
+    required this.ethiopianYear,
+    required this.ethiopianMonth,
+    required this.ethiopianDay,
+    required this.gregorianDate,
+    this.title,
+    this.content,
+    required this.hasReminder,
+    this.reminderDateTime,
+    required this.reminderNotified,
+    required this.reminderRepeat,
+    this.reminderEthiopianMonth,
+    this.reminderEthiopianDay,
+    this.reminderHour,
+    this.reminderMinute,
+    required this.reminderTimezone,
+    this.reminderNextOccurrence,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isSynced,
+    required this.isPendingDelete,
+    this.lastSyncedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['ethiopian_year'] = Variable<int>(ethiopianYear);
+    map['ethiopian_month'] = Variable<int>(ethiopianMonth);
+    map['ethiopian_day'] = Variable<int>(ethiopianDay);
+    map['gregorian_date'] = Variable<DateTime>(gregorianDate);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || content != null) {
+      map['content'] = Variable<String>(content);
+    }
+    map['has_reminder'] = Variable<bool>(hasReminder);
+    if (!nullToAbsent || reminderDateTime != null) {
+      map['reminder_date_time'] = Variable<DateTime>(reminderDateTime);
+    }
+    map['reminder_notified'] = Variable<bool>(reminderNotified);
+    map['reminder_repeat'] = Variable<String>(reminderRepeat);
+    if (!nullToAbsent || reminderEthiopianMonth != null) {
+      map['reminder_ethiopian_month'] = Variable<int>(reminderEthiopianMonth);
+    }
+    if (!nullToAbsent || reminderEthiopianDay != null) {
+      map['reminder_ethiopian_day'] = Variable<int>(reminderEthiopianDay);
+    }
+    if (!nullToAbsent || reminderHour != null) {
+      map['reminder_hour'] = Variable<int>(reminderHour);
+    }
+    if (!nullToAbsent || reminderMinute != null) {
+      map['reminder_minute'] = Variable<int>(reminderMinute);
+    }
+    map['reminder_timezone'] = Variable<String>(reminderTimezone);
+    if (!nullToAbsent || reminderNextOccurrence != null) {
+      map['reminder_next_occurrence'] = Variable<DateTime>(
+        reminderNextOccurrence,
+      );
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_synced'] = Variable<bool>(isSynced);
+    map['is_pending_delete'] = Variable<bool>(isPendingDelete);
+    if (!nullToAbsent || lastSyncedAt != null) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    }
+    return map;
+  }
+
+  LocalCalendarNotesCompanion toCompanion(bool nullToAbsent) {
+    return LocalCalendarNotesCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      ethiopianYear: Value(ethiopianYear),
+      ethiopianMonth: Value(ethiopianMonth),
+      ethiopianDay: Value(ethiopianDay),
+      gregorianDate: Value(gregorianDate),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      content: content == null && nullToAbsent
+          ? const Value.absent()
+          : Value(content),
+      hasReminder: Value(hasReminder),
+      reminderDateTime: reminderDateTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderDateTime),
+      reminderNotified: Value(reminderNotified),
+      reminderRepeat: Value(reminderRepeat),
+      reminderEthiopianMonth: reminderEthiopianMonth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderEthiopianMonth),
+      reminderEthiopianDay: reminderEthiopianDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderEthiopianDay),
+      reminderHour: reminderHour == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderHour),
+      reminderMinute: reminderMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderMinute),
+      reminderTimezone: Value(reminderTimezone),
+      reminderNextOccurrence: reminderNextOccurrence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderNextOccurrence),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isSynced: Value(isSynced),
+      isPendingDelete: Value(isPendingDelete),
+      lastSyncedAt: lastSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncedAt),
+    );
+  }
+
+  factory LocalCalendarNoteData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalCalendarNoteData(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      ethiopianYear: serializer.fromJson<int>(json['ethiopianYear']),
+      ethiopianMonth: serializer.fromJson<int>(json['ethiopianMonth']),
+      ethiopianDay: serializer.fromJson<int>(json['ethiopianDay']),
+      gregorianDate: serializer.fromJson<DateTime>(json['gregorianDate']),
+      title: serializer.fromJson<String?>(json['title']),
+      content: serializer.fromJson<String?>(json['content']),
+      hasReminder: serializer.fromJson<bool>(json['hasReminder']),
+      reminderDateTime: serializer.fromJson<DateTime?>(
+        json['reminderDateTime'],
+      ),
+      reminderNotified: serializer.fromJson<bool>(json['reminderNotified']),
+      reminderRepeat: serializer.fromJson<String>(json['reminderRepeat']),
+      reminderEthiopianMonth: serializer.fromJson<int?>(
+        json['reminderEthiopianMonth'],
+      ),
+      reminderEthiopianDay: serializer.fromJson<int?>(
+        json['reminderEthiopianDay'],
+      ),
+      reminderHour: serializer.fromJson<int?>(json['reminderHour']),
+      reminderMinute: serializer.fromJson<int?>(json['reminderMinute']),
+      reminderTimezone: serializer.fromJson<String>(json['reminderTimezone']),
+      reminderNextOccurrence: serializer.fromJson<DateTime?>(
+        json['reminderNextOccurrence'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+      isPendingDelete: serializer.fromJson<bool>(json['isPendingDelete']),
+      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'ethiopianYear': serializer.toJson<int>(ethiopianYear),
+      'ethiopianMonth': serializer.toJson<int>(ethiopianMonth),
+      'ethiopianDay': serializer.toJson<int>(ethiopianDay),
+      'gregorianDate': serializer.toJson<DateTime>(gregorianDate),
+      'title': serializer.toJson<String?>(title),
+      'content': serializer.toJson<String?>(content),
+      'hasReminder': serializer.toJson<bool>(hasReminder),
+      'reminderDateTime': serializer.toJson<DateTime?>(reminderDateTime),
+      'reminderNotified': serializer.toJson<bool>(reminderNotified),
+      'reminderRepeat': serializer.toJson<String>(reminderRepeat),
+      'reminderEthiopianMonth': serializer.toJson<int?>(reminderEthiopianMonth),
+      'reminderEthiopianDay': serializer.toJson<int?>(reminderEthiopianDay),
+      'reminderHour': serializer.toJson<int?>(reminderHour),
+      'reminderMinute': serializer.toJson<int?>(reminderMinute),
+      'reminderTimezone': serializer.toJson<String>(reminderTimezone),
+      'reminderNextOccurrence': serializer.toJson<DateTime?>(
+        reminderNextOccurrence,
+      ),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+      'isPendingDelete': serializer.toJson<bool>(isPendingDelete),
+      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
+    };
+  }
+
+  LocalCalendarNoteData copyWith({
+    String? id,
+    String? userId,
+    int? ethiopianYear,
+    int? ethiopianMonth,
+    int? ethiopianDay,
+    DateTime? gregorianDate,
+    Value<String?> title = const Value.absent(),
+    Value<String?> content = const Value.absent(),
+    bool? hasReminder,
+    Value<DateTime?> reminderDateTime = const Value.absent(),
+    bool? reminderNotified,
+    String? reminderRepeat,
+    Value<int?> reminderEthiopianMonth = const Value.absent(),
+    Value<int?> reminderEthiopianDay = const Value.absent(),
+    Value<int?> reminderHour = const Value.absent(),
+    Value<int?> reminderMinute = const Value.absent(),
+    String? reminderTimezone,
+    Value<DateTime?> reminderNextOccurrence = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isSynced,
+    bool? isPendingDelete,
+    Value<DateTime?> lastSyncedAt = const Value.absent(),
+  }) => LocalCalendarNoteData(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    ethiopianYear: ethiopianYear ?? this.ethiopianYear,
+    ethiopianMonth: ethiopianMonth ?? this.ethiopianMonth,
+    ethiopianDay: ethiopianDay ?? this.ethiopianDay,
+    gregorianDate: gregorianDate ?? this.gregorianDate,
+    title: title.present ? title.value : this.title,
+    content: content.present ? content.value : this.content,
+    hasReminder: hasReminder ?? this.hasReminder,
+    reminderDateTime: reminderDateTime.present
+        ? reminderDateTime.value
+        : this.reminderDateTime,
+    reminderNotified: reminderNotified ?? this.reminderNotified,
+    reminderRepeat: reminderRepeat ?? this.reminderRepeat,
+    reminderEthiopianMonth: reminderEthiopianMonth.present
+        ? reminderEthiopianMonth.value
+        : this.reminderEthiopianMonth,
+    reminderEthiopianDay: reminderEthiopianDay.present
+        ? reminderEthiopianDay.value
+        : this.reminderEthiopianDay,
+    reminderHour: reminderHour.present ? reminderHour.value : this.reminderHour,
+    reminderMinute: reminderMinute.present
+        ? reminderMinute.value
+        : this.reminderMinute,
+    reminderTimezone: reminderTimezone ?? this.reminderTimezone,
+    reminderNextOccurrence: reminderNextOccurrence.present
+        ? reminderNextOccurrence.value
+        : this.reminderNextOccurrence,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isSynced: isSynced ?? this.isSynced,
+    isPendingDelete: isPendingDelete ?? this.isPendingDelete,
+    lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
+  );
+  LocalCalendarNoteData copyWithCompanion(LocalCalendarNotesCompanion data) {
+    return LocalCalendarNoteData(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      ethiopianYear: data.ethiopianYear.present
+          ? data.ethiopianYear.value
+          : this.ethiopianYear,
+      ethiopianMonth: data.ethiopianMonth.present
+          ? data.ethiopianMonth.value
+          : this.ethiopianMonth,
+      ethiopianDay: data.ethiopianDay.present
+          ? data.ethiopianDay.value
+          : this.ethiopianDay,
+      gregorianDate: data.gregorianDate.present
+          ? data.gregorianDate.value
+          : this.gregorianDate,
+      title: data.title.present ? data.title.value : this.title,
+      content: data.content.present ? data.content.value : this.content,
+      hasReminder: data.hasReminder.present
+          ? data.hasReminder.value
+          : this.hasReminder,
+      reminderDateTime: data.reminderDateTime.present
+          ? data.reminderDateTime.value
+          : this.reminderDateTime,
+      reminderNotified: data.reminderNotified.present
+          ? data.reminderNotified.value
+          : this.reminderNotified,
+      reminderRepeat: data.reminderRepeat.present
+          ? data.reminderRepeat.value
+          : this.reminderRepeat,
+      reminderEthiopianMonth: data.reminderEthiopianMonth.present
+          ? data.reminderEthiopianMonth.value
+          : this.reminderEthiopianMonth,
+      reminderEthiopianDay: data.reminderEthiopianDay.present
+          ? data.reminderEthiopianDay.value
+          : this.reminderEthiopianDay,
+      reminderHour: data.reminderHour.present
+          ? data.reminderHour.value
+          : this.reminderHour,
+      reminderMinute: data.reminderMinute.present
+          ? data.reminderMinute.value
+          : this.reminderMinute,
+      reminderTimezone: data.reminderTimezone.present
+          ? data.reminderTimezone.value
+          : this.reminderTimezone,
+      reminderNextOccurrence: data.reminderNextOccurrence.present
+          ? data.reminderNextOccurrence.value
+          : this.reminderNextOccurrence,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      isPendingDelete: data.isPendingDelete.present
+          ? data.isPendingDelete.value
+          : this.isPendingDelete,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarNoteData(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('ethiopianYear: $ethiopianYear, ')
+          ..write('ethiopianMonth: $ethiopianMonth, ')
+          ..write('ethiopianDay: $ethiopianDay, ')
+          ..write('gregorianDate: $gregorianDate, ')
+          ..write('title: $title, ')
+          ..write('content: $content, ')
+          ..write('hasReminder: $hasReminder, ')
+          ..write('reminderDateTime: $reminderDateTime, ')
+          ..write('reminderNotified: $reminderNotified, ')
+          ..write('reminderRepeat: $reminderRepeat, ')
+          ..write('reminderEthiopianMonth: $reminderEthiopianMonth, ')
+          ..write('reminderEthiopianDay: $reminderEthiopianDay, ')
+          ..write('reminderHour: $reminderHour, ')
+          ..write('reminderMinute: $reminderMinute, ')
+          ..write('reminderTimezone: $reminderTimezone, ')
+          ..write('reminderNextOccurrence: $reminderNextOccurrence, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isPendingDelete: $isPendingDelete, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    userId,
+    ethiopianYear,
+    ethiopianMonth,
+    ethiopianDay,
+    gregorianDate,
+    title,
+    content,
+    hasReminder,
+    reminderDateTime,
+    reminderNotified,
+    reminderRepeat,
+    reminderEthiopianMonth,
+    reminderEthiopianDay,
+    reminderHour,
+    reminderMinute,
+    reminderTimezone,
+    reminderNextOccurrence,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+    isPendingDelete,
+    lastSyncedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalCalendarNoteData &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.ethiopianYear == this.ethiopianYear &&
+          other.ethiopianMonth == this.ethiopianMonth &&
+          other.ethiopianDay == this.ethiopianDay &&
+          other.gregorianDate == this.gregorianDate &&
+          other.title == this.title &&
+          other.content == this.content &&
+          other.hasReminder == this.hasReminder &&
+          other.reminderDateTime == this.reminderDateTime &&
+          other.reminderNotified == this.reminderNotified &&
+          other.reminderRepeat == this.reminderRepeat &&
+          other.reminderEthiopianMonth == this.reminderEthiopianMonth &&
+          other.reminderEthiopianDay == this.reminderEthiopianDay &&
+          other.reminderHour == this.reminderHour &&
+          other.reminderMinute == this.reminderMinute &&
+          other.reminderTimezone == this.reminderTimezone &&
+          other.reminderNextOccurrence == this.reminderNextOccurrence &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isSynced == this.isSynced &&
+          other.isPendingDelete == this.isPendingDelete &&
+          other.lastSyncedAt == this.lastSyncedAt);
+}
+
+class LocalCalendarNotesCompanion
+    extends UpdateCompanion<LocalCalendarNoteData> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<int> ethiopianYear;
+  final Value<int> ethiopianMonth;
+  final Value<int> ethiopianDay;
+  final Value<DateTime> gregorianDate;
+  final Value<String?> title;
+  final Value<String?> content;
+  final Value<bool> hasReminder;
+  final Value<DateTime?> reminderDateTime;
+  final Value<bool> reminderNotified;
+  final Value<String> reminderRepeat;
+  final Value<int?> reminderEthiopianMonth;
+  final Value<int?> reminderEthiopianDay;
+  final Value<int?> reminderHour;
+  final Value<int?> reminderMinute;
+  final Value<String> reminderTimezone;
+  final Value<DateTime?> reminderNextOccurrence;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isSynced;
+  final Value<bool> isPendingDelete;
+  final Value<DateTime?> lastSyncedAt;
+  final Value<int> rowid;
+  const LocalCalendarNotesCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.ethiopianYear = const Value.absent(),
+    this.ethiopianMonth = const Value.absent(),
+    this.ethiopianDay = const Value.absent(),
+    this.gregorianDate = const Value.absent(),
+    this.title = const Value.absent(),
+    this.content = const Value.absent(),
+    this.hasReminder = const Value.absent(),
+    this.reminderDateTime = const Value.absent(),
+    this.reminderNotified = const Value.absent(),
+    this.reminderRepeat = const Value.absent(),
+    this.reminderEthiopianMonth = const Value.absent(),
+    this.reminderEthiopianDay = const Value.absent(),
+    this.reminderHour = const Value.absent(),
+    this.reminderMinute = const Value.absent(),
+    this.reminderTimezone = const Value.absent(),
+    this.reminderNextOccurrence = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.isPendingDelete = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalCalendarNotesCompanion.insert({
+    required String id,
+    required String userId,
+    required int ethiopianYear,
+    required int ethiopianMonth,
+    required int ethiopianDay,
+    required DateTime gregorianDate,
+    this.title = const Value.absent(),
+    this.content = const Value.absent(),
+    this.hasReminder = const Value.absent(),
+    this.reminderDateTime = const Value.absent(),
+    this.reminderNotified = const Value.absent(),
+    this.reminderRepeat = const Value.absent(),
+    this.reminderEthiopianMonth = const Value.absent(),
+    this.reminderEthiopianDay = const Value.absent(),
+    this.reminderHour = const Value.absent(),
+    this.reminderMinute = const Value.absent(),
+    this.reminderTimezone = const Value.absent(),
+    this.reminderNextOccurrence = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.isPendingDelete = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       ethiopianYear = Value(ethiopianYear),
+       ethiopianMonth = Value(ethiopianMonth),
+       ethiopianDay = Value(ethiopianDay),
+       gregorianDate = Value(gregorianDate),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<LocalCalendarNoteData> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<int>? ethiopianYear,
+    Expression<int>? ethiopianMonth,
+    Expression<int>? ethiopianDay,
+    Expression<DateTime>? gregorianDate,
+    Expression<String>? title,
+    Expression<String>? content,
+    Expression<bool>? hasReminder,
+    Expression<DateTime>? reminderDateTime,
+    Expression<bool>? reminderNotified,
+    Expression<String>? reminderRepeat,
+    Expression<int>? reminderEthiopianMonth,
+    Expression<int>? reminderEthiopianDay,
+    Expression<int>? reminderHour,
+    Expression<int>? reminderMinute,
+    Expression<String>? reminderTimezone,
+    Expression<DateTime>? reminderNextOccurrence,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isSynced,
+    Expression<bool>? isPendingDelete,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (ethiopianYear != null) 'ethiopian_year': ethiopianYear,
+      if (ethiopianMonth != null) 'ethiopian_month': ethiopianMonth,
+      if (ethiopianDay != null) 'ethiopian_day': ethiopianDay,
+      if (gregorianDate != null) 'gregorian_date': gregorianDate,
+      if (title != null) 'title': title,
+      if (content != null) 'content': content,
+      if (hasReminder != null) 'has_reminder': hasReminder,
+      if (reminderDateTime != null) 'reminder_date_time': reminderDateTime,
+      if (reminderNotified != null) 'reminder_notified': reminderNotified,
+      if (reminderRepeat != null) 'reminder_repeat': reminderRepeat,
+      if (reminderEthiopianMonth != null)
+        'reminder_ethiopian_month': reminderEthiopianMonth,
+      if (reminderEthiopianDay != null)
+        'reminder_ethiopian_day': reminderEthiopianDay,
+      if (reminderHour != null) 'reminder_hour': reminderHour,
+      if (reminderMinute != null) 'reminder_minute': reminderMinute,
+      if (reminderTimezone != null) 'reminder_timezone': reminderTimezone,
+      if (reminderNextOccurrence != null)
+        'reminder_next_occurrence': reminderNextOccurrence,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (isPendingDelete != null) 'is_pending_delete': isPendingDelete,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalCalendarNotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<int>? ethiopianYear,
+    Value<int>? ethiopianMonth,
+    Value<int>? ethiopianDay,
+    Value<DateTime>? gregorianDate,
+    Value<String?>? title,
+    Value<String?>? content,
+    Value<bool>? hasReminder,
+    Value<DateTime?>? reminderDateTime,
+    Value<bool>? reminderNotified,
+    Value<String>? reminderRepeat,
+    Value<int?>? reminderEthiopianMonth,
+    Value<int?>? reminderEthiopianDay,
+    Value<int?>? reminderHour,
+    Value<int?>? reminderMinute,
+    Value<String>? reminderTimezone,
+    Value<DateTime?>? reminderNextOccurrence,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isSynced,
+    Value<bool>? isPendingDelete,
+    Value<DateTime?>? lastSyncedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalCalendarNotesCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      ethiopianYear: ethiopianYear ?? this.ethiopianYear,
+      ethiopianMonth: ethiopianMonth ?? this.ethiopianMonth,
+      ethiopianDay: ethiopianDay ?? this.ethiopianDay,
+      gregorianDate: gregorianDate ?? this.gregorianDate,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      hasReminder: hasReminder ?? this.hasReminder,
+      reminderDateTime: reminderDateTime ?? this.reminderDateTime,
+      reminderNotified: reminderNotified ?? this.reminderNotified,
+      reminderRepeat: reminderRepeat ?? this.reminderRepeat,
+      reminderEthiopianMonth:
+          reminderEthiopianMonth ?? this.reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay ?? this.reminderEthiopianDay,
+      reminderHour: reminderHour ?? this.reminderHour,
+      reminderMinute: reminderMinute ?? this.reminderMinute,
+      reminderTimezone: reminderTimezone ?? this.reminderTimezone,
+      reminderNextOccurrence:
+          reminderNextOccurrence ?? this.reminderNextOccurrence,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isSynced: isSynced ?? this.isSynced,
+      isPendingDelete: isPendingDelete ?? this.isPendingDelete,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (ethiopianYear.present) {
+      map['ethiopian_year'] = Variable<int>(ethiopianYear.value);
+    }
+    if (ethiopianMonth.present) {
+      map['ethiopian_month'] = Variable<int>(ethiopianMonth.value);
+    }
+    if (ethiopianDay.present) {
+      map['ethiopian_day'] = Variable<int>(ethiopianDay.value);
+    }
+    if (gregorianDate.present) {
+      map['gregorian_date'] = Variable<DateTime>(gregorianDate.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (hasReminder.present) {
+      map['has_reminder'] = Variable<bool>(hasReminder.value);
+    }
+    if (reminderDateTime.present) {
+      map['reminder_date_time'] = Variable<DateTime>(reminderDateTime.value);
+    }
+    if (reminderNotified.present) {
+      map['reminder_notified'] = Variable<bool>(reminderNotified.value);
+    }
+    if (reminderRepeat.present) {
+      map['reminder_repeat'] = Variable<String>(reminderRepeat.value);
+    }
+    if (reminderEthiopianMonth.present) {
+      map['reminder_ethiopian_month'] = Variable<int>(
+        reminderEthiopianMonth.value,
+      );
+    }
+    if (reminderEthiopianDay.present) {
+      map['reminder_ethiopian_day'] = Variable<int>(reminderEthiopianDay.value);
+    }
+    if (reminderHour.present) {
+      map['reminder_hour'] = Variable<int>(reminderHour.value);
+    }
+    if (reminderMinute.present) {
+      map['reminder_minute'] = Variable<int>(reminderMinute.value);
+    }
+    if (reminderTimezone.present) {
+      map['reminder_timezone'] = Variable<String>(reminderTimezone.value);
+    }
+    if (reminderNextOccurrence.present) {
+      map['reminder_next_occurrence'] = Variable<DateTime>(
+        reminderNextOccurrence.value,
+      );
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (isPendingDelete.present) {
+      map['is_pending_delete'] = Variable<bool>(isPendingDelete.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarNotesCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('ethiopianYear: $ethiopianYear, ')
+          ..write('ethiopianMonth: $ethiopianMonth, ')
+          ..write('ethiopianDay: $ethiopianDay, ')
+          ..write('gregorianDate: $gregorianDate, ')
+          ..write('title: $title, ')
+          ..write('content: $content, ')
+          ..write('hasReminder: $hasReminder, ')
+          ..write('reminderDateTime: $reminderDateTime, ')
+          ..write('reminderNotified: $reminderNotified, ')
+          ..write('reminderRepeat: $reminderRepeat, ')
+          ..write('reminderEthiopianMonth: $reminderEthiopianMonth, ')
+          ..write('reminderEthiopianDay: $reminderEthiopianDay, ')
+          ..write('reminderHour: $reminderHour, ')
+          ..write('reminderMinute: $reminderMinute, ')
+          ..write('reminderTimezone: $reminderTimezone, ')
+          ..write('reminderNextOccurrence: $reminderNextOccurrence, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isPendingDelete: $isPendingDelete, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalCalendarNoteMediaTable extends LocalCalendarNoteMedia
+    with TableInfo<$LocalCalendarNoteMediaTable, LocalCalendarNoteMediaData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalCalendarNoteMediaTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileIdMeta = const VerificationMeta('fileId');
+  @override
+  late final GeneratedColumn<String> fileId = GeneratedColumn<String>(
+    'file_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _orderMeta = const VerificationMeta('order');
+  @override
+  late final GeneratedColumn<int> order = GeneratedColumn<int>(
+    'order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _captionMeta = const VerificationMeta(
+    'caption',
+  );
+  @override
+  late final GeneratedColumn<String> caption = GeneratedColumn<String>(
+    'caption',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fileUrlMeta = const VerificationMeta(
+    'fileUrl',
+  );
+  @override
+  late final GeneratedColumn<String> fileUrl = GeneratedColumn<String>(
+    'file_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fileSizeMeta = const VerificationMeta(
+    'fileSize',
+  );
+  @override
+  late final GeneratedColumn<int> fileSize = GeneratedColumn<int>(
+    'file_size',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isPendingDeleteMeta = const VerificationMeta(
+    'isPendingDelete',
+  );
+  @override
+  late final GeneratedColumn<bool> isPendingDelete = GeneratedColumn<bool>(
+    'is_pending_delete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_pending_delete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    noteId,
+    fileId,
+    order,
+    caption,
+    fileUrl,
+    fileName,
+    mimeType,
+    fileSize,
+    createdAt,
+    isSynced,
+    isPendingDelete,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_calendar_note_media';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalCalendarNoteMediaData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('file_id')) {
+      context.handle(
+        _fileIdMeta,
+        fileId.isAcceptableOrUnknown(data['file_id']!, _fileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileIdMeta);
+    }
+    if (data.containsKey('order')) {
+      context.handle(
+        _orderMeta,
+        order.isAcceptableOrUnknown(data['order']!, _orderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderMeta);
+    }
+    if (data.containsKey('caption')) {
+      context.handle(
+        _captionMeta,
+        caption.isAcceptableOrUnknown(data['caption']!, _captionMeta),
+      );
+    }
+    if (data.containsKey('file_url')) {
+      context.handle(
+        _fileUrlMeta,
+        fileUrl.isAcceptableOrUnknown(data['file_url']!, _fileUrlMeta),
+      );
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    }
+    if (data.containsKey('file_size')) {
+      context.handle(
+        _fileSizeMeta,
+        fileSize.isAcceptableOrUnknown(data['file_size']!, _fileSizeMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    if (data.containsKey('is_pending_delete')) {
+      context.handle(
+        _isPendingDeleteMeta,
+        isPendingDelete.isAcceptableOrUnknown(
+          data['is_pending_delete']!,
+          _isPendingDeleteMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalCalendarNoteMediaData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalCalendarNoteMediaData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      fileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_id'],
+      )!,
+      order: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}order'],
+      )!,
+      caption: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}caption'],
+      ),
+      fileUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_url'],
+      ),
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      ),
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      ),
+      fileSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}file_size'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+      isPendingDelete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_pending_delete'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalCalendarNoteMediaTable createAlias(String alias) {
+    return $LocalCalendarNoteMediaTable(attachedDatabase, alias);
+  }
+}
+
+class LocalCalendarNoteMediaData extends DataClass
+    implements Insertable<LocalCalendarNoteMediaData> {
+  final String id;
+  final String noteId;
+  final String fileId;
+  final int order;
+  final String? caption;
+  final String? fileUrl;
+  final String? fileName;
+  final String? mimeType;
+  final int? fileSize;
+  final DateTime createdAt;
+  final bool isSynced;
+  final bool isPendingDelete;
+  const LocalCalendarNoteMediaData({
+    required this.id,
+    required this.noteId,
+    required this.fileId,
+    required this.order,
+    this.caption,
+    this.fileUrl,
+    this.fileName,
+    this.mimeType,
+    this.fileSize,
+    required this.createdAt,
+    required this.isSynced,
+    required this.isPendingDelete,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['note_id'] = Variable<String>(noteId);
+    map['file_id'] = Variable<String>(fileId);
+    map['order'] = Variable<int>(order);
+    if (!nullToAbsent || caption != null) {
+      map['caption'] = Variable<String>(caption);
+    }
+    if (!nullToAbsent || fileUrl != null) {
+      map['file_url'] = Variable<String>(fileUrl);
+    }
+    if (!nullToAbsent || fileName != null) {
+      map['file_name'] = Variable<String>(fileName);
+    }
+    if (!nullToAbsent || mimeType != null) {
+      map['mime_type'] = Variable<String>(mimeType);
+    }
+    if (!nullToAbsent || fileSize != null) {
+      map['file_size'] = Variable<int>(fileSize);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_synced'] = Variable<bool>(isSynced);
+    map['is_pending_delete'] = Variable<bool>(isPendingDelete);
+    return map;
+  }
+
+  LocalCalendarNoteMediaCompanion toCompanion(bool nullToAbsent) {
+    return LocalCalendarNoteMediaCompanion(
+      id: Value(id),
+      noteId: Value(noteId),
+      fileId: Value(fileId),
+      order: Value(order),
+      caption: caption == null && nullToAbsent
+          ? const Value.absent()
+          : Value(caption),
+      fileUrl: fileUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileUrl),
+      fileName: fileName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileName),
+      mimeType: mimeType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mimeType),
+      fileSize: fileSize == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileSize),
+      createdAt: Value(createdAt),
+      isSynced: Value(isSynced),
+      isPendingDelete: Value(isPendingDelete),
+    );
+  }
+
+  factory LocalCalendarNoteMediaData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalCalendarNoteMediaData(
+      id: serializer.fromJson<String>(json['id']),
+      noteId: serializer.fromJson<String>(json['noteId']),
+      fileId: serializer.fromJson<String>(json['fileId']),
+      order: serializer.fromJson<int>(json['order']),
+      caption: serializer.fromJson<String?>(json['caption']),
+      fileUrl: serializer.fromJson<String?>(json['fileUrl']),
+      fileName: serializer.fromJson<String?>(json['fileName']),
+      mimeType: serializer.fromJson<String?>(json['mimeType']),
+      fileSize: serializer.fromJson<int?>(json['fileSize']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+      isPendingDelete: serializer.fromJson<bool>(json['isPendingDelete']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'noteId': serializer.toJson<String>(noteId),
+      'fileId': serializer.toJson<String>(fileId),
+      'order': serializer.toJson<int>(order),
+      'caption': serializer.toJson<String?>(caption),
+      'fileUrl': serializer.toJson<String?>(fileUrl),
+      'fileName': serializer.toJson<String?>(fileName),
+      'mimeType': serializer.toJson<String?>(mimeType),
+      'fileSize': serializer.toJson<int?>(fileSize),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+      'isPendingDelete': serializer.toJson<bool>(isPendingDelete),
+    };
+  }
+
+  LocalCalendarNoteMediaData copyWith({
+    String? id,
+    String? noteId,
+    String? fileId,
+    int? order,
+    Value<String?> caption = const Value.absent(),
+    Value<String?> fileUrl = const Value.absent(),
+    Value<String?> fileName = const Value.absent(),
+    Value<String?> mimeType = const Value.absent(),
+    Value<int?> fileSize = const Value.absent(),
+    DateTime? createdAt,
+    bool? isSynced,
+    bool? isPendingDelete,
+  }) => LocalCalendarNoteMediaData(
+    id: id ?? this.id,
+    noteId: noteId ?? this.noteId,
+    fileId: fileId ?? this.fileId,
+    order: order ?? this.order,
+    caption: caption.present ? caption.value : this.caption,
+    fileUrl: fileUrl.present ? fileUrl.value : this.fileUrl,
+    fileName: fileName.present ? fileName.value : this.fileName,
+    mimeType: mimeType.present ? mimeType.value : this.mimeType,
+    fileSize: fileSize.present ? fileSize.value : this.fileSize,
+    createdAt: createdAt ?? this.createdAt,
+    isSynced: isSynced ?? this.isSynced,
+    isPendingDelete: isPendingDelete ?? this.isPendingDelete,
+  );
+  LocalCalendarNoteMediaData copyWithCompanion(
+    LocalCalendarNoteMediaCompanion data,
+  ) {
+    return LocalCalendarNoteMediaData(
+      id: data.id.present ? data.id.value : this.id,
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      fileId: data.fileId.present ? data.fileId.value : this.fileId,
+      order: data.order.present ? data.order.value : this.order,
+      caption: data.caption.present ? data.caption.value : this.caption,
+      fileUrl: data.fileUrl.present ? data.fileUrl.value : this.fileUrl,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      fileSize: data.fileSize.present ? data.fileSize.value : this.fileSize,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      isPendingDelete: data.isPendingDelete.present
+          ? data.isPendingDelete.value
+          : this.isPendingDelete,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarNoteMediaData(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('fileId: $fileId, ')
+          ..write('order: $order, ')
+          ..write('caption: $caption, ')
+          ..write('fileUrl: $fileUrl, ')
+          ..write('fileName: $fileName, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isPendingDelete: $isPendingDelete')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    noteId,
+    fileId,
+    order,
+    caption,
+    fileUrl,
+    fileName,
+    mimeType,
+    fileSize,
+    createdAt,
+    isSynced,
+    isPendingDelete,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalCalendarNoteMediaData &&
+          other.id == this.id &&
+          other.noteId == this.noteId &&
+          other.fileId == this.fileId &&
+          other.order == this.order &&
+          other.caption == this.caption &&
+          other.fileUrl == this.fileUrl &&
+          other.fileName == this.fileName &&
+          other.mimeType == this.mimeType &&
+          other.fileSize == this.fileSize &&
+          other.createdAt == this.createdAt &&
+          other.isSynced == this.isSynced &&
+          other.isPendingDelete == this.isPendingDelete);
+}
+
+class LocalCalendarNoteMediaCompanion
+    extends UpdateCompanion<LocalCalendarNoteMediaData> {
+  final Value<String> id;
+  final Value<String> noteId;
+  final Value<String> fileId;
+  final Value<int> order;
+  final Value<String?> caption;
+  final Value<String?> fileUrl;
+  final Value<String?> fileName;
+  final Value<String?> mimeType;
+  final Value<int?> fileSize;
+  final Value<DateTime> createdAt;
+  final Value<bool> isSynced;
+  final Value<bool> isPendingDelete;
+  final Value<int> rowid;
+  const LocalCalendarNoteMediaCompanion({
+    this.id = const Value.absent(),
+    this.noteId = const Value.absent(),
+    this.fileId = const Value.absent(),
+    this.order = const Value.absent(),
+    this.caption = const Value.absent(),
+    this.fileUrl = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.fileSize = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.isPendingDelete = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalCalendarNoteMediaCompanion.insert({
+    required String id,
+    required String noteId,
+    required String fileId,
+    required int order,
+    this.caption = const Value.absent(),
+    this.fileUrl = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.fileSize = const Value.absent(),
+    required DateTime createdAt,
+    this.isSynced = const Value.absent(),
+    this.isPendingDelete = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       noteId = Value(noteId),
+       fileId = Value(fileId),
+       order = Value(order),
+       createdAt = Value(createdAt);
+  static Insertable<LocalCalendarNoteMediaData> custom({
+    Expression<String>? id,
+    Expression<String>? noteId,
+    Expression<String>? fileId,
+    Expression<int>? order,
+    Expression<String>? caption,
+    Expression<String>? fileUrl,
+    Expression<String>? fileName,
+    Expression<String>? mimeType,
+    Expression<int>? fileSize,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isSynced,
+    Expression<bool>? isPendingDelete,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (noteId != null) 'note_id': noteId,
+      if (fileId != null) 'file_id': fileId,
+      if (order != null) 'order': order,
+      if (caption != null) 'caption': caption,
+      if (fileUrl != null) 'file_url': fileUrl,
+      if (fileName != null) 'file_name': fileName,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (fileSize != null) 'file_size': fileSize,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (isPendingDelete != null) 'is_pending_delete': isPendingDelete,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalCalendarNoteMediaCompanion copyWith({
+    Value<String>? id,
+    Value<String>? noteId,
+    Value<String>? fileId,
+    Value<int>? order,
+    Value<String?>? caption,
+    Value<String?>? fileUrl,
+    Value<String?>? fileName,
+    Value<String?>? mimeType,
+    Value<int?>? fileSize,
+    Value<DateTime>? createdAt,
+    Value<bool>? isSynced,
+    Value<bool>? isPendingDelete,
+    Value<int>? rowid,
+  }) {
+    return LocalCalendarNoteMediaCompanion(
+      id: id ?? this.id,
+      noteId: noteId ?? this.noteId,
+      fileId: fileId ?? this.fileId,
+      order: order ?? this.order,
+      caption: caption ?? this.caption,
+      fileUrl: fileUrl ?? this.fileUrl,
+      fileName: fileName ?? this.fileName,
+      mimeType: mimeType ?? this.mimeType,
+      fileSize: fileSize ?? this.fileSize,
+      createdAt: createdAt ?? this.createdAt,
+      isSynced: isSynced ?? this.isSynced,
+      isPendingDelete: isPendingDelete ?? this.isPendingDelete,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (fileId.present) {
+      map['file_id'] = Variable<String>(fileId.value);
+    }
+    if (order.present) {
+      map['order'] = Variable<int>(order.value);
+    }
+    if (caption.present) {
+      map['caption'] = Variable<String>(caption.value);
+    }
+    if (fileUrl.present) {
+      map['file_url'] = Variable<String>(fileUrl.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (fileSize.present) {
+      map['file_size'] = Variable<int>(fileSize.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (isPendingDelete.present) {
+      map['is_pending_delete'] = Variable<bool>(isPendingDelete.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarNoteMediaCompanion(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('fileId: $fileId, ')
+          ..write('order: $order, ')
+          ..write('caption: $caption, ')
+          ..write('fileUrl: $fileUrl, ')
+          ..write('fileName: $fileName, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isPendingDelete: $isPendingDelete, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SyncQueueTable extends SyncQueue
     with TableInfo<$SyncQueueTable, SyncQueueData> {
   @override
@@ -8451,6 +10567,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalSearchHistoryTable localSearchHistory =
       $LocalSearchHistoryTable(this);
   late final $LocalFeedItemsTable localFeedItems = $LocalFeedItemsTable(this);
+  late final $LocalCalendarNotesTable localCalendarNotes =
+      $LocalCalendarNotesTable(this);
+  late final $LocalCalendarNoteMediaTable localCalendarNoteMedia =
+      $LocalCalendarNoteMediaTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   late final UsersDao usersDao = UsersDao(this as AppDatabase);
   late final VideosDao videosDao = VideosDao(this as AppDatabase);
@@ -8466,6 +10586,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final SearchHistoryDao searchHistoryDao = SearchHistoryDao(
     this as AppDatabase,
   );
+  late final CalendarNotesDao calendarNotesDao = CalendarNotesDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8479,6 +10602,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localWatchHistory,
     localSearchHistory,
     localFeedItems,
+    localCalendarNotes,
+    localCalendarNoteMedia,
     syncQueue,
   ];
 }
@@ -11996,6 +14121,966 @@ typedef $$LocalFeedItemsTableProcessedTableManager =
       LocalFeedItemData,
       PrefetchHooks Function()
     >;
+typedef $$LocalCalendarNotesTableCreateCompanionBuilder =
+    LocalCalendarNotesCompanion Function({
+      required String id,
+      required String userId,
+      required int ethiopianYear,
+      required int ethiopianMonth,
+      required int ethiopianDay,
+      required DateTime gregorianDate,
+      Value<String?> title,
+      Value<String?> content,
+      Value<bool> hasReminder,
+      Value<DateTime?> reminderDateTime,
+      Value<bool> reminderNotified,
+      Value<String> reminderRepeat,
+      Value<int?> reminderEthiopianMonth,
+      Value<int?> reminderEthiopianDay,
+      Value<int?> reminderHour,
+      Value<int?> reminderMinute,
+      Value<String> reminderTimezone,
+      Value<DateTime?> reminderNextOccurrence,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<bool> isPendingDelete,
+      Value<DateTime?> lastSyncedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalCalendarNotesTableUpdateCompanionBuilder =
+    LocalCalendarNotesCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<int> ethiopianYear,
+      Value<int> ethiopianMonth,
+      Value<int> ethiopianDay,
+      Value<DateTime> gregorianDate,
+      Value<String?> title,
+      Value<String?> content,
+      Value<bool> hasReminder,
+      Value<DateTime?> reminderDateTime,
+      Value<bool> reminderNotified,
+      Value<String> reminderRepeat,
+      Value<int?> reminderEthiopianMonth,
+      Value<int?> reminderEthiopianDay,
+      Value<int?> reminderHour,
+      Value<int?> reminderMinute,
+      Value<String> reminderTimezone,
+      Value<DateTime?> reminderNextOccurrence,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<bool> isPendingDelete,
+      Value<DateTime?> lastSyncedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalCalendarNotesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNotesTable> {
+  $$LocalCalendarNotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ethiopianYear => $composableBuilder(
+    column: $table.ethiopianYear,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ethiopianMonth => $composableBuilder(
+    column: $table.ethiopianMonth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ethiopianDay => $composableBuilder(
+    column: $table.ethiopianDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get gregorianDate => $composableBuilder(
+    column: $table.gregorianDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasReminder => $composableBuilder(
+    column: $table.hasReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reminderDateTime => $composableBuilder(
+    column: $table.reminderDateTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reminderNotified => $composableBuilder(
+    column: $table.reminderNotified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalCalendarNotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNotesTable> {
+  $$LocalCalendarNotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ethiopianYear => $composableBuilder(
+    column: $table.ethiopianYear,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ethiopianMonth => $composableBuilder(
+    column: $table.ethiopianMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ethiopianDay => $composableBuilder(
+    column: $table.ethiopianDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get gregorianDate => $composableBuilder(
+    column: $table.gregorianDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasReminder => $composableBuilder(
+    column: $table.hasReminder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reminderDateTime => $composableBuilder(
+    column: $table.reminderDateTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reminderNotified => $composableBuilder(
+    column: $table.reminderNotified,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalCalendarNotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNotesTable> {
+  $$LocalCalendarNotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get ethiopianYear => $composableBuilder(
+    column: $table.ethiopianYear,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ethiopianMonth => $composableBuilder(
+    column: $table.ethiopianMonth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ethiopianDay => $composableBuilder(
+    column: $table.ethiopianDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get gregorianDate => $composableBuilder(
+    column: $table.gregorianDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<bool> get hasReminder => $composableBuilder(
+    column: $table.hasReminder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reminderDateTime => $composableBuilder(
+    column: $table.reminderDateTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reminderNotified => $composableBuilder(
+    column: $table.reminderNotified,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderRepeat => $composableBuilder(
+    column: $table.reminderRepeat,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderEthiopianMonth => $composableBuilder(
+    column: $table.reminderEthiopianMonth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderEthiopianDay => $composableBuilder(
+    column: $table.reminderEthiopianDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderHour => $composableBuilder(
+    column: $table.reminderHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderMinute => $composableBuilder(
+    column: $table.reminderMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderTimezone => $composableBuilder(
+    column: $table.reminderTimezone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reminderNextOccurrence => $composableBuilder(
+    column: $table.reminderNextOccurrence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalCalendarNotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalCalendarNotesTable,
+          LocalCalendarNoteData,
+          $$LocalCalendarNotesTableFilterComposer,
+          $$LocalCalendarNotesTableOrderingComposer,
+          $$LocalCalendarNotesTableAnnotationComposer,
+          $$LocalCalendarNotesTableCreateCompanionBuilder,
+          $$LocalCalendarNotesTableUpdateCompanionBuilder,
+          (
+            LocalCalendarNoteData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalCalendarNotesTable,
+              LocalCalendarNoteData
+            >,
+          ),
+          LocalCalendarNoteData,
+          PrefetchHooks Function()
+        > {
+  $$LocalCalendarNotesTableTableManager(
+    _$AppDatabase db,
+    $LocalCalendarNotesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalCalendarNotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalCalendarNotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalCalendarNotesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> ethiopianYear = const Value.absent(),
+                Value<int> ethiopianMonth = const Value.absent(),
+                Value<int> ethiopianDay = const Value.absent(),
+                Value<DateTime> gregorianDate = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> content = const Value.absent(),
+                Value<bool> hasReminder = const Value.absent(),
+                Value<DateTime?> reminderDateTime = const Value.absent(),
+                Value<bool> reminderNotified = const Value.absent(),
+                Value<String> reminderRepeat = const Value.absent(),
+                Value<int?> reminderEthiopianMonth = const Value.absent(),
+                Value<int?> reminderEthiopianDay = const Value.absent(),
+                Value<int?> reminderHour = const Value.absent(),
+                Value<int?> reminderMinute = const Value.absent(),
+                Value<String> reminderTimezone = const Value.absent(),
+                Value<DateTime?> reminderNextOccurrence = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isPendingDelete = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarNotesCompanion(
+                id: id,
+                userId: userId,
+                ethiopianYear: ethiopianYear,
+                ethiopianMonth: ethiopianMonth,
+                ethiopianDay: ethiopianDay,
+                gregorianDate: gregorianDate,
+                title: title,
+                content: content,
+                hasReminder: hasReminder,
+                reminderDateTime: reminderDateTime,
+                reminderNotified: reminderNotified,
+                reminderRepeat: reminderRepeat,
+                reminderEthiopianMonth: reminderEthiopianMonth,
+                reminderEthiopianDay: reminderEthiopianDay,
+                reminderHour: reminderHour,
+                reminderMinute: reminderMinute,
+                reminderTimezone: reminderTimezone,
+                reminderNextOccurrence: reminderNextOccurrence,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                isPendingDelete: isPendingDelete,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required int ethiopianYear,
+                required int ethiopianMonth,
+                required int ethiopianDay,
+                required DateTime gregorianDate,
+                Value<String?> title = const Value.absent(),
+                Value<String?> content = const Value.absent(),
+                Value<bool> hasReminder = const Value.absent(),
+                Value<DateTime?> reminderDateTime = const Value.absent(),
+                Value<bool> reminderNotified = const Value.absent(),
+                Value<String> reminderRepeat = const Value.absent(),
+                Value<int?> reminderEthiopianMonth = const Value.absent(),
+                Value<int?> reminderEthiopianDay = const Value.absent(),
+                Value<int?> reminderHour = const Value.absent(),
+                Value<int?> reminderMinute = const Value.absent(),
+                Value<String> reminderTimezone = const Value.absent(),
+                Value<DateTime?> reminderNextOccurrence = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isPendingDelete = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarNotesCompanion.insert(
+                id: id,
+                userId: userId,
+                ethiopianYear: ethiopianYear,
+                ethiopianMonth: ethiopianMonth,
+                ethiopianDay: ethiopianDay,
+                gregorianDate: gregorianDate,
+                title: title,
+                content: content,
+                hasReminder: hasReminder,
+                reminderDateTime: reminderDateTime,
+                reminderNotified: reminderNotified,
+                reminderRepeat: reminderRepeat,
+                reminderEthiopianMonth: reminderEthiopianMonth,
+                reminderEthiopianDay: reminderEthiopianDay,
+                reminderHour: reminderHour,
+                reminderMinute: reminderMinute,
+                reminderTimezone: reminderTimezone,
+                reminderNextOccurrence: reminderNextOccurrence,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                isPendingDelete: isPendingDelete,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalCalendarNotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalCalendarNotesTable,
+      LocalCalendarNoteData,
+      $$LocalCalendarNotesTableFilterComposer,
+      $$LocalCalendarNotesTableOrderingComposer,
+      $$LocalCalendarNotesTableAnnotationComposer,
+      $$LocalCalendarNotesTableCreateCompanionBuilder,
+      $$LocalCalendarNotesTableUpdateCompanionBuilder,
+      (
+        LocalCalendarNoteData,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalCalendarNotesTable,
+          LocalCalendarNoteData
+        >,
+      ),
+      LocalCalendarNoteData,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalCalendarNoteMediaTableCreateCompanionBuilder =
+    LocalCalendarNoteMediaCompanion Function({
+      required String id,
+      required String noteId,
+      required String fileId,
+      required int order,
+      Value<String?> caption,
+      Value<String?> fileUrl,
+      Value<String?> fileName,
+      Value<String?> mimeType,
+      Value<int?> fileSize,
+      required DateTime createdAt,
+      Value<bool> isSynced,
+      Value<bool> isPendingDelete,
+      Value<int> rowid,
+    });
+typedef $$LocalCalendarNoteMediaTableUpdateCompanionBuilder =
+    LocalCalendarNoteMediaCompanion Function({
+      Value<String> id,
+      Value<String> noteId,
+      Value<String> fileId,
+      Value<int> order,
+      Value<String?> caption,
+      Value<String?> fileUrl,
+      Value<String?> fileName,
+      Value<String?> mimeType,
+      Value<int?> fileSize,
+      Value<DateTime> createdAt,
+      Value<bool> isSynced,
+      Value<bool> isPendingDelete,
+      Value<int> rowid,
+    });
+
+class $$LocalCalendarNoteMediaTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNoteMediaTable> {
+  $$LocalCalendarNoteMediaTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileId => $composableBuilder(
+    column: $table.fileId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get order => $composableBuilder(
+    column: $table.order,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get caption => $composableBuilder(
+    column: $table.caption,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileUrl => $composableBuilder(
+    column: $table.fileUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fileSize => $composableBuilder(
+    column: $table.fileSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalCalendarNoteMediaTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNoteMediaTable> {
+  $$LocalCalendarNoteMediaTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileId => $composableBuilder(
+    column: $table.fileId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get order => $composableBuilder(
+    column: $table.order,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get caption => $composableBuilder(
+    column: $table.caption,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileUrl => $composableBuilder(
+    column: $table.fileUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fileSize => $composableBuilder(
+    column: $table.fileSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalCalendarNoteMediaTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalCalendarNoteMediaTable> {
+  $$LocalCalendarNoteMediaTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get noteId =>
+      $composableBuilder(column: $table.noteId, builder: (column) => column);
+
+  GeneratedColumn<String> get fileId =>
+      $composableBuilder(column: $table.fileId, builder: (column) => column);
+
+  GeneratedColumn<int> get order =>
+      $composableBuilder(column: $table.order, builder: (column) => column);
+
+  GeneratedColumn<String> get caption =>
+      $composableBuilder(column: $table.caption, builder: (column) => column);
+
+  GeneratedColumn<String> get fileUrl =>
+      $composableBuilder(column: $table.fileUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get fileSize =>
+      $composableBuilder(column: $table.fileSize, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPendingDelete => $composableBuilder(
+    column: $table.isPendingDelete,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalCalendarNoteMediaTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalCalendarNoteMediaTable,
+          LocalCalendarNoteMediaData,
+          $$LocalCalendarNoteMediaTableFilterComposer,
+          $$LocalCalendarNoteMediaTableOrderingComposer,
+          $$LocalCalendarNoteMediaTableAnnotationComposer,
+          $$LocalCalendarNoteMediaTableCreateCompanionBuilder,
+          $$LocalCalendarNoteMediaTableUpdateCompanionBuilder,
+          (
+            LocalCalendarNoteMediaData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalCalendarNoteMediaTable,
+              LocalCalendarNoteMediaData
+            >,
+          ),
+          LocalCalendarNoteMediaData,
+          PrefetchHooks Function()
+        > {
+  $$LocalCalendarNoteMediaTableTableManager(
+    _$AppDatabase db,
+    $LocalCalendarNoteMediaTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalCalendarNoteMediaTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalCalendarNoteMediaTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalCalendarNoteMediaTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> noteId = const Value.absent(),
+                Value<String> fileId = const Value.absent(),
+                Value<int> order = const Value.absent(),
+                Value<String?> caption = const Value.absent(),
+                Value<String?> fileUrl = const Value.absent(),
+                Value<String?> fileName = const Value.absent(),
+                Value<String?> mimeType = const Value.absent(),
+                Value<int?> fileSize = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isPendingDelete = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarNoteMediaCompanion(
+                id: id,
+                noteId: noteId,
+                fileId: fileId,
+                order: order,
+                caption: caption,
+                fileUrl: fileUrl,
+                fileName: fileName,
+                mimeType: mimeType,
+                fileSize: fileSize,
+                createdAt: createdAt,
+                isSynced: isSynced,
+                isPendingDelete: isPendingDelete,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String noteId,
+                required String fileId,
+                required int order,
+                Value<String?> caption = const Value.absent(),
+                Value<String?> fileUrl = const Value.absent(),
+                Value<String?> fileName = const Value.absent(),
+                Value<String?> mimeType = const Value.absent(),
+                Value<int?> fileSize = const Value.absent(),
+                required DateTime createdAt,
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isPendingDelete = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarNoteMediaCompanion.insert(
+                id: id,
+                noteId: noteId,
+                fileId: fileId,
+                order: order,
+                caption: caption,
+                fileUrl: fileUrl,
+                fileName: fileName,
+                mimeType: mimeType,
+                fileSize: fileSize,
+                createdAt: createdAt,
+                isSynced: isSynced,
+                isPendingDelete: isPendingDelete,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalCalendarNoteMediaTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalCalendarNoteMediaTable,
+      LocalCalendarNoteMediaData,
+      $$LocalCalendarNoteMediaTableFilterComposer,
+      $$LocalCalendarNoteMediaTableOrderingComposer,
+      $$LocalCalendarNoteMediaTableAnnotationComposer,
+      $$LocalCalendarNoteMediaTableCreateCompanionBuilder,
+      $$LocalCalendarNoteMediaTableUpdateCompanionBuilder,
+      (
+        LocalCalendarNoteMediaData,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalCalendarNoteMediaTable,
+          LocalCalendarNoteMediaData
+        >,
+      ),
+      LocalCalendarNoteMediaData,
+      PrefetchHooks Function()
+    >;
 typedef $$SyncQueueTableCreateCompanionBuilder =
     SyncQueueCompanion Function({
       required String id,
@@ -12364,6 +15449,13 @@ class $AppDatabaseManager {
       $$LocalSearchHistoryTableTableManager(_db, _db.localSearchHistory);
   $$LocalFeedItemsTableTableManager get localFeedItems =>
       $$LocalFeedItemsTableTableManager(_db, _db.localFeedItems);
+  $$LocalCalendarNotesTableTableManager get localCalendarNotes =>
+      $$LocalCalendarNotesTableTableManager(_db, _db.localCalendarNotes);
+  $$LocalCalendarNoteMediaTableTableManager get localCalendarNoteMedia =>
+      $$LocalCalendarNoteMediaTableTableManager(
+        _db,
+        _db.localCalendarNoteMedia,
+      );
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
 }

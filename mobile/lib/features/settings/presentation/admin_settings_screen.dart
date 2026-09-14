@@ -1,67 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile/core/utils/localization_service.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
-import 'package:go_router/go_router.dart';
+// lib/features/settings/presentation/admin_settings_screen.dart
 
-class AdminSettingsScreen extends ConsumerWidget {
+import 'package:flutter/material.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_dashboard_screen.dart';
+
+/// Legacy shim directing to the complete Administration System
+class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tr = ref.watch(trProvider);
-    final user = ref.watch(authProvider).user;
-
-    // Safety check just in case route protection failed
-    if (user?.role != 'ADMIN' && user?.role != 'SUPER_ADMIN') {
-      return Scaffold(
-        appBar: AppBar(title: Text(tr('settings.admin'))),
-        body: Center(child: Text('${tr('state.error')} Access Denied.')),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('settings.admin')),
-        backgroundColor: Colors.red.shade900,
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.group),
-            title: Text(tr('settings.admin.users')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.gavel),
-            title: Text(tr('settings.admin.moderation')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/admin/moderation'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.flag_rounded, color: Colors.orange),
-            title: const Text('User Reports & Moderation'),
-            subtitle: const Text('Review spam, harassment, and ban accounts'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/admin/reports'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.groups_rounded),
-            title: const Text('Group Approvals'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/admin/groups'),
-          ),
-          if (user?.role == 'SUPER_ADMIN')
-            ListTile(
-              leading: const Icon(Icons.settings_applications),
-              title: Text(tr('settings.admin.system')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-        ],
-      ),
-    );
+  Widget build(BuildContext context) {
+    return const AdminDashboardScreen();
   }
 }

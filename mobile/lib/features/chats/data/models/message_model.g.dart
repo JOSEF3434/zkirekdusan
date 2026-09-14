@@ -6,9 +6,9 @@ part of 'message_model.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$MessageModelImpl _$$MessageModelImplFromJson(
+_MessageModel _$MessageModelFromJson(
   Map<String, dynamic> json,
-) => _$MessageModelImpl(
+) => _MessageModel(
   id: json['id'] as String,
   conversationId: json['conversationId'] as String,
   channelId: json['channelId'] as String?,
@@ -56,7 +56,7 @@ _$MessageModelImpl _$$MessageModelImplFromJson(
   updatedAt: DateTime.parse(json['updatedAt'] as String),
 );
 
-Map<String, dynamic> _$$MessageModelImplToJson(_$MessageModelImpl instance) =>
+Map<String, dynamic> _$MessageModelToJson(_MessageModel instance) =>
     <String, dynamic>{
       'id': instance.id,
       'conversationId': instance.conversationId,
@@ -79,45 +79,43 @@ Map<String, dynamic> _$$MessageModelImplToJson(_$MessageModelImpl instance) =>
       'updatedAt': instance.updatedAt.toIso8601String(),
     };
 
-_$MessageSenderModelImpl _$$MessageSenderModelImplFromJson(
+_MessageSenderModel _$MessageSenderModelFromJson(Map<String, dynamic> json) =>
+    _MessageSenderModel(
+      id: json['id'] as String,
+      username: json['username'] as String,
+      displayName: json['displayName'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
+    );
+
+Map<String, dynamic> _$MessageSenderModelToJson(_MessageSenderModel instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'username': instance.username,
+      'displayName': instance.displayName,
+      'avatarUrl': instance.avatarUrl,
+    };
+
+_MessageReplyModel _$MessageReplyModelFromJson(Map<String, dynamic> json) =>
+    _MessageReplyModel(
+      id: json['id'] as String,
+      content: json['content'] as String?,
+      type: json['type'] as String,
+      sender: MessageSenderModel.fromJson(
+        json['sender'] as Map<String, dynamic>,
+      ),
+    );
+
+Map<String, dynamic> _$MessageReplyModelToJson(_MessageReplyModel instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'content': instance.content,
+      'type': instance.type,
+      'sender': instance.sender,
+    };
+
+_MessageAttachmentModel _$MessageAttachmentModelFromJson(
   Map<String, dynamic> json,
-) => _$MessageSenderModelImpl(
-  id: json['id'] as String,
-  username: json['username'] as String,
-  displayName: json['displayName'] as String?,
-  avatarUrl: json['avatarUrl'] as String?,
-);
-
-Map<String, dynamic> _$$MessageSenderModelImplToJson(
-  _$MessageSenderModelImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'username': instance.username,
-  'displayName': instance.displayName,
-  'avatarUrl': instance.avatarUrl,
-};
-
-_$MessageReplyModelImpl _$$MessageReplyModelImplFromJson(
-  Map<String, dynamic> json,
-) => _$MessageReplyModelImpl(
-  id: json['id'] as String,
-  content: json['content'] as String?,
-  type: json['type'] as String,
-  sender: MessageSenderModel.fromJson(json['sender'] as Map<String, dynamic>),
-);
-
-Map<String, dynamic> _$$MessageReplyModelImplToJson(
-  _$MessageReplyModelImpl instance,
-) => <String, dynamic>{
-  'id': instance.id,
-  'content': instance.content,
-  'type': instance.type,
-  'sender': instance.sender,
-};
-
-_$MessageAttachmentModelImpl _$$MessageAttachmentModelImplFromJson(
-  Map<String, dynamic> json,
-) => _$MessageAttachmentModelImpl(
+) => _MessageAttachmentModel(
   fileId: json['fileId'] as String,
   url: json['url'] as String,
   fileType: json['fileType'] as String,
@@ -130,8 +128,8 @@ _$MessageAttachmentModelImpl _$$MessageAttachmentModelImplFromJson(
   thumbnailUrl: json['thumbnailUrl'] as String?,
 );
 
-Map<String, dynamic> _$$MessageAttachmentModelImplToJson(
-  _$MessageAttachmentModelImpl instance,
+Map<String, dynamic> _$MessageAttachmentModelToJson(
+  _MessageAttachmentModel instance,
 ) => <String, dynamic>{
   'fileId': instance.fileId,
   'url': instance.url,
@@ -145,25 +143,25 @@ Map<String, dynamic> _$$MessageAttachmentModelImplToJson(
   'thumbnailUrl': instance.thumbnailUrl,
 };
 
-_$MessageReactionModelImpl _$$MessageReactionModelImplFromJson(
+_MessageReactionModel _$MessageReactionModelFromJson(
   Map<String, dynamic> json,
-) => _$MessageReactionModelImpl(
+) => _MessageReactionModel(
   emoji: json['emoji'] as String,
   count: (json['count'] as num).toInt(),
   userIds: (json['userIds'] as List<dynamic>).map((e) => e as String).toList(),
 );
 
-Map<String, dynamic> _$$MessageReactionModelImplToJson(
-  _$MessageReactionModelImpl instance,
+Map<String, dynamic> _$MessageReactionModelToJson(
+  _MessageReactionModel instance,
 ) => <String, dynamic>{
   'emoji': instance.emoji,
   'count': instance.count,
   'userIds': instance.userIds,
 };
 
-_$MessageVoiceNoteModelImpl _$$MessageVoiceNoteModelImplFromJson(
+_MessageVoiceNoteModel _$MessageVoiceNoteModelFromJson(
   Map<String, dynamic> json,
-) => _$MessageVoiceNoteModelImpl(
+) => _MessageVoiceNoteModel(
   fileId: json['fileId'] as String,
   url: json['url'] as String,
   duration: (json['duration'] as num).toInt(),
@@ -172,8 +170,8 @@ _$MessageVoiceNoteModelImpl _$$MessageVoiceNoteModelImplFromJson(
       .toList(),
 );
 
-Map<String, dynamic> _$$MessageVoiceNoteModelImplToJson(
-  _$MessageVoiceNoteModelImpl instance,
+Map<String, dynamic> _$MessageVoiceNoteModelToJson(
+  _MessageVoiceNoteModel instance,
 ) => <String, dynamic>{
   'fileId': instance.fileId,
   'url': instance.url,
@@ -181,27 +179,26 @@ Map<String, dynamic> _$$MessageVoiceNoteModelImplToJson(
   'waveform': instance.waveform,
 };
 
-_$MessageForwardModelImpl _$$MessageForwardModelImplFromJson(
-  Map<String, dynamic> json,
-) => _$MessageForwardModelImpl(
-  originalMessageId: json['originalMessageId'] as String,
-  originalSender: MessageSenderModel.fromJson(
-    json['originalSender'] as Map<String, dynamic>,
-  ),
-  originalCreatedAt: DateTime.parse(json['originalCreatedAt'] as String),
-);
+_MessageForwardModel _$MessageForwardModelFromJson(Map<String, dynamic> json) =>
+    _MessageForwardModel(
+      originalMessageId: json['originalMessageId'] as String,
+      originalSender: MessageSenderModel.fromJson(
+        json['originalSender'] as Map<String, dynamic>,
+      ),
+      originalCreatedAt: DateTime.parse(json['originalCreatedAt'] as String),
+    );
 
-Map<String, dynamic> _$$MessageForwardModelImplToJson(
-  _$MessageForwardModelImpl instance,
+Map<String, dynamic> _$MessageForwardModelToJson(
+  _MessageForwardModel instance,
 ) => <String, dynamic>{
   'originalMessageId': instance.originalMessageId,
   'originalSender': instance.originalSender,
   'originalCreatedAt': instance.originalCreatedAt.toIso8601String(),
 };
 
-_$PaginatedMessagesModelImpl _$$PaginatedMessagesModelImplFromJson(
+_PaginatedMessagesModel _$PaginatedMessagesModelFromJson(
   Map<String, dynamic> json,
-) => _$PaginatedMessagesModelImpl(
+) => _PaginatedMessagesModel(
   data: (json['data'] as List<dynamic>)
       .map((e) => MessageModel.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -209,8 +206,8 @@ _$PaginatedMessagesModelImpl _$$PaginatedMessagesModelImplFromJson(
   hasMore: json['hasMore'] as bool? ?? false,
 );
 
-Map<String, dynamic> _$$PaginatedMessagesModelImplToJson(
-  _$PaginatedMessagesModelImpl instance,
+Map<String, dynamic> _$PaginatedMessagesModelToJson(
+  _PaginatedMessagesModel instance,
 ) => <String, dynamic>{
   'data': instance.data,
   'nextCursor': instance.nextCursor,

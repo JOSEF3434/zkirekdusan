@@ -5,7 +5,7 @@ part 'channel_playlist_dto.freezed.dart';
 part 'channel_playlist_dto.g.dart';
 
 @freezed
-class ChannelPlaylistItemDto with _$ChannelPlaylistItemDto {
+abstract class ChannelPlaylistItemDto with _$ChannelPlaylistItemDto {
   const factory ChannelPlaylistItemDto({
     required String id,
     required int order,
@@ -22,7 +22,7 @@ class ChannelPlaylistItemDto with _$ChannelPlaylistItemDto {
 }
 
 @freezed
-class ChannelPlaylistDto with _$ChannelPlaylistDto {
+abstract class ChannelPlaylistDto with _$ChannelPlaylistDto {
   const factory ChannelPlaylistDto({
     required String id,
     required String title,

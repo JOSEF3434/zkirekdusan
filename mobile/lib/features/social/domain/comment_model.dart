@@ -4,7 +4,7 @@ part 'comment_model.freezed.dart';
 part 'comment_model.g.dart';
 
 @freezed
-class CommentAuthorDto with _$CommentAuthorDto {
+abstract class CommentAuthorDto with _$CommentAuthorDto {
   const factory CommentAuthorDto({
     required String id,
     String? username,
@@ -17,7 +17,7 @@ class CommentAuthorDto with _$CommentAuthorDto {
 }
 
 @freezed
-class CommentResponseDto with _$CommentResponseDto {
+abstract class CommentResponseDto with _$CommentResponseDto {
   const factory CommentResponseDto({
     required String id,
     required String postId,
