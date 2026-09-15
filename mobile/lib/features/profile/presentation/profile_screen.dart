@@ -23,6 +23,7 @@ import 'package:mobile/features/stories/data/models/story_model.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -127,6 +128,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () => context.push('/search'),
+                ),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final perms = ref.watch(adminPermissionsProvider);
+                    if (!perms.hasAdminAccess) return const SizedBox.shrink();
+                    return IconButton(
+                      tooltip: tr('nav.admin_panel'),
+                      icon: const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        color: Color(0xFFFFB300),
+                      ),
+                      onPressed: () => context.push('/admin'),
+                    );
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings),

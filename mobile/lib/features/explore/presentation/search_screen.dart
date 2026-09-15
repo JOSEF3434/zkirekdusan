@@ -326,11 +326,34 @@ class _FilterChips extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: chips.map((chip) {
           final isSelected = searchState.type == chip.$1;
+          final theme = Theme.of(context);
+          final isDark = theme.brightness == Brightness.dark;
+          final textColor = isSelected
+              ? (isDark ? Colors.black87 : Colors.white)
+              : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87);
+
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(chip.$2),
+              label: Text(
+                chip.$2,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: textColor,
+                ),
+              ),
               selected: isSelected,
+              showCheckmark: false,
+              backgroundColor: isDark ? const Color(0xFF242424) : Colors.grey.shade200,
+              selectedColor: theme.colorScheme.primary,
+              side: BorderSide(
+                color: isSelected
+                    ? Colors.transparent
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.1)),
+              ),
               onSelected: (_) =>
                   ref.read(searchProvider.notifier).setType(chip.$1),
             ),

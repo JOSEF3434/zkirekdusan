@@ -1,12 +1,3 @@
-// lib/features/splash/presentation/providers/splash_provider.dart
-//
-// Synchronised splash gate:
-//   • SplashNotifier manages the "splash completed" flag.
-//   • Navigation is held until BOTH conditions are true:
-//       1. The minimum timer floor has elapsed (kSplashMinimumDuration).
-//       2. The SplashScreen explicitly signals that every visual animation
-//          has finished by calling SplashNotifier.signalAnimationsComplete().
-//   • This prevents premature navigation, race conditions, and double-splash.
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,13 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// transition begins.
 const Duration kSplashMinimumDuration = Duration(milliseconds: 8500);
 
+/// Overridable provider for the splash loading duration.
+/// Tests can override this with a shorter duration to avoid slow tests.
+final splashLoadingDurationProvider = Provider<Duration>(
+  (ref) => kSplashMinimumDuration,
+);
+
 class SplashNotifier extends StateNotifier<bool> {
   Timer? _timer;
   bool _timerDone = false;
   bool _animationsDone = false;
 
-  SplashNotifier() : super(false) {
-    _timer = Timer(kSplashMinimumDuration, () {
+  SplashNotifier(Duration duration) : super(false) {
+    _timer = Timer(duration, () {
       _timerDone = true;
       _timer = null;
       _tryComplete();
@@ -63,5 +60,5 @@ class SplashNotifier extends StateNotifier<bool> {
 
 /// Guards navigation: `true` only when the splash is fully done.
 final splashCompletedProvider = StateNotifierProvider<SplashNotifier, bool>(
-  (ref) => SplashNotifier(),
+  (ref) => SplashNotifier(ref.watch(splashLoadingDurationProvider)),
 );

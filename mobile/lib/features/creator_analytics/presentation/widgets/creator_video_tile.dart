@@ -1,6 +1,6 @@
 // lib/features/creator_analytics/presentation/widgets/creator_video_tile.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
 import 'package:mobile/features/creator_analytics/presentation/widgets/video_status_badge.dart';
@@ -57,7 +57,7 @@ class CreatorVideoTile extends StatelessWidget {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: video.thumbnailUrl != null
-                      ? CachedNetworkImage(
+                      ? AppNetworkImage(
                           imageUrl: video.thumbnailUrl!,
                           fit: BoxFit.cover,
                           errorWidget: (c, u, e) =>

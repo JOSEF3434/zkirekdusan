@@ -2,7 +2,7 @@
 // Card displayed in discovery lists / home "LIVE NOW" section.
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
@@ -133,7 +133,7 @@ class LiveCardWidget extends StatelessWidget {
         ClipRRect(
           borderRadius: borderRadius,
           child: stream.thumbnailUrl != null
-              ? CachedNetworkImage(
+              ? AppNetworkImage(
                   imageUrl: stream.thumbnailUrl!,
                   width: double.infinity,
                   height: height,
@@ -181,7 +181,7 @@ class LiveCardWidget extends StatelessWidget {
         CircleAvatar(
           radius: 12,
           backgroundImage: avatarUrl != null
-              ? CachedNetworkImageProvider(avatarUrl)
+              ? AppNetworkImage.provider(avatarUrl)
               : null,
           backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
           child: avatarUrl == null

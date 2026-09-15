@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/domain/entities/auth_user.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -13,7 +14,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = ref.watch(trProvider);
     final user = ref.watch(authProvider).user;
-    final isAdmin = user?.role == 'ADMIN' || user?.role == 'SUPER_ADMIN';
+    final perms = ref.watch(adminPermissionsProvider);
+    final isAdmin = perms.hasAdminAccess;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

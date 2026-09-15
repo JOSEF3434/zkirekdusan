@@ -14,6 +14,7 @@ import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -149,6 +150,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     if (isWideScreen) {
       final unreadCount = ref.watch(unreadNotificationCountProvider);
+      final adminPermissions = ref.watch(adminPermissionsProvider);
       final isDesktop = ResponsiveLayout.isDesktop(context);
 
       return Scaffold(
@@ -166,69 +168,89 @@ class _AppShellState extends ConsumerState<AppShell> {
                       : NavigationRailLabelType.all,
                   trailing: SizedBox(
                     width: isDesktop ? 220 : 64,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Divider(
-                          indent: isDesktop ? 16 : 8,
-                          endIndent: isDesktop ? 16 : 8,
-                          height: 16,
-                          thickness: 0.5,
-                          color: theme.dividerColor.withValues(alpha: 0.2),
-                        ),
-                        // 1. Notifications with Badge
-                        _RailActionButton(
-                          icon: Icons.notifications_outlined,
-                          selectedIcon: Icons.notifications,
-                          label: tr('nav.notifications'),
-                          isExtended: isDesktop,
-                          badgeCount: unreadCount > 0 ? unreadCount : null,
-                          onTap: () => context.push('/notifications'),
-                        ),
-                        // 2. Downloaded Videos
-                        _RailActionButton(
-                          icon: Icons.download_done_rounded,
-                          label: tr('nav.downloads'),
-                          isExtended: isDesktop,
-                          onTap: () => context.push('/library/downloads'),
-                        ),
-                        // 3. Watch History
-                        _RailActionButton(
-                          icon: Icons.history_rounded,
-                          label: tr('nav.history'),
-                          isExtended: isDesktop,
-                          onTap: () => context.push('/library/history'),
-                        ),
-                        // 4. Liked Videos
-                        _RailActionButton(
-                          icon: Icons.thumb_up_alt_outlined,
-                          label: tr('nav.liked'),
-                          isExtended: isDesktop,
-                          onTap: () => context.push('/library/liked'),
-                        ),
-                        // 5. Follow Channels
-                        _RailActionButton(
-                          icon: Icons.subscriptions_outlined,
-                          label: tr('nav.channels'),
-                          isExtended: isDesktop,
-                          onTap: () {
-                            final authUser = ref.read(authProvider).user;
-                            if (authUser != null) {
-                              context.push('/profile/${authUser.id}/following');
-                            } else {
-                              context.push('/explore');
-                            }
-                          },
-                        ),
-                        // 6. Cache & Storage
-                        _RailActionButton(
-                          icon: Icons.cleaning_services_outlined,
-                          label: tr('nav.cache_storage'),
-                          isExtended: isDesktop,
-                          onTap: () => _showCacheStorageDialog(context, ref),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Divider(
+                            indent: isDesktop ? 16 : 8,
+                            endIndent: isDesktop ? 16 : 8,
+                            height: 16,
+                            thickness: 0.5,
+                            color: theme.dividerColor.withValues(alpha: 0.2),
+                          ),
+                          // 1. Notifications with Badge
+                          _RailActionButton(
+                            icon: Icons.notifications_outlined,
+                            selectedIcon: Icons.notifications,
+                            label: tr('nav.notifications'),
+                            isExtended: isDesktop,
+                            badgeCount: unreadCount > 0 ? unreadCount : null,
+                            onTap: () => context.push('/notifications'),
+                          ),
+                          // 2. Downloaded Videos
+                          _RailActionButton(
+                            icon: Icons.download_done_rounded,
+                            label: tr('nav.downloads'),
+                            isExtended: isDesktop,
+                            onTap: () => context.push('/library/downloads'),
+                          ),
+                          // 3. Watch History
+                          _RailActionButton(
+                            icon: Icons.history_rounded,
+                            label: tr('nav.history'),
+                            isExtended: isDesktop,
+                            onTap: () => context.push('/library/history'),
+                          ),
+                          // 4. Liked Videos
+                          _RailActionButton(
+                            icon: Icons.thumb_up_alt_outlined,
+                            label: tr('nav.liked'),
+                            isExtended: isDesktop,
+                            onTap: () => context.push('/library/liked'),
+                          ),
+                          // 5. Follow Channels
+                          _RailActionButton(
+                            icon: Icons.subscriptions_outlined,
+                            label: tr('nav.channels'),
+                            isExtended: isDesktop,
+                            onTap: () {
+                              final authUser = ref.read(authProvider).user;
+                              if (authUser != null) {
+                                context.push('/profile/${authUser.id}/following');
+                              } else {
+                                context.push('/explore');
+                              }
+                            },
+                          ),
+                          // 6. Cache & Storage
+                          _RailActionButton(
+                            icon: Icons.cleaning_services_outlined,
+                            label: tr('nav.cache_storage'),
+                            isExtended: isDesktop,
+                            onTap: () => _showCacheStorageDialog(context, ref),
+                          ),
+                          // 7. Admin Panel (Super Admin or has admin permissions)
+                          if (adminPermissions.hasAdminAccess) ...[
+                            Divider(
+                              indent: isDesktop ? 16 : 8,
+                              endIndent: isDesktop ? 16 : 8,
+                              height: 16,
+                              thickness: 0.5,
+                              color: theme.dividerColor.withValues(alpha: 0.2),
+                            ),
+                            _RailActionButton(
+                              icon: Icons.admin_panel_settings_outlined,
+                              selectedIcon: Icons.admin_panel_settings,
+                              label: tr('nav.admin_panel'),
+                              isExtended: isDesktop,
+                              iconColor: const Color(0xFFFFB300),
+                              onTap: () => context.push('/admin'),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                        ],
+                      ),
                     ),
                   ),
                   destinations: [
@@ -519,6 +541,7 @@ class _RailActionButton extends StatelessWidget {
   final bool isExtended;
   final int? badgeCount;
   final VoidCallback onTap;
+  final Color? iconColor;
 
   const _RailActionButton({
     required this.icon,
@@ -527,16 +550,19 @@ class _RailActionButton extends StatelessWidget {
     required this.isExtended,
     this.badgeCount,
     required this.onTap,
+    this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final defaultColor = isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87;
+    final activeColor = iconColor ?? defaultColor;
     final iconWidget = Icon(
       icon,
       size: 22,
-      color: isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87,
+      color: activeColor,
     );
 
     final badgedIcon = badgeCount != null && badgeCount! > 0

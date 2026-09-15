@@ -20,8 +20,9 @@ import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -261,6 +262,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   Consumer(
                     builder: (context, ref, _) {
+                      final perms = ref.watch(adminPermissionsProvider);
+                      if (!perms.hasAdminAccess) return const SizedBox.shrink();
+                      return IconButton(
+                        tooltip: tr('nav.admin_panel'),
+                        icon: const Icon(
+                          Icons.admin_panel_settings_outlined,
+                          color: Color(0xFFFFB300),
+                        ),
+                        onPressed: () => context.push('/admin'),
+                      );
+                    },
+                  ),
+                  Consumer(
+                    builder: (context, ref, _) {
                       final auth = ref.watch(authProvider);
                       final isAuth = auth.status == AuthStatus.authenticated;
                       final profile = isAuth ? ref.watch(profileProvider).profile : null;
@@ -274,7 +289,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         icon: resolvedAvatar != null && resolvedAvatar.isNotEmpty
                             ? CircleAvatar(
                                 radius: 13,
-                                backgroundImage: CachedNetworkImageProvider(resolvedAvatar),
+                                backgroundImage: AppNetworkImage.provider(resolvedAvatar),
                                 backgroundColor:
                                     Theme.of(context).colorScheme.surfaceContainerHighest,
                               )
@@ -303,6 +318,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 bottom: TabBar(
                   controller: _tabController,
                   isScrollable: true,
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: theme.brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                  indicatorColor: theme.colorScheme.primary,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
                   tabs: [
                     Tab(text: tr('home.recommended')),
                     const Tab(text: 'Latest'),
@@ -482,6 +511,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildCategoryChips() {
+    final theme = Theme.of(context);
     final currentCategory = ref.watch(
       videoFeedProvider.select(
         (state) => state.valueOrNull?.category ?? VideoFeedCategory.recommended,
@@ -508,10 +538,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         itemBuilder: (context, index) {
           final cat = categories[index];
           final isSelected = currentCategory == cat;
+          final isDark = theme.brightness == Brightness.dark;
+
+          final textColor = isSelected
+              ? (isDark ? Colors.black87 : Colors.white)
+              : (isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87);
+
+          final chipBg = isSelected
+              ? theme.colorScheme.primary
+              : (isDark ? const Color(0xFF242424) : Colors.grey.shade200);
 
           return FilterChip(
             selected: isSelected,
-            label: Text(cat.label, style: const TextStyle(fontSize: 12)),
+            showCheckmark: false,
+            backgroundColor: chipBg,
+            selectedColor: theme.colorScheme.primary,
+            side: BorderSide(
+              color: isSelected
+                  ? Colors.transparent
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.15)
+                      : Colors.black.withValues(alpha: 0.1)),
+            ),
+            label: Text(
+              cat.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: textColor,
+              ),
+            ),
             onSelected: (_) {
               ref.read(videoFeedProvider.notifier).setCategory(cat);
             },

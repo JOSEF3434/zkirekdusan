@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/video_card.dart
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/widgets/like_button.dart';
@@ -84,7 +84,7 @@ class VideoCard extends StatelessWidget {
                       );
 
                       if (resolvedThumb != null && resolvedThumb.isNotEmpty) {
-                        return CachedNetworkImage(
+                        return AppNetworkImage(
                           imageUrl: resolvedThumb,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
@@ -172,7 +172,7 @@ class VideoCard extends StatelessWidget {
                   radius: isCompact ? 16 : 20,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage: video.author.avatarUrl != null
-                      ? CachedNetworkImageProvider(
+                      ? AppNetworkImage.provider(
                           _resolveUrl(video.author.avatarUrl)!)
                       : null,
                   child: video.author.avatarUrl == null

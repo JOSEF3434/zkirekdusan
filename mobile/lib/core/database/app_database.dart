@@ -174,12 +174,17 @@ class _SafeWebQueryExecutor extends QueryExecutor {
   TransactionExecutor beginTransaction() => _SafeWebTransactionExecutor();
 
   @override
+  TransactionExecutor beginExclusive() => _SafeWebTransactionExecutor();
+
+  @override
   Future<void> close() async {}
 }
 
 class _SafeWebTransactionExecutor extends _SafeWebQueryExecutor
     implements TransactionExecutor {
   @override
+  bool get supportsNestedTransactions => false;
+
   bool get completesWithCommit => true;
 
   @override

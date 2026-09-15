@@ -2,7 +2,7 @@
 // Reusable search result tiles for users, groups, streams, and skeleton states.
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
@@ -90,7 +90,7 @@ class SearchUserTile extends StatelessWidget {
         radius: 22,
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
         backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
-            ? CachedNetworkImageProvider(user.avatarUrl!)
+            ? AppNetworkImage.provider(user.avatarUrl!)
             : null,
         child: user.avatarUrl == null || user.avatarUrl!.isEmpty
             ? Text(
@@ -130,7 +130,7 @@ class SearchGroupTile extends StatelessWidget {
         radius: 22,
         backgroundColor: theme.colorScheme.primaryContainer,
         backgroundImage: group.avatarUrl != null && group.avatarUrl!.isNotEmpty
-            ? CachedNetworkImageProvider(group.avatarUrl!)
+            ? AppNetworkImage.provider(group.avatarUrl!)
             : null,
         child: group.avatarUrl == null || group.avatarUrl!.isEmpty
             ? const Icon(Icons.group_rounded)
@@ -170,7 +170,7 @@ class SearchChannelTile extends StatelessWidget {
         backgroundColor: theme.colorScheme.secondaryContainer,
         backgroundImage:
             channel.avatarUrl != null && channel.avatarUrl!.isNotEmpty
-                ? CachedNetworkImageProvider(channel.avatarUrl!)
+                ? AppNetworkImage.provider(channel.avatarUrl!)
                 : null,
         child: channel.avatarUrl == null || channel.avatarUrl!.isEmpty
             ? const Icon(Icons.tv_rounded)
@@ -214,7 +214,7 @@ class SearchReelTile extends StatelessWidget {
           height: 56,
           color: theme.colorScheme.surfaceContainerHighest,
           child: reel.thumbnailUrl != null && reel.thumbnailUrl!.isNotEmpty
-              ? CachedNetworkImage(
+              ? AppNetworkImage(
                   imageUrl: reel.thumbnailUrl!,
                   fit: BoxFit.cover,
                   errorWidget: (_, _, _) =>

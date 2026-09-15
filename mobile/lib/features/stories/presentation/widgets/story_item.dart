@@ -1,5 +1,5 @@
 // lib/features/stories/presentation/widgets/story_item.dart
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
@@ -65,7 +65,7 @@ class StoryItem extends StatelessWidget {
                                 null &&
                             MediaUrlResolver.resolve(group.owner.avatarUrl)!
                                 .isNotEmpty
-                        ? CachedNetworkImage(
+                        ? AppNetworkImage(
                             imageUrl: MediaUrlResolver.resolve(
                               group.owner.avatarUrl,
                             )!,

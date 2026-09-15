@@ -1,7 +1,7 @@
 // lib/features/groups/presentation/widgets/channel_video_card.dart
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/groups/domain/channel_video_dto.dart';
@@ -86,7 +86,7 @@ class ChannelVideoCard extends StatelessWidget {
                         hlsUrl: video.hlsUrl,
                       );
                       if (resolvedThumb != null && resolvedThumb.isNotEmpty) {
-                        return CachedNetworkImage(
+                        return AppNetworkImage(
                           imageUrl: resolvedThumb,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => _buildPlaceholder(theme),
