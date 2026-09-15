@@ -910,8 +910,7 @@ class AdminRepository {
       );
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (_) {
-      // Optimistically succeed if backend endpoint not yet implemented
-      return true;
+      return false;
     }
   }
 

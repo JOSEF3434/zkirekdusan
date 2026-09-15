@@ -15,6 +15,7 @@ import { AdminLiveController } from './admin-live.controller.js';
 import { AdminChatController } from './admin-chat.controller.js';
 import { AdminNotificationsController } from './admin-notifications.controller.js';
 import { AdminStorageController } from './admin-storage.controller.js';
+import { AdminRbacController } from './admin-rbac.controller.js';
 
 // Services
 import { AdminAuditService } from './services/admin-audit.service.js';
@@ -27,6 +28,7 @@ import { AdminLiveService } from './services/admin-live.service.js';
 import { AdminChatService } from './services/admin-chat.service.js';
 import { AdminNotificationsService } from './services/admin-notifications.service.js';
 import { AdminStorageService } from './services/admin-storage.service.js';
+import { AdminRbacService } from './services/admin-rbac.service.js';
 
 @Module({
   imports: [PrismaModule],
@@ -44,6 +46,7 @@ import { AdminStorageService } from './services/admin-storage.service.js';
     AdminChatController,
     AdminNotificationsController,
     AdminStorageController,
+    AdminRbacController,
   ],
   providers: [
     AdminAuditService,
@@ -56,6 +59,7 @@ import { AdminStorageService } from './services/admin-storage.service.js';
     AdminChatService,
     AdminNotificationsService,
     AdminStorageService,
+    AdminRbacService,
   ],
   exports: [
     AdminAuditService,
@@ -68,6 +72,7 @@ import { AdminStorageService } from './services/admin-storage.service.js';
     AdminChatService,
     AdminNotificationsService,
     AdminStorageService,
+    AdminRbacService,
   ],
 })
 export class AdminModule {}
