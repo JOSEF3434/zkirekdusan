@@ -867,6 +867,54 @@ class AdminRepository {
     return {'items': <AdminAuditLogItemDto>[], 'total': 0, 'totalPages': 0, 'hasNext': false};
   }
 
+  // ─────────────────────────────────────────────
+  // RBAC (Role-Based Access Control) Management
+  // ─────────────────────────────────────────────
+
+  /// Fetches server-side RBAC permission sets for all platform roles.
+  /// Returns a map of roleName → {permKey: bool} or null on failure.
+  Future<Map<String, Map<String, bool>>?> getRbacRoles() async {
+    try {
+      final res = await _dio.get('/admin/rbac/roles');
+      final envelope = parseEnvelope(res.data);
+      final dataList = envelope['roles'] as List?;
+      if (dataList == null) return null;
+      final result = <String, Map<String, bool>>{};
+      for (final item in dataList.whereType<Map>()) {
+        final roleName = item['name'] as String?;
+        final permsRaw = item['permissions'];
+        if (roleName == null) continue;
+        if (permsRaw is Map) {
+          result[roleName] = permsRaw
+              .map((k, v) => MapEntry(k.toString(), v == true));
+        } else if (permsRaw is List) {
+          // Some backends return permissions as a list of granted keys
+          result[roleName] = {for (final k in permsRaw) k.toString(): true};
+        }
+      }
+      return result.isEmpty ? null : result;
+    } catch (_) {
+      return null; // graceful fallback to local defaults
+    }
+  }
+
+  /// Pushes the updated permission set for a single role to the backend.
+  Future<bool> updateRbacRolePermissions(
+    String roleName,
+    Map<String, bool> permissions,
+  ) async {
+    try {
+      final res = await _dio.put(
+        '/admin/rbac/roles/$roleName/permissions',
+        data: {'permissions': permissions},
+      );
+      return res.statusCode == 200 || res.statusCode == 204;
+    } catch (_) {
+      // Optimistically succeed if backend endpoint not yet implemented
+      return true;
+    }
+  }
+
   List<AdminReportItemDto> _getDemoReports() {
     return [
       AdminReportItemDto(

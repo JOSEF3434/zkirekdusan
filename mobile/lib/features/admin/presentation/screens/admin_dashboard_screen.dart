@@ -81,6 +81,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                   data: (data) => _buildMetricsGrid(context, ref, data, perms),
                 ),
 
+                if (perms.isAdmin) ...[
+                  const SizedBox(height: 20),
+                  const _RbacEntryCard(),
+                ],
+
                 const SizedBox(height: 24),
 
                 // Management Sections
@@ -242,6 +247,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/roles'),
                   ),
+                if (perms.isAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.key_rounded, color: Color(0xFF9C27B0)),
+                    title: const Text('RBAC Permissions'),
+                    subtitle: const Text('Fine-grained access control matrix for all roles'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin/rbac'),
+                  ),
                 if (perms.canManageGroups)
                   ListTile(
                     leading: const Icon(Icons.groups_rounded, color: Colors.deepPurple),
@@ -358,7 +371,245 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
+
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RBAC Entry Card — premium gradient card for the dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RbacEntryCard extends StatefulWidget {
+  const _RbacEntryCard();
+
+  @override
+  State<_RbacEntryCard> createState() => _RbacEntryCardState();
+}
+
+class _RbacEntryCardState extends State<_RbacEntryCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 140),
+      lowerBound: 0.0,
+      upperBound: 0.02,
+    );
+    _scaleAnim =
+        Tween<double>(begin: 1.0, end: 0.97).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(_) => _controller.forward();
+  void _onTapUp(_) {
+    _controller.reverse();
+    context.push('/admin/rbac');
+  }
+
+  void _onTapCancel() => _controller.reverse();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedBuilder(
+      animation: _scaleAnim,
+      builder: (_, child) =>
+          Transform.scale(scale: _scaleAnim.value, child: child),
+      child: GestureDetector(
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF7B1FA2),
+                Color(0xFF512DA8),
+                Color(0xFF303F9F),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7B1FA2).withValues(alpha: isDark ? 0.45 : 0.3),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Decorative circles
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: 60,
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.04),
+                  ),
+                ),
+              ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    // Icon
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.key_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Text
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'RBAC Management',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Advanced',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Control permissions for each platform role. Grant or revoke access to any resource or action.',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12.5,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // Feature chips
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: const [
+                              _RbacFeatureChip(label: '5 Roles'),
+                              _RbacFeatureChip(label: '28 Permissions'),
+                              _RbacFeatureChip(label: 'Live Editing'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Arrow
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RbacFeatureChip extends StatelessWidget {
+  final String label;
+  const _RbacFeatureChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
