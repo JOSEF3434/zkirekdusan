@@ -18,6 +18,7 @@ import 'package:mobile/core/providers/database_provider.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/storage/video_source_resolver.dart';
 import 'package:mobile/core/storage/cache_manager.dart';
+import 'package:mobile/core/storage/web_download_helper.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 
 enum VideoDownloadStatus {
@@ -128,7 +129,10 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   }
 
   Future<void> _init() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      await _loadFromWebStorage();
+      return;
+    }
 
     // 1. Migrate legacy downloads from SharedPreferences into Drift if any
     await _migrateLegacyMetadata();
@@ -159,6 +163,38 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         debugPrint('[VideoDownloadManager] Watch downloaded videos error: $err');
       },
     );
+  }
+
+  Future<void> _loadFromWebStorage() async {
+    try {
+      final raw = await _legacyStorage.getToken(key: _kLegacyDownloadsKey);
+      if (raw != null && raw.isNotEmpty) {
+        final Map<String, dynamic> decoded = jsonDecode(raw);
+        final Map<String, DownloadMetadata> map = {};
+        for (final entry in decoded.entries) {
+          if (entry.value is Map) {
+            map[entry.key] = DownloadMetadata.fromJson(
+              Map<String, dynamic>.from(entry.value as Map),
+            );
+          }
+        }
+        state = state.copyWith(downloads: map);
+      }
+    } catch (e) {
+      debugPrint('[VideoDownloadManager] Load web downloads note: $e');
+    }
+  }
+
+  Future<void> _persistWebDownloads(
+      Map<String, DownloadMetadata> downloads) async {
+    try {
+      await _legacyStorage.saveToken(
+        jsonEncode(downloads.map((k, v) => MapEntry(k, v.toJson()))),
+        key: _kLegacyDownloadsKey,
+      );
+    } catch (e) {
+      debugPrint('[VideoDownloadManager] Persist web downloads error: $e');
+    }
   }
 
   Future<void> _migrateLegacyMetadata() async {
@@ -197,7 +233,10 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   }
 
   Future<void> _loadFromDatabase() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      await _loadFromWebStorage();
+      return;
+    }
     try {
       final videos = await _db.videosDao.getDownloadedVideos();
       final Map<String, DownloadMetadata> map = {};
@@ -241,11 +280,12 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     if (state.downloading.contains(videoId)) return;
 
     if (kIsWeb) {
-      state = state.copyWith(
-        errors: {
-          ...state.errors,
-          videoId: 'Downloading to local storage is not supported on Web.',
-        },
+      await _startWebDownload(
+        videoId: videoId,
+        url: url,
+        title: title,
+        thumbnailUrl: thumbnailUrl,
+        quality: quality,
       );
       return;
     }
@@ -425,11 +465,119 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       paused: {...state.paused}..remove(videoId),
       errors: {...state.errors, videoId: error},
     );
-    _db.videosDao.updateDownloadStatus(
-      videoId,
-      'failed',
-      error: error,
-    );
+    if (!kIsWeb) {
+      _db.videosDao.updateDownloadStatus(
+        videoId,
+        'failed',
+        error: error,
+      );
+    }
+  }
+
+  Future<void> _startWebDownload({
+    required String videoId,
+    required String url,
+    required String title,
+    String? thumbnailUrl,
+    String quality = '720p',
+  }) async {
+    if (!_connectivity.state.isOnline) {
+      state = state.copyWith(
+        errors: {...state.errors, videoId: 'No internet connection available.'},
+      );
+      return;
+    }
+
+    try {
+      final resolvedUrl = MediaUrlResolver.resolve(url);
+      if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
+        throw Exception('Invalid download URL: $url');
+      }
+
+      final String effectiveDownloadUrl;
+      if (MediaUrlResolver.isCloudinary(resolvedUrl)) {
+        effectiveDownloadUrl = MediaUrlResolver.toCloudinaryRaw(resolvedUrl);
+      } else if (resolvedUrl.endsWith('.m3u8')) {
+        effectiveDownloadUrl =
+            resolvedUrl.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
+      } else {
+        effectiveDownloadUrl = resolvedUrl;
+      }
+
+      final cancelToken = CancelToken();
+      _cancelTokens[videoId] = cancelToken;
+      _downloadTasks[videoId] = (
+        url: url,
+        title: title,
+        thumbnailUrl: thumbnailUrl,
+        quality: quality,
+      );
+
+      state = state.copyWith(
+        downloading: {...state.downloading, videoId},
+        paused: {...state.paused}..remove(videoId),
+        progress: {...state.progress, videoId: 0.0},
+        errors: {...state.errors}..remove(videoId),
+      );
+
+      final response = await _dio.get<List<int>>(
+        effectiveDownloadUrl,
+        cancelToken: cancelToken,
+        options: Options(responseType: ResponseType.bytes),
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            final p = received / total;
+            state = state.copyWith(
+              progress: {...state.progress, videoId: p},
+            );
+          }
+        },
+      );
+
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Downloaded video content is empty (0 bytes).');
+      }
+
+      String effectiveLocalPath = effectiveDownloadUrl;
+      final sanitizedTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final filename = '$sanitizedTitle-$quality.mp4';
+
+      WebDownloadHelper.triggerBrowserDownload(
+        bytes: bytes,
+        filename: filename,
+        onBlobCreated: (blobUrl) {
+          effectiveLocalPath = blobUrl;
+        },
+      );
+
+      final metadata = DownloadMetadata(
+        videoId: videoId,
+        title: title,
+        localPath: effectiveLocalPath,
+        thumbnailUrl: thumbnailUrl,
+        sizeBytes: bytes.length,
+        quality: quality,
+        status: VideoDownloadStatus.completed,
+      );
+
+      final updatedDownloads = {...state.downloads, videoId: metadata};
+      state = state.copyWith(
+        downloading: {...state.downloading}..remove(videoId),
+        paused: {...state.paused}..remove(videoId),
+        progress: {...state.progress, videoId: 1.0},
+        downloads: updatedDownloads,
+      );
+
+      await _persistWebDownloads(updatedDownloads);
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) return;
+      _handleDownloadError(videoId, e.message ?? e.toString());
+    } catch (e) {
+      _handleDownloadError(videoId, e.toString());
+    } finally {
+      _cancelTokens.remove(videoId);
+    }
   }
 
   /// Pauses an active download, preserving partial file on disk
@@ -445,10 +593,12 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       paused: {...state.paused, videoId},
     );
 
-    await _db.videosDao.updateDownloadStatus(
-      videoId,
-      'paused',
-    );
+    if (!kIsWeb) {
+      await _db.videosDao.updateDownloadStatus(
+        videoId,
+        'paused',
+      );
+    }
   }
 
   /// Resumes a paused or failed download
@@ -492,10 +642,12 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       errors: {...state.errors}..remove(videoId),
     );
 
-    await _db.videosDao.updateDownloadStatus(
-      videoId,
-      'cancelled',
-    );
+    if (!kIsWeb) {
+      await _db.videosDao.updateDownloadStatus(
+        videoId,
+        'cancelled',
+      );
+    }
   }
 
   /// Retries a failed download
@@ -505,27 +657,31 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
 
   /// Deletes a completed download from disk and updates DB
   Future<void> deleteDownload(String videoId) async {
-    if (kIsWeb) return;
-
     final meta = state.downloads[videoId];
     if (meta != null) {
-      try {
-        final file = File(meta.localPath);
-        if (await file.exists()) {
-          await file.delete();
-        }
-        final parentDir = file.parent;
-        if (await parentDir.exists()) {
-          await parentDir.delete(recursive: true);
-        }
-      } catch (_) {}
+      if (kIsWeb) {
+        WebDownloadHelper.revokeBlob(meta.localPath);
+      } else {
+        try {
+          final file = File(meta.localPath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+          final parentDir = file.parent;
+          if (await parentDir.exists()) {
+            await parentDir.delete(recursive: true);
+          }
+        } catch (_) {}
+      }
 
-      await _db.videosDao.updateDownloadStatus(
-        videoId,
-        'none',
-        localFilePath: null,
-        fileSizeBytes: 0,
-      );
+      if (!kIsWeb) {
+        await _db.videosDao.updateDownloadStatus(
+          videoId,
+          'none',
+          localFilePath: null,
+          fileSizeBytes: 0,
+        );
+      }
 
       final newDownloads = Map<String, DownloadMetadata>.from(state.downloads)
         ..remove(videoId);
@@ -541,6 +697,14 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           key: _kLegacyDownloadsKey,
         );
       } catch (_) {}
+    }
+  }
+
+  /// Deletes all completed downloads from storage and updates state.
+  Future<void> deleteAllDownloads() async {
+    final ids = state.downloads.keys.toList();
+    for (final id in ids) {
+      await deleteDownload(id);
     }
   }
 }

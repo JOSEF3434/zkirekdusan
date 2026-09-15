@@ -2,21 +2,21 @@
 // Advanced player with Cloudinary streaming, multi-URL fallback, and progress restore.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:mobile/core/storage/file_system.dart';
+import 'package:mobile/core/storage/secure_storage.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
-import 'package:mobile/features/player/data/player_repository.dart';
 import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
-
-import 'dart:convert';
-import 'dart:io';
-import 'package:mobile/core/storage/secure_storage.dart';
-import 'package:mobile/core/storage/file_system.dart';
-import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/features/player/data/player_repository.dart';
 
 class PlayerState {
   final VideoResponseDto? video;
@@ -217,11 +217,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       // Load local progress first for restore decision
       final localProgress = _progressRepo.load(_videoId);
 
-      // Check offline downloads metadata
-      String? localFileUrl;
-      String? localFilePath;
+      // ── Offline download resolution ──────────────────────────────────────
+      // On native: look for local file path on disk.
+      // On web: look for stored blob URL in localStorage (persisted by DownloadService).
+      String? localFileUrl;   // file:// or blob: URL
+      String? localFilePath;  // native: raw filesystem path (null on web)
       String? offlineTitle;
       String? offlineThumbnail;
+
       final dlData = await _storage.getToken(key: 'offline_downloads');
       if (dlData != null) {
         try {
@@ -231,25 +234,34 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
             final localPath = item['localPath'] as String?;
             offlineTitle = item['title'] as String?;
             offlineThumbnail = item['thumbnailUrl'] as String?;
-            if (localPath != null &&
-                await FileSystemHelper.fileExists(localPath)) {
-              localFilePath = localPath;
-              localFileUrl = Uri.file(localPath).toString();
+
+            if (localPath != null && localPath.isNotEmpty) {
+              if (kIsWeb && localPath.startsWith('blob:')) {
+                // Web: blob URL is the playable source directly
+                localFileUrl = localPath;
+                // We don't set localFilePath on web — blob: is already a URL
+              } else if (!kIsWeb && await FileSystemHelper.fileExists(localPath)) {
+                localFilePath = localPath;
+                localFileUrl = Uri.file(localPath).toString();
+              }
             }
           }
         } catch (_) {}
       }
 
-      if (localFilePath == null) {
+      // Native fallback: read the on-disk metadata.json
+      if (!kIsWeb && localFilePath == null) {
         try {
           final docDir = await FileSystemHelper.getApplicationDocumentsPath();
           final metaFile = File('$docDir/videos/video_$_videoId/metadata.json');
           if (await metaFile.exists()) {
-            final Map<String, dynamic> decoded = jsonDecode(await metaFile.readAsString());
+            final Map<String, dynamic> decoded =
+                jsonDecode(await metaFile.readAsString());
             final localPath = decoded['localPath'] as String?;
             offlineTitle = decoded['title'] as String?;
             offlineThumbnail = decoded['thumbnailUrl'] as String?;
-            if (localPath != null && await FileSystemHelper.fileExists(localPath)) {
+            if (localPath != null &&
+                await FileSystemHelper.fileExists(localPath)) {
               localFilePath = localPath;
               localFileUrl = Uri.file(localPath).toString();
             }
@@ -312,15 +324,23 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       // Try candidates in order — stop at first success
       for (final url in candidateUrls) {
         try {
-          final isLocal = (localFilePath != null && (url == localFilePath || url == localFileUrl)) ||
-              url.startsWith('file://') ||
-              (!url.startsWith('http://') && !url.startsWith('https://'));
+          // A URL is a native local file if it has a local filesystem path
+          // OR starts with file://. Web blob: URLs are played via networkUrl.
+          final isNativeLocalFile = !kIsWeb &&
+              ((localFilePath != null &&
+                      (url == localFilePath || url == localFileUrl)) ||
+                  url.startsWith('file://') ||
+                  (!url.startsWith('http://') &&
+                      !url.startsWith('https://') &&
+                      !url.startsWith('blob:')));
 
           final VideoPlayerController ctrl;
-          if (isLocal) {
+          if (isNativeLocalFile) {
             final path = (localFilePath != null && url == localFilePath)
                 ? localFilePath
-                : (url.startsWith('file://') ? Uri.parse(url).toFilePath() : url);
+                : (url.startsWith('file://')
+                    ? Uri.parse(url).toFilePath()
+                    : url);
             ctrl = VideoPlayerController.file(
               File(path),
               videoPlayerOptions: VideoPlayerOptions(
@@ -403,8 +423,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           })
           .catchError((_) {});
 
+      // Offline if we played from a native local file or a web blob URL
       final isOffline = (localFilePath != null &&
-          (successUrl == localFilePath || successUrl == localFileUrl));
+              (successUrl == localFilePath || successUrl == localFileUrl)) ||
+          (kIsWeb &&
+              localFileUrl != null &&
+              localFileUrl.startsWith('blob:') &&
+              successUrl == localFileUrl);
 
       if (mounted) {
         state = state.copyWith(

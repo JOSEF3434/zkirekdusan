@@ -316,7 +316,7 @@ class AdminRepository {
     try {
       final res = await _dio.patch(
         '/admin/users/$id/status',
-        data: {'status': status, if (reason != null) 'reason': reason},
+        data: {'status': status, 'reason': ?reason},
       );
       return res.statusCode == 200;
     } catch (_) {
@@ -328,7 +328,7 @@ class AdminRepository {
     try {
       final res = await _dio.post(
         '/admin/users/$id/role',
-        data: {'roleName': roleName, if (reason != null) 'reason': reason},
+        data: {'roleName': roleName, 'reason': ?reason},
       );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
@@ -339,7 +339,7 @@ class AdminRepository {
   Future<bool> banUser(String userId, {String? reason}) async {
     final res = await _dio.post(
       '/admin/users/$userId/ban',
-      data: {if (reason != null) 'reason': reason},
+      data: {'reason': ?reason},
     );
     return res.statusCode == 200 || res.statusCode == 201;
   }
@@ -347,7 +347,7 @@ class AdminRepository {
   Future<bool> deactivateUser(String userId, {String? reason}) async {
     final res = await _dio.post(
       '/admin/users/$userId/deactivate',
-      data: {if (reason != null) 'reason': reason},
+      data: {'reason': ?reason},
     );
     return res.statusCode == 200 || res.statusCode == 201;
   }
@@ -442,7 +442,7 @@ class AdminRepository {
           'page': page,
           'limit': limit,
           if (search != null && search.isNotEmpty) 'search': search,
-          if (groupId != null) 'groupId': groupId,
+          'groupId': ?groupId,
         },
       );
       final parsed = parsePaginatedEnvelope(res.data);
@@ -469,7 +469,7 @@ class AdminRepository {
     try {
       final res = await _dio.delete(
         '/admin/channels/$channelId',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return res.statusCode == 200;
     } catch (_) {
@@ -481,7 +481,7 @@ class AdminRepository {
     try {
       final res = await _dio.post(
         '/admin/groups/$groupId/approve',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
@@ -498,7 +498,7 @@ class AdminRepository {
     try {
       final res = await _dio.post(
         '/admin/groups/$groupId/reject',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
@@ -513,7 +513,7 @@ class AdminRepository {
 
   Future<bool> suspendGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/groups/$groupId/suspend', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.post('/admin/groups/$groupId/suspend', data: {'reason': ?reason});
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -522,7 +522,7 @@ class AdminRepository {
 
   Future<bool> restoreGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/groups/$groupId/restore', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.post('/admin/groups/$groupId/restore', data: {'reason': ?reason});
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -531,7 +531,7 @@ class AdminRepository {
 
   Future<bool> deleteGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/groups/$groupId', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.delete('/admin/groups/$groupId', data: {'reason': ?reason});
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -574,7 +574,7 @@ class AdminRepository {
     try {
       final res = await _dio.post(
         '/admin/reports/$reportId/action',
-        data: {'action': action, if (note != null) 'note': note},
+        data: {'action': action, 'note': ?note},
       );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (e) {
@@ -615,7 +615,7 @@ class AdminRepository {
 
   Future<bool> deletePost(String id, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/content/posts/$id', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.delete('/admin/content/posts/$id', data: {'reason': ?reason});
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -651,7 +651,7 @@ class AdminRepository {
 
   Future<bool> deleteVideo(String id, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/content/videos/$id', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.delete('/admin/content/videos/$id', data: {'reason': ?reason});
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -691,7 +691,7 @@ class AdminRepository {
 
   Future<bool> terminateLiveStream(String id, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/live/$id/terminate', data: {if (reason != null) 'reason': reason});
+      final res = await _dio.post('/admin/live/$id/terminate', data: {'reason': ?reason});
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -769,7 +769,7 @@ class AdminRepository {
     try {
       final res = await _dio.delete(
         '/admin/chat/messages/$messageId',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return res.statusCode == 200;
     } catch (_) {
@@ -781,7 +781,7 @@ class AdminRepository {
     try {
       final res = await _dio.delete(
         '/admin/chat/conversations/$conversationId/purge',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return res.statusCode == 200;
     } catch (_) {
@@ -843,9 +843,9 @@ class AdminRepository {
         queryParameters: {
           'page': page,
           'limit': limit,
-          if (actorId != null) 'actorId': actorId,
-          if (action != null) 'action': action,
-          if (targetType != null) 'targetType': targetType,
+          'actorId': ?actorId,
+          'action': ?action,
+          'targetType': ?targetType,
         },
       );
       final parsed = parsePaginatedEnvelope(res.data);
