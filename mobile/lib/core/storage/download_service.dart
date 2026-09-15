@@ -128,6 +128,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   }
 
   Future<void> _init() async {
+    if (kIsWeb) return;
+
     // 1. Migrate legacy downloads from SharedPreferences into Drift if any
     await _migrateLegacyMetadata();
 
@@ -135,23 +137,28 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     await _loadFromDatabase();
 
     // 3. Listen for DB updates to localVideos
-    _db.videosDao.watchDownloadedVideos().listen((videos) {
-      final Map<String, DownloadMetadata> map = {};
-      for (final v in videos) {
-        if (v.localFilePath != null && v.localFilePath!.isNotEmpty) {
-          map[v.id] = DownloadMetadata(
-            videoId: v.id,
-            title: v.title,
-            localPath: v.localFilePath!,
-            thumbnailUrl: v.thumbnailUrl,
-            sizeBytes: v.fileSizeBytes,
-            quality: v.selectedQuality,
-            status: VideoDownloadStatus.completed,
-          );
+    _db.videosDao.watchDownloadedVideos().listen(
+      (videos) {
+        final Map<String, DownloadMetadata> map = {};
+        for (final v in videos) {
+          if (v.localFilePath != null && v.localFilePath!.isNotEmpty) {
+            map[v.id] = DownloadMetadata(
+              videoId: v.id,
+              title: v.title,
+              localPath: v.localFilePath!,
+              thumbnailUrl: v.thumbnailUrl,
+              sizeBytes: v.fileSizeBytes,
+              quality: v.selectedQuality,
+              status: VideoDownloadStatus.completed,
+            );
+          }
         }
-      }
-      state = state.copyWith(downloads: map);
-    });
+        state = state.copyWith(downloads: map);
+      },
+      onError: (err) {
+        debugPrint('[VideoDownloadManager] Watch downloaded videos error: $err');
+      },
+    );
   }
 
   Future<void> _migrateLegacyMetadata() async {
@@ -190,6 +197,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   }
 
   Future<void> _loadFromDatabase() async {
+    if (kIsWeb) return;
     try {
       final videos = await _db.videosDao.getDownloadedVideos();
       final Map<String, DownloadMetadata> map = {};

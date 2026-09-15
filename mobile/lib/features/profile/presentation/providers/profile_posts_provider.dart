@@ -55,13 +55,14 @@ class ProfilePostsNotifier extends StateNotifier<ProfilePostsState> {
     try {
       final response = await _dio.get(
         '/profiles/$_userId/posts',
-        queryParameters: {'page': 1, 'limit': 20},
+        queryParameters: {'page': 1, 'limit': 20, 'sortBy': 'createdAt', 'order': 'DESC'},
       );
       final envelope = parsePaginatedEnvelope(response.data);
       final rawItems = envelope['data'] as List<dynamic>;
       final posts = rawItems
           .map((json) => PostResponseDto.fromJson(json as Map<String, dynamic>))
           .toList();
+      posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       final meta = envelope['meta'] as Map<String, dynamic>;
       final hasNext = meta['hasNext'] as bool? ?? (posts.length >= 20);
@@ -85,7 +86,7 @@ class ProfilePostsNotifier extends StateNotifier<ProfilePostsState> {
       final nextPage = state.page + 1;
       final response = await _dio.get(
         '/profiles/$_userId/posts',
-        queryParameters: {'page': nextPage, 'limit': 20},
+        queryParameters: {'page': nextPage, 'limit': 20, 'sortBy': 'createdAt', 'order': 'DESC'},
       );
       final envelope = parsePaginatedEnvelope(response.data);
       final rawItems = envelope['data'] as List<dynamic>;
@@ -96,8 +97,11 @@ class ProfilePostsNotifier extends StateNotifier<ProfilePostsState> {
       final meta = envelope['meta'] as Map<String, dynamic>;
       final hasNext = meta['hasNext'] as bool? ?? (newPosts.length >= 20);
 
+      final combined = [...state.posts, ...newPosts];
+      combined.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
       state = state.copyWith(
-        posts: [...state.posts, ...newPosts],
+        posts: combined,
         isLoadingMore: false,
         page: nextPage,
         hasNextPage: hasNext,

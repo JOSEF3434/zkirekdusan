@@ -43,14 +43,14 @@ class VideoSourceResolver {
     String? remoteHlsOrVideoUrl,
   }) async {
     // 1. Check local database for completed download
-    try {
-      final localVideo = await _db.videosDao.getVideoById(videoId);
-      if (localVideo != null &&
-          localVideo.isDownloaded &&
-          localVideo.downloadStatus == 'completed' &&
-          localVideo.localFilePath != null &&
-          localVideo.localFilePath!.isNotEmpty) {
-        if (!kIsWeb) {
+    if (!kIsWeb) {
+      try {
+        final localVideo = await _db.videosDao.getVideoById(videoId);
+        if (localVideo != null &&
+            localVideo.isDownloaded &&
+            localVideo.downloadStatus == 'completed' &&
+            localVideo.localFilePath != null &&
+            localVideo.localFilePath!.isNotEmpty) {
           final file = File(localVideo.localFilePath!);
           if (await file.exists() && (await file.length()) > 0) {
             return ResolvedVideoSource(
@@ -59,9 +59,9 @@ class VideoSourceResolver {
             );
           }
         }
+      } catch (e) {
+        debugPrint('[VideoSourceResolver] Local video lookup error: $e');
       }
-    } catch (e) {
-      debugPrint('[VideoSourceResolver] Local video lookup error: $e');
     }
 
     // 2. Check network connectivity

@@ -91,6 +91,34 @@ class LiveStreamingRepository {
     }
   }
 
+  /// GET /streams/user/:userId — paginated list of all live streams created by a user.
+  Future<PaginatedStreams> getUserStreams(
+    String userId, {
+    int page = 1,
+    int limit = 50,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/streams/user/$userId',
+        queryParameters: {'page': page, 'limit': limit},
+        cancelToken: cancelToken,
+      );
+      return _parsePaginatedStreams(response.data);
+    } on DioException catch (e) {
+      // Fallback: If 404 or endpoint unavailable, attempt to combine public live & scheduled streams
+      try {
+        final live = await getLiveStreams(limit: 50, cancelToken: cancelToken);
+        final scheduled = await getScheduledStreams(limit: 50, cancelToken: cancelToken);
+        final combined = [...live.items, ...scheduled.items];
+        final filtered = combined.where((s) => s.createdById == userId).toList();
+        return PaginatedStreams(items: filtered);
+      } catch (_) {
+        throw AppException(_parseDioError(e));
+      }
+    }
+  }
+
   // ─── Broadcaster Operations ────────────────────────────────────────────────
 
   /// POST /video-channels/:channelId/streams

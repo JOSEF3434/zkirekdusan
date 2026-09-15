@@ -148,6 +148,27 @@ export class StreamsController {
     return this.liveStreamingService.getScheduledStreams(userId, page, limit);
   }
 
+  @Get('user/:userId')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all streams created by a user' })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getUserStreams(
+    @CurrentUser('sub') currentUserId: string | undefined,
+    @Param('userId') targetUserId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    return this.liveStreamingService.getUserStreams(
+      currentUserId,
+      targetUserId,
+      page,
+      limit,
+    );
+  }
+
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()

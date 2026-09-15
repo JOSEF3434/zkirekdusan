@@ -1,6 +1,7 @@
 // lib/features/profile/presentation/widgets/profile_posts_list.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/post_card.dart';
@@ -116,6 +117,14 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (widget.isMyProfile) ...[
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () => context.push('/upload'),
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('Create Post'),
+                ),
+              ],
             ],
           ),
         ),
@@ -133,7 +142,15 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
           itemCount: state.posts.length + (state.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index < state.posts.length) {
-              return PostCard(post: state.posts[index]);
+              return PostCard(
+                post: state.posts[index],
+                onPostDeleted: () => ref
+                    .read(profilePostsProvider(widget.userId).notifier)
+                    .refresh(),
+                onPostUpdated: () => ref
+                    .read(profilePostsProvider(widget.userId).notifier)
+                    .refresh(),
+              );
             } else {
               return const Padding(
                 padding: EdgeInsets.all(16.0),

@@ -217,7 +217,7 @@ class SearchReelTile extends StatelessWidget {
               ? CachedNetworkImage(
                   imageUrl: reel.thumbnailUrl!,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) =>
+                  errorWidget: (_, _, _) =>
                       const Icon(Icons.movie_creation_outlined),
                 )
               : const Icon(Icons.movie_creation_outlined),

@@ -15,6 +15,7 @@ import 'package:mobile/features/library/presentation/watch_history_screen.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_videos_provider.dart';
+import 'package:mobile/features/profile/presentation/widgets/profile_live_streams_tab.dart';
 import 'package:mobile/features/profile/presentation/widgets/profile_posts_list.dart';
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
@@ -325,7 +326,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           controller: _tabController,
           children: [
             _ProfileVideosTab(userId: profile.userId),
-            _ProfileStreamsTab(userId: profile.userId),
+            ProfileLiveStreamsTab(userId: profile.userId, isMyProfile: true),
             _ProfilePlaylistsTab(),
             ProfilePostsList(userId: profile.userId, isMyProfile: true),
             _ProfileAboutTab(profile: profile, authState: authState),
@@ -816,94 +817,6 @@ class _ProfileVideosTab extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('${ref.read(trProvider)('profile.error_loading_videos')}: $err')),
-    );
-  }
-}
-
-// ── Streaming Tab (Recorded Live Streams & VODs) ─────────────────────────────
-
-class _ProfileStreamsTab extends ConsumerWidget {
-  final String userId;
-
-  const _ProfileStreamsTab({required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final streamsAsync = ref.watch(profileStreamsProvider(userId));
-    final theme = Theme.of(context);
-    final tr = ref.watch(trProvider);
-
-    return streamsAsync.when(
-      data: (streams) {
-        if (streams.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.live_tv_outlined,
-                  size: 56,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  tr('profile.no_streams'),
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  tr('profile.streams_auto_appear'),
-                  style: TextStyle(
-                    color: theme.colorScheme.outline,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(profileStreamsProvider(userId)),
-          child: ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemCount: streams.length,
-            itemBuilder: (context, index) {
-              final video = streams[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: VideoCard(
-                  video: video,
-                  onVideoDeleted: () {
-                    ref.invalidate(profileStreamsProvider(userId));
-                  },
-                ),
-              );
-            },
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
-            const SizedBox(height: 8),
-            Text('${tr('profile.error_loading_streams')}: $err'),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: () => ref.invalidate(profileStreamsProvider(userId)),
-              child: Text(tr('common.retry')),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -181,10 +181,9 @@ export class LiveStreamingService {
       );
     }
 
-    const hasPermission = await this.hasStreamPermission(
-      userId,
-      stream.groupId,
-    );
+    const hasPermission =
+      stream.createdById === userId ||
+      (await this.hasStreamPermission(userId, stream.groupId));
     if (!hasPermission) {
       throw new ForbiddenException(
         'You do not have permission to update this stream',
@@ -199,10 +198,9 @@ export class LiveStreamingService {
     if (!stream || stream.deletedAt)
       throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.hasStreamPermission(
-      userId,
-      stream.groupId,
-    );
+    const hasPermission =
+      stream.createdById === userId ||
+      (await this.hasStreamPermission(userId, stream.groupId));
     if (!hasPermission) {
       throw new ForbiddenException(
         'You do not have permission to delete this stream',
@@ -249,6 +247,47 @@ export class LiveStreamingService {
           where.visibility = 'PUBLIC';
         }
       }
+    }
+
+    const [streams, total] = await Promise.all([
+      this.repository.findStreams({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.repository.countStreams(where),
+    ]);
+
+    return { data: streams, total, page, limit };
+  }
+
+  async getUserStreams(
+    currentUserId: string | undefined,
+    targetUserId: string,
+    page = 1,
+    limit = 50,
+  ) {
+    const skip = (page - 1) * limit;
+    const isOwner = currentUserId === targetUserId;
+    const isAdmin = currentUserId
+      ? await this.isGlobalAdmin(currentUserId)
+      : false;
+
+    const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
+      createdById: targetUserId,
+      deletedAt: null,
+    };
+
+    if (!isOwner && !isAdmin) {
+      where.visibility = 'PUBLIC';
+      where.status = {
+        in: [
+          LiveStreamStatus.LIVE,
+          LiveStreamStatus.SCHEDULED,
+          LiveStreamStatus.ENDED,
+        ],
+      };
     }
 
     const [streams, total] = await Promise.all([

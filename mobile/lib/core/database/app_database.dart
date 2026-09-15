@@ -1,6 +1,7 @@
 // lib/core/database/app_database.dart
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 import 'tables/local_users_table.dart';
 import 'tables/local_videos_table.dart';
@@ -55,12 +56,11 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   static QueryExecutor _openConnection() {
+    if (kIsWeb) {
+      return _SafeWebQueryExecutor();
+    }
     return driftDatabase(
       name: 'zikre_kidusan_local_v1.db',
-      web: DriftWebOptions(
-        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-        driftWorker: Uri.parse('drift_worker.js'),
-      ),
     );
   }
 
@@ -138,3 +138,54 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 }
+
+/// Fallback QueryExecutor for Flutter Web when SQLite WebAssembly is unavailable.
+/// Returns safe empty collections and no-op writes, preventing unhandled WebAssembly
+/// runtime errors and debugger pauses while the app runs in browser mode.
+class _SafeWebQueryExecutor extends QueryExecutor {
+  @override
+  SqlDialect get dialect => SqlDialect.sqlite;
+
+  @override
+  Future<bool> ensureOpen(QueryExecutorUser user) async => true;
+
+  @override
+  Future<void> runCustom(String statement, [List<Object?>? args]) async {}
+
+  @override
+  Future<int> runInsert(String statement, List<Object?> args) async => 0;
+
+  @override
+  Future<int> runUpdate(String statement, List<Object?> args) async => 0;
+
+  @override
+  Future<int> runDelete(String statement, List<Object?> args) async => 0;
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+    String statement,
+    List<Object?> args,
+  ) async => [];
+
+  @override
+  Future<void> runBatched(BatchedStatements statements) async {}
+
+  @override
+  TransactionExecutor beginTransaction() => _SafeWebTransactionExecutor();
+
+  @override
+  Future<void> close() async {}
+}
+
+class _SafeWebTransactionExecutor extends _SafeWebQueryExecutor
+    implements TransactionExecutor {
+  @override
+  bool get completesWithCommit => true;
+
+  @override
+  Future<void> send() async {}
+
+  @override
+  Future<void> rollback() async {}
+}
+

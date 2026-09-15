@@ -61,6 +61,10 @@ class SyncManager extends StateNotifier<SyncStatus> {
   }
 
   Future<void> _runSync() async {
+    if (kIsWeb) {
+      state = SyncStatus.idle;
+      return;
+    }
     if (!_connectivity.state.isOnline) {
       state = SyncStatus.offline;
       return;

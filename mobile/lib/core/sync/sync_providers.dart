@@ -1,4 +1,4 @@
-// lib/core/sync/sync_providers.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
@@ -20,6 +20,8 @@ final syncStatusProvider = Provider<SyncStatus>((ref) {
 });
 
 final pendingSyncCountProvider = StreamProvider<int>((ref) {
+  if (kIsWeb) return Stream.value(0);
   final db = ref.watch(appDatabaseProvider);
   return db.syncQueueDao.watchPendingCount();
 });
+
