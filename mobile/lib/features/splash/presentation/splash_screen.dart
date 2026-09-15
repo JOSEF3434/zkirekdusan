@@ -1,18 +1,28 @@
 // lib/features/splash/presentation/splash_screen.dart
 // Startup splash screen; routing is handled deterministically by RouterNotifier.
+//
+// Navigation is gated by SplashNotifier (dual-gate: minimum timer + this
+// screen explicitly signals animation completion). Do NOT add any imperative
+// context.go() / Navigator.pushReplacement() calls here — the router's
+// redirect handles all navigation automatically once the gate opens.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/features/splash/presentation/providers/splash_provider.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
+  /// Ensures signalAnimationsComplete() is called at most once even if the
+  /// listener fires multiple times (e.g. from hot-reload or rapid rebuilds).
+  bool _animationSignalSent = false;
   /// Ethiopic-compatible font family fallbacks across Android, iOS, Web, and Desktop
   static const List<String> _amharicFontFallback = [
     'Noto Serif Ethiopic',
@@ -190,11 +200,36 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ambientController.repeat(reverse: true);
     _shimmerController.repeat();
+
+    // ── Animation completion gate ──────────────────────────────────────────
+    // _loadingController is the longest non-looping animation (8 000 ms).
+    // When it reaches AnimationStatus.completed, we know every non-looping
+    // animation has also finished (entrance: 5 000 ms, loading: 8 000 ms).
+    // We then signal the SplashNotifier so its dual-gate can open navigation.
+    _loadingController.addStatusListener(_onLoadingStatusChanged);
     _loadingController.forward();
+  }
+
+  void _onLoadingStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed && !_animationSignalSent) {
+      _animationSignalSent = true;
+      // Remove the listener immediately — we only need to fire once.
+      _loadingController.removeStatusListener(_onLoadingStatusChanged);
+      // Signal the provider. WidgetsBinding post-frame ensures the final
+      // painted frame is committed before navigation can be triggered.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref
+              .read(splashCompletedProvider.notifier)
+              .signalAnimationsComplete();
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _loadingController.removeStatusListener(_onLoadingStatusChanged);
     _entranceController.dispose();
     _ambientController.dispose();
     _shimmerController.dispose();
