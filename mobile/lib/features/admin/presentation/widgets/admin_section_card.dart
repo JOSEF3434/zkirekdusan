@@ -23,9 +23,10 @@ class AdminSectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final cardColor = isDark ? theme.colorScheme.surfaceContainer : Colors.white;
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? theme.colorScheme.surfaceContainer : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.dividerColor.withValues(alpha: 0.1),
@@ -38,8 +39,12 @@ class AdminSectionCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -79,6 +84,7 @@ class AdminSectionCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -585,6 +585,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         mini: true,
         onPressed: () => NewChatSheet.show(context),
         backgroundColor: const Color(0xFF00C6FF),

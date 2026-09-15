@@ -463,6 +463,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
       ),
       // Telegram Floating Action Button (Screenshot 1 blue circle with chat icon)
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         onPressed: () => NewChatSheet.show(context),
         backgroundColor: const Color(0xFF00C6FF),
         foregroundColor: Colors.black,

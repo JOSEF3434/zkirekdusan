@@ -116,6 +116,7 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
     return Scaffold(
       floatingActionButton: canStream
           ? FloatingActionButton.extended(
+              heroTag: null,
               onPressed: () => context.push('/live/studio?channelId=${channel.id}'),
               icon: const Icon(Icons.videocam_outlined),
               label: const Text('Go Live'),

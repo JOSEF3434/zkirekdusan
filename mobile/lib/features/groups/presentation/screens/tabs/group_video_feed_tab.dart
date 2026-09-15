@@ -155,6 +155,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
       ),
       floatingActionButton: groupContext.capabilities.canUploadVideo
           ? FloatingActionButton.extended(
+              heroTag: null,
               onPressed: () => _startUpload(context, ref, channel),
               icon: const Icon(Icons.add),
               label: const Text('Upload'),

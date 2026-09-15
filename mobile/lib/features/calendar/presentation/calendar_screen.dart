@@ -135,6 +135,7 @@ class CalendarScreen extends ConsumerWidget {
       ),
       floatingActionButton: calendarState.selectedDate != null
           ? FloatingActionButton.extended(
+              heroTag: null,
               onPressed: () {
                 _showAddNoteSheet(context, calendarState.selectedDate!);
               },

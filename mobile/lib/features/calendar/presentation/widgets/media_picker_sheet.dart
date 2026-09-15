@@ -8,52 +8,55 @@ class MediaPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () =>
-                  Navigator.of(context).pop(_pickImage(ImageSource.camera)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose Photos'),
-              onTap: () => Navigator.of(context).pop(_pickMultipleImages()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.videocam),
-              title: const Text('Record Video'),
-              onTap: () =>
-                  Navigator.of(context).pop(_pickVideo(ImageSource.camera)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.video_library),
-              title: const Text('Choose Video'),
-              onTap: () =>
-                  Navigator.of(context).pop(_pickVideo(ImageSource.gallery)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.audiotrack),
-              title: const Text('Choose Audio'),
-              onTap: () => Navigator.of(context).pop(_pickAudio()),
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_file),
-              title: const Text('Choose File'),
-              onTap: () => Navigator.of(context).pop(_pickFile()),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.close),
-              title: const Text('Cancel'),
-              onTap: () => Navigator.of(context).pop(),
-            ),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () =>
+                    Navigator.of(context).pop(_pickImage(ImageSource.camera)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose Photos'),
+                onTap: () => Navigator.of(context).pop(_pickMultipleImages()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.videocam),
+                title: const Text('Record Video'),
+                onTap: () =>
+                    Navigator.of(context).pop(_pickVideo(ImageSource.camera)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.video_library),
+                title: const Text('Choose Video'),
+                onTap: () =>
+                    Navigator.of(context).pop(_pickVideo(ImageSource.gallery)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.audiotrack),
+                title: const Text('Choose Audio'),
+                onTap: () => Navigator.of(context).pop(_pickAudio()),
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Choose File'),
+                onTap: () => Navigator.of(context).pop(_pickFile()),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('Cancel'),
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -154,6 +154,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
       ),
       floatingActionButton: groupContext.capabilities.canCreatePlaylist
           ? FloatingActionButton.extended(
+              heroTag: null,
               onPressed: () => _showCreatePlaylistDialog(context, ref, channel),
               icon: const Icon(Icons.playlist_add),
               label: const Text('New Playlist'),
