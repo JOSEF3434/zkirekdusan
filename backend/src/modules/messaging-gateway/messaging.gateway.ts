@@ -108,6 +108,9 @@ export class MessagingGateway
       // Store userId on socket for later use
       (client as any).userId = userId;
 
+      // Join individual user room so server can emit directly to user:${userId}
+      await client.join(`user:${userId}`);
+
       this.logger.log(`Client connected: ${client.id} (user: ${userId})`);
 
       // Update DB presence
@@ -126,6 +129,7 @@ export class MessagingGateway
   async handleDisconnect(client: Socket) {
     const userId = this.socketUserMap.get(client.id);
     if (userId) {
+      client.leave(`user:${userId}`);
       const sockets = this.userSocketMap.get(userId);
       sockets?.delete(client.id);
       if (!sockets?.size) {
@@ -334,6 +338,17 @@ export class MessagingGateway
       this.server
         .to(`conversation:${data.conversationId}`)
         .emit('message:read', payload);
+
+      // Broadcast directly to members so read state updates live anywhere
+      const conversation = await this.conversationsRepository.findById(
+        data.conversationId,
+      );
+      if (conversation?.members) {
+        for (const m of conversation.members) {
+          this.server.to(`user:${(m as any).userId}`).emit(WS_EVENTS.READ_RECEIPT, payload);
+          this.server.to(`user:${(m as any).userId}`).emit('message:read', payload);
+        }
+      }
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -495,17 +510,59 @@ export class MessagingGateway
     }
   }
 
+  /** Broadcast a new message to conversation room and to members directly */
+  emitNewMessage(conversationId: string, message: any, memberUserIds?: string[]) {
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit(WS_EVENTS.MESSAGE_NEW, message);
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_NEW, message);
+      }
+    }
+  }
+
+  /** Broadcast a read receipt to conversation room and to members */
+  emitReadReceipt(conversationId: string, payload: any, memberUserIds?: string[]) {
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit(WS_EVENTS.READ_RECEIPT, payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('message:read', payload);
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.READ_RECEIPT, payload);
+        this.server.to(`user:${userId}`).emit('message:read', payload);
+      }
+    }
+  }
+
   /** Broadcast a message update to a conversation room (used by MessagesService internally) */
-  emitMessageUpdated(conversationId: string, message: any) {
+  emitMessageUpdated(conversationId: string, message: any, memberUserIds?: string[]) {
     this.server
       .to(`conversation:${conversationId}`)
       .emit(WS_EVENTS.MESSAGE_UPDATED, message);
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_UPDATED, message);
+      }
+    }
   }
 
-  emitMessageDeleted(conversationId: string, messageId: string) {
+  emitMessageDeleted(conversationId: string, messageId: string, memberUserIds?: string[]) {
     this.server
       .to(`conversation:${conversationId}`)
       .emit(WS_EVENTS.MESSAGE_DELETED, { messageId });
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_DELETED, { messageId });
+      }
+    }
   }
 
   /** Check if a user is currently online */

@@ -34,6 +34,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   String? _replyToMessageId;
   MessageModel? _editingMessage;
 
+  bool _hasInitialScrolled = false;
+  int _lastMessageCount = 0;
+
   void _scrollToMessage(String messageId, List<MessageModel> messageList) {
     final index = messageList.indexWhere((m) => m.id == messageId);
     if (index != -1 && _scrollController.hasClients) {
@@ -44,6 +47,23 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         curve: Curves.easeOutCubic,
       );
     }
+  }
+
+  void _scrollToBottom({bool animate = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        final max = _scrollController.position.maxScrollExtent;
+        if (animate) {
+          _scrollController.animateTo(
+            max,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(max);
+        }
+      }
+    });
   }
 
   @override
@@ -64,6 +84,26 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels <= _scrollController.position.minScrollExtent + 100) {
       ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMoreMessages();
+    }
+    final currentUserId = ref.read(authProvider).user?.id;
+    if (currentUserId != null) {
+      ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ConversationScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversationId != widget.conversationId) {
+      _hasInitialScrolled = false;
+      _lastMessageCount = 0;
+      Future.microtask(() {
+        ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
+        final currentUserId = ref.read(authProvider).user?.id;
+        if (currentUserId != null) {
+          ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+        }
+      });
     }
   }
 
@@ -436,6 +476,28 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ],
                       ),
                     );
+                  }
+
+                  // Start at newest message (bottom) when reopening or initially loaded
+                  if (!_hasInitialScrolled) {
+                    _hasInitialScrolled = true;
+                    _lastMessageCount = messageList.length;
+                    _scrollToBottom(animate: false);
+                    final currentUserId = ref.read(authProvider).user?.id;
+                    if (currentUserId != null) {
+                      Future.microtask(() => ref
+                          .read(chatMessagesProvider(widget.conversationId).notifier)
+                          .markIncomingAsRead(currentUserId));
+                    }
+                  } else if (messageList.length > _lastMessageCount) {
+                    final isNewFromMe = messageList.last.sender.id == currentUserId;
+                    final isNearBottom = _scrollController.hasClients &&
+                        _scrollController.position.pixels >=
+                            _scrollController.position.maxScrollExtent - 250;
+                    if (isNewFromMe || isNearBottom) {
+                      _scrollToBottom(animate: true);
+                    }
+                    _lastMessageCount = messageList.length;
                   }
 
                   return ListView.builder(

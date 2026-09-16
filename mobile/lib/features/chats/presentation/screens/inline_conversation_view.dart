@@ -50,6 +50,8 @@ class InlineConversationViewState
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
   MessageModel? _editingMessage;
+  bool _hasInitialScrolled = false;
+  int _lastMessageCount = 0;
 
   void scrollToMessage(String messageId) {
     final messages = ref.read(chatMessagesProvider(widget.conversationId)).value ?? [];
@@ -66,6 +68,23 @@ class InlineConversationViewState
         curve: Curves.easeOutCubic,
       );
     }
+  }
+
+  void _scrollToBottom({bool animate = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        final max = _scrollController.position.maxScrollExtent;
+        if (animate) {
+          _scrollController.animateTo(
+            max,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(max);
+        }
+      }
+    });
   }
 
   @override
@@ -90,6 +109,8 @@ class InlineConversationViewState
   void didUpdateWidget(InlineConversationView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.conversationId != widget.conversationId) {
+      _hasInitialScrolled = false;
+      _lastMessageCount = 0;
       // New conversation selected: clear reply state
       setState(() => _replyToMessageId = null);
       // Mark new conversation as read
@@ -113,6 +134,12 @@ class InlineConversationViewState
       ref
           .read(chatMessagesProvider(widget.conversationId).notifier)
           .loadMoreMessages();
+    }
+    final currentUserId = ref.read(authProvider).user?.id;
+    if (currentUserId != null) {
+      ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .markIncomingAsRead(currentUserId);
     }
   }
 
@@ -261,6 +288,29 @@ class InlineConversationViewState
                 if (messageList.isEmpty) {
                   return _buildEmptyState(isDark);
                 }
+
+                // Start at newest message (bottom) when reopening or initially loaded
+                if (!_hasInitialScrolled) {
+                  _hasInitialScrolled = true;
+                  _lastMessageCount = messageList.length;
+                  _scrollToBottom(animate: false);
+                  final currentUserId = ref.read(authProvider).user?.id;
+                  if (currentUserId != null) {
+                    Future.microtask(() => ref
+                        .read(chatMessagesProvider(widget.conversationId).notifier)
+                        .markIncomingAsRead(currentUserId));
+                  }
+                } else if (messageList.length > _lastMessageCount) {
+                  final isNewFromMe = messageList.last.sender.id == currentUserId;
+                  final isNearBottom = _scrollController.hasClients &&
+                      _scrollController.position.pixels >=
+                          _scrollController.position.maxScrollExtent - 250;
+                  if (isNewFromMe || isNearBottom) {
+                    _scrollToBottom(animate: true);
+                  }
+                  _lastMessageCount = messageList.length;
+                }
+
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 8),

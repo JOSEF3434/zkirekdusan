@@ -108,10 +108,20 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
     // New message received
     _newMessageSub = _socketService.messageReceived.listen((message) {
       if (message.conversationId == conversationId) {
+        final currentUserId = _ref.read(authProvider).user?.id;
         state.whenData((messages) {
           // Avoid duplicates
           if (!messages.any((m) => m.id == message.id)) {
-            state = AsyncValue.data([...messages, message]);
+            var newMsg = message;
+            // If from peer and current user has this conversation open, mark read immediately
+            if (currentUserId != null && message.sender.id != currentUserId) {
+              _socketService.markAsRead(conversationId, message.id);
+              _repository.markAsRead(message.id);
+              if (!newMsg.readBy.contains(currentUserId)) {
+                newMsg = newMsg.copyWith(readBy: [...newMsg.readBy, currentUserId]);
+              }
+            }
+            state = AsyncValue.data([...messages, newMsg]);
           }
         });
       }
@@ -424,10 +434,19 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
   void markIncomingAsRead(String currentUserId) {
     state.whenData((messages) {
+      bool anyMarked = false;
+      final updated = <MessageModel>[];
       for (final msg in messages) {
         if (msg.sender.id != currentUserId && !msg.readBy.contains(currentUserId)) {
           markAsRead(msg.id);
+          updated.add(msg.copyWith(readBy: [...msg.readBy, currentUserId]));
+          anyMarked = true;
+        } else {
+          updated.add(msg);
         }
+      }
+      if (anyMarked) {
+        state = AsyncValue.data(updated);
       }
     });
   }

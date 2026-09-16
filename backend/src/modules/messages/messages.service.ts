@@ -1,11 +1,13 @@
-// src/modules/messages/messages.service.ts
 import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository.js';
 import { ConversationsRepository } from '../conversations/conversations.repository.js';
+import { MessagingGateway } from '../messaging-gateway/messaging.gateway.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 import { EditMessageDto } from './dto/edit-message.dto.js';
 import { AddReactionDto } from './dto/add-reaction.dto.js';
@@ -19,6 +21,8 @@ export class MessagesService {
   constructor(
     private readonly messagesRepository: MessagesRepository,
     private readonly conversationsRepository: ConversationsRepository,
+    @Inject(forwardRef(() => MessagingGateway))
+    private readonly messagingGateway: MessagingGateway,
   ) {}
 
   // ── Send a message to a conversation (DM or Channel) ──────────────────────
@@ -58,7 +62,13 @@ export class MessagesService {
       senderId,
     );
 
-    return this.mapToDto(message);
+    const messageDto = this.mapToDto(message);
+    const memberIds = conversation.members
+      ? conversation.members.map((m: any) => m.userId)
+      : [];
+    this.messagingGateway.emitNewMessage(conversationId, messageDto, memberIds);
+
+    return messageDto;
   }
 
   // ── Get paginated message history ─────────────────────────────────────────
@@ -120,7 +130,9 @@ export class MessagesService {
       messageId,
       dto.content,
     );
-    return this.mapToDto(updated);
+    const updatedDto = this.mapToDto(updated);
+    this.messagingGateway.emitMessageUpdated(message.conversationId, updatedDto);
+    return updatedDto;
   }
 
   // ── Delete for everyone (owner or group admin) ─────────────────────────────
@@ -158,6 +170,7 @@ export class MessagesService {
     }
 
     await this.messagesRepository.deleteForEveryone(messageId);
+    this.messagingGateway.emitMessageDeleted(message.conversationId, messageId);
     return { success: true };
   }
 
@@ -198,6 +211,13 @@ export class MessagesService {
     }
 
     await this.messagesRepository.markAsRead(messageId, userId);
+    const payload = {
+      messageId,
+      conversationId: message.conversationId,
+      userId,
+      readAt: new Date(),
+    };
+    this.messagingGateway.emitReadReceipt(message.conversationId, payload);
     return { success: true };
   }
 

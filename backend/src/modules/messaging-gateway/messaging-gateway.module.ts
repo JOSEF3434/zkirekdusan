@@ -1,5 +1,5 @@
 // src/modules/messaging-gateway/messaging-gateway.module.ts
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MessagingGateway } from './messaging.gateway.js';
@@ -9,7 +9,7 @@ import { PresenceModule } from '../presence/presence.module.js';
 
 @Module({
   imports: [
-    MessagesModule,
+    forwardRef(() => MessagesModule),
     ConversationsModule,
     PresenceModule,
     JwtModule.registerAsync({
