@@ -12,6 +12,7 @@ import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -63,26 +64,45 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOffline = ref.watch(connectivityProvider).isOffline;
 
-    ConversationModel? conversation;
-    discoveryAsync.whenData((discovery) {
-      try {
-        conversation = discovery.conversations.firstWhere((c) => c.id == widget.conversationId);
-      } catch (_) {}
-    });
+    final singleConvAsync = ref.watch(singleConversationProvider(widget.conversationId));
+    ConversationModel? conversation = singleConvAsync.value;
+    if (conversation == null) {
+      discoveryAsync.whenData((discovery) {
+        try {
+          conversation = discovery.conversations.firstWhere((c) => c.id == widget.conversationId);
+        } catch (_) {}
+      });
+    }
 
     final otherMember = conversation?.type == 'DIRECT'
         ? conversation?.members.firstWhere(
             (m) => m.userId != currentUserId,
-            orElse: () => conversation!.members.first,
+            orElse: () => conversation!.members.isNotEmpty
+                ? conversation!.members.first
+                : const ConversationMemberModel(userId: '', username: ''),
           )
         : null;
 
-    final displayName = conversation?.title ??
-        otherMember?.displayName ??
-        otherMember?.username ??
-        'Chat';
+    final chatList = ref.watch(unifiedChatListProvider).value ?? [];
+    final listItem = chatList.where((i) =>
+        i.conversationId == widget.conversationId ||
+        i.id == widget.conversationId ||
+        (conversation?.groupId != null && i.targetGroupId == conversation!.groupId) ||
+        (otherMember?.userId != null && i.targetUserId == otherMember!.userId)).firstOrNull;
 
-    final isOnline = otherMember?.isOnline ?? false;
+    final displayName = (conversation?.title != null && conversation!.title!.isNotEmpty)
+        ? conversation!.title!
+        : (otherMember?.displayName ??
+            otherMember?.username ??
+            listItem?.title ??
+            'Chat');
+
+    final headerAvatarUrl = otherMember?.avatarUrl ??
+        conversation?.metadata?.groupAvatar ??
+        listItem?.avatarUrl;
+    final resolvedAvatarUrl = MediaUrlResolver.resolve(headerAvatarUrl);
+
+    final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
     final isGroup = conversation?.type != 'DIRECT' && conversation != null;
 
     return Scaffold(
@@ -112,12 +132,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   CircleAvatar(
                     radius: 19,
                     backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                    backgroundImage: otherMember?.avatarUrl != null
-                        ? CachedNetworkImageProvider(otherMember!.avatarUrl!)
-                        : (conversation?.metadata?.groupAvatar != null
-                            ? CachedNetworkImageProvider(conversation!.metadata!.groupAvatar!)
-                            : null),
-                    child: otherMember?.avatarUrl == null && conversation?.metadata?.groupAvatar == null
+                    backgroundImage: (resolvedAvatarUrl != null && resolvedAvatarUrl.isNotEmpty)
+                        ? CachedNetworkImageProvider(resolvedAvatarUrl)
+                        : null,
+                    child: (resolvedAvatarUrl == null || resolvedAvatarUrl.isEmpty)
                         ? Text(
                             displayName.isNotEmpty ? displayName[0].toUpperCase() : 'C',
                             style: const TextStyle(

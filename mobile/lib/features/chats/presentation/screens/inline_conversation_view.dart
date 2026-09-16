@@ -100,37 +100,55 @@ class _InlineConversationViewState
     final typingUsers =
         ref.watch(typingIndicatorProvider(widget.conversationId));
 
-    ConversationModel? conversation;
-    discoveryAsync.whenData((discovery) {
-      try {
-        conversation = discovery.conversations
-            .firstWhere((c) => c.id == widget.conversationId);
-      } catch (_) {}
-    });
+    final singleConvAsync =
+        ref.watch(singleConversationProvider(widget.conversationId));
+    ConversationModel? conversation = singleConvAsync.value;
+    if (conversation == null) {
+      discoveryAsync.whenData((discovery) {
+        try {
+          conversation = discovery.conversations
+              .firstWhere((c) => c.id == widget.conversationId);
+        } catch (_) {}
+      });
+    }
 
     final otherMember = conversation?.type == 'DIRECT'
         ? conversation?.members.firstWhere(
             (m) => m.userId != currentUserId,
-            orElse: () => conversation!.members.first,
+            orElse: () => conversation!.members.isNotEmpty
+                ? conversation!.members.first
+                : const ConversationMemberModel(userId: '', username: ''),
           )
         : null;
 
-    final displayName = conversation?.title ??
-        otherMember?.displayName ??
-        otherMember?.username ??
-        'Chat';
+    // Immediate fallback from unified list item to ensure title & avatar display instantly
+    final chatList = ref.watch(unifiedChatListProvider).value ?? [];
+    final listItem = chatList.where((i) =>
+        i.conversationId == widget.conversationId ||
+        i.id == widget.conversationId ||
+        (conversation?.groupId != null && i.targetGroupId == conversation!.groupId) ||
+        (otherMember?.userId != null && i.targetUserId == otherMember!.userId)).firstOrNull;
 
-    final isOnline = otherMember?.isOnline ?? false;
-    final isGroup =
-        conversation?.type != 'DIRECT' && conversation != null;
+    final displayName = (conversation?.title != null && conversation!.title!.isNotEmpty)
+        ? conversation!.title!
+        : (otherMember?.displayName ??
+            otherMember?.username ??
+            listItem?.title ??
+            'Chat');
+
+    final avatarUrl = otherMember?.avatarUrl ??
+        conversation?.metadata?.groupAvatar ??
+        listItem?.avatarUrl;
+
+    final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
+    final isGroup = conversation?.type != 'DIRECT' && conversation != null;
 
     return Column(
       children: [
         // ── Header bar ────────────────────────────────────────────────────────
         _InlineHeader(
           displayName: displayName,
-          avatarUrl: otherMember?.avatarUrl ??
-              conversation?.metadata?.groupAvatar,
+          avatarUrl: avatarUrl,
           isOnline: isOnline,
           isGroup: isGroup,
           memberCount: conversation?.members.length ?? 0,

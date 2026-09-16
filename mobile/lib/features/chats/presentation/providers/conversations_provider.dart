@@ -235,14 +235,42 @@ class ChatDiscoveryNotifier
     String recipientId,
   ) async {
     final conv = await _repository.createDirectConversation(recipientId);
-    await refreshDiscovery();
+    // Optimistically inject the new conversation into state immediately so the
+    // header/details panel can render before the full refresh completes.
+    injectConversation(conv);
+    // Background-refresh discovery (non-blocking from caller's perspective)
+    refreshDiscovery();
     return conv;
   }
 
   Future<ConversationModel> createOrGetGroupConversation(String groupId) async {
     final conv = await _repository.createOrGetGroupConversation(groupId);
-    await refreshDiscovery();
+    // Optimistically inject so the center panel & details panel render instantly.
+    injectConversation(conv);
+    refreshDiscovery();
     return conv;
+  }
+
+  /// Injects [conv] into the current discovery state if it is not already there.
+  /// If it already exists (same id), the entry is replaced with the fresh data.
+  void injectConversation(ConversationModel conv) {
+    state.whenData((discovery) {
+      final convs = [...discovery.conversations];
+      final idx = convs.indexWhere((c) => c.id == conv.id);
+      if (idx == -1) {
+        convs.insert(0, conv);
+      } else {
+        convs[idx] = conv;
+      }
+      state = AsyncValue.data(
+        ChatDiscoveryModel(
+          conversations: convs,
+          publicGroups: discovery.publicGroups,
+          myPrivateGroups: discovery.myPrivateGroups,
+          allUsers: discovery.allUsers,
+        ),
+      );
+    });
   }
 
   Future<Map<String, dynamic>> createPrivateGroup({
@@ -316,6 +344,24 @@ class ChatDiscoveryNotifier
 
 // Backward compatibility alias for conversationsProvider
 final conversationsProvider = chatDiscoveryProvider;
+
+/// Fetches and caches a single conversation by ID.
+/// First looks in discovery cache. If missing, fetches from repository
+/// and injects it into discovery state so all panels stay in sync.
+final singleConversationProvider =
+    FutureProvider.family<ConversationModel, String>((ref, conversationId) async {
+  final discovery = ref.watch(chatDiscoveryProvider).value;
+  if (discovery != null) {
+    for (final c in discovery.conversations) {
+      if (c.id == conversationId) return c;
+    }
+  }
+
+  final repo = ref.read(chatRepositoryProvider);
+  final conv = await repo.getConversationById(conversationId);
+  ref.read(chatDiscoveryProvider.notifier).injectConversation(conv);
+  return conv;
+});
 
 // Filter provider
 final conversationFilterProvider = StateProvider<String>((ref) => 'all');

@@ -28,17 +28,23 @@ class ChatDetailsPanel extends ConsumerWidget {
         ? Colors.white.withValues(alpha: 0.06)
         : Colors.black.withValues(alpha: 0.06);
 
+    final singleConvAsync = ref.watch(singleConversationProvider(conversationId));
     final discoveryAsync = ref.watch(chatDiscoveryProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
 
-    ConversationModel? conversation;
-    discoveryAsync.whenData((d) {
-      try {
-        conversation = d.conversations.firstWhere((c) => c.id == conversationId);
-      } catch (_) {}
-    });
+    ConversationModel? conversation = singleConvAsync.value;
+    if (conversation == null) {
+      discoveryAsync.whenData((d) {
+        try {
+          conversation = d.conversations.firstWhere((c) => c.id == conversationId);
+        } catch (_) {}
+      });
+    }
 
     if (conversation == null) {
+      if (singleConvAsync.hasError) {
+        return _buildError(bg, isDark, dividerColor, ref);
+      }
       return _buildLoading(bg, isDark, dividerColor);
     }
 
@@ -47,7 +53,9 @@ class ChatDetailsPanel extends ConsumerWidget {
     if (isDirect) {
       final other = conversation!.members.firstWhere(
         (m) => m.userId != currentUserId,
-        orElse: () => conversation!.members.first,
+        orElse: () => conversation!.members.isNotEmpty
+            ? conversation!.members.first
+            : const ConversationMemberModel(userId: '', username: ''),
       );
       return _DirectDetailsPanel(
         conversation: conversation!,
@@ -82,6 +90,49 @@ class ChatDetailsPanel extends ConsumerWidget {
             child: Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(Color bg, bool isDark, Color dividerColor, WidgetRef ref) {
+    return Container(
+      color: bg,
+      child: Column(
+        children: [
+          _PanelHeader(onClose: onClose, isDark: isDark),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 44, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Could not load details',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () =>
+                          ref.refresh(singleConversationProvider(conversationId)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C6FF),
+                        foregroundColor: Colors.black,
+                      ),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

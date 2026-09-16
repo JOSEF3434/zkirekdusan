@@ -254,10 +254,10 @@ export class ConversationsService {
       lastMessageAt: conv.lastMessageAt ?? latestMsg?.createdAt ?? null,
       lastMessage,
       members: (conv.members ?? []).map((m: any) => ({
-        userId: m.user.id,
-        username: m.user.username,
-        displayName: m.user.profile?.displayName ?? m.user.username,
-        avatarUrl: m.user.profile?.avatar?.url ?? null,
+        userId: m.user?.id ?? m.userId ?? '',
+        username: m.user?.username ?? m.user?.profile?.displayName ?? '',
+        displayName: m.user?.profile?.displayName ?? m.user?.username ?? 'User',
+        avatarUrl: m.user?.profile?.avatar?.url ?? null,
         unreadCount: m.unreadCount ?? 0,
         isMuted: m.isMuted ?? false,
         isPinned: m.isPinned ?? false,
@@ -269,7 +269,7 @@ export class ConversationsService {
             channelName: conv.channel?.name ?? null,
           }
         : undefined,
-      createdAt: conv.createdAt,
+      createdAt: conv.createdAt ?? new Date(),
     };
   }
 }

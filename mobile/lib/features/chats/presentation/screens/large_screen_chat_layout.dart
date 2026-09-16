@@ -50,6 +50,8 @@ class _LargeScreenChatLayoutState
     extends ConsumerState<LargeScreenChatLayout> {
   /// Currently selected conversation id (null → show placeholder).
   String? _selectedConversationId;
+  String? _selectedTargetUserId;
+  String? _selectedTargetGroupId;
 
   /// Whether the right info/details panel is open.
   /// Defaults to TRUE – open by default like Telegram Desktop.
@@ -70,6 +72,15 @@ class _LargeScreenChatLayoutState
   // ── Handle list-item tap ────────────────────────────────────────────────────
   Future<void> _handleItemTap(UnifiedChatItem item) async {
     final notifier = ref.read(chatDiscoveryProvider.notifier);
+
+    // Immediately highlight the tapped item
+    setState(() {
+      _selectedTargetUserId = item.targetUserId;
+      _selectedTargetGroupId = item.targetGroupId;
+      if (item.conversationId != null) {
+        _selectedConversationId = item.conversationId;
+      }
+    });
 
     String? convId;
 
@@ -118,6 +129,8 @@ class _LargeScreenChatLayoutState
     if (convId != null && mounted) {
       setState(() {
         _selectedConversationId = convId;
+        _selectedTargetUserId = item.targetUserId;
+        _selectedTargetGroupId = item.targetGroupId;
         // Open details panel when selecting a new conversation (default open)
         _isDetailsPanelOpen = true;
       });
@@ -152,6 +165,8 @@ class _LargeScreenChatLayoutState
               listBg: listBg,
               dividerColor: dividerColor,
               selectedConversationId: _selectedConversationId,
+              selectedTargetUserId: _selectedTargetUserId,
+              selectedTargetGroupId: _selectedTargetGroupId,
               onItemTap: _handleItemTap,
               searchController: _searchController,
             ),
@@ -227,6 +242,8 @@ class _ChatListPanel extends ConsumerStatefulWidget {
   final Color listBg;
   final Color dividerColor;
   final String? selectedConversationId;
+  final String? selectedTargetUserId;
+  final String? selectedTargetGroupId;
   final Future<void> Function(UnifiedChatItem) onItemTap;
   final TextEditingController searchController;
 
@@ -235,6 +252,8 @@ class _ChatListPanel extends ConsumerStatefulWidget {
     required this.listBg,
     required this.dividerColor,
     required this.selectedConversationId,
+    this.selectedTargetUserId,
+    this.selectedTargetGroupId,
     required this.onItemTap,
     required this.searchController,
   });
@@ -520,10 +539,12 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                   delegate: SliverChildBuilderDelegate(
                     (ctx, index) {
                       final item = items[index];
-                      final isSelected =
-                          item.conversationId != null &&
-                              item.conversationId ==
-                                  widget.selectedConversationId;
+                      final isSelected = (item.conversationId != null &&
+                              item.conversationId == widget.selectedConversationId) ||
+                          (widget.selectedTargetUserId != null &&
+                              item.targetUserId == widget.selectedTargetUserId) ||
+                          (widget.selectedTargetGroupId != null &&
+                              item.targetGroupId == widget.selectedTargetGroupId);
                       return _SelectableListTileWrapper(
                         isSelected: isSelected,
                         isDark: isDark,
@@ -1400,9 +1421,17 @@ class _SelectableListTileWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isSelected) return child;
     return Container(
-      color: isDark
-          ? const Color(0xFF2B5278).withValues(alpha: 0.4)
-          : const Color(0xFF00C6FF).withValues(alpha: 0.08),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF2B5278).withValues(alpha: 0.55)
+            : const Color(0xFF00C6FF).withValues(alpha: 0.12),
+        border: const Border(
+          left: BorderSide(
+            color: Color(0xFF00C6FF),
+            width: 3.5,
+          ),
+        ),
+      ),
       child: child,
     );
   }

@@ -1,10 +1,12 @@
 // lib/features/chats/presentation/widgets/message_bubble.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/voice_message_player.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:intl/intl.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -147,7 +149,21 @@ class MessageBubble extends StatelessWidget {
                           if (message.replyTo != null) _buildReplyPreview(context, isDark),
 
                           // Attachments (Images, Videos, Docs)
-                          if (message.attachments.isNotEmpty) _buildAttachments(context),
+                          if (message.attachments.isNotEmpty)
+                            _buildAttachments(context)
+                          else if (_isStandaloneImage)
+                            _buildImageCard(context, message.content ?? '')
+                          else if (_isStandaloneVideo)
+                            _buildVideoCard(context, message.content ?? '')
+                          else if (_isStandaloneAudio)
+                            VoiceMessagePlayer(
+                              voiceNote: MessageVoiceNoteModel(
+                                fileId: '',
+                                url: message.content ?? '',
+                                duration: 0,
+                              ),
+                              isMe: isMe,
+                            ),
 
                           // Voice Message Player
                           if (message.voiceNote != null)
@@ -157,7 +173,7 @@ class MessageBubble extends StatelessWidget {
                             ),
 
                           // Text Content
-                          if (message.content != null && message.content!.isNotEmpty)
+                          if (_shouldShowTextContent)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
                               child: Text(
@@ -174,45 +190,48 @@ class MessageBubble extends StatelessWidget {
                             ),
 
                           // Timestamp and Status Checkmarks
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                if (message.isEdited)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: Text(
-                                      'edited',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: isMe
-                                            ? Colors.black.withValues(alpha: 0.6)
-                                            : Colors.grey[500],
-                                        fontStyle: FontStyle.italic,
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (message.isEdited)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 4),
+                                      child: Text(
+                                        'edited',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isMe
+                                              ? Colors.black.withValues(alpha: 0.6)
+                                              : Colors.grey[500],
+                                          fontStyle: FontStyle.italic,
+                                        ),
                                       ),
                                     ),
+                                  Text(
+                                    DateFormat('h:mm a').format(message.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: isMe
+                                          ? Colors.black.withValues(alpha: 0.65)
+                                          : Colors.grey[500],
+                                    ),
                                   ),
-                                Text(
-                                  DateFormat('h:mm a').format(message.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w400,
-                                    color: isMe
-                                        ? Colors.black.withValues(alpha: 0.65)
-                                        : Colors.grey[500],
-                                  ),
-                                ),
-                                if (isMe) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.done_all_rounded,
-                                    size: 15,
-                                    color: Colors.black.withValues(alpha: 0.75),
-                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.done_all_rounded,
+                                      size: 15,
+                                      color: Colors.black.withValues(alpha: 0.75),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ],
@@ -278,20 +297,106 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  bool get _isStandaloneImage {
+    if (message.attachments.isNotEmpty) return false;
+    final typeUpper = message.type.toUpperCase();
+    if (typeUpper == 'IMAGE') return true;
+    if (message.content != null && _isImageUrl(message.content!)) return true;
+    return false;
+  }
+
+  bool get _isStandaloneVideo {
+    if (message.attachments.isNotEmpty) return false;
+    final typeUpper = message.type.toUpperCase();
+    if (typeUpper == 'VIDEO') return true;
+    if (message.content != null && _isVideoUrl(message.content!)) return true;
+    return false;
+  }
+
+  bool get _isStandaloneAudio {
+    if (message.attachments.isNotEmpty || message.voiceNote != null) return false;
+    final typeUpper = message.type.toUpperCase();
+    if (typeUpper == 'AUDIO' || typeUpper == 'VOICE_NOTE') return true;
+    if (message.content != null && _isAudioUrl(message.content!)) return true;
+    return false;
+  }
+
+  bool get _shouldShowTextContent {
+    final text = message.content;
+    if (text == null || text.trim().isEmpty) return false;
+    if (_isStandaloneImage || _isStandaloneVideo || _isStandaloneAudio) {
+      if (_isImageUrl(text) || _isVideoUrl(text) || _isAudioUrl(text)) return false;
+    }
+    if (message.attachments.isNotEmpty) {
+      final firstUrl = message.attachments.first.url;
+      if (text.trim() == firstUrl.trim()) return false;
+    }
+    return true;
+  }
+
+  bool _isImageUrl(String url) {
+    final lower = url.toLowerCase().trim();
+    if (lower.startsWith('data:image/')) return true;
+    final clean = lower.split('?').first;
+    return clean.endsWith('.jpg') ||
+        clean.endsWith('.jpeg') ||
+        clean.endsWith('.png') ||
+        clean.endsWith('.webp') ||
+        clean.endsWith('.gif') ||
+        clean.endsWith('.bmp');
+  }
+
+  bool _isVideoUrl(String url) {
+    final lower = url.toLowerCase().trim();
+    final clean = lower.split('?').first;
+    return clean.endsWith('.mp4') ||
+        clean.endsWith('.mov') ||
+        clean.endsWith('.mkv') ||
+        clean.endsWith('.webm');
+  }
+
+  bool _isAudioUrl(String url) {
+    final lower = url.toLowerCase().trim();
+    final clean = lower.split('?').first;
+    return clean.endsWith('.m4a') ||
+        clean.endsWith('.mp3') ||
+        clean.endsWith('.wav') ||
+        clean.endsWith('.aac') ||
+        clean.endsWith('.ogg') ||
+        clean.endsWith('.opus');
+  }
+
   Widget _buildAttachments(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: message.attachments.map((attachment) {
-          if (attachment.fileType == 'IMAGE') {
+          final fileType = attachment.fileType.toUpperCase();
+          final mimeType = attachment.mimeType.toLowerCase();
+
+          final isImage = fileType == 'IMAGE' ||
+              mimeType.startsWith('image/') ||
+              _isImageUrl(attachment.url);
+
+          final isVideo = fileType == 'VIDEO' ||
+              mimeType.startsWith('video/') ||
+              _isVideoUrl(attachment.url);
+
+          final isAudio = fileType == 'AUDIO' ||
+              fileType == 'VOICE_NOTE' ||
+              mimeType.startsWith('audio/') ||
+              _isAudioUrl(attachment.url);
+
+          if (isImage) {
             return _buildImageAttachment(context, attachment);
-          } else if (attachment.fileType == 'VIDEO') {
+          } else if (isVideo) {
             return _buildVideoAttachment(context, attachment);
-          } else if (attachment.fileType == 'DOCUMENT') {
+          } else if (isAudio) {
+            return _buildAudioAttachment(context, attachment);
+          } else {
             return _buildDocumentAttachment(context, attachment);
           }
-          return const SizedBox.shrink();
         }).toList(),
       ),
     );
@@ -299,9 +404,20 @@ class MessageBubble extends StatelessWidget {
 
   Widget _buildImageAttachment(
       BuildContext context, MessageAttachmentModel attachment) {
+    return _buildImageCard(context, attachment.url);
+  }
+
+  Widget _buildImageCard(BuildContext context, String imageUrl) {
+    final rawUrl = imageUrl.trim();
+    final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
+    final isLocal = resolvedUrl.startsWith('file://') ||
+        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync());
+
     return GestureDetector(
       onTap: () {
-        _openImageViewer(context, attachment.url);
+        if (resolvedUrl.isNotEmpty) {
+          _openImageViewer(context, resolvedUrl);
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
@@ -317,32 +433,79 @@ class MessageBubble extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: CachedNetworkImage(
-            imageUrl: attachment.url,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              height: 180,
-              color: const Color(0xFF1E2638),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              height: 180,
-              color: const Color(0xFF1E2638),
-              child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
-            ),
-          ),
+          child: resolvedUrl.isEmpty
+              ? Container(
+                  height: 180,
+                  width: 220,
+                  color: const Color(0xFF1E2638),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                    ),
+                  ),
+                )
+              : isLocal
+                  ? Image.file(
+                      File(resolvedUrl.replaceFirst('file://', '')),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 180,
+                        width: 220,
+                        color: const Color(0xFF1E2638),
+                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 36),
+                      ),
+                    )
+                  : CachedNetworkImage(
+                      imageUrl: resolvedUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        height: 180,
+                        width: 220,
+                        color: const Color(0xFF1E2638),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 180,
+                        width: 220,
+                        color: const Color(0xFF1E2638),
+                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 36),
+                      ),
+                    ),
         ),
       ),
     );
   }
 
+  Widget _buildAudioAttachment(
+      BuildContext context, MessageAttachmentModel attachment) {
+    final resolvedUrl = MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
+    // Re-use VoiceMessagePlayer via a synthetic voice note model
+    final voiceNote = MessageVoiceNoteModel(
+      fileId: attachment.fileId,
+      url: resolvedUrl,
+      duration: attachment.duration?.toInt() ?? 0,
+      waveform: null,
+    );
+    return VoiceMessagePlayer(
+      voiceNote: voiceNote,
+      isMe: isMe,
+    );
+  }
+
   Widget _buildVideoAttachment(
       BuildContext context, MessageAttachmentModel attachment) {
+    final resolvedUrl = MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
+    final resolvedThumbnail = MediaUrlResolver.resolve(attachment.thumbnailUrl);
+    return _buildVideoCard(context, resolvedUrl, thumbnailUrl: resolvedThumbnail);
+  }
+
+  Widget _buildVideoCard(BuildContext context, String videoUrl, {String? thumbnailUrl}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       constraints: const BoxConstraints(maxHeight: 220, maxWidth: 260),
@@ -351,13 +514,15 @@ class MessageBubble extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (attachment.thumbnailUrl != null)
+            if (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
               CachedNetworkImage(
-                imageUrl: attachment.thumbnailUrl!,
+                imageUrl: thumbnailUrl,
                 fit: BoxFit.cover,
+                width: 220,
+                height: 160,
               )
             else
-              Container(height: 160, color: const Color(0xFF1E2638)),
+              Container(height: 160, width: 220, color: const Color(0xFF1E2638)),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -550,6 +715,11 @@ class MessageBubble extends StatelessWidget {
   }
 
   void _openImageViewer(BuildContext context, String imageUrl) {
+    final rawUrl = imageUrl.trim();
+    final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
+    final isLocal = resolvedUrl.startsWith('file://') ||
+        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync());
+
     showDialog(
       context: context,
       builder: (context) => Dialog.fullscreen(
@@ -558,7 +728,9 @@ class MessageBubble extends StatelessWidget {
           children: [
             Center(
               child: InteractiveViewer(
-                child: CachedNetworkImage(imageUrl: imageUrl),
+                child: isLocal
+                    ? Image.file(File(resolvedUrl.replaceFirst('file://', '')))
+                    : CachedNetworkImage(imageUrl: resolvedUrl),
               ),
             ),
             Positioned(

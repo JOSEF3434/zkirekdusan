@@ -306,6 +306,23 @@ class ChatRepositoryImpl implements ChatRepository {
     final senderDisplayName = currentUser?.displayIdentifier;
     final String? senderAvatarUrl = null;
 
+    List<MessageAttachmentModel> optimisticAttachments = [];
+    if (attachmentIds != null && attachmentIds.isNotEmpty) {
+      optimisticAttachments = attachmentIds.map((id) {
+        return MessageAttachmentModel(
+          fileId: id,
+          url: '',
+          fileType: type,
+          mimeType: type == 'IMAGE'
+              ? 'image/jpeg'
+              : (type == 'AUDIO' || type == 'VOICE_NOTE'
+                  ? 'audio/m4a'
+                  : 'application/octet-stream'),
+          originalName: 'Attachment',
+        );
+      }).toList();
+    }
+
     // 1. Create local message companion with status = pending
     final localCompanion = LocalMessagesCompanion(
       localId: drift.Value(localId),
@@ -319,6 +336,9 @@ class ChatRepositoryImpl implements ChatRepository {
       content: drift.Value(content),
       messageType: drift.Value(type),
       replyToMessageId: drift.Value(replyToId),
+      attachmentsJson: drift.Value(optimisticAttachments.isNotEmpty
+          ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
+          : null),
       status: const drift.Value('pending'),
       isPendingSync: const drift.Value(true),
       createdAt: drift.Value(now),
@@ -403,6 +423,7 @@ class ChatRepositoryImpl implements ChatRepository {
       content: content,
       type: type,
       replyToId: replyToId,
+      attachments: optimisticAttachments,
       createdAt: now,
       updatedAt: now,
     );
@@ -734,6 +755,10 @@ class ChatRepositoryImpl implements ChatRepository {
       isPendingSync: const drift.Value(false),
       attachmentsJson: drift.Value(
           m.attachments.isNotEmpty ? jsonEncode(m.attachments.map((a) => a.toJson()).toList()) : null),
+      voiceNoteJson: drift.Value(
+          m.voiceNote != null ? jsonEncode(m.voiceNote!.toJson()) : null),
+      attachmentUrl: drift.Value(
+          m.attachments.isNotEmpty ? m.attachments.first.url : (m.voiceNote?.url)),
       reactionsJson: drift.Value(
           m.reactions.isNotEmpty ? jsonEncode(m.reactions.map((r) => r.toJson()).toList()) : null),
       readByJson: drift.Value(m.readBy.isNotEmpty ? jsonEncode(m.readBy) : null),
@@ -759,6 +784,14 @@ class ChatRepositoryImpl implements ChatRepository {
         attachments = decoded
             .map((a) => MessageAttachmentModel.fromJson(a as Map<String, dynamic>))
             .toList();
+      } catch (_) {}
+    }
+
+    MessageVoiceNoteModel? voiceNote;
+    if (d.voiceNoteJson != null && d.voiceNoteJson!.isNotEmpty) {
+      try {
+        voiceNote = MessageVoiceNoteModel.fromJson(
+            jsonDecode(d.voiceNoteJson!) as Map<String, dynamic>);
       } catch (_) {}
     }
 
@@ -804,6 +837,7 @@ class ChatRepositoryImpl implements ChatRepository {
       isEdited: d.isEdited,
       isPinned: d.isPinned,
       attachments: attachments,
+      voiceNote: voiceNote,
       reactions: reactions,
       readBy: readBy,
       deliveredTo: deliveredTo,

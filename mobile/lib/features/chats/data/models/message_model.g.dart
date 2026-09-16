@@ -9,51 +9,62 @@ part of 'message_model.dart';
 _MessageModel _$MessageModelFromJson(
   Map<String, dynamic> json,
 ) => _MessageModel(
-  id: json['id'] as String,
-  conversationId: json['conversationId'] as String,
-  channelId: json['channelId'] as String?,
-  sender: MessageSenderModel.fromJson(json['sender'] as Map<String, dynamic>),
-  content: json['content'] as String?,
-  type: json['type'] as String,
-  replyToId: json['replyToId'] as String?,
-  replyTo: json['replyTo'] == null
-      ? null
-      : MessageReplyModel.fromJson(json['replyTo'] as Map<String, dynamic>),
+  id: json['id']?.toString() ?? '',
+  conversationId: json['conversationId']?.toString() ?? '',
+  channelId: json['channelId']?.toString(),
+  sender: json['sender'] is Map<String, dynamic>
+      ? MessageSenderModel.fromJson(json['sender'] as Map<String, dynamic>)
+      : const MessageSenderModel(id: '', username: 'User'),
+  content: json['content']?.toString(),
+  type: json['type']?.toString() ?? 'TEXT',
+  replyToId: json['replyToId']?.toString(),
+  replyTo: json['replyTo'] is Map<String, dynamic>
+      ? MessageReplyModel.fromJson(json['replyTo'] as Map<String, dynamic>)
+      : null,
   isEdited: json['isEdited'] as bool? ?? false,
   isPinned: json['isPinned'] as bool? ?? false,
-  attachments:
-      (json['attachments'] as List<dynamic>?)
+  attachments: (json['attachments'] as List<dynamic>?)
           ?.map(
-            (e) => MessageAttachmentModel.fromJson(e as Map<String, dynamic>),
+            (e) => e is Map<String, dynamic>
+                ? MessageAttachmentModel.fromJson(e)
+                : null,
           )
+          .whereType<MessageAttachmentModel>()
           .toList() ??
       const [],
-  reactions:
-      (json['reactions'] as List<dynamic>?)
-          ?.map((e) => MessageReactionModel.fromJson(e as Map<String, dynamic>))
+  reactions: (json['reactions'] as List<dynamic>?)
+          ?.map((e) => e is Map<String, dynamic>
+              ? MessageReactionModel.fromJson(e)
+              : null)
+          .whereType<MessageReactionModel>()
           .toList() ??
       const [],
-  readBy:
-      (json['readBy'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-      const [],
-  deliveredTo:
-      (json['deliveredTo'] as List<dynamic>?)
-          ?.map((e) => e as String)
+  readBy: (json['readBy'] as List<dynamic>?)
+          ?.map((e) => e.toString())
           .toList() ??
       const [],
-  voiceNote: json['voiceNote'] == null
-      ? null
-      : MessageVoiceNoteModel.fromJson(
+  deliveredTo: (json['deliveredTo'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ??
+      const [],
+  voiceNote: json['voiceNote'] is Map<String, dynamic>
+      ? MessageVoiceNoteModel.fromJson(
           json['voiceNote'] as Map<String, dynamic>,
-        ),
-  forward: json['forward'] == null
-      ? null
-      : MessageForwardModel.fromJson(json['forward'] as Map<String, dynamic>),
-  mentions:
-      (json['mentions'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+        )
+      : null,
+  forward: json['forward'] is Map<String, dynamic>
+      ? MessageForwardModel.fromJson(json['forward'] as Map<String, dynamic>)
+      : null,
+  mentions: (json['mentions'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ??
       const [],
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  updatedAt: DateTime.parse(json['updatedAt'] as String),
+  createdAt: json['createdAt'] != null
+      ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
+      : DateTime.now(),
+  updatedAt: json['updatedAt'] != null
+      ? (DateTime.tryParse(json['updatedAt'].toString()) ?? DateTime.now())
+      : DateTime.now(),
 );
 
 Map<String, dynamic> _$MessageModelToJson(_MessageModel instance) =>
@@ -81,10 +92,10 @@ Map<String, dynamic> _$MessageModelToJson(_MessageModel instance) =>
 
 _MessageSenderModel _$MessageSenderModelFromJson(Map<String, dynamic> json) =>
     _MessageSenderModel(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      displayName: json['displayName'] as String?,
-      avatarUrl: json['avatarUrl'] as String?,
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      displayName: json['displayName']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
     );
 
 Map<String, dynamic> _$MessageSenderModelToJson(_MessageSenderModel instance) =>
@@ -97,12 +108,12 @@ Map<String, dynamic> _$MessageSenderModelToJson(_MessageSenderModel instance) =>
 
 _MessageReplyModel _$MessageReplyModelFromJson(Map<String, dynamic> json) =>
     _MessageReplyModel(
-      id: json['id'] as String,
-      content: json['content'] as String?,
-      type: json['type'] as String,
-      sender: MessageSenderModel.fromJson(
-        json['sender'] as Map<String, dynamic>,
-      ),
+      id: json['id']?.toString() ?? '',
+      content: json['content']?.toString(),
+      type: json['type']?.toString() ?? 'TEXT',
+      sender: json['sender'] is Map<String, dynamic>
+          ? MessageSenderModel.fromJson(json['sender'] as Map<String, dynamic>)
+          : const MessageSenderModel(id: '', username: 'User'),
     );
 
 Map<String, dynamic> _$MessageReplyModelToJson(_MessageReplyModel instance) =>
@@ -116,16 +127,16 @@ Map<String, dynamic> _$MessageReplyModelToJson(_MessageReplyModel instance) =>
 _MessageAttachmentModel _$MessageAttachmentModelFromJson(
   Map<String, dynamic> json,
 ) => _MessageAttachmentModel(
-  fileId: json['fileId'] as String,
-  url: json['url'] as String,
-  fileType: json['fileType'] as String,
-  mimeType: json['mimeType'] as String,
-  originalName: json['originalName'] as String,
+  fileId: json['fileId']?.toString() ?? json['id']?.toString() ?? '',
+  url: json['url']?.toString() ?? '',
+  fileType: json['fileType']?.toString() ?? 'OTHER',
+  mimeType: json['mimeType']?.toString() ?? '',
+  originalName: json['originalName']?.toString() ?? '',
   width: (json['width'] as num?)?.toInt(),
   height: (json['height'] as num?)?.toInt(),
   duration: (json['duration'] as num?)?.toDouble(),
   size: (json['size'] as num?)?.toInt(),
-  thumbnailUrl: json['thumbnailUrl'] as String?,
+  thumbnailUrl: json['thumbnailUrl']?.toString(),
 );
 
 Map<String, dynamic> _$MessageAttachmentModelToJson(
@@ -146,9 +157,12 @@ Map<String, dynamic> _$MessageAttachmentModelToJson(
 _MessageReactionModel _$MessageReactionModelFromJson(
   Map<String, dynamic> json,
 ) => _MessageReactionModel(
-  emoji: json['emoji'] as String,
-  count: (json['count'] as num).toInt(),
-  userIds: (json['userIds'] as List<dynamic>).map((e) => e as String).toList(),
+  emoji: json['emoji']?.toString() ?? '',
+  count: (json['count'] as num?)?.toInt() ?? 0,
+  userIds: (json['userIds'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ??
+      const [],
 );
 
 Map<String, dynamic> _$MessageReactionModelToJson(
@@ -162,9 +176,9 @@ Map<String, dynamic> _$MessageReactionModelToJson(
 _MessageVoiceNoteModel _$MessageVoiceNoteModelFromJson(
   Map<String, dynamic> json,
 ) => _MessageVoiceNoteModel(
-  fileId: json['fileId'] as String,
-  url: json['url'] as String,
-  duration: (json['duration'] as num).toInt(),
+  fileId: json['fileId']?.toString() ?? json['id']?.toString() ?? '',
+  url: json['url']?.toString() ?? '',
+  duration: (json['duration'] as num?)?.toInt() ?? 0,
   waveform: (json['waveform'] as List<dynamic>?)
       ?.map((e) => (e as num).toDouble())
       .toList(),

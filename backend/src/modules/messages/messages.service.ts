@@ -282,13 +282,22 @@ export class MessagesService {
         : undefined,
       isEdited: message.isEdited,
       isPinned: message.isPinned,
-      attachments: (message.attachments ?? []).map((a: any) => ({
-        fileId: a.file.id,
-        url: a.file.url,
-        fileType: a.file.fileType,
-        mimeType: a.file.mimeType,
-        originalName: a.file.originalName,
-      })),
+      attachments: (message.attachments ?? [])
+        .filter((a: any) => a.file != null)
+        .map((a: any) => ({
+          fileId: a.file.id,
+          url: a.file.url,
+          fileType: a.file.fileType,
+          mimeType: a.file.mimeType,
+          originalName: a.file.originalName ?? '',
+        })),
+      voiceNote: message.voiceNote
+        ? {
+            duration: message.voiceNote.duration ?? 0,
+            waveform: message.voiceNote.waveform ?? undefined,
+            url: message.voiceNote.file?.url ?? '',
+          }
+        : undefined,
       reactions: Object.entries(reactionsMap).map(([emoji, data]) => ({
         emoji,
         count: data.count,
