@@ -3,18 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/presentation/widgets/main_navigation_rail.dart';
 import 'package:mobile/core/presentation/widgets/mini_player_overlay.dart';
 import 'package:mobile/core/presentation/widgets/offline_status_banner.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:mobile/core/storage/download_service.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 import 'package:mobile/core/utils/localization_service.dart';
-import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
-import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
@@ -149,137 +147,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     if (isWideScreen) {
-      final unreadCount = ref.watch(unreadNotificationCountProvider);
-      final adminPermissions = ref.watch(adminPermissionsProvider);
-      final isDesktop = ResponsiveLayout.isDesktop(context);
-
       return Scaffold(
         body: Stack(
           children: [
             Row(
               children: [
-                NavigationRail(
-                  extended: isDesktop,
+                MainNavigationRail(
                   selectedIndex: _adjustedSelectedIndex,
                   onDestinationSelected: (index) =>
                       _onItemTapped(index, context),
-                  labelType: isDesktop
-                      ? NavigationRailLabelType.none
-                      : NavigationRailLabelType.all,
-                  trailing: SizedBox(
-                    width: isDesktop ? 220 : 64,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Divider(
-                            indent: isDesktop ? 16 : 8,
-                            endIndent: isDesktop ? 16 : 8,
-                            height: 16,
-                            thickness: 0.5,
-                            color: theme.dividerColor.withValues(alpha: 0.2),
-                          ),
-                          // 1. Notifications with Badge
-                          _RailActionButton(
-                            icon: Icons.notifications_outlined,
-                            selectedIcon: Icons.notifications,
-                            label: tr('nav.notifications'),
-                            isExtended: isDesktop,
-                            badgeCount: unreadCount > 0 ? unreadCount : null,
-                            onTap: () => context.push('/notifications'),
-                          ),
-                          // 2. Downloaded Videos
-                          _RailActionButton(
-                            icon: Icons.download_done_rounded,
-                            label: tr('nav.downloads'),
-                            isExtended: isDesktop,
-                            onTap: () => context.push('/library/downloads'),
-                          ),
-                          // 3. Watch History
-                          _RailActionButton(
-                            icon: Icons.history_rounded,
-                            label: tr('nav.history'),
-                            isExtended: isDesktop,
-                            onTap: () => context.push('/library/history'),
-                          ),
-                          // 4. Liked Videos
-                          _RailActionButton(
-                            icon: Icons.thumb_up_alt_outlined,
-                            label: tr('nav.liked'),
-                            isExtended: isDesktop,
-                            onTap: () => context.push('/library/liked'),
-                          ),
-                          // 5. Follow Channels
-                          _RailActionButton(
-                            icon: Icons.subscriptions_outlined,
-                            label: tr('nav.channels'),
-                            isExtended: isDesktop,
-                            onTap: () {
-                              final authUser = ref.read(authProvider).user;
-                              if (authUser != null) {
-                                context.push('/profile/${authUser.id}/following');
-                              } else {
-                                context.push('/explore');
-                              }
-                            },
-                          ),
-                          // 6. Cache & Storage
-                          _RailActionButton(
-                            icon: Icons.cleaning_services_outlined,
-                            label: tr('nav.cache_storage'),
-                            isExtended: isDesktop,
-                            onTap: () => _showCacheStorageDialog(context, ref),
-                          ),
-                          // 7. Admin Panel (Super Admin or has admin permissions)
-                          if (adminPermissions.hasAdminAccess) ...[
-                            Divider(
-                              indent: isDesktop ? 16 : 8,
-                              endIndent: isDesktop ? 16 : 8,
-                              height: 16,
-                              thickness: 0.5,
-                              color: theme.dividerColor.withValues(alpha: 0.2),
-                            ),
-                            _RailActionButton(
-                              icon: Icons.admin_panel_settings_outlined,
-                              selectedIcon: Icons.admin_panel_settings,
-                              label: tr('nav.admin_panel'),
-                              isExtended: isDesktop,
-                              iconColor: const Color(0xFFFFB300),
-                              onTap: () => context.push('/admin'),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                  destinations: [
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.home_outlined),
-                      selectedIcon: const Icon(Icons.home),
-                      label: Text(tr('nav.home')),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      selectedIcon: const Icon(Icons.calendar_month),
-                      label: Text(tr('nav.calendar')),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.add_circle_outline),
-                      selectedIcon: const Icon(Icons.add_circle),
-                      label: Text(tr('nav.create')),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      selectedIcon: const Icon(Icons.chat_bubble),
-                      label: Text(tr('nav.chats')),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.menu_book_outlined),
-                      selectedIcon: const Icon(Icons.menu_book),
-                      label: Text(tr('nav.books')),
-                    ),
-                  ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
                 Expanded(
@@ -392,7 +268,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 // Cache & Storage Dialog
 // ──────────────────────────────────────────────────────────────────────────────
 
-void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
+void showCacheStorageDialog(BuildContext context, WidgetRef ref) {
   final tr = ref.read(trProvider);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final downloadState = ref.read(downloadServiceProvider);
@@ -530,87 +406,3 @@ void _showCacheStorageDialog(BuildContext context, WidgetRef ref) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// NavigationRail action button for large devices
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _RailActionButton extends StatelessWidget {
-  final IconData icon;
-  final IconData? selectedIcon;
-  final String label;
-  final bool isExtended;
-  final int? badgeCount;
-  final VoidCallback onTap;
-  final Color? iconColor;
-
-  const _RailActionButton({
-    required this.icon,
-    this.selectedIcon,
-    required this.label,
-    required this.isExtended,
-    this.badgeCount,
-    required this.onTap,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final defaultColor = isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87;
-    final activeColor = iconColor ?? defaultColor;
-    final iconWidget = Icon(
-      icon,
-      size: 22,
-      color: activeColor,
-    );
-
-    final badgedIcon = badgeCount != null && badgeCount! > 0
-        ? Badge(
-            label: Text(badgeCount! > 99 ? '99+' : '$badgeCount'),
-            backgroundColor: const Color(0xFF00C6FF),
-            textColor: Colors.black,
-            child: iconWidget,
-          )
-        : iconWidget;
-
-    if (!isExtended) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Tooltip(
-          message: label,
-          child: IconButton(icon: badgedIcon, onPressed: onTap),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              badgedIcon,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -397,6 +397,10 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 child: _buildSearchBarRow(
                   isDark: isDark,
                   hasAnyStories: hasAnyStories,
+                  hasMyStories: hasMyStories,
+                  userName: userName,
+                  userAvatar: userAvatar,
+                  myGroup: myGroup,
                   otherGroups: otherGroups,
                   allGroups: allGroups,
                 ),
@@ -659,6 +663,10 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
   Widget _buildSearchBarRow({
     required bool isDark,
     required bool hasAnyStories,
+    required bool hasMyStories,
+    required String userName,
+    required String? userAvatar,
+    required StoryFeedGroupModel? myGroup,
     required List<StoryFeedGroupModel> otherGroups,
     required List<StoryFeedGroupModel> allGroups,
   }) {
@@ -711,28 +719,29 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
           ),
         ),
         // ── Compact overlapping story avatars (right of search) ─────────────
-        if (hasAnyStories && (otherGroups.isNotEmpty || allGroups.isNotEmpty)) ...
-          [
-            const SizedBox(width: 8),
-            _CompactStoryCluster(
-              groups: otherGroups.isNotEmpty ? otherGroups : allGroups,
-              allGroups: allGroups,
-              isExpanded: _isStoriesExpanded,
-              isDark: isDark,
-              onToggle: () =>
-                  setState(() => _isStoriesExpanded = !_isStoriesExpanded),
-              onGroupTap: (group) {
-                final idx = allGroups.indexOf(group);
-                context.push(
-                  '/story-viewer',
-                  extra: StoryViewerArgs(
-                    groups: allGroups,
-                    initialGroupIndex: idx >= 0 ? idx : 0,
-                  ),
-                );
-              },
-            ),
-          ],
+        const SizedBox(width: 8),
+        _CompactStoryCluster(
+          groups: otherGroups.isNotEmpty ? otherGroups : allGroups,
+          allGroups: allGroups,
+          userName: userName,
+          userAvatar: userAvatar,
+          hasMyStories: hasMyStories,
+          myGroup: myGroup,
+          isExpanded: _isStoriesExpanded,
+          isDark: isDark,
+          onToggle: () =>
+              setState(() => _isStoriesExpanded = !_isStoriesExpanded),
+          onGroupTap: (group) {
+            final idx = allGroups.indexOf(group);
+            context.push(
+              '/story-viewer',
+              extra: StoryViewerArgs(
+                groups: allGroups,
+                initialGroupIndex: idx >= 0 ? idx : 0,
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -1176,6 +1185,10 @@ class _ResizeDivider extends StatelessWidget {
 class _CompactStoryCluster extends StatelessWidget {
   final List<StoryFeedGroupModel> groups;
   final List<StoryFeedGroupModel> allGroups;
+  final String userName;
+  final String? userAvatar;
+  final bool hasMyStories;
+  final StoryFeedGroupModel? myGroup;
   final bool isExpanded;
   final bool isDark;
   final VoidCallback onToggle;
@@ -1184,6 +1197,10 @@ class _CompactStoryCluster extends StatelessWidget {
   const _CompactStoryCluster({
     required this.groups,
     required this.allGroups,
+    required this.userName,
+    this.userAvatar,
+    this.hasMyStories = false,
+    this.myGroup,
     required this.isExpanded,
     required this.isDark,
     required this.onToggle,
@@ -1198,16 +1215,16 @@ class _CompactStoryCluster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayGroups = groups.isNotEmpty ? groups : allGroups;
-    if (displayGroups.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final displayCount = displayGroups.length.clamp(1, 3);
+    final displayGroups = groups.isNotEmpty ? groups : allGroups.where((g) => g.stories.isNotEmpty).toList();
+    final bool hasStories = displayGroups.isNotEmpty;
+    final displayCount = hasStories ? displayGroups.length.clamp(1, 3) : 1;
     // Width = first avatar (26px) + (n-1) * 14px overlap
-    final totalAvatarWidth = 26.0 + (displayCount - 1) * 14.0;
+    final totalAvatarWidth = hasStories
+        ? (26.0 + (displayCount - 1) * 14.0)
+        : 28.0;
 
     return Tooltip(
-      message: isExpanded ? 'Collapse stories' : 'View stories',
+      message: isExpanded ? 'Collapse stories' : 'Stories',
       child: InkWell(
         onTap: onToggle,
         borderRadius: BorderRadius.circular(20),
@@ -1219,16 +1236,18 @@ class _CompactStoryCluster extends StatelessWidget {
               SizedBox(
                 width: totalAvatarWidth,
                 height: 28,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (int i = 0; i < displayCount; i++)
-                      Positioned(
-                        left: i * 14.0,
-                        child: _buildAvatar(displayGroups[i], _ringColors[i % _ringColors.length]),
-                      ),
-                  ],
-                ),
+                child: hasStories
+                    ? Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (int i = 0; i < displayCount; i++)
+                            Positioned(
+                              left: i * 14.0,
+                              child: _buildAvatar(displayGroups[i], _ringColors[i % _ringColors.length]),
+                            ),
+                        ],
+                      )
+                    : _buildDefaultStoryAvatar(),
               ),
               const SizedBox(width: 4),
               Icon(
@@ -1243,6 +1262,31 @@ class _CompactStoryCluster extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultStoryAvatar() {
+    final avatarUrl = MediaUrlResolver.resolve(userAvatar);
+    final ring = hasMyStories ? const Color(0xFF00C6FF) : const Color(0xFF10B981);
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ring, width: 2),
+        color: isDark ? const Color(0xFF0E1621) : Colors.white,
+      ),
+      padding: const EdgeInsets.all(1),
+      child: ClipOval(
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: avatarUrl,
+                fit: BoxFit.cover,
+                errorWidget: (context, error, _) => _initial(userName, ring),
+              )
+            : _initial(userName, ring),
       ),
     );
   }

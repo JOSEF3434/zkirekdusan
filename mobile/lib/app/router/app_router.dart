@@ -86,6 +86,7 @@ import 'package:mobile/features/chats/presentation/screens/chat_search_screen.da
 import 'package:mobile/features/calls/presentation/screens/call_screen.dart';
 import 'package:mobile/features/calls/presentation/screens/incoming_call_screen.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
+import 'package:mobile/core/presentation/widgets/responsive_desktop_shell.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -236,50 +237,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: '/explore',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const ExploreScreen(),
-      ),
-      GoRoute(
-        path: '/profile',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const ProfileScreen(),
-        routes: [
-          GoRoute(
-            path: 'edit',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final profile = state.extra as ProfileModel?;
-              return EditProfileScreen(initialProfile: profile);
-            },
-          ),
-          GoRoute(
-            path: 'user/:username',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final username = state.pathParameters['username']!;
-              return PublicProfileScreen(username: username);
-            },
-          ),
-          GoRoute(
-            path: ':id/followers',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final id = state.pathParameters['id']!;
-              return FollowersScreen(profileId: id, initialTabIndex: 0);
-            },
-          ),
-          GoRoute(
-            path: ':id/following',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final id = state.pathParameters['id']!;
-              return FollowersScreen(profileId: id, initialTabIndex: 1);
-            },
-          ),
-        ],
-      ),
-      GoRoute(
         path: '/story/create',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const StoryCreationScreen(),
@@ -320,184 +277,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UploadScreen(),
       ),
       GoRoute(
-        path: '/search',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const SearchScreen(),
-      ),
-      GoRoute(
-        path: '/notifications',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const NotificationsScreen(),
-      ),
-      GoRoute(
-        path: '/creator/workspace',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const CreatorWorkspaceScreen(),
-      ),
-      GoRoute(
-        path: '/creator/create-group',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const CreateGroupScreen(),
-      ),
-      GoRoute(
-        path: '/creator/upload',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final groupId = state.uri.queryParameters['groupId'];
-          return UploadChannelSelectorScreen(initialGroupId: groupId);
-        },
-      ),
-      GoRoute(
-        path: '/creator/groups/:id/channels',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          final group = state.extra as CreatorGroupDto?;
-          if (group != null) {
-            return ChannelSelectorScreen(group: group);
-          }
-          return UploadChannelSelectorScreen(initialGroupId: id);
-        },
-      ),
-      GoRoute(
-        path: '/creator/dashboard',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const CreatorDashboardScreen(),
-      ),
-      GoRoute(
-        path: '/creator/dashboard/channel/:channelId/analytics',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          final extra = state.extra as Map<String, dynamic>;
-          return CreatorChannelDashboardScreen(
-            channelId: channelId,
-            groupId: extra['groupId'] as String,
-            channelName: extra['channelName'] as String,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/creator/dashboard/channel/:channelId/videos',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          return CreatorVideoManagementScreen(channelId: channelId);
-        },
-      ),
-      GoRoute(
-        path: '/creator/dashboard/video/:channelId/:videoId/edit',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          final videoId = state.pathParameters['videoId']!;
-          final initialVideo = state.extra as CreatorVideoDto?;
-          return CreatorVideoEditScreen(
-            channelId: channelId,
-            videoId: videoId,
-            initialVideo: initialVideo,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/creator/dashboard/video/:channelId/:videoId/comments',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final channelId = state.pathParameters['channelId']!;
-          final videoId = state.pathParameters['videoId']!;
-          return CreatorCommentModerationScreen(
-            channelId: channelId,
-            videoId: videoId,
-          );
-        },
-      ),
-      // Administration Routes
-      GoRoute(
-        path: '/admin',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminDashboardScreen(),
-      ),
-      GoRoute(
-        path: '/admin/dashboard',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminDashboardScreen(),
-      ),
-      GoRoute(
-        path: '/admin/users',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminUsersScreen(),
-      ),
-      GoRoute(
-        path: '/admin/roles',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminRolesScreen(),
-      ),
-      GoRoute(
-        path: '/admin/channels',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminChannelsScreen(),
-      ),
-      GoRoute(
-        path: '/admin/content',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminContentScreen(),
-      ),
-      GoRoute(
-        path: '/admin/live',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminLiveScreen(),
-      ),
-      GoRoute(
-        path: '/admin/chat',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminChatScreen(),
-      ),
-      GoRoute(
-        path: '/admin/storage',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminStorageScreen(),
-      ),
-      GoRoute(
-        path: '/admin/notifications',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminNotificationsScreen(),
-      ),
-      GoRoute(
-        path: '/admin/audit',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminAuditScreen(),
-      ),
-      GoRoute(
-        path: '/admin/system',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminSystemScreen(),
-      ),
-      GoRoute(
-        path: '/admin/spam',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminSpamScreen(),
-      ),
-      GoRoute(
-        path: '/admin/moderation',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminModerationScreen(),
-      ),
-      GoRoute(
-        path: '/admin/groups',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const GroupManagementScreen(),
-      ),
-      GoRoute(
-        path: '/admin/reports',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminReportsScreen(),
-      ),
-      GoRoute(
-        path: '/admin/rbac',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const AdminRbacScreen(),
-      ),
-      GoRoute(
         path: '/qr-scan',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const QrScannerScreen(),
@@ -523,23 +302,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: '/groups/:id',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          final tab = state.uri.queryParameters['tab'];
-          return GroupChannelScreen(groupId: id, initialTab: tab);
-        },
-      ),
-      GoRoute(
-        path: '/playlists/:id',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return PlaylistDetailScreen(playlistId: id);
-        },
-      ),
-      GoRoute(
         path: '/chats/search',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ChatSearchScreen(),
@@ -553,100 +315,312 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Settings Routes
-      GoRoute(
-        path: '/settings',
+      // ─────────────────────────────────────────────
+      // Desktop / Web Persistent Sidebar Shell Routes
+      // (Explore, Profile, Search, Notifications, Creator, Admin, Groups, Playlists, Settings, Library)
+      // ─────────────────────────────────────────────
+      ShellRoute(
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const SettingsScreen(),
+        builder: (context, state, child) => ResponsiveDesktopShell(child: child),
         routes: [
           GoRoute(
-            path: 'appearance',
-            builder: (context, state) => const AppearanceSettingsScreen(),
+            path: '/explore',
+            builder: (context, state) => const ExploreScreen(),
           ),
           GoRoute(
-            path: 'language',
-            builder: (context, state) => const LanguageSettingsScreen(),
+            path: '/profile',
+            builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) {
+                  final profile = state.extra as ProfileModel?;
+                  return EditProfileScreen(initialProfile: profile);
+                },
+              ),
+              GoRoute(
+                path: 'user/:username',
+                builder: (context, state) {
+                  final username = state.pathParameters['username']!;
+                  return PublicProfileScreen(username: username);
+                },
+              ),
+              GoRoute(
+                path: ':id/followers',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return FollowersScreen(profileId: id, initialTabIndex: 0);
+                },
+              ),
+              GoRoute(
+                path: ':id/following',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return FollowersScreen(profileId: id, initialTabIndex: 1);
+                },
+              ),
+            ],
           ),
           GoRoute(
-            path: 'playback',
-            builder: (context, state) => const PlaybackPreferencesScreen(),
+            path: '/search',
+            builder: (context, state) => const SearchScreen(),
           ),
           GoRoute(
-            path: 'security',
-            builder: (context, state) => const SecuritySettingsScreen(),
+            path: '/notifications',
+            builder: (context, state) => const NotificationsScreen(),
           ),
           GoRoute(
-            path: 'privacy',
-            builder: (context, state) => const PrivacySettingsScreen(),
+            path: '/creator/workspace',
+            builder: (context, state) => const CreatorWorkspaceScreen(),
           ),
           GoRoute(
-            path: 'notifications',
-            builder: (context, state) => const NotificationSettingsScreen(),
+            path: '/creator/create-group',
+            builder: (context, state) => const CreateGroupScreen(),
           ),
           GoRoute(
-            path: 'content',
-            builder: (context, state) => const ContentSettingsScreen(),
-          ),
-          GoRoute(
-            path: 'downloads',
-            builder: (context, state) => const DownloadsSettingsScreen(),
-          ),
-          GoRoute(
-            path: 'data-usage',
-            builder: (context, state) => const DataUsageSettingsScreen(),
-          ),
-          GoRoute(
-            path: 'cache',
-            builder: (context, state) => const CacheSettingsScreen(),
-          ),
-          GoRoute(
-            path: 'storage',
-            builder: (context, state) => const StorageSettingsScreen(),
-          ),
-          GoRoute(
-            path: 'admin',
-            redirect: (context, state) {
-              final authState = ref.read(authProvider);
-              final role = authState.user?.role;
-              if (role != 'ADMIN' && role != 'SUPER_ADMIN') {
-                return '/home';
-              }
-              return null;
+            path: '/creator/upload',
+            builder: (context, state) {
+              final groupId = state.uri.queryParameters['groupId'];
+              return UploadChannelSelectorScreen(initialGroupId: groupId);
             },
-            builder: (context, state) => const AdminSettingsScreen(),
           ),
-        ],
-      ),
+          GoRoute(
+            path: '/creator/groups/:id/channels',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              final group = state.extra as CreatorGroupDto?;
+              if (group != null) {
+                return ChannelSelectorScreen(group: group);
+              }
+              return UploadChannelSelectorScreen(initialGroupId: id);
+            },
+          ),
+          GoRoute(
+            path: '/creator/dashboard',
+            builder: (context, state) => const CreatorDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/creator/dashboard/channel/:channelId/analytics',
+            builder: (context, state) {
+              final channelId = state.pathParameters['channelId']!;
+              final extra = state.extra as Map<String, dynamic>;
+              return CreatorChannelDashboardScreen(
+                channelId: channelId,
+                groupId: extra['groupId'] as String,
+                channelName: extra['channelName'] as String,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/creator/dashboard/channel/:channelId/videos',
+            builder: (context, state) {
+              final channelId = state.pathParameters['channelId']!;
+              return CreatorVideoManagementScreen(channelId: channelId);
+            },
+          ),
+          GoRoute(
+            path: '/creator/dashboard/video/:channelId/:videoId/edit',
+            builder: (context, state) {
+              final channelId = state.pathParameters['channelId']!;
+              final videoId = state.pathParameters['videoId']!;
+              final initialVideo = state.extra as CreatorVideoDto?;
+              return CreatorVideoEditScreen(
+                channelId: channelId,
+                videoId: videoId,
+                initialVideo: initialVideo,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/creator/dashboard/video/:channelId/:videoId/comments',
+            builder: (context, state) {
+              final channelId = state.pathParameters['channelId']!;
+              final videoId = state.pathParameters['videoId']!;
+              return CreatorCommentModerationScreen(
+                channelId: channelId,
+                videoId: videoId,
+              );
+            },
+          ),
+          // Administration Routes
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/admin/dashboard',
+            builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/admin/users',
+            builder: (context, state) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: '/admin/roles',
+            builder: (context, state) => const AdminRolesScreen(),
+          ),
+          GoRoute(
+            path: '/admin/channels',
+            builder: (context, state) => const AdminChannelsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/content',
+            builder: (context, state) => const AdminContentScreen(),
+          ),
+          GoRoute(
+            path: '/admin/live',
+            builder: (context, state) => const AdminLiveScreen(),
+          ),
+          GoRoute(
+            path: '/admin/chat',
+            builder: (context, state) => const AdminChatScreen(),
+          ),
+          GoRoute(
+            path: '/admin/storage',
+            builder: (context, state) => const AdminStorageScreen(),
+          ),
+          GoRoute(
+            path: '/admin/notifications',
+            builder: (context, state) => const AdminNotificationsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/audit',
+            builder: (context, state) => const AdminAuditScreen(),
+          ),
+          GoRoute(
+            path: '/admin/system',
+            builder: (context, state) => const AdminSystemScreen(),
+          ),
+          GoRoute(
+            path: '/admin/spam',
+            builder: (context, state) => const AdminSpamScreen(),
+          ),
+          GoRoute(
+            path: '/admin/moderation',
+            builder: (context, state) => const AdminModerationScreen(),
+          ),
+          GoRoute(
+            path: '/admin/groups',
+            builder: (context, state) => const GroupManagementScreen(),
+          ),
+          GoRoute(
+            path: '/admin/reports',
+            builder: (context, state) => const AdminReportsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/rbac',
+            builder: (context, state) => const AdminRbacScreen(),
+          ),
+          GoRoute(
+            path: '/groups/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              final tab = state.uri.queryParameters['tab'];
+              return GroupChannelScreen(groupId: id, initialTab: tab);
+            },
+          ),
+          GoRoute(
+            path: '/playlists/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return PlaylistDetailScreen(playlistId: id);
+            },
+          ),
 
-      // Library Routes
-      GoRoute(
-        path: '/library',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const LibraryScreen(),
-        routes: [
+          // Settings Routes
           GoRoute(
-            path: 'history',
-            builder: (context, state) => const WatchHistoryScreen(),
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path: 'appearance',
+                builder: (context, state) => const AppearanceSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'language',
+                builder: (context, state) => const LanguageSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'playback',
+                builder: (context, state) => const PlaybackPreferencesScreen(),
+              ),
+              GoRoute(
+                path: 'security',
+                builder: (context, state) => const SecuritySettingsScreen(),
+              ),
+              GoRoute(
+                path: 'privacy',
+                builder: (context, state) => const PrivacySettingsScreen(),
+              ),
+              GoRoute(
+                path: 'notifications',
+                builder: (context, state) => const NotificationSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'content',
+                builder: (context, state) => const ContentSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'downloads',
+                builder: (context, state) => const DownloadsSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'data-usage',
+                builder: (context, state) => const DataUsageSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'cache',
+                builder: (context, state) => const CacheSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'storage',
+                builder: (context, state) => const StorageSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'admin',
+                redirect: (context, state) {
+                  final authState = ref.read(authProvider);
+                  final role = authState.user?.role;
+                  if (role != 'ADMIN' && role != 'SUPER_ADMIN') {
+                    return '/home';
+                  }
+                  return null;
+                },
+                builder: (context, state) => const AdminSettingsScreen(),
+              ),
+            ],
           ),
+
+          // Library Routes
           GoRoute(
-            path: 'downloads',
-            builder: (context, state) => const DownloadsScreen(),
-          ),
-          GoRoute(
-            path: 'playlists',
-            builder: (context, state) => const PlaylistsScreen(),
-          ),
-          GoRoute(
-            path: 'continue-watching',
-            builder: (context, state) => const ContinueWatchingScreen(),
-          ),
-          GoRoute(
-            path: 'liked',
-            builder: (context, state) => const LikedVideosScreen(),
-          ),
-          GoRoute(
-            path: 'bookmarks',
-            builder: (context, state) => const BookmarksScreen(),
+            path: '/library',
+            builder: (context, state) => const LibraryScreen(),
+            routes: [
+              GoRoute(
+                path: 'history',
+                builder: (context, state) => const WatchHistoryScreen(),
+              ),
+              GoRoute(
+                path: 'downloads',
+                builder: (context, state) => const DownloadsScreen(),
+              ),
+              GoRoute(
+                path: 'playlists',
+                builder: (context, state) => const PlaylistsScreen(),
+              ),
+              GoRoute(
+                path: 'continue-watching',
+                builder: (context, state) => const ContinueWatchingScreen(),
+              ),
+              GoRoute(
+                path: 'liked',
+                builder: (context, state) => const LikedVideosScreen(),
+              ),
+              GoRoute(
+                path: 'bookmarks',
+                builder: (context, state) => const BookmarksScreen(),
+              ),
+            ],
           ),
         ],
       ),
