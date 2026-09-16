@@ -123,8 +123,10 @@ export class MessagesController {
   async deleteMessage(
     @Param('messageId') messageId: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role?: string,
   ): Promise<{ success: boolean }> {
-    return this.messagesService.deleteMessage(messageId, userId);
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    return this.messagesService.deleteMessage(messageId, userId, isAdmin);
   }
 
   // ── Mark as read ───────────────────────────────────────────────────────────
@@ -172,8 +174,10 @@ export class MessagesController {
     @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role?: string,
   ): Promise<{ success: boolean }> {
-    return this.messagesService.pinMessage(conversationId, messageId, userId);
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    return this.messagesService.pinMessage(conversationId, messageId, userId, isAdmin);
   }
 
   @Delete('conversations/:conversationId/messages/:messageId/pin')
@@ -182,8 +186,11 @@ export class MessagesController {
   async unpinMessage(
     @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role?: string,
   ): Promise<{ success: boolean }> {
-    return this.messagesService.unpinMessage(conversationId, messageId);
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    return this.messagesService.unpinMessage(conversationId, messageId, userId, isAdmin);
   }
 
   // ── Star / Unstar ──────────────────────────────────────────────────────────

@@ -7,11 +7,22 @@ import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dar
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
 
+final pinnedMessagesProvider = FutureProvider.family<List<MessageModel>, String>(
+  (ref, conversationId) async {
+    final repository = ref.watch(chatRepositoryProvider);
+    try {
+      return await repository.getPinnedMessages(conversationId);
+    } catch (_) {
+      return [];
+    }
+  },
+);
+
 final chatMessagesProvider = StateNotifierProvider.family<ChatMessagesNotifier, AsyncValue<List<MessageModel>>, String>(
   (ref, conversationId) {
     final repository = ref.watch(chatRepositoryProvider);
     final socketService = ref.watch(messagingSocketServiceProvider);
-    return ChatMessagesNotifier(conversationId, repository, socketService);
+    return ChatMessagesNotifier(conversationId, repository, socketService, ref);
   },
 );
 
@@ -19,6 +30,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   final String conversationId;
   final ChatRepository _repository;
   final MessagingSocketService _socketService;
+  final Ref _ref;
   
   String? _nextCursor;
   bool _hasMore = true;
@@ -29,7 +41,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   StreamSubscription? _deletedMessageSub;
   StreamSubscription? _reactionSub;
 
-  ChatMessagesNotifier(this.conversationId, this._repository, this._socketService)
+  ChatMessagesNotifier(this.conversationId, this._repository, this._socketService, this._ref)
       : super(const AsyncValue.loading()) {
     loadMessages();
     _setupRealtimeListeners();
@@ -199,12 +211,47 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
     });
   }
 
-  Future<void> deleteMessage(String messageId) async {
-    await _repository.deleteMessage(messageId);
+  Future<void> deleteMessage(String messageId, {bool forEveryone = false}) async {
+    await _repository.deleteMessage(messageId, forEveryone: forEveryone);
     
     state.whenData((messages) {
       state = AsyncValue.data(messages.where((m) => m.id != messageId).toList());
     });
+    _ref.invalidate(pinnedMessagesProvider(conversationId));
+  }
+
+  Future<void> pinMessageForEveryone(String messageId) async {
+    await _repository.pinMessage(conversationId: conversationId, messageId: messageId);
+    state.whenData((messages) {
+      final index = messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        final updated = [...messages];
+        updated[index] = updated[index].copyWith(isPinned: true);
+        state = AsyncValue.data(updated);
+      }
+    });
+    _ref.invalidate(pinnedMessagesProvider(conversationId));
+  }
+
+  Future<void> unpinMessage(String messageId) async {
+    await _repository.unpinMessage(conversationId: conversationId, messageId: messageId);
+    state.whenData((messages) {
+      final index = messages.indexWhere((m) => m.id == messageId);
+      if (index != -1) {
+        final updated = [...messages];
+        updated[index] = updated[index].copyWith(isPinned: false);
+        state = AsyncValue.data(updated);
+      }
+    });
+    _ref.invalidate(pinnedMessagesProvider(conversationId));
+  }
+
+  Future<void> pinMessageForMe(String messageId) async {
+    await _repository.starMessage(messageId);
+  }
+
+  Future<void> unpinMessageForMe(String messageId) async {
+    await _repository.unstarMessage(messageId);
   }
 
   Future<void> addReaction(String messageId, String emoji) async {

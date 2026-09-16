@@ -81,6 +81,20 @@ const MESSAGE_INCLUDE = {
   mentions: {
     select: { mentionedUserId: true },
   },
+  conversation: {
+    select: {
+      id: true,
+      type: true,
+      groupId: true,
+      members: { select: { userId: true } },
+      group: {
+        select: {
+          createdById: true,
+          members: { select: { userId: true, role: true } },
+        },
+      },
+    },
+  },
 } as const;
 
 @Injectable()

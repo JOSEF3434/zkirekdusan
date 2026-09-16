@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/voice_message_player.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/core/utils/web_context_menu_manager.dart';
 import 'package:intl/intl.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -17,6 +19,11 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onReply;
   final Function(String emoji)? onReaction;
   final VoidCallback? onDelete;
+  final Function(bool forEveryone)? onDeleteMessage;
+  final VoidCallback? onPinForMe;
+  final VoidCallback? onPinForEveryone;
+  final VoidCallback? onUnpin;
+  final bool canManageForEveryone;
   final VoidCallback? onEdit;
 
   const MessageBubble({
@@ -29,6 +36,11 @@ class MessageBubble extends StatelessWidget {
     this.onReply,
     this.onReaction,
     this.onDelete,
+    this.onDeleteMessage,
+    this.onPinForMe,
+    this.onPinForEveryone,
+    this.onUnpin,
+    this.canManageForEveryone = false,
     this.onEdit,
   });
 
@@ -78,9 +90,23 @@ class MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      onLongPress: () => _showMessageOptions(context),
-      child: Padding(
+    return MouseRegion(
+      onEnter: (_) => WebContextMenuManager.onMessagePointerEnter(),
+      onHover: (_) => WebContextMenuManager.onMessagePointerHover(),
+      onExit: (_) => WebContextMenuManager.onMessagePointerExit(),
+      child: Listener(
+        onPointerDown: (event) {
+          if (event.kind == PointerDeviceKind.mouse &&
+              (event.buttons & kSecondaryMouseButton != 0)) {
+            WebContextMenuManager.onSecondaryPointerDown();
+          }
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: () => _showMessageOptions(context),
+          onSecondaryTapDown: (_) => WebContextMenuManager.onSecondaryPointerDown(),
+          onSecondaryTap: () => _showMessageOptions(context),
+          child: Padding(
         padding: EdgeInsets.only(
           left: isMe ? 54 : 12,
           right: isMe ? 12 : 54,
@@ -155,6 +181,8 @@ class MessageBubble extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    ),
       ),
     );
   }
@@ -546,6 +574,8 @@ class MessageBubble extends StatelessWidget {
           _openImageViewer(context, resolvedUrl);
         }
       },
+      onSecondaryTapDown: (_) => WebContextMenuManager.onSecondaryPointerDown(),
+      onSecondaryTap: () => _showMessageOptions(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
         constraints: const BoxConstraints(maxHeight: 260, maxWidth: 260),
@@ -768,77 +798,250 @@ class MessageBubble extends StatelessWidget {
   }
 
   void _showMessageOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF161C28)
-          : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Quick Emojis Bar
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: ['❤️', '🔥', '👍', '😂', '😮', '👏', '🎉'].map((emoji) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      onReaction?.call(emoji);
-                    },
-                    child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                  );
-                }).toList(),
-              ),
-            ),
-            const Divider(height: 1),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-            if (onReply != null)
-              ListTile(
-                leading: const Icon(Icons.reply_rounded, color: Color(0xFF00C6FF)),
-                title: const Text('Reply'),
-                onTap: () {
-                  Navigator.pop(context);
-                  onReply!();
-                },
-              ),
+    Widget buildOptionsContent(BuildContext popupContext) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Quick Emojis Bar
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['❤️', '🔥', '👍', '😂', '😮', '👏', '🎉'].map((emoji) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(popupContext);
+                    onReaction?.call(emoji);
+                  },
+                  child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                );
+              }).toList(),
+            ),
+          ),
+          const Divider(height: 1),
+
+          if (onReply != null)
             ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: const Text('Copy Text'),
+              leading: const Icon(Icons.reply_rounded, color: Color(0xFF00C6FF)),
+              title: const Text('Reply'),
               onTap: () {
-                if (message.content != null) {
-                  Clipboard.setData(ClipboardData(text: message.content!));
-                }
-                Navigator.pop(context);
+                Navigator.pop(popupContext);
+                onReply!();
               },
             ),
-            if (onEdit != null)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit'),
-                onTap: () {
-                  Navigator.pop(context);
-                  onEdit!();
-                },
+          ListTile(
+            leading: const Icon(Icons.copy_rounded),
+            title: const Text('Copy Text'),
+            onTap: () {
+              if (message.content != null) {
+                Clipboard.setData(ClipboardData(text: message.content!));
+              }
+              Navigator.pop(popupContext);
+            },
+          ),
+          if (onEdit != null)
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(popupContext);
+                onEdit!();
+              },
+            ),
+          if (message.isPinned && onUnpin != null)
+            ListTile(
+              leading: const Icon(Icons.push_pin_outlined, color: Color(0xFF00C6FF)),
+              title: const Text('Unpin from Chat'),
+              onTap: () {
+                Navigator.pop(popupContext);
+                onUnpin?.call();
+              },
+            )
+          else if (onPinForMe != null || onPinForEveryone != null)
+            ListTile(
+              leading: const Icon(Icons.push_pin_rounded, color: Color(0xFF00C6FF)),
+              title: const Text('Pin Message'),
+              onTap: () {
+                Navigator.pop(popupContext);
+                _showPinOptionsDialog(context);
+              },
+            ),
+          if (onDeleteMessage != null || onDelete != null)
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              title: const Text('Delete Message', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(popupContext);
+                _showDeleteOptionsDialog(context);
+              },
+            ),
+        ],
+      );
+    }
+
+    final isLargeScreenOrWeb = kIsWeb || MediaQuery.of(context).size.width > 600;
+
+    if (isLargeScreenOrWeb) {
+      // Sleek centered card dialog on Web / Desktop
+      WebContextMenuManager.onCustomMenuOpened();
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => Dialog(
+          backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          elevation: 20,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Material(
+                color: Colors.transparent,
+                child: buildOptionsContent(dialogCtx),
               ),
-            if (onDelete != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                title: const Text('Delete Message', style: TextStyle(color: Colors.redAccent)),
-                onTap: () {
-                  Navigator.pop(context);
-                  onDelete!();
-                },
-              ),
+            ),
+          ),
+        ),
+      ).then((_) {
+        WebContextMenuManager.onCustomMenuClosed();
+      });
+    } else {
+      // Bottom sheet on mobile
+      WebContextMenuManager.onCustomMenuOpened();
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetCtx) => SafeArea(
+          child: buildOptionsContent(sheetCtx),
+        ),
+      ).then((_) {
+        WebContextMenuManager.onCustomMenuClosed();
+      });
+    }
+  }
+
+  void _showPinOptionsDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    WebContextMenuManager.onCustomMenuOpened();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.push_pin_rounded, color: Color(0xFF00C6FF)),
+            SizedBox(width: 8),
+            Text('Pin Message'),
           ],
         ),
+        content: Text(
+          canManageForEveryone
+              ? 'Choose how you would like to pin this message:'
+              : 'Pin this message to your personal saved list?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onPinForMe?.call();
+            },
+            child: const Text('Pin for me only'),
+          ),
+          if (canManageForEveryone && onPinForEveryone != null)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onPinForEveryone?.call();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C6FF),
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Pin for everyone'),
+            ),
+        ],
       ),
-    );
+    ).then((_) {
+      WebContextMenuManager.onCustomMenuClosed();
+    });
+  }
+
+  void _showDeleteOptionsDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    WebContextMenuManager.onCustomMenuOpened();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Delete Message'),
+          ],
+        ),
+        content: Text(
+          canManageForEveryone
+              ? 'Do you want to delete this message for yourself only, or for everyone in the chat?'
+              : 'Are you sure you want to delete this message for yourself?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (onDeleteMessage != null) {
+                onDeleteMessage!(false);
+              } else {
+                onDelete?.call();
+              }
+            },
+            child: const Text('Delete for me'),
+          ),
+          if (canManageForEveryone)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                if (onDeleteMessage != null) {
+                  onDeleteMessage!(true);
+                } else {
+                  onDelete?.call();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete for everyone'),
+            ),
+        ],
+      ),
+    ).then((_) {
+      WebContextMenuManager.onCustomMenuClosed();
+    });
   }
 
   void _openImageViewer(BuildContext context, String imageUrl) {

@@ -18,6 +18,8 @@ class MessageComposer extends ConsumerStatefulWidget {
   final FocusNode focusNode;
   final String? replyToMessageId;
   final VoidCallback? onCancelReply;
+  final MessageModel? editingMessage;
+  final VoidCallback? onCancelEdit;
   final VoidCallback? onMessageSent;
 
   const MessageComposer({
@@ -26,6 +28,8 @@ class MessageComposer extends ConsumerStatefulWidget {
     required this.focusNode,
     this.replyToMessageId,
     this.onCancelReply,
+    this.editingMessage,
+    this.onCancelEdit,
     this.onMessageSent,
   });
 
@@ -48,6 +52,18 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    if (widget.editingMessage?.content != null) {
+      _controller.text = widget.editingMessage!.content!;
+    }
+  }
+
+  @override
+  void didUpdateWidget(MessageComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.editingMessage != oldWidget.editingMessage && widget.editingMessage != null) {
+      _controller.text = widget.editingMessage!.content ?? '';
+      widget.focusNode.requestFocus();
+    }
   }
 
   void _onTextChanged() {
@@ -105,8 +121,11 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Reply Preview Banner
-            if (widget.replyToMessageId != null) _buildReplyPreview(isDark),
+            // Edit or Reply Preview Banner
+            if (widget.editingMessage != null)
+              _buildEditingPreview(isDark)
+            else if (widget.replyToMessageId != null)
+              _buildReplyPreview(isDark),
 
             // Main Composer Row (Pill Bar matching Screenshot 2)
             Padding(
@@ -137,6 +156,56 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEditingPreview(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF181F2E) : Colors.grey[100],
+        border: const Border(
+          left: BorderSide(color: Color(0xFF00C6FF), width: 3.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF00C6FF)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Editing message',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF00C6FF),
+                  ),
+                ),
+                Text(
+                  widget.editingMessage?.content ?? '',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+            onPressed: () {
+              _controller.clear();
+              widget.onCancelEdit?.call();
+            },
+          ),
+        ],
       ),
     );
   }
@@ -424,6 +493,27 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _sendTextMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) return;
+
+    if (widget.editingMessage != null) {
+      setState(() => _isSending = true);
+      _controller.clear();
+      _stopTypingIndicator();
+      try {
+        await ref
+            .read(chatMessagesProvider(widget.conversationId).notifier)
+            .editMessage(widget.editingMessage!.id, text);
+        widget.onCancelEdit?.call();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to edit: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
+      return;
+    }
 
     setState(() => _isSending = true);
     _controller.clear();

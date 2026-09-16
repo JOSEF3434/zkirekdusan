@@ -135,9 +135,25 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
 
-    if (message.senderId !== userId && !isAdminOrModerator) {
+    let hasPermission = message.senderId === userId || isAdminOrModerator;
+
+    const conversation = (message as any).conversation;
+    if (!hasPermission && conversation?.group) {
+      const group = conversation.group;
+      const isOwner = group.createdById === userId;
+      const isGroupAdminOrMod = group.members?.some(
+        (m: any) =>
+          m.userId === userId &&
+          (m.role === 'GROUP_ADMIN' || m.role === 'MODERATOR'),
+      );
+      if (isOwner || isGroupAdminOrMod) {
+        hasPermission = true;
+      }
+    }
+
+    if (!hasPermission) {
       throw new ForbiddenException(
-        'You can only delete your own messages, or must be an admin/moderator',
+        'You can only delete your own messages, or must be an owner/admin of the group',
       );
     }
 
@@ -191,10 +207,36 @@ export class MessagesService {
     conversationId: string,
     messageId: string,
     userId: string,
+    isAdmin = false,
   ): Promise<{ success: boolean }> {
     const message = await this.messagesRepository.findById(messageId);
     if (!message) {
       throw new NotFoundException('Message not found');
+    }
+
+    let hasPermission = message.senderId === userId || isAdmin;
+    const conversation = (message as any).conversation;
+    if (conversation) {
+      if (conversation.type === 'DIRECT') {
+        hasPermission = true;
+      } else if (conversation.group) {
+        const group = conversation.group;
+        const isOwner = group.createdById === userId;
+        const isGroupAdminOrMod = group.members?.some(
+          (m: any) =>
+            m.userId === userId &&
+            (m.role === 'GROUP_ADMIN' || m.role === 'MODERATOR'),
+        );
+        if (isOwner || isGroupAdminOrMod) {
+          hasPermission = true;
+        }
+      }
+    }
+
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to pin messages in this group',
+      );
     }
 
     await this.messagesRepository.pinMessage(conversationId, messageId, userId);
@@ -204,7 +246,38 @@ export class MessagesService {
   async unpinMessage(
     conversationId: string,
     messageId: string,
+    userId?: string,
+    isAdmin = false,
   ): Promise<{ success: boolean }> {
+    if (userId) {
+      const message = await this.messagesRepository.findById(messageId);
+      if (message) {
+        let hasPermission = message.senderId === userId || isAdmin;
+        const conversation = (message as any).conversation;
+        if (conversation) {
+          if (conversation.type === 'DIRECT') {
+            hasPermission = true;
+          } else if (conversation.group) {
+            const group = conversation.group;
+            const isOwner = group.createdById === userId;
+            const isGroupAdminOrMod = group.members?.some(
+              (m: any) =>
+                m.userId === userId &&
+                (m.role === 'GROUP_ADMIN' || m.role === 'MODERATOR'),
+            );
+            if (isOwner || isGroupAdminOrMod) {
+              hasPermission = true;
+            }
+          }
+        }
+        if (!hasPermission) {
+          throw new ForbiddenException(
+            'You do not have permission to unpin messages in this group',
+          );
+        }
+      }
+    }
+
     await this.messagesRepository.unpinMessage(conversationId, messageId);
     return { success: true };
   }

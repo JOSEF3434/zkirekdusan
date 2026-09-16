@@ -500,9 +500,14 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<void> deleteMessage(String messageId) async {
+  Future<void> deleteMessage(String messageId, {bool forEveryone = false}) async {
     final now = DateTime.now();
     await _db.messagesDao.markMessageDeleted(messageId, now);
+
+    if (!forEveryone) {
+      // Local deletion for current user only ("Delete for me")
+      return;
+    }
 
     final isOnline = _ref.read(connectivityProvider).isOnline;
     if (isOnline) {

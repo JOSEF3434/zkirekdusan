@@ -47,7 +47,7 @@ abstract class ChatRepository {
     required String content,
   });
   
-  Future<void> deleteMessage(String messageId);
+  Future<void> deleteMessage(String messageId, {bool forEveryone = false});
 
   // Reactions
   Future<void> addReaction({

@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
+import 'package:mobile/features/chats/data/models/message_model.dart';
+import 'package:mobile/features/chats/presentation/widgets/pinned_messages_bar.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/date_separator.dart';
@@ -47,6 +49,19 @@ class _InlineConversationViewState
   final ScrollController _scrollController = ScrollController();
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
+  MessageModel? _editingMessage;
+
+  void _scrollToMessage(String messageId, List<MessageModel> messageList) {
+    final index = messageList.indexWhere((m) => m.id == messageId);
+    if (index != -1 && _scrollController.hasClients) {
+      final target = (index * 75.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -142,6 +157,13 @@ class _InlineConversationViewState
 
     final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
     final isGroup = conversation?.type != 'DIRECT' && conversation != null;
+    final pinnedMessagesAsync = ref.watch(pinnedMessagesProvider(widget.conversationId));
+    final currentUserRole = ref.watch(authProvider).user?.role;
+    final isGlobalAdmin = currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
+    final isGroupOwnerOrAdmin = !isGroup ||
+        isGlobalAdmin ||
+        (conversation?.groupId != null &&
+            discoveryAsync.value?.myPrivateGroups.any((g) => g.id == conversation!.groupId) == true);
 
     return Column(
       children: [
@@ -193,6 +215,22 @@ class _InlineConversationViewState
               const SnackBar(content: Text('Chat history cleared')),
             );
           },
+        ),
+
+        // ── Telegram-Style Pinned Messages Top Bar ────────────────────────────
+        pinnedMessagesAsync.when(
+          data: (pins) => PinnedMessagesBar(
+            pinnedMessages: pins,
+            canUnpin: isGroupOwnerOrAdmin,
+            onSelectMessage: (pinnedMsg) {
+              messages.whenData((list) => _scrollToMessage(pinnedMsg.id, list));
+            },
+            onUnpinMessage: (pinnedMsg) {
+              ref.read(chatMessagesProvider(widget.conversationId).notifier).unpinMessage(pinnedMsg.id);
+            },
+          ),
+          loading: () => const SizedBox.shrink(),
+          error: (e, st) => const SizedBox.shrink(),
         ),
 
         // ── Messages area ─────────────────────────────────────────────────────
@@ -250,9 +288,12 @@ class _InlineConversationViewState
                           showAvatar: !isMe &&
                               (isGroupEnd ||
                                   conversation?.type != 'DIRECT'),
+                          canManageForEveryone: isMe || isGroupOwnerOrAdmin,
                           onReply: () {
-                            setState(
-                                () => _replyToMessageId = message.id);
+                            setState(() {
+                              _replyToMessageId = message.id;
+                              _editingMessage = null;
+                            });
                             _composerFocusNode.requestFocus();
                           },
                           onReaction: (emoji) {
@@ -262,8 +303,54 @@ class _InlineConversationViewState
                                     .notifier)
                                 .addReaction(message.id, emoji);
                           },
-                          onDelete: isMe
-                              ? () => _confirmDelete(message.id)
+                          onPinForMe: () {
+                            ref
+                                .read(chatMessagesProvider(widget.conversationId)
+                                    .notifier)
+                                .pinMessageForMe(message.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Pinned for you (Saved)')),
+                            );
+                          },
+                          onPinForEveryone: () {
+                            ref
+                                .read(chatMessagesProvider(widget.conversationId)
+                                    .notifier)
+                                .pinMessageForEveryone(message.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Pinned for everyone')),
+                            );
+                          },
+                          onUnpin: () {
+                            ref
+                                .read(chatMessagesProvider(widget.conversationId)
+                                    .notifier)
+                                .unpinMessage(message.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Unpinned message')),
+                            );
+                          },
+                          onDeleteMessage: (forEveryone) {
+                            ref
+                                .read(chatMessagesProvider(widget.conversationId)
+                                    .notifier)
+                                .deleteMessage(message.id, forEveryone: forEveryone);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(forEveryone
+                                    ? 'Message deleted for everyone'
+                                    : 'Message deleted for you'),
+                              ),
+                            );
+                          },
+                          onEdit: isMe
+                              ? () {
+                                  setState(() {
+                                    _editingMessage = message;
+                                    _replyToMessageId = null;
+                                  });
+                                  _composerFocusNode.requestFocus();
+                                }
                               : null,
                         ),
                       ],
@@ -314,6 +401,10 @@ class _InlineConversationViewState
           replyToMessageId: _replyToMessageId,
           onCancelReply: () {
             setState(() => _replyToMessageId = null);
+          },
+          editingMessage: _editingMessage,
+          onCancelEdit: () {
+            setState(() => _editingMessage = null);
           },
           onMessageSent: () {
             Future.delayed(const Duration(milliseconds: 100), () {
@@ -370,38 +461,6 @@ class _InlineConversationViewState
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  void _confirmDelete(String messageId) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(ctx).brightness == Brightness.dark
-            ? const Color(0xFF161C28)
-            : Colors.white,
-        title: const Text('Delete Message'),
-        content:
-            const Text('Are you sure you want to delete this message?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref
-                  .read(chatMessagesProvider(widget.conversationId)
-                      .notifier)
-                  .deleteMessage(messageId);
-              Navigator.pop(ctx);
-            },
-            style:
-                TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _showInviteLinkDialog(String groupId) async {
     try {
