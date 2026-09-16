@@ -535,16 +535,28 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                     ),
                   );
                 }
+                final discovery = ref.watch(chatDiscoveryProvider).valueOrNull;
+                final selectedConv = widget.selectedConversationId != null && discovery != null
+                    ? discovery.conversations.where((c) => c.id == widget.selectedConversationId).firstOrNull
+                    : null;
+
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (ctx, index) {
                       final item = items[index];
                       final isSelected = (item.conversationId != null &&
                               item.conversationId == widget.selectedConversationId) ||
+                          (item.id == widget.selectedConversationId) ||
                           (widget.selectedTargetUserId != null &&
                               item.targetUserId == widget.selectedTargetUserId) ||
                           (widget.selectedTargetGroupId != null &&
-                              item.targetGroupId == widget.selectedTargetGroupId);
+                              item.targetGroupId == widget.selectedTargetGroupId) ||
+                          (selectedConv != null &&
+                              item.targetUserId != null &&
+                              selectedConv.members.any((m) => m.userId == item.targetUserId)) ||
+                          (selectedConv != null &&
+                              selectedConv.groupId != null &&
+                              selectedConv.groupId == item.targetGroupId);
                       return _SelectableListTileWrapper(
                         isSelected: isSelected,
                         isDark: isDark,
@@ -1423,12 +1435,12 @@ class _SelectableListTileWrapper extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark
-            ? const Color(0xFF2B5278).withValues(alpha: 0.55)
-            : const Color(0xFF00C6FF).withValues(alpha: 0.12),
+            ? const Color(0xFF1E3A5F).withValues(alpha: 0.85)
+            : const Color(0xFF00C6FF).withValues(alpha: 0.22),
         border: const Border(
           left: BorderSide(
             color: Color(0xFF00C6FF),
-            width: 3.5,
+            width: 4.0,
           ),
         ),
       ),

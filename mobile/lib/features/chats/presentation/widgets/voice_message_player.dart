@@ -1,6 +1,5 @@
-// lib/features/chats/presentation/widgets/voice_message_player.dart
-
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -44,6 +43,19 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     _initAudioPlayer();
   }
 
+  @override
+  void didUpdateWidget(covariant VoiceMessagePlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.voiceNote.duration > 0 && widget.voiceNote.duration != oldWidget.voiceNote.duration) {
+      setState(() {
+        _duration = Duration(seconds: widget.voiceNote.duration);
+      });
+    }
+    if (widget.voiceNote.url != oldWidget.voiceNote.url && widget.voiceNote.url.isNotEmpty) {
+      _initAudioPlayer();
+    }
+  }
+
   List<double> _generateWaveform(int seed) {
     final bars = <double>[];
     for (int i = 0; i < 32; i++) {
@@ -54,22 +66,26 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
   }
 
   Future<void> _initAudioPlayer() async {
+    final rawUrl = widget.voiceNote.url.trim();
+    if (rawUrl.isEmpty) return;
+
     try {
       setState(() => _isLoading = true);
-      final rawUrl = widget.voiceNote.url;
       final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
 
       if (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://')) {
         await _audioPlayer.setUrl(resolvedUrl);
       } else if (resolvedUrl.startsWith('file://')) {
         await _audioPlayer.setFilePath(resolvedUrl.replaceFirst('file://', ''));
-      } else {
+      } else if (!kIsWeb) {
         final localFile = File(resolvedUrl);
         if (await localFile.exists()) {
           await _audioPlayer.setFilePath(resolvedUrl);
         } else {
           await _audioPlayer.setUrl(resolvedUrl);
         }
+      } else {
+        await _audioPlayer.setUrl(resolvedUrl);
       }
 
       if (_audioPlayer.duration != null && _audioPlayer.duration! > Duration.zero) {
@@ -77,6 +93,12 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
       } else if (widget.voiceNote.duration > 0) {
         _duration = Duration(seconds: widget.voiceNote.duration);
       }
+
+      _audioPlayer.durationStream.listen((d) {
+        if (d != null && d > Duration.zero && mounted) {
+          setState(() => _duration = d);
+        }
+      });
 
       _audioPlayer.playerStateStream.listen((state) {
         if (mounted) {

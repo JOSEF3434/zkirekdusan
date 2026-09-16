@@ -1,6 +1,5 @@
-// lib/features/chats/presentation/widgets/message_bubble.dart
-
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -32,6 +31,47 @@ class MessageBubble extends StatelessWidget {
     this.onDelete,
     this.onEdit,
   });
+
+  bool get _isAudioMessage =>
+      message.type == 'VOICE' ||
+      message.voiceNote != null ||
+      (message.attachments.isNotEmpty &&
+          (message.attachments.first.fileType == 'VOICE' ||
+              message.attachments.first.mimeType.contains('audio')));
+
+  bool get _isPureImage =>
+      message.type == 'IMAGE' ||
+      (message.attachments.isNotEmpty &&
+          (message.attachments.first.fileType == 'IMAGE' ||
+              message.attachments.first.mimeType.contains('image')));
+
+  bool get _isPureVideo =>
+      message.type == 'VIDEO' ||
+      (message.attachments.isNotEmpty &&
+          (message.attachments.first.fileType == 'VIDEO' ||
+              message.attachments.first.mimeType.contains('video')));
+
+  MessageVoiceNoteModel get _effectiveVoiceNote {
+    if (message.voiceNote != null) return message.voiceNote!;
+    if (message.attachments.isNotEmpty) {
+      final voiceAtt = message.attachments.firstWhere(
+        (a) => a.fileType == 'VOICE' || a.mimeType.contains('audio'),
+        orElse: () => message.attachments.first,
+      );
+      return MessageVoiceNoteModel(
+        fileId: voiceAtt.fileId,
+        url: voiceAtt.url,
+        duration: (voiceAtt.duration ?? 0).toInt(),
+        waveform: const [],
+      );
+    }
+    return MessageVoiceNoteModel(
+      fileId: message.id,
+      url: message.content ?? '',
+      duration: 0,
+      waveform: const [],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +122,7 @@ class MessageBubble extends StatelessWidget {
             Flexible(
               child: Column(
                 crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Sender name for group chats
                   if (!isMe && isGroupStart && message.sender.displayName != null)
@@ -97,147 +138,15 @@ class MessageBubble extends StatelessWidget {
                       ),
                     ),
 
-                  // Message Bubble
-                  Container(
-                    decoration: BoxDecoration(
-                      // Sent = Emerald/Cyan gradient, Received = Dark slate glass
-                      gradient: isMe
-                          ? const LinearGradient(
-                              colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: !isMe
-                          ? (isDark ? const Color(0xFF1E232E) : Colors.grey[200])
-                          : null,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(18),
-                        topRight: const Radius.circular(18),
-                        bottomLeft: Radius.circular(isMe ? 18 : 4),
-                        bottomRight: Radius.circular(isMe ? 4 : 18),
-                      ),
-                      border: !isMe
-                          ? Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.06)
-                                  : Colors.black.withValues(alpha: 0.04),
-                              width: 1,
-                            )
-                          : null,
-                      boxShadow: [
-                        BoxShadow(
-                          color: isMe
-                              ? const Color(0xFF06B6D4).withValues(alpha: 0.2)
-                              : Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(18),
-                        topRight: const Radius.circular(18),
-                        bottomLeft: Radius.circular(isMe ? 18 : 4),
-                        bottomRight: Radius.circular(isMe ? 4 : 18),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Quoted Reply Preview
-                          if (message.replyTo != null) _buildReplyPreview(context, isDark),
-
-                          // Attachments (Images, Videos, Docs)
-                          if (message.attachments.isNotEmpty)
-                            _buildAttachments(context)
-                          else if (_isStandaloneImage)
-                            _buildImageCard(context, message.content ?? '')
-                          else if (_isStandaloneVideo)
-                            _buildVideoCard(context, message.content ?? '')
-                          else if (_isStandaloneAudio)
-                            VoiceMessagePlayer(
-                              voiceNote: MessageVoiceNoteModel(
-                                fileId: '',
-                                url: message.content ?? '',
-                                duration: 0,
-                              ),
-                              isMe: isMe,
-                            ),
-
-                          // Voice Message Player
-                          if (message.voiceNote != null)
-                            VoiceMessagePlayer(
-                              voiceNote: message.voiceNote!,
-                              isMe: isMe,
-                            ),
-
-                          // Text Content
-                          if (_shouldShowTextContent)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                              child: Text(
-                                message.content!,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: isMe
-                                      ? Colors.black87
-                                      : (isDark ? Colors.white : Colors.black87),
-                                  fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ),
-
-                          // Timestamp and Status Checkmarks
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  if (message.isEdited)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 4),
-                                      child: Text(
-                                        'edited',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: isMe
-                                              ? Colors.black.withValues(alpha: 0.6)
-                                              : Colors.grey[500],
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
-                                    ),
-                                  Text(
-                                    DateFormat('h:mm a').format(message.createdAt),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w400,
-                                      color: isMe
-                                          ? Colors.black.withValues(alpha: 0.65)
-                                          : Colors.grey[500],
-                                    ),
-                                  ),
-                                  if (isMe) ...[
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.done_all_rounded,
-                                      size: 15,
-                                      color: Colors.black.withValues(alpha: 0.75),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // Message Bubble by Type (Matching Screenshot 4)
+                  if (_isAudioMessage)
+                    _buildVoiceBubble(context, isDark)
+                  else if (_isPureImage)
+                    _buildImageBubble(context, isDark)
+                  else if (_isPureVideo)
+                    _buildVideoBubble(context, isDark)
+                  else
+                    _buildTextBubble(context, isDark),
 
                   // Reactions Badges (e.g. 🔥 3, ❤️ 1)
                   if (message.reactions.isNotEmpty) _buildReactions(context, isDark),
@@ -249,6 +158,224 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildVoiceBubble(BuildContext context, bool isDark) {
+    return Column(
+      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E242B),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: VoiceMessagePlayer(
+            voiceNote: _effectiveVoiceNote,
+            isMe: isMe,
+          ),
+        ),
+        _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
+      ],
+    );
+  }
+
+  Widget _buildImageBubble(BuildContext context, bool isDark) {
+    final imageUrl = message.attachments.isNotEmpty
+        ? message.attachments.first.url
+        : (message.content ?? '');
+
+    return Column(
+      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _buildImageCard(context, imageUrl),
+        ),
+        if (_shouldShowTextContent)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: _textBubbleDecoration(isDark),
+            child: Text(
+              message.content!,
+              style: _textStyle(isDark),
+            ),
+          ),
+        _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
+      ],
+    );
+  }
+
+  Widget _buildVideoBubble(BuildContext context, bool isDark) {
+    final videoUrl = message.attachments.isNotEmpty
+        ? message.attachments.first.url
+        : (message.content ?? '');
+    final thumbUrl = message.attachments.isNotEmpty
+        ? message.attachments.first.thumbnailUrl
+        : null;
+
+    return Column(
+      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _buildVideoCard(context, videoUrl, thumbnailUrl: thumbUrl),
+        ),
+        if (_shouldShowTextContent)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: _textBubbleDecoration(isDark),
+            child: Text(
+              message.content!,
+              style: _textStyle(isDark),
+            ),
+          ),
+        _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
+      ],
+    );
+  }
+
+  Widget _buildTextBubble(BuildContext context, bool isDark) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 460),
+      decoration: _textBubbleDecoration(isDark),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.replyTo != null) _buildReplyPreview(context, isDark),
+          if (message.attachments.isNotEmpty) _buildAttachments(context),
+          if (_shouldShowTextContent)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                message.content!,
+                style: _textStyle(isDark),
+              ),
+            ),
+          _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimestampRow({
+    required bool isMe,
+    required bool isDark,
+    required bool isOutsideBubble,
+  }) {
+    final textColor = isOutsideBubble
+        ? (isDark ? Colors.grey[400] : Colors.grey[600])
+        : (isMe ? Colors.black.withValues(alpha: 0.65) : Colors.grey[400]);
+
+    final iconColor = isOutsideBubble
+        ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488))
+        : (isMe ? Colors.black.withValues(alpha: 0.75) : const Color(0xFF00C6FF));
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: isOutsideBubble ? 4 : 2,
+        right: isOutsideBubble ? 4 : 0,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (message.isEdited) ...[
+            Text(
+              'edited ',
+              style: TextStyle(
+                fontSize: 10,
+                color: textColor,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+          Text(
+            DateFormat('h:mm a').format(message.createdAt),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: textColor,
+            ),
+          ),
+          if (isMe) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.done_all_rounded,
+              size: 14,
+              color: iconColor,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _textBubbleDecoration(bool isDark) {
+    return BoxDecoration(
+      gradient: isMe
+          ? const LinearGradient(
+              colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
+          : null,
+      color: !isMe
+          ? (isDark ? const Color(0xFF1E232E) : Colors.grey[200])
+          : null,
+      borderRadius: BorderRadius.only(
+        topLeft: const Radius.circular(18),
+        topRight: const Radius.circular(18),
+        bottomLeft: Radius.circular(isMe ? 18 : 4),
+        bottomRight: Radius.circular(isMe ? 4 : 18),
+      ),
+      border: !isMe
+          ? Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.04),
+              width: 1,
+            )
+          : null,
+      boxShadow: [
+        BoxShadow(
+          color: isMe
+              ? const Color(0xFF06B6D4).withValues(alpha: 0.2)
+              : Colors.black.withValues(alpha: 0.1),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  TextStyle _textStyle(bool isDark) {
+    return TextStyle(
+      fontSize: 15,
+      color: isMe
+          ? const Color(0xFF0F172A)
+          : (isDark ? Colors.white : Colors.black87),
+      fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
+      height: 1.35,
+    );
+  }
+
 
   Widget _buildReplyPreview(BuildContext context, bool isDark) {
     final reply = message.replyTo!;
@@ -410,8 +537,8 @@ class MessageBubble extends StatelessWidget {
   Widget _buildImageCard(BuildContext context, String imageUrl) {
     final rawUrl = imageUrl.trim();
     final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
-    final isLocal = resolvedUrl.startsWith('file://') ||
-        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync());
+    final isLocal = !kIsWeb && (resolvedUrl.startsWith('file://') ||
+        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync()));
 
     return GestureDetector(
       onTap: () {

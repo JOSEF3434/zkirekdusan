@@ -79,12 +79,16 @@ class MessagesDao extends DatabaseAccessor<AppDatabase>
     required String clientId,
     required String serverId,
     String status = 'sent',
+    String? attachmentsJson,
+    String? voiceNoteJson,
   }) {
     return (update(localMessages)..where((tbl) => tbl.clientId.equals(clientId)))
         .write(
       LocalMessagesCompanion(
         serverId: Value(serverId),
         status: Value(status),
+        attachmentsJson: attachmentsJson != null ? Value(attachmentsJson) : const Value.absent(),
+        voiceNoteJson: voiceNoteJson != null ? Value(voiceNoteJson) : const Value.absent(),
         isPendingSync: const Value(false),
         updatedAt: Value(DateTime.now()),
       ),

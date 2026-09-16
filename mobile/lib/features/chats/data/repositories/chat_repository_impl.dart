@@ -295,6 +295,8 @@ class ChatRepositoryImpl implements ChatRepository {
     List<String>? attachmentIds,
     String type = 'TEXT',
     String? clientId,
+    List<MessageAttachmentModel>? initialAttachments,
+    MessageVoiceNoteModel? voiceNote,
   }) async {
     final now = DateTime.now();
     final effectiveClientId = clientId ?? const Uuid().v4();
@@ -306,8 +308,8 @@ class ChatRepositoryImpl implements ChatRepository {
     final senderDisplayName = currentUser?.displayIdentifier;
     final String? senderAvatarUrl = null;
 
-    List<MessageAttachmentModel> optimisticAttachments = [];
-    if (attachmentIds != null && attachmentIds.isNotEmpty) {
+    List<MessageAttachmentModel> optimisticAttachments = initialAttachments ?? [];
+    if (optimisticAttachments.isEmpty && attachmentIds != null && attachmentIds.isNotEmpty) {
       optimisticAttachments = attachmentIds.map((id) {
         return MessageAttachmentModel(
           fileId: id,
@@ -338,6 +340,9 @@ class ChatRepositoryImpl implements ChatRepository {
       replyToMessageId: drift.Value(replyToId),
       attachmentsJson: drift.Value(optimisticAttachments.isNotEmpty
           ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
+          : null),
+      voiceNoteJson: drift.Value(voiceNote != null
+          ? jsonEncode(voiceNote.toJson())
           : null),
       status: const drift.Value('pending'),
       isPendingSync: const drift.Value(true),
@@ -399,12 +404,25 @@ class ChatRepositoryImpl implements ChatRepository {
           clientId: effectiveClientId,
           serverId: serverMessage.id,
           status: 'sent',
+          attachmentsJson: serverMessage.attachments.isNotEmpty
+              ? jsonEncode(serverMessage.attachments.map((a) => a.toJson()).toList())
+              : (optimisticAttachments.isNotEmpty
+                  ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
+                  : null),
+          voiceNoteJson: serverMessage.voiceNote != null
+              ? jsonEncode(serverMessage.voiceNote!.toJson())
+              : (voiceNote != null ? jsonEncode(voiceNote.toJson()) : null),
         );
 
         // Remove from persistent sync queue
         await _db.syncQueueDao.removeEntriesForEntity(localId);
 
-        return serverMessage;
+        // If server message didn't have voiceNote but we had local voiceNote, retain it
+        final resolvedMessage = serverMessage.voiceNote == null && voiceNote != null
+            ? serverMessage.copyWith(voiceNote: voiceNote)
+            : serverMessage;
+
+        return resolvedMessage;
       } catch (e) {
         debugPrint('[ChatRepo] Immediate send failed (queued for sync): $e');
       }
@@ -424,6 +442,7 @@ class ChatRepositoryImpl implements ChatRepository {
       type: type,
       replyToId: replyToId,
       attachments: optimisticAttachments,
+      voiceNote: voiceNote,
       createdAt: now,
       updatedAt: now,
     );

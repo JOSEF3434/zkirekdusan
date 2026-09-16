@@ -1,6 +1,7 @@
 // lib/features/chats/data/datasources/chat_remote_datasource.dart
 
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
@@ -398,14 +399,24 @@ class ChatRemoteDatasource {
     required String fileName,
     required String mimeType,
     String? conversationId,
+    List<int>? bytes,
     Function(int, int)? onUploadProgress,
   }) async {
     try {
+      MultipartFile multipartFile;
+      if (bytes != null && bytes.isNotEmpty) {
+        multipartFile = MultipartFile.fromBytes(bytes, filename: fileName);
+      } else {
+        try {
+          final fileBytes = await XFile(filePath).readAsBytes();
+          multipartFile = MultipartFile.fromBytes(fileBytes, filename: fileName);
+        } catch (_) {
+          multipartFile = await MultipartFile.fromFile(filePath, filename: fileName);
+        }
+      }
+
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          filePath,
-          filename: fileName,
-        ),
+        'file': multipartFile,
         'conversationId': ?conversationId,
       });
 

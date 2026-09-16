@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
+import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 
@@ -527,7 +528,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   Future<void> _uploadAndSendMedia(
-      String filePath, String fileName, String mimeType) async {
+      String filePath, String fileName, String mimeType, {int? durationSeconds}) async {
     setState(() => _isSending = true);
 
     try {
@@ -540,12 +541,35 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       );
 
       final fileId = uploadResult['id'] as String;
+      final serverUrl = (uploadResult['url'] as String?) ?? filePath;
+      final isAudio = mimeType.startsWith('audio/');
+
+      final initialAttachments = [
+        MessageAttachmentModel(
+          fileId: fileId,
+          url: serverUrl.isNotEmpty ? serverUrl : filePath,
+          fileType: _getMessageType(mimeType),
+          mimeType: mimeType,
+          originalName: fileName,
+          duration: durationSeconds?.toDouble(),
+        ),
+      ];
+
+      final voiceNote = isAudio
+          ? MessageVoiceNoteModel(
+              fileId: fileId,
+              url: serverUrl.isNotEmpty ? serverUrl : filePath,
+              duration: durationSeconds ?? 0,
+            )
+          : null;
 
       await ref
           .read(chatMessagesProvider(widget.conversationId).notifier)
           .sendMessage(
             attachmentIds: [fileId],
             type: _getMessageType(mimeType),
+            initialAttachments: initialAttachments,
+            voiceNote: voiceNote,
           );
 
       widget.onMessageSent?.call();
@@ -608,13 +632,19 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
 
+    final recordedDuration = _recordingDuration;
     try {
       final path = await _audioRecorder.stop();
       _recordingTimer?.cancel();
 
       if (path != null) {
+        final durationSec = recordedDuration.inSeconds > 0 ? recordedDuration.inSeconds : 1;
         await _uploadAndSendMedia(
-            path, 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a', 'audio/m4a');
+          path,
+          'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+          'audio/m4a',
+          durationSeconds: durationSec,
+        );
       }
     } catch (e) {
       _showError('Failed to send voice: $e');

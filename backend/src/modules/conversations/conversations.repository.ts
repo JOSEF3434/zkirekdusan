@@ -368,7 +368,18 @@ export class ConversationsRepository {
       }
 
       if (group.members.length === 0) {
-        throw new Error(`User ${userId} is not a member of group ${groupId}`);
+        if (group.visibility === 'PUBLIC') {
+          // Auto-join public group
+          await this.prisma.groupMember.create({
+            data: {
+              groupId,
+              userId,
+              role: 'MEMBER',
+            },
+          });
+        } else {
+          throw new Error(`User ${userId} is not a member of group ${groupId}`);
+        }
       }
 
       // Find existing conversation for this group

@@ -155,6 +155,8 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
     String? replyToId,
     List<String>? attachmentIds,
     String type = 'TEXT',
+    List<MessageAttachmentModel>? initialAttachments,
+    MessageVoiceNoteModel? voiceNote,
   }) async {
     final message = await _repository.sendMessage(
       conversationId: conversationId,
@@ -162,11 +164,18 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
       replyToId: replyToId,
       attachmentIds: attachmentIds,
       type: type,
+      initialAttachments: initialAttachments,
+      voiceNote: voiceNote,
     );
 
-    // Optimistically add to list
+    // Optimistically add or update in list
     state.whenData((messages) {
-      if (!messages.any((m) => m.id == message.id)) {
+      final existingIndex = messages.indexWhere((m) => m.id == message.id);
+      if (existingIndex != -1) {
+        final updated = [...messages];
+        updated[existingIndex] = message;
+        state = AsyncValue.data(updated);
+      } else {
         state = AsyncValue.data([...messages, message]);
       }
     });
