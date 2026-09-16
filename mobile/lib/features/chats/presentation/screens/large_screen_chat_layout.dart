@@ -62,6 +62,8 @@ class _LargeScreenChatLayoutState
   double _detailsPanelWidth = _kDetailsPanelDefaultWidth;
 
   final _searchController = TextEditingController();
+  final GlobalKey<InlineConversationViewState> _inlineConvKey =
+      GlobalKey<InlineConversationViewState>();
 
   @override
   void dispose() {
@@ -188,7 +190,7 @@ class _LargeScreenChatLayoutState
             child: _selectedConversationId == null
                 ? _PlaceholderPanel(isDark: isDark)
                 : InlineConversationView(
-                    key: ValueKey(_selectedConversationId),
+                    key: _inlineConvKey,
                     conversationId: _selectedConversationId!,
                     onToggleDetails: _toggleDetailsPanel,
                     isDetailsPanelOpen: _isDetailsPanelOpen,
@@ -221,6 +223,9 @@ class _LargeScreenChatLayoutState
                           conversationId: _selectedConversationId!,
                           onClose: () =>
                               setState(() => _isDetailsPanelOpen = false),
+                          onJumpToMessage: (messageId) {
+                            _inlineConvKey.currentState?.scrollToMessage(messageId);
+                          },
                         ),
                       ),
                     ],

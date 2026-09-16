@@ -152,16 +152,24 @@ class MessagingSocketService {
     });
 
     // Reactions
+    _socket!.on('reaction:new', (data) {
+      _reactionController.add({...data as Map<String, dynamic>, 'action': 'add'});
+    });
     _socket!.on('reaction:added', (data) {
       _reactionController.add({...data as Map<String, dynamic>, 'action': 'add'});
     });
-
     _socket!.on('reaction:removed', (data) {
       _reactionController.add({...data as Map<String, dynamic>, 'action': 'remove'});
+    });
+    _socket!.on('reaction:updated', (data) {
+      _reactionController.add(data as Map<String, dynamic>);
     });
 
     // Read receipts
     _socket!.on('message:read', (data) {
+      _readReceiptController.add(data as Map<String, dynamic>);
+    });
+    _socket!.on('message:receipt', (data) {
       _readReceiptController.add(data as Map<String, dynamic>);
     });
 
@@ -211,19 +219,21 @@ class MessagingSocketService {
   }
 
   // Send reaction
-  void sendReaction(String messageId, String emoji) {
+  void sendReaction(String messageId, String emoji, {String? conversationId}) {
     if (_socket != null && _isConnected) {
       _socket!.emit('reaction:add', {
         'messageId': messageId,
+        'conversationId': conversationId ?? '',
         'emoji': emoji,
       });
     }
   }
 
-  void removeReaction(String messageId, String emoji) {
+  void removeReaction(String messageId, String emoji, {String? conversationId}) {
     if (_socket != null && _isConnected) {
       _socket!.emit('reaction:remove', {
         'messageId': messageId,
+        'conversationId': conversationId ?? '',
         'emoji': emoji,
       });
     }

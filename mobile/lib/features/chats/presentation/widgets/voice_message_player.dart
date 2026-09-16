@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:mobile/core/services/media_cache_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
@@ -26,8 +27,9 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   bool _isLoading = false;
+  double _playbackSpeed = 1.0;
 
-  // Default simulated waveform if backend didn't provide array
+  // Waveform bars
   late final List<double> _waveformBars;
 
   @override
@@ -37,6 +39,7 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     _waveformBars = widget.voiceNote.waveform?.isNotEmpty == true
         ? widget.voiceNote.waveform!
         : _generateWaveform(widget.voiceNote.url.hashCode);
+
     if (widget.voiceNote.duration > 0) {
       _duration = Duration(seconds: widget.voiceNote.duration);
     }
@@ -46,19 +49,21 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
   @override
   void didUpdateWidget(covariant VoiceMessagePlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.voiceNote.duration > 0 && widget.voiceNote.duration != oldWidget.voiceNote.duration) {
+    if (widget.voiceNote.duration > 0 &&
+        widget.voiceNote.duration != oldWidget.voiceNote.duration) {
       setState(() {
         _duration = Duration(seconds: widget.voiceNote.duration);
       });
     }
-    if (widget.voiceNote.url != oldWidget.voiceNote.url && widget.voiceNote.url.isNotEmpty) {
+    if (widget.voiceNote.url != oldWidget.voiceNote.url &&
+        widget.voiceNote.url.isNotEmpty) {
       _initAudioPlayer();
     }
   }
 
   List<double> _generateWaveform(int seed) {
     final bars = <double>[];
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 30; i++) {
       final val = (((seed + i * 37) % 70) + 20) / 100.0;
       bars.add(val.clamp(0.2, 1.0));
     }
@@ -73,19 +78,19 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
       setState(() => _isLoading = true);
       final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
 
-      if (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://')) {
-        await _audioPlayer.setUrl(resolvedUrl);
+      // 1. Check local persistent disk cache first (offline-first & instant)
+      final cachedFile = await ChatMediaCacheService.getLocalCachedFile(resolvedUrl);
+      if (cachedFile != null && await cachedFile.exists()) {
+        await _audioPlayer.setFilePath(cachedFile.path);
       } else if (resolvedUrl.startsWith('file://')) {
         await _audioPlayer.setFilePath(resolvedUrl.replaceFirst('file://', ''));
-      } else if (!kIsWeb) {
-        final localFile = File(resolvedUrl);
-        if (await localFile.exists()) {
-          await _audioPlayer.setFilePath(resolvedUrl);
-        } else {
-          await _audioPlayer.setUrl(resolvedUrl);
-        }
+      } else if (!kIsWeb && File(resolvedUrl).existsSync()) {
+        await _audioPlayer.setFilePath(resolvedUrl);
       } else {
+        // Stream from URL and download once in background into disk cache
         await _audioPlayer.setUrl(resolvedUrl);
+        // Persist to local disk for subsequent plays & offline access
+        ChatMediaCacheService.getOrDownloadMedia(resolvedUrl);
       }
 
       if (_audioPlayer.duration != null && _audioPlayer.duration! > Duration.zero) {
@@ -108,14 +113,17 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
 
           if (state.processingState == ProcessingState.completed) {
             _audioPlayer.seek(Duration.zero);
-            setState(() => _isPlaying = false);
+            setState(() {
+              _isPlaying = false;
+              _position = Duration.zero;
+            });
           }
         }
       });
 
-      _audioPlayer.positionStream.listen((position) {
+      _audioPlayer.positionStream.listen((pos) {
         if (mounted) {
-          setState(() => _position = position);
+          setState(() => _position = pos);
         }
       });
 
@@ -133,8 +141,24 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
+      if (_position >= _duration && _duration > Duration.zero) {
+        await _audioPlayer.seek(Duration.zero);
+      }
       await _audioPlayer.play();
     }
+  }
+
+  void _cyclePlaybackSpeed() {
+    setState(() {
+      if (_playbackSpeed == 1.0) {
+        _playbackSpeed = 1.5;
+      } else if (_playbackSpeed == 1.5) {
+        _playbackSpeed = 2.0;
+      } else {
+        _playbackSpeed = 1.0;
+      }
+    });
+    _audioPlayer.setSpeed(_playbackSpeed);
   }
 
   @override
@@ -151,91 +175,35 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
         : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 290),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 310),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1. Duration on the LEFT (Matching Screenshot 4)
-          Text(
-            _formatDuration(_isPlaying ? _position : _duration),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-              color: isMe
-                  ? Colors.black87
-                  : Colors.grey[300],
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // 2. Waveform bars in the MIDDLE (Matching Screenshot 4)
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (details) {
-                final box = context.findRenderObject() as RenderBox?;
-                if (box != null && _duration.inMilliseconds > 0) {
-                  final localPos = details.localPosition.dx;
-                  final totalWidth = box.size.width - 90;
-                  final ratio = (localPos / (totalWidth > 0 ? totalWidth : 140)).clamp(0.0, 1.0);
-                  _audioPlayer.seek(
-                    Duration(milliseconds: (ratio * _duration.inMilliseconds).toInt()),
-                  );
-                }
-              },
-              child: SizedBox(
-                height: 28,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: List.generate(
-                    _waveformBars.length.clamp(0, 28),
-                    (index) {
-                      final barProgress = index / 28.0;
-                      final isActive = barProgress <= progress;
-                      final amplitude = _waveformBars[index % _waveformBars.length];
-
-                      return Container(
-                        width: 2.8,
-                        height: (amplitude * 24).clamp(5.0, 26.0),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? (isMe
-                                  ? Colors.black87
-                                  : const Color(0xFF2DD4BF))
-                              : (isMe
-                                  ? Colors.black.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // 3. Play/Pause circular green button on the RIGHT (Matching Screenshot 4)
+          // ── Play / Pause Button on the LEFT ──────────────────────────────
           GestureDetector(
             onTap: _isLoading ? null : _togglePlayPause,
             child: Container(
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF34D399), Color(0xFF10B981)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: isMe
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                    color: (isMe ? Colors.black : const Color(0xFF00C6FF))
+                        .withValues(alpha: 0.3),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -248,15 +216,124 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       ),
                     )
                   : Icon(
-                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: Colors.white,
-                      size: 22,
+                      size: 24,
                     ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // ── Waveform & Info on the RIGHT ─────────────────────────────────
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Interactive Waveform
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    final box = context.findRenderObject() as RenderBox?;
+                    if (box != null && _duration.inMilliseconds > 0) {
+                      final localPos = details.localPosition.dx;
+                      final totalWidth = box.size.width - 65;
+                      final ratio = (localPos / (totalWidth > 0 ? totalWidth : 140))
+                          .clamp(0.0, 1.0);
+                      _audioPlayer.seek(
+                        Duration(
+                          milliseconds:
+                              (ratio * _duration.inMilliseconds).toInt(),
+                        ),
+                      );
+                    }
+                  },
+                  child: SizedBox(
+                    height: 26,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: List.generate(
+                        _waveformBars.length.clamp(0, 30),
+                        (index) {
+                          final barProgress = index / 30.0;
+                          final isActive = barProgress <= progress;
+                          final amplitude =
+                              _waveformBars[index % _waveformBars.length];
+
+                          return Container(
+                            width: 2.6,
+                            height: (amplitude * 24).clamp(4.0, 24.0),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? (isMe
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFF00C6FF))
+                                  : (isMe
+                                      ? Colors.black.withValues(alpha: 0.25)
+                                      : Colors.white.withValues(alpha: 0.28)),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Duration & Speed
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isPlaying
+                          ? '${_formatDuration(_position)} / ${_formatDuration(_duration)}'
+                          : _formatDuration(_duration),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isMe
+                            ? Colors.black.withValues(alpha: 0.75)
+                            : Colors.grey[300],
+                      ),
+                    ),
+                    // Playback speed toggle
+                    GestureDetector(
+                      onTap: _cyclePlaybackSpeed,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: (isMe ? Colors.black : Colors.white)
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _playbackSpeed == 1.0
+                              ? '1x'
+                              : _playbackSpeed == 1.5
+                                  ? '1.5x'
+                                  : '2x',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isMe ? Colors.black87 : Colors.white70,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

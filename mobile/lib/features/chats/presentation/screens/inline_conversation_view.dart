@@ -41,15 +41,20 @@ class InlineConversationView extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<InlineConversationView> createState() =>
-      _InlineConversationViewState();
+      InlineConversationViewState();
 }
 
-class _InlineConversationViewState
+class InlineConversationViewState
     extends ConsumerState<InlineConversationView> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
   MessageModel? _editingMessage;
+
+  void scrollToMessage(String messageId) {
+    final messages = ref.read(chatMessagesProvider(widget.conversationId)).value ?? [];
+    _scrollToMessage(messageId, messages);
+  }
 
   void _scrollToMessage(String messageId, List<MessageModel> messageList) {
     final index = messageList.indexWhere((m) => m.id == messageId);
@@ -72,6 +77,12 @@ class _InlineConversationViewState
       ref
           .read(conversationsProvider.notifier)
           .markAsRead(widget.conversationId);
+      final currentUserId = ref.read(authProvider).user?.id;
+      if (currentUserId != null) {
+        ref
+            .read(chatMessagesProvider(widget.conversationId).notifier)
+            .markIncomingAsRead(currentUserId);
+      }
     });
   }
 
@@ -86,6 +97,12 @@ class _InlineConversationViewState
         ref
             .read(conversationsProvider.notifier)
             .markAsRead(widget.conversationId);
+        final currentUserId = ref.read(authProvider).user?.id;
+        if (currentUserId != null) {
+          ref
+              .read(chatMessagesProvider(widget.conversationId).notifier)
+              .markIncomingAsRead(currentUserId);
+        }
       });
     }
   }
@@ -283,6 +300,7 @@ class _InlineConversationViewState
                         MessageBubble(
                           message: message,
                           isMe: isMe,
+                          currentUserId: currentUserId,
                           isGroupStart: isGroupStart,
                           isGroupEnd: isGroupEnd,
                           showAvatar: !isMe &&

@@ -54,6 +54,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     // Mark conversation as read when opening
     Future.microtask(() {
       ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
+      final currentUserId = ref.read(authProvider).user?.id;
+      if (currentUserId != null) {
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+      }
     });
   }
 
@@ -473,6 +477,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           MessageBubble(
                             message: message,
                             isMe: isMe,
+                            currentUserId: currentUserId,
                             isGroupStart: isGroupStart,
                             isGroupEnd: isGroupEnd,
                             showAvatar: !isMe &&

@@ -25,6 +25,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onUnpin;
   final bool canManageForEveryone;
   final VoidCallback? onEdit;
+  final String? currentUserId;
 
   const MessageBubble({
     super.key,
@@ -42,6 +43,7 @@ class MessageBubble extends StatelessWidget {
     this.onUnpin,
     this.canManageForEveryone = false,
     this.onEdit,
+    this.currentUserId,
   });
 
   bool get _isAudioMessage =>
@@ -188,33 +190,57 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildVoiceBubble(BuildContext context, bool isDark) {
-    return Column(
-      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E242B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 320),
+      decoration: BoxDecoration(
+        gradient: isMe
+            ? const LinearGradient(
+                colors: [Color(0xFF2DD4BF), Color(0xFF06B6D4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: !isMe
+            ? (isDark ? const Color(0xFF1E232E) : Colors.grey[200])
+            : null,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(20),
+          topRight: const Radius.circular(20),
+          bottomLeft: Radius.circular(isMe ? 20 : 4),
+          bottomRight: Radius.circular(isMe ? 4 : 20),
+        ),
+        border: !isMe
+            ? Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.05),
+                width: 1,
+              )
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: isMe
+                ? const Color(0xFF06B6D4).withValues(alpha: 0.25)
+                : Colors.black.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: VoiceMessagePlayer(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          VoiceMessagePlayer(
             voiceNote: _effectiveVoiceNote,
             isMe: isMe,
           ),
-        ),
-        _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
-      ],
+          Padding(
+            padding: const EdgeInsets.only(right: 10, bottom: 6),
+            child: _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: false),
+          ),
+        ],
+      ),
     );
   }
 
@@ -315,6 +341,10 @@ class MessageBubble extends StatelessWidget {
         ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488))
         : (isMe ? Colors.black.withValues(alpha: 0.75) : const Color(0xFF00C6FF));
 
+    final isSending = message.id.startsWith('temp_') || message.id.startsWith('local_');
+    final isSeen = message.readBy.isNotEmpty &&
+        (currentUserId == null || message.readBy.any((u) => u != currentUserId));
+
     return Padding(
       padding: EdgeInsets.only(
         top: isOutsideBubble ? 4 : 2,
@@ -344,11 +374,24 @@ class MessageBubble extends StatelessWidget {
           ),
           if (isMe) ...[
             const SizedBox(width: 4),
-            Icon(
-              Icons.done_all_rounded,
-              size: 14,
-              color: iconColor,
-            ),
+            if (isSending)
+              Icon(
+                Icons.access_time_rounded,
+                size: 12,
+                color: textColor,
+              )
+            else if (isSeen)
+              const Icon(
+                Icons.done_all_rounded,
+                size: 15,
+                color: Color(0xFF00C6FF),
+              )
+            else
+              Icon(
+                Icons.done_rounded,
+                size: 14,
+                color: iconColor,
+              ),
           ],
         ],
       ),

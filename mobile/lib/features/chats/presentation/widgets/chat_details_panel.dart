@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
+import 'package:mobile/features/chats/presentation/widgets/shared_media_tabs_view.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 /// Telegram-style right-side info panel.
@@ -13,11 +14,13 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 class ChatDetailsPanel extends ConsumerWidget {
   final String conversationId;
   final VoidCallback onClose;
+  final Function(String messageId)? onJumpToMessage;
 
   const ChatDetailsPanel({
     super.key,
     required this.conversationId,
     required this.onClose,
+    this.onJumpToMessage,
   });
 
   @override
@@ -65,6 +68,7 @@ class ChatDetailsPanel extends ConsumerWidget {
         dividerColor: dividerColor,
         onClose: onClose,
         ref: ref,
+        onJumpToMessage: onJumpToMessage,
       );
     } else {
       return _GroupDetailsPanel(
@@ -76,6 +80,7 @@ class ChatDetailsPanel extends ConsumerWidget {
         onClose: onClose,
         ref: ref,
         context: context,
+        onJumpToMessage: onJumpToMessage,
       );
     }
   }
@@ -154,6 +159,7 @@ class _DirectDetailsPanel extends StatelessWidget {
   final Color dividerColor;
   final VoidCallback onClose;
   final WidgetRef ref;
+  final Function(String messageId)? onJumpToMessage;
 
   const _DirectDetailsPanel({
     required this.conversation,
@@ -163,6 +169,7 @@ class _DirectDetailsPanel extends StatelessWidget {
     required this.dividerColor,
     required this.onClose,
     required this.ref,
+    this.onJumpToMessage,
   });
 
   @override
@@ -256,9 +263,13 @@ class _DirectDetailsPanel extends StatelessWidget {
                   ),
                   Divider(height: 1, color: dividerColor),
                   const SizedBox(height: 8),
-                  // Shared media placeholder
+                  // Shared media tabs
                   _SectionHeader(label: 'Shared Media', isDark: isDark),
-                  _MediaStatsRow(isDark: isDark, photos: 0, audio: 0, links: 0),
+                  SharedMediaTabsView(
+                    conversationId: conversation.id,
+                    isDark: isDark,
+                    onJumpToMessage: onJumpToMessage,
+                  ),
                   const SizedBox(height: 16),
                   Divider(height: 1, color: dividerColor),
                   // Danger zone
@@ -311,6 +322,7 @@ class _GroupDetailsPanel extends StatelessWidget {
   final VoidCallback onClose;
   final WidgetRef ref;
   final BuildContext context;
+  final Function(String messageId)? onJumpToMessage;
 
   const _GroupDetailsPanel({
     required this.conversation,
@@ -321,6 +333,7 @@ class _GroupDetailsPanel extends StatelessWidget {
     required this.onClose,
     required this.ref,
     required this.context,
+    this.onJumpToMessage,
   });
 
   @override
@@ -401,9 +414,13 @@ class _GroupDetailsPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Divider(height: 1, color: dividerColor),
-                  // Shared media stats
+                  // Shared media tabs
                   _SectionHeader(label: 'Shared Media', isDark: isDark),
-                  _MediaStatsRow(isDark: isDark, photos: 0, audio: 0, links: 0),
+                  SharedMediaTabsView(
+                    conversationId: conversation.id,
+                    isDark: isDark,
+                    onJumpToMessage: onJumpToMessage,
+                  ),
                   Divider(height: 1, color: dividerColor),
                   const SizedBox(height: 8),
                   // Member list header
@@ -783,74 +800,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _MediaStatsRow extends StatelessWidget {
-  final bool isDark;
-  final int photos;
-  final int audio;
-  final int links;
-
-  const _MediaStatsRow({
-    required this.isDark,
-    required this.photos,
-    required this.audio,
-    required this.links,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Row(
-        children: [
-          _MediaStat(
-            icon: Icons.photo_outlined,
-            label: '$photos photos',
-            isDark: isDark,
-          ),
-          const SizedBox(width: 16),
-          _MediaStat(
-            icon: Icons.headphones_outlined,
-            label: '$audio audio',
-            isDark: isDark,
-          ),
-          const SizedBox(width: 16),
-          _MediaStat(
-            icon: Icons.link_rounded,
-            label: '$links links',
-            isDark: isDark,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MediaStat extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isDark;
-
-  const _MediaStat({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[500]),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-        ),
-      ],
-    );
-  }
-}
 
 class _DangerAction extends StatelessWidget {
   final IconData icon;

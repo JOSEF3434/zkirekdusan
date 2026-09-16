@@ -1,7 +1,6 @@
-// lib/features/chats/presentation/providers/chat_messages_provider.dart
-
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
@@ -40,6 +39,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   StreamSubscription? _updatedMessageSub;
   StreamSubscription? _deletedMessageSub;
   StreamSubscription? _reactionSub;
+  StreamSubscription? _readReceiptSub;
 
   ChatMessagesNotifier(this.conversationId, this._repository, this._socketService, this._ref)
       : super(const AsyncValue.loading()) {
@@ -141,25 +141,84 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
       }
     });
 
-    // Reaction added/removed
+    // Real-time reaction added/removed by any participant via socket
     _reactionSub = _socketService.reaction.listen((data) {
       final messageId = data['messageId'] as String?;
-      if (messageId != null) {
-        state.whenData((messages) {
-          final index = messages.indexWhere((m) => m.id == messageId);
-          if (index != -1) {
-            // Reload the message to get updated reactions
-            _refreshMessage(messageId);
-          }
-        });
-      }
-    });
-  }
+      final emoji = data['emoji'] as String?;
+      final userId = data['userId'] as String?;
+      final action = data['action'] as String? ?? 'add';
+      final currentUserId = _ref.read(authProvider).user?.id;
 
-  Future<void> _refreshMessage(String messageId) async {
-    // This would need a specific API endpoint to fetch a single message
-    // For now, we'll just reload all messages
-    await loadMessages();
+      if (messageId == null || emoji == null || userId == null) return;
+      // Skip if this event was triggered by our own optimistic action
+      if (userId == currentUserId) return;
+
+      state.whenData((messages) {
+        final index = messages.indexWhere((m) => m.id == messageId);
+        if (index == -1) return;
+
+        final message = messages[index];
+        final reactions = List<MessageReactionModel>.from(message.reactions);
+        final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
+
+        if (action == 'remove') {
+          if (existingIndex != -1) {
+            final existing = reactions[existingIndex];
+            final updatedUserIds = existing.userIds.where((id) => id != userId).toList();
+            if (updatedUserIds.isEmpty) {
+              reactions.removeAt(existingIndex);
+            } else {
+              reactions[existingIndex] = existing.copyWith(
+                count: updatedUserIds.length,
+                userIds: updatedUserIds,
+              );
+            }
+          }
+        } else {
+          // action == 'add'
+          if (existingIndex != -1) {
+            final existing = reactions[existingIndex];
+            if (!existing.userIds.contains(userId)) {
+              final updatedUserIds = [...existing.userIds, userId];
+              reactions[existingIndex] = existing.copyWith(
+                count: updatedUserIds.length,
+                userIds: updatedUserIds,
+              );
+            }
+          } else {
+            reactions.add(MessageReactionModel(
+              emoji: emoji,
+              count: 1,
+              userIds: [userId],
+            ));
+          }
+        }
+
+        final updatedMessages = [...messages];
+        updatedMessages[index] = message.copyWith(reactions: reactions);
+        state = AsyncValue.data(updatedMessages);
+      });
+    });
+
+    // Real-time read receipt updates
+    _readReceiptSub = _socketService.readReceipt.listen((data) {
+      final messageId = data['messageId'] as String?;
+      final userId = data['userId'] as String?;
+      if (messageId == null || userId == null) return;
+
+      state.whenData((messages) {
+        final index = messages.indexWhere((m) => m.id == messageId);
+        if (index == -1) return;
+
+        final message = messages[index];
+        if (!message.readBy.contains(userId)) {
+          final updatedReadBy = [...message.readBy, userId];
+          final updatedMessages = [...messages];
+          updatedMessages[index] = message.copyWith(readBy: updatedReadBy);
+          state = AsyncValue.data(updatedMessages);
+        }
+      });
+    });
   }
 
   Future<MessageModel> sendMessage({
@@ -255,18 +314,122 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   }
 
   Future<void> addReaction(String messageId, String emoji) async {
-    _socketService.sendReaction(messageId, emoji);
-    await _repository.addReaction(messageId: messageId, emoji: emoji);
+    await toggleReaction(messageId, emoji);
+  }
+
+  Future<void> toggleReaction(String messageId, String emoji) async {
+    final currentUserId = _ref.read(authProvider).user?.id;
+    if (currentUserId == null) return;
+
+    bool isRemove = false;
+
+    // 1. Instant optimistic local UI update
+    state.whenData((messages) {
+      final index = messages.indexWhere((m) => m.id == messageId);
+      if (index == -1) return;
+
+      final message = messages[index];
+      final reactions = List<MessageReactionModel>.from(message.reactions);
+      final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
+
+      if (existingIndex != -1) {
+        final existing = reactions[existingIndex];
+        if (existing.userIds.contains(currentUserId)) {
+          // User already reacted with this emoji -> TOGGLE OFF (remove)
+          isRemove = true;
+          final updatedUserIds = existing.userIds.where((id) => id != currentUserId).toList();
+          if (updatedUserIds.isEmpty) {
+            reactions.removeAt(existingIndex);
+          } else {
+            reactions[existingIndex] = existing.copyWith(
+              count: updatedUserIds.length,
+              userIds: updatedUserIds,
+            );
+          }
+        } else {
+          // Add current user to this existing reaction
+          final updatedUserIds = [...existing.userIds, currentUserId];
+          reactions[existingIndex] = existing.copyWith(
+            count: updatedUserIds.length,
+            userIds: updatedUserIds,
+          );
+        }
+      } else {
+        // Brand new emoji reaction
+        reactions.add(MessageReactionModel(
+          emoji: emoji,
+          count: 1,
+          userIds: [currentUserId],
+        ));
+      }
+
+      final updatedMessages = [...messages];
+      updatedMessages[index] = message.copyWith(reactions: reactions);
+      state = AsyncValue.data(updatedMessages);
+    });
+
+    // 2. Emit socket event and sync with backend API
+    if (isRemove) {
+      _socketService.removeReaction(messageId, emoji, conversationId: conversationId);
+      try {
+        await _repository.removeReaction(messageId: messageId, emoji: emoji);
+      } catch (_) {}
+    } else {
+      _socketService.sendReaction(messageId, emoji, conversationId: conversationId);
+      try {
+        await _repository.addReaction(messageId: messageId, emoji: emoji);
+      } catch (_) {}
+    }
   }
 
   Future<void> removeReaction(String messageId, String emoji) async {
-    _socketService.removeReaction(messageId, emoji);
-    await _repository.removeReaction(messageId: messageId, emoji: emoji);
+    final currentUserId = _ref.read(authProvider).user?.id;
+    if (currentUserId == null) return;
+
+    state.whenData((messages) {
+      final index = messages.indexWhere((m) => m.id == messageId);
+      if (index == -1) return;
+
+      final message = messages[index];
+      final reactions = List<MessageReactionModel>.from(message.reactions);
+      final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
+
+      if (existingIndex != -1) {
+        final existing = reactions[existingIndex];
+        final updatedUserIds = existing.userIds.where((id) => id != currentUserId).toList();
+        if (updatedUserIds.isEmpty) {
+          reactions.removeAt(existingIndex);
+        } else {
+          reactions[existingIndex] = existing.copyWith(
+            count: updatedUserIds.length,
+            userIds: updatedUserIds,
+          );
+        }
+        final updatedMessages = [...messages];
+        updatedMessages[index] = message.copyWith(reactions: reactions);
+        state = AsyncValue.data(updatedMessages);
+      }
+    });
+
+    _socketService.removeReaction(messageId, emoji, conversationId: conversationId);
+    try {
+      await _repository.removeReaction(messageId: messageId, emoji: emoji);
+    } catch (_) {}
   }
 
   void markAsRead(String messageId) {
     _socketService.markAsRead(conversationId, messageId);
     _repository.markAsRead(messageId);
+  }
+
+  void markIncomingAsRead(String currentUserId) {
+    state.whenData((messages) {
+      for (final msg in messages) {
+        if (msg.sender.id != currentUserId && !msg.readBy.contains(currentUserId)) {
+          markAsRead(msg.id);
+        }
+      }
+    });
   }
 
   @override
@@ -276,6 +439,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
     _updatedMessageSub?.cancel();
     _deletedMessageSub?.cancel();
     _reactionSub?.cancel();
+    _readReceiptSub?.cancel();
     super.dispose();
   }
 }

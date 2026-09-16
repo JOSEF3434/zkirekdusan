@@ -254,16 +254,25 @@ export class MessagingGateway
   ) {
     const userId = (client as any).userId as string;
     try {
-      await this.messagesService.addReaction(messageId(data), userId, {
+      await this.messagesService.addReaction(data.messageId, userId, {
         emoji: data.emoji,
       });
+      const payload = {
+        messageId: data.messageId,
+        conversationId: data.conversationId,
+        userId,
+        emoji: data.emoji,
+        action: 'add',
+      };
       this.server
         .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.REACTION_NEW, {
-          messageId: data.messageId,
-          userId,
-          emoji: data.emoji,
-        });
+        .emit(WS_EVENTS.REACTION_NEW, payload);
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('reaction:added', payload);
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('reaction:updated', payload);
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -282,13 +291,22 @@ export class MessagingGateway
         userId,
         data.emoji,
       );
+      const payload = {
+        messageId: data.messageId,
+        conversationId: data.conversationId,
+        userId,
+        emoji: data.emoji,
+        action: 'remove',
+      };
       this.server
         .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.REACTION_REMOVED, {
-          messageId: data.messageId,
-          userId,
-          emoji: data.emoji,
-        });
+        .emit(WS_EVENTS.REACTION_REMOVED, payload);
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('reaction:removed', payload);
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('reaction:updated', payload);
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -304,13 +322,18 @@ export class MessagingGateway
     const userId = (client as any).userId as string;
     try {
       await this.messagesService.markAsRead(data.messageId, userId);
+      const payload = {
+        messageId: data.messageId,
+        conversationId: data.conversationId,
+        userId,
+        readAt: new Date(),
+      };
       this.server
         .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.READ_RECEIPT, {
-          messageId: data.messageId,
-          userId,
-          readAt: new Date(),
-        });
+        .emit(WS_EVENTS.READ_RECEIPT, payload);
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit('message:read', payload);
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
