@@ -365,8 +365,11 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
           ),
           IconButton(
             icon: const Icon(Icons.edit_square, size: 21),
-            tooltip: 'New message',
-            onPressed: () => NewChatSheet.show(context),
+            tooltip: 'Edit Profile',
+            onPressed: () {
+              final profile = ref.read(profileProvider).profile;
+              context.push('/profile/edit', extra: profile);
+            },
           ),
           const SizedBox(width: 4),
         ],
@@ -485,7 +488,19 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             // Chat list
             chatItemsAsync.when(
               data: (items) {
-                if (items.isEmpty) {
+                final query = widget.searchController.text.trim().toLowerCase();
+                final displayItems = query.isEmpty
+                    ? items
+                    : items.where((item) {
+                        final titleMatch =
+                            item.title.toLowerCase().contains(query);
+                        final subtitleMatch =
+                            item.subtitle?.toLowerCase().contains(query) ??
+                                false;
+                        return titleMatch || subtitleMatch;
+                      }).toList();
+
+                if (displayItems.isEmpty) {
                   return SliverFillRemaining(
                     child: Center(
                       child: Column(
@@ -499,17 +514,21 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                               color: const Color(0xFF00C6FF)
                                   .withValues(alpha: 0.1),
                             ),
-                            child: const Icon(
-                              Icons.chat_bubble_outline_rounded,
+                            child: Icon(
+                              query.isNotEmpty
+                                  ? Icons.search_off_rounded
+                                  : Icons.chat_bubble_outline_rounded,
                               size: 36,
-                              color: Color(0xFF00C6FF),
+                              color: const Color(0xFF00C6FF),
                             ),
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            filter == 'all'
-                                ? 'No chats found'
-                                : 'No $filter chats',
+                            query.isNotEmpty
+                                ? 'No chats found for "$query"'
+                                : (filter == 'all'
+                                    ? 'No chats found'
+                                    : 'No $filter chats'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -519,22 +538,23 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () =>
-                                NewChatSheet.show(context),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Start New Chat'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFF00C6FF),
-                              foregroundColor: Colors.black,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(20),
+                          if (query.isEmpty)
+                            ElevatedButton.icon(
+                              onPressed: () =>
+                                  NewChatSheet.show(context),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Start New Chat'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color(0xFF00C6FF),
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(20),
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -548,7 +568,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (ctx, index) {
-                      final item = items[index];
+                      final item = displayItems[index];
                       final isSelected = (item.conversationId != null &&
                               item.conversationId == widget.selectedConversationId) ||
                           (item.id == widget.selectedConversationId) ||
@@ -576,7 +596,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                         ),
                       );
                     },
-                    childCount: items.length,
+                    childCount: displayItems.length,
                   ),
                 );
               },
@@ -648,28 +668,44 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
 
     return Row(
       children: [
-        // Search field (flexible)
+        // Search field (in-place chat list filter)
         Expanded(
-          child: GestureDetector(
-            onTap: () => context.push('/chats/search'),
-            child: Container(
-              height: 38,
-              decoration: BoxDecoration(
-                color: fillColor,
-                borderRadius: BorderRadius.circular(20),
+          child: Container(
+            height: 38,
+            decoration: BoxDecoration(
+              color: fillColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: TextField(
+              controller: widget.searchController,
+              onChanged: (val) => setState(() {}),
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 14,
               ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 10),
-                  Icon(Icons.search_rounded, size: 18, color: hintColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Search',
-                    style: TextStyle(
-                        color: hintColor,
-                        fontSize: 14),
-                  ),
-                ],
+              decoration: InputDecoration(
+                hintText: 'Search chats and messages...',
+                hintStyle: TextStyle(
+                  color: hintColor,
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(Icons.search_rounded, size: 18, color: hintColor),
+                suffixIcon: widget.searchController.text.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            widget.searchController.clear();
+                          });
+                        },
+                        child: Icon(Icons.clear_rounded, size: 16, color: hintColor),
+                      )
+                    : null,
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
               ),
             ),
           ),

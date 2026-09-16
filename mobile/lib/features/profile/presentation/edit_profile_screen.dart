@@ -25,21 +25,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    final p = widget.initialProfile ?? ref.read(profileProvider).profile;
     _firstNameCtrl = TextEditingController(
-      text: widget.initialProfile?.firstName ?? '',
+      text: p?.firstName ?? '',
     );
     _lastNameCtrl = TextEditingController(
-      text: widget.initialProfile?.lastName ?? '',
+      text: p?.lastName ?? '',
     );
     _displayNameCtrl = TextEditingController(
-      text: widget.initialProfile?.displayName ?? '',
+      text: p?.displayName ?? '',
     );
-    _bioCtrl = TextEditingController(text: widget.initialProfile?.bio ?? '');
+    _bioCtrl = TextEditingController(text: p?.bio ?? '');
     _websiteCtrl = TextEditingController(
-      text: widget.initialProfile?.website ?? '',
+      text: p?.website ?? '',
     );
     _countryCtrl = TextEditingController(
-      text: widget.initialProfile?.country ?? '',
+      text: p?.country ?? '',
     );
   }
 

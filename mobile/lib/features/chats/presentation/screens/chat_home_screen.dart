@@ -160,8 +160,11 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit_square, size: 22),
-            tooltip: 'New message',
-            onPressed: () => NewChatSheet.show(context),
+            tooltip: 'Edit Profile',
+            onPressed: () {
+              final profile = ref.read(profileProvider).profile;
+              context.push('/profile/edit', extra: profile);
+            },
           ),
           const SizedBox(width: 4),
         ],
