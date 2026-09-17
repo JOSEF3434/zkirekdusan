@@ -16,13 +16,16 @@ import {
   PaginatedMessagesDto,
 } from './dto/message-response.dto.js';
 
+// Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
+interface IMessagingGateway extends MessagingGateway {}
+
 @Injectable()
 export class MessagesService {
   constructor(
     private readonly messagesRepository: MessagesRepository,
     private readonly conversationsRepository: ConversationsRepository,
     @Inject(forwardRef(() => MessagingGateway))
-    private readonly messagingGateway: MessagingGateway,
+    private readonly messagingGateway: IMessagingGateway,
   ) {}
 
   // ── Send a message to a conversation (DM or Channel) ──────────────────────

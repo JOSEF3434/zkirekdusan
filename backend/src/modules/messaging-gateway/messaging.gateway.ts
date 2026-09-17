@@ -58,6 +58,9 @@ export const WS_EVENTS = {
   CALL_ICE: 'call:ice',
 } as const;
 
+// Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
+interface IMessagesService extends MessagesService {}
+
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -79,7 +82,7 @@ export class MessagingGateway
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => MessagesService))
-    private readonly messagesService: MessagesService,
+    private readonly messagesService: IMessagesService,
     private readonly conversationsRepository: ConversationsRepository,
     private readonly presenceService: PresenceService,
   ) {}
