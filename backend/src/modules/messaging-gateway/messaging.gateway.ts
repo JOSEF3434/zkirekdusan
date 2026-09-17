@@ -9,7 +9,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -58,6 +58,9 @@ export const WS_EVENTS = {
   CALL_ICE: 'call:ice',
 } as const;
 
+// Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
+interface IMessagesService extends MessagesService {}
+
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -78,7 +81,8 @@ export class MessagingGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly messagesService: MessagesService,
+    @Inject(forwardRef(() => MessagesService))
+    private readonly messagesService: IMessagesService,
     private readonly conversationsRepository: ConversationsRepository,
     private readonly presenceService: PresenceService,
   ) {}
