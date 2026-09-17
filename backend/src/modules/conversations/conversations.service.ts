@@ -59,7 +59,7 @@ export class ConversationsService {
       const [conversations, allUsers, publicGroups, myPrivateGroups] =
         await Promise.all([
           this.getUserConversations(userId),
-          this.conversationsRepository.getAllUsersSortedNewest(userId),
+          this.conversationsRepository.getAllUsersSortedNewest(),
           this.conversationsRepository.getAllPublicGroupsSortedNewest(),
           this.conversationsRepository.getUserPrivateGroups(userId),
         ]);

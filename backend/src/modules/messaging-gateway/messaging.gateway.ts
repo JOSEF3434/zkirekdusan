@@ -554,13 +554,14 @@ export class MessagingGateway
   }
 
   emitMessageDeleted(conversationId: string, messageId: string, memberUserIds?: string[]) {
+    const payload = { conversationId, messageId };
     this.server
       .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.MESSAGE_DELETED, { messageId });
+      .emit(WS_EVENTS.MESSAGE_DELETED, payload);
 
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_DELETED, { messageId });
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_DELETED, payload);
       }
     }
   }

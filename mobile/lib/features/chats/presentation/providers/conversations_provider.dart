@@ -32,6 +32,7 @@ class ChatDiscoveryNotifier
   final MessagingSocketService _socketService;
   final String? _currentUserId;
   StreamSubscription? _messageSubscription;
+  StreamSubscription? _presenceSubscription;
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
 
@@ -170,6 +171,56 @@ class ChatDiscoveryNotifier
               publicGroups: discovery.publicGroups,
               myPrivateGroups: discovery.myPrivateGroups,
               allUsers: discovery.allUsers,
+            ),
+          );
+        } else {
+          // New conversation received that wasn't in discovery list yet
+          refreshDiscovery();
+        }
+      });
+    });
+
+    _presenceSubscription = _socketService.presence.listen((data) {
+      final userId = data['userId'] as String?;
+      final status = data['status'] as String?;
+      if (userId == null || status == null) return;
+      final isOnline = status.toUpperCase() == 'ONLINE';
+
+      state.whenData((discovery) {
+        bool changed = false;
+
+        final convs = discovery.conversations.map((conv) {
+          bool convChanged = false;
+          final members = conv.members.map((m) {
+            if (m.userId == userId && m.isOnline != isOnline) {
+              convChanged = true;
+              return m.copyWith(isOnline: isOnline);
+            }
+            return m;
+          }).toList();
+
+          if (convChanged) {
+            changed = true;
+            return conv.copyWith(members: members);
+          }
+          return conv;
+        }).toList();
+
+        final users = discovery.allUsers.map((u) {
+          if (u.id == userId && u.isOnline != isOnline) {
+            changed = true;
+            return u.copyWith(isOnline: isOnline);
+          }
+          return u;
+        }).toList();
+
+        if (changed) {
+          state = AsyncValue.data(
+            ChatDiscoveryModel(
+              conversations: convs,
+              publicGroups: discovery.publicGroups,
+              myPrivateGroups: discovery.myPrivateGroups,
+              allUsers: users,
             ),
           );
         }
@@ -337,6 +388,7 @@ class ChatDiscoveryNotifier
   @override
   void dispose() {
     _messageSubscription?.cancel();
+    _presenceSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -504,7 +556,7 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
 
     // 4. All Users in the database (sorted newest first)
     for (final user in discovery.allUsers) {
-      if (user.id == currentUserId) continue;
+      final isSelf = user.id == currentUserId;
 
       // Check if already have active direct conversation
       final alreadyInConvs = discovery.conversations.any(
@@ -515,16 +567,17 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
         items.add(
           UnifiedChatItem(
             id: 'user_${user.id}',
-            title: user.displayName,
-            subtitle:
-                user.bio ??
-                (user.username != null
-                    ? '@${user.username}'
-                    : 'Joined StreamHub'),
+            title: isSelf ? '${user.displayName} (You)' : user.displayName,
+            subtitle: isSelf
+                ? 'Message yourself'
+                : (user.bio ??
+                    (user.username != null
+                        ? '@${user.username}'
+                        : 'Joined StreamHub')),
             avatarUrl: user.avatarUrl,
             type: UnifiedChatType.user,
             sortDate: user.createdAt,
-            isOnline: user.isOnline,
+            isOnline: isSelf ? true : user.isOnline,
             targetUserId: user.id,
           ),
         );

@@ -39,6 +39,28 @@ class ChatUserItem {
           : DateTime.now(),
     );
   }
+
+  ChatUserItem copyWith({
+    String? id,
+    String? username,
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+    bool? isOnline,
+    DateTime? lastSeenAt,
+    DateTime? createdAt,
+  }) {
+    return ChatUserItem(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bio: bio ?? this.bio,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class ChatGroupItem {

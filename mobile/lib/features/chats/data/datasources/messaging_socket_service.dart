@@ -31,6 +31,8 @@ class MessagingSocketService {
   final _readReceiptController = StreamController<Map<String, dynamic>>.broadcast();
   final _deliveryReceiptController = StreamController<Map<String, dynamic>>.broadcast();
 
+  final Set<String> _joinedConversations = {};
+
   // Public streams
   Stream<MessageModel> get messageReceived => _messageReceivedController.stream;
   Stream<MessageModel> get messageUpdated => _messageUpdatedController.stream;
@@ -58,17 +60,24 @@ class MessagingSocketService {
         return;
       }
 
-      final baseUrl = _apiClient.options.baseUrl;
-      _logger.i('MessagingSocket: Connecting to $baseUrl');
+      String baseUrl = _apiClient.options.baseUrl;
+      if (baseUrl.endsWith('/api')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 4);
+      } else if (baseUrl.endsWith('/api/')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 5);
+      }
+      final socketUrl = baseUrl.endsWith('/') ? '${baseUrl}chat' : '$baseUrl/chat';
+      _logger.i('MessagingSocket: Connecting to $socketUrl');
 
       _socket = io.io(
-        baseUrl,
+        socketUrl,
         io.OptionBuilder()
             .setTransports(['websocket'])
             .setAuth({'token': token})
+            .setExtraHeaders({'Authorization': 'Bearer $token'})
             .enableAutoConnect()
             .enableReconnection()
-            .setReconnectionAttempts(5)
+            .setReconnectionAttempts(999999)
             .setReconnectionDelay(1000)
             .build(),
       );
@@ -83,7 +92,18 @@ class MessagingSocketService {
   void _setupSocketListeners() {
     _socket!.onConnect((_) {
       _isConnected = true;
-      _logger.i('MessagingSocket: Connected');
+      _logger.i('MessagingSocket: Connected to /chat');
+      // Re-join any tracked conversations
+      for (final id in _joinedConversations) {
+        _socket!.emit('conversation:join', {'conversationId': id});
+      }
+    });
+
+    _socket!.on('reconnect', (_) {
+      _logger.i('MessagingSocket: Reconnected, re-joining ${_joinedConversations.length} rooms');
+      for (final id in _joinedConversations) {
+        _socket!.emit('conversation:join', {'conversationId': id});
+      }
     });
 
     _socket!.onDisconnect((_) {
@@ -124,8 +144,8 @@ class MessagingSocketService {
       try {
         final payload = data as Map<String, dynamic>;
         _messageDeletedController.add({
-          'conversationId': payload['conversationId'] as String,
-          'messageId': payload['messageId'] as String,
+          'conversationId': (payload['conversationId'] as String?) ?? '',
+          'messageId': (payload['messageId'] as String?) ?? '',
         });
         _logger.d('MessagingSocket: Message deleted: ${payload['messageId']}');
       } catch (e) {
@@ -143,6 +163,14 @@ class MessagingSocketService {
     });
 
     // Presence updates
+    _socket!.on('presence:changed', (data) {
+      if (data is Map<String, dynamic>) {
+        final status = (data['status'] as String? ?? 'offline').toLowerCase();
+        _presenceController.add({...data, 'status': status});
+        _logger.d('MessagingSocket: Presence changed: $data');
+      }
+    });
+
     _socket!.on('presence:online', (data) {
       _presenceController.add({...data as Map<String, dynamic>, 'status': 'online'});
     });
@@ -181,6 +209,7 @@ class MessagingSocketService {
 
   // Join a conversation room
   void joinConversation(String conversationId) {
+    _joinedConversations.add(conversationId);
     if (_socket != null && _isConnected) {
       _socket!.emit('conversation:join', {'conversationId': conversationId});
       _logger.d('MessagingSocket: Joined conversation $conversationId');
@@ -189,6 +218,7 @@ class MessagingSocketService {
 
   // Leave a conversation room
   void leaveConversation(String conversationId) {
+    _joinedConversations.remove(conversationId);
     if (_socket != null && _isConnected) {
       _socket!.emit('conversation:leave', {'conversationId': conversationId});
       _logger.d('MessagingSocket: Left conversation $conversationId');
@@ -240,6 +270,7 @@ class MessagingSocketService {
   }
 
   void disconnect() {
+    _joinedConversations.clear();
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
