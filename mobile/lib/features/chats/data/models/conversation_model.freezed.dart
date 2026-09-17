@@ -673,7 +673,7 @@ $TypingStatusModelCopyWith<$Res>? get typingStatus {
 /// @nodoc
 mixin _$MessagePreviewModel {
 
- String get id; String? get content; String get type; String? get senderName; bool? get isMe; String? get attachmentPreview;
+ String get id; String? get content; String get type; String? get senderName; bool? get isMe; bool? get isSeen; bool? get isDelivered; String? get attachmentPreview;
 /// Create a copy of MessagePreviewModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -686,16 +686,16 @@ $MessagePreviewModelCopyWith<MessagePreviewModel> get copyWith => _$MessagePrevi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessagePreviewModel&&(identical(other.id, id) || other.id == id)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.isMe, isMe) || other.isMe == isMe)&&(identical(other.attachmentPreview, attachmentPreview) || other.attachmentPreview == attachmentPreview));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessagePreviewModel&&(identical(other.id, id) || other.id == id)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.isMe, isMe) || other.isMe == isMe)&&(identical(other.isSeen, isSeen) || other.isSeen == isSeen)&&(identical(other.isDelivered, isDelivered) || other.isDelivered == isDelivered)&&(identical(other.attachmentPreview, attachmentPreview) || other.attachmentPreview == attachmentPreview));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,content,type,senderName,isMe,attachmentPreview);
+int get hashCode => Object.hash(runtimeType,id,content,type,senderName,isMe,isSeen,isDelivered,attachmentPreview);
 
 @override
 String toString() {
-  return 'MessagePreviewModel(id: $id, content: $content, type: $type, senderName: $senderName, isMe: $isMe, attachmentPreview: $attachmentPreview)';
+  return 'MessagePreviewModel(id: $id, content: $content, type: $type, senderName: $senderName, isMe: $isMe, isSeen: $isSeen, isDelivered: $isDelivered, attachmentPreview: $attachmentPreview)';
 }
 
 
@@ -706,7 +706,7 @@ abstract mixin class $MessagePreviewModelCopyWith<$Res>  {
   factory $MessagePreviewModelCopyWith(MessagePreviewModel value, $Res Function(MessagePreviewModel) _then) = _$MessagePreviewModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String? content, String type, String? senderName, bool? isMe, String? attachmentPreview
+ String id, String? content, String type, String? senderName, bool? isMe, bool? isSeen, bool? isDelivered, String? attachmentPreview
 });
 
 
@@ -723,13 +723,15 @@ class _$MessagePreviewModelCopyWithImpl<$Res>
 
 /// Create a copy of MessagePreviewModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? content = freezed,Object? type = null,Object? senderName = freezed,Object? isMe = freezed,Object? attachmentPreview = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? content = freezed,Object? type = null,Object? senderName = freezed,Object? isMe = freezed,Object? isSeen = freezed,Object? isDelivered = freezed,Object? attachmentPreview = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,content: freezed == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String,senderName: freezed == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable
 as String?,isMe: freezed == isMe ? _self.isMe : isMe // ignore: cast_nullable_to_non_nullable
+as bool?,isSeen: freezed == isSeen ? _self.isSeen : isSeen // ignore: cast_nullable_to_non_nullable
+as bool?,isDelivered: freezed == isDelivered ? _self.isDelivered : isDelivered // ignore: cast_nullable_to_non_nullable
 as bool?,attachmentPreview: freezed == attachmentPreview ? _self.attachmentPreview : attachmentPreview // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -816,10 +818,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  String? attachmentPreview)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  bool? isSeen,  bool? isDelivered,  String? attachmentPreview)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MessagePreviewModel() when $default != null:
-return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.attachmentPreview);case _:
+return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.isSeen,_that.isDelivered,_that.attachmentPreview);case _:
   return orElse();
 
 }
@@ -837,10 +839,10 @@ return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  String? attachmentPreview)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  bool? isSeen,  bool? isDelivered,  String? attachmentPreview)  $default,) {final _that = this;
 switch (_that) {
 case _MessagePreviewModel():
-return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.attachmentPreview);case _:
+return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.isSeen,_that.isDelivered,_that.attachmentPreview);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -857,10 +859,10 @@ return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  String? attachmentPreview)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? content,  String type,  String? senderName,  bool? isMe,  bool? isSeen,  bool? isDelivered,  String? attachmentPreview)?  $default,) {final _that = this;
 switch (_that) {
 case _MessagePreviewModel() when $default != null:
-return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.attachmentPreview);case _:
+return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_that.isSeen,_that.isDelivered,_that.attachmentPreview);case _:
   return null;
 
 }
@@ -872,7 +874,7 @@ return $default(_that.id,_that.content,_that.type,_that.senderName,_that.isMe,_t
 @JsonSerializable()
 
 class _MessagePreviewModel implements MessagePreviewModel {
-  const _MessagePreviewModel({required this.id, this.content, required this.type, this.senderName, this.isMe, this.attachmentPreview});
+  const _MessagePreviewModel({required this.id, this.content, required this.type, this.senderName, this.isMe, this.isSeen, this.isDelivered, this.attachmentPreview});
   factory _MessagePreviewModel.fromJson(Map<String, dynamic> json) => _$MessagePreviewModelFromJson(json);
 
 @override final  String id;
@@ -880,6 +882,8 @@ class _MessagePreviewModel implements MessagePreviewModel {
 @override final  String type;
 @override final  String? senderName;
 @override final  bool? isMe;
+@override final  bool? isSeen;
+@override final  bool? isDelivered;
 @override final  String? attachmentPreview;
 
 /// Create a copy of MessagePreviewModel
@@ -895,16 +899,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessagePreviewModel&&(identical(other.id, id) || other.id == id)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.isMe, isMe) || other.isMe == isMe)&&(identical(other.attachmentPreview, attachmentPreview) || other.attachmentPreview == attachmentPreview));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessagePreviewModel&&(identical(other.id, id) || other.id == id)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.isMe, isMe) || other.isMe == isMe)&&(identical(other.isSeen, isSeen) || other.isSeen == isSeen)&&(identical(other.isDelivered, isDelivered) || other.isDelivered == isDelivered)&&(identical(other.attachmentPreview, attachmentPreview) || other.attachmentPreview == attachmentPreview));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,content,type,senderName,isMe,attachmentPreview);
+int get hashCode => Object.hash(runtimeType,id,content,type,senderName,isMe,isSeen,isDelivered,attachmentPreview);
 
 @override
 String toString() {
-  return 'MessagePreviewModel(id: $id, content: $content, type: $type, senderName: $senderName, isMe: $isMe, attachmentPreview: $attachmentPreview)';
+  return 'MessagePreviewModel(id: $id, content: $content, type: $type, senderName: $senderName, isMe: $isMe, isSeen: $isSeen, isDelivered: $isDelivered, attachmentPreview: $attachmentPreview)';
 }
 
 
@@ -915,7 +919,7 @@ abstract mixin class _$MessagePreviewModelCopyWith<$Res> implements $MessagePrev
   factory _$MessagePreviewModelCopyWith(_MessagePreviewModel value, $Res Function(_MessagePreviewModel) _then) = __$MessagePreviewModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String? content, String type, String? senderName, bool? isMe, String? attachmentPreview
+ String id, String? content, String type, String? senderName, bool? isMe, bool? isSeen, bool? isDelivered, String? attachmentPreview
 });
 
 
@@ -932,13 +936,15 @@ class __$MessagePreviewModelCopyWithImpl<$Res>
 
 /// Create a copy of MessagePreviewModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? content = freezed,Object? type = null,Object? senderName = freezed,Object? isMe = freezed,Object? attachmentPreview = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? content = freezed,Object? type = null,Object? senderName = freezed,Object? isMe = freezed,Object? isSeen = freezed,Object? isDelivered = freezed,Object? attachmentPreview = freezed,}) {
   return _then(_MessagePreviewModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,content: freezed == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String,senderName: freezed == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable
 as String?,isMe: freezed == isMe ? _self.isMe : isMe // ignore: cast_nullable_to_non_nullable
+as bool?,isSeen: freezed == isSeen ? _self.isSeen : isSeen // ignore: cast_nullable_to_non_nullable
+as bool?,isDelivered: freezed == isDelivered ? _self.isDelivered : isDelivered // ignore: cast_nullable_to_non_nullable
 as bool?,attachmentPreview: freezed == attachmentPreview ? _self.attachmentPreview : attachmentPreview // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

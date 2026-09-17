@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
+import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 
 class UnifiedChatListTile extends ConsumerWidget {
   final UnifiedChatItem item;
@@ -23,6 +24,10 @@ class UnifiedChatListTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final hasUnread = item.unreadCount > 0;
+    final typingUsers = item.conversationId != null
+        ? ref.watch(typingIndicatorProvider(item.conversationId!))
+        : const <String, bool>{};
+    final isSomeoneTyping = typingUsers.isNotEmpty;
     final isGroup = item.type == UnifiedChatType.publicGroup ||
         item.type == UnifiedChatType.privateGroup ||
         (item.conversation != null && item.conversation!.groupId != null);
@@ -147,11 +152,24 @@ class UnifiedChatListTile extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (item.conversation?.lastMessage?.isMe == true) ...[
-                              const Icon(
-                                Icons.done_all_rounded,
-                                size: 15,
-                                color: Color(0xFF00C6FF),
-                              ),
+                              if (item.conversation?.lastMessage?.isSeen == true)
+                                const Icon(
+                                  Icons.done_all_rounded,
+                                  size: 15,
+                                  color: Color(0xFF00C6FF),
+                                )
+                              else if (item.conversation?.lastMessage?.isDelivered == true)
+                                Icon(
+                                  Icons.done_all_rounded,
+                                  size: 15,
+                                  color: Colors.grey[500],
+                                )
+                              else
+                                Icon(
+                                  Icons.done_rounded,
+                                  size: 14,
+                                  color: Colors.grey[500],
+                                ),
                               const SizedBox(width: 4),
                             ],
                             Text(
@@ -175,19 +193,42 @@ class UnifiedChatListTile extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            item.subtitle ?? 'Tap to chat',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: hasUnread
-                                  ? (isDark ? Colors.white : Colors.black87)
-                                  : Colors.grey[500],
-                              fontWeight:
-                                  hasUnread ? FontWeight.w500 : FontWeight.normal,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: isSomeoneTyping
+                              ? const Row(
+                                  children: [
+                                    Text(
+                                      'typing',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF00C6FF),
+                                        fontStyle: FontStyle.italic,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(width: 2),
+                                    Text(
+                                      '...',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF00C6FF),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  item.subtitle ?? 'Tap to chat',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: hasUnread
+                                        ? (isDark ? Colors.white : Colors.black87)
+                                        : Colors.grey[500],
+                                    fontWeight:
+                                        hasUnread ? FontWeight.w500 : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                         ),
                         const SizedBox(width: 8),
 

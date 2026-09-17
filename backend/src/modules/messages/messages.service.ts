@@ -99,8 +99,26 @@ export class MessagesService {
       limit,
     );
 
-    // Mark all messages as read
-    await this.messagesRepository.resetUnreadCount(conversationId, userId);
+    // Mark all unread messages from other users in this conversation as read
+    await this.messagesRepository.markBulkAsRead(conversationId, userId).catch(() => {});
+    await this.messagesRepository.resetUnreadCount(conversationId, userId).catch(() => {});
+
+    // Broadcast read receipts to conversation and members for newly read messages
+    const newlyReadMessages = result.data.filter(
+      (m: any) => m.senderId !== userId && !(m.reads ?? []).some((r: any) => r.userId === userId),
+    );
+    if (newlyReadMessages.length > 0) {
+      const memberIds = conversation.members?.map((m: any) => m.userId) ?? [];
+      for (const msg of newlyReadMessages) {
+        const payload = {
+          messageId: msg.id,
+          conversationId,
+          userId,
+          readAt: new Date(),
+        };
+        this.messagingGateway.emitReadReceipt(conversationId, payload, memberIds);
+      }
+    }
 
     return {
       data: result.data.map((m) => this.mapToDto(m)),
@@ -190,6 +208,17 @@ export class MessagesService {
     }
 
     await this.messagesRepository.addReaction(messageId, userId, dto.emoji);
+
+    const payload = {
+      messageId,
+      conversationId: message.conversationId,
+      userId,
+      emoji: dto.emoji,
+      action: 'add',
+    };
+    const memberIds = (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitReaction(message.conversationId, payload, memberIds);
+
     return { success: true };
   }
 
@@ -198,7 +227,23 @@ export class MessagesService {
     userId: string,
     emoji: string,
   ): Promise<{ success: boolean }> {
+    const message = await this.messagesRepository.findById(messageId);
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
     await this.messagesRepository.removeReaction(messageId, userId, emoji);
+
+    const payload = {
+      messageId,
+      conversationId: message.conversationId,
+      userId,
+      emoji,
+      action: 'remove',
+    };
+    const memberIds = (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitReactionRemoved(message.conversationId, payload, memberIds);
+
     return { success: true };
   }
 

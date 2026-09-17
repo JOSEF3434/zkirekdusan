@@ -541,46 +541,78 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _showAttachmentOptions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF161C28)
-          : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF161C28) : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _AttachmentOption(
-                icon: Icons.photo_library_rounded,
-                color: const Color(0xFF00C6FF),
-                label: 'Gallery',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              _AttachmentOption(
-                icon: Icons.camera_alt_rounded,
-                color: const Color(0xFF10B981),
-                label: 'Camera',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              _AttachmentOption(
-                icon: Icons.insert_drive_file_rounded,
-                color: const Color(0xFFF59E0B),
-                label: 'Document',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickDocument();
-                },
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _AttachmentOption(
+                    icon: Icons.photo_library_rounded,
+                    color: const Color(0xFF00C6FF),
+                    label: 'Gallery',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickGallery();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.camera_alt_rounded,
+                    color: const Color(0xFF10B981),
+                    label: 'Camera',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickCameraPhoto();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.videocam_rounded,
+                    color: const Color(0xFFEC4899),
+                    label: 'Video',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickVideo();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.insert_drive_file_rounded,
+                    color: const Color(0xFFF59E0B),
+                    label: 'Files',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickDocument();
+                    },
+                  ),
+                  _AttachmentOption(
+                    icon: Icons.music_note_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    label: 'Audio',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAudio();
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -589,31 +621,91 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     );
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickGallery() async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source);
+      final List<XFile> images = await picker.pickMultiImage();
+      if (images.isNotEmpty) {
+        for (final img in images) {
+          await _uploadAndSendMedia(img.path, img.name, 'image/jpeg');
+        }
+      }
+    } catch (e) {
+      _showError('Failed to pick images: $e');
+    }
+  }
+
+  Future<void> _pickCameraPhoto() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.camera);
       if (image != null) {
         await _uploadAndSendMedia(image.path, image.name, 'image/jpeg');
       }
     } catch (e) {
-      _showError('Failed to pick image: $e');
+      _showError('Failed to capture photo: $e');
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
+      if (video != null) {
+        await _uploadAndSendMedia(video.path, video.name, 'video/mp4');
+      }
+    } catch (e) {
+      _showError('Failed to pick video: $e');
     }
   }
 
   Future<void> _pickDocument() async {
     try {
-      final result = await FilePicker.pickFiles();
-      if (result != null && result.files.single.path != null) {
-        final file = result.files.single;
-        await _uploadAndSendMedia(
-          file.path!,
-          file.name,
-          file.extension ?? 'application/octet-stream',
-        );
+      final result = await FilePicker.pickFiles(allowMultiple: true);
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            final ext = file.extension?.toLowerCase();
+            String mime = 'application/octet-stream';
+            if (ext == 'pdf') {
+              mime = 'application/pdf';
+            } else if (ext == 'doc' || ext == 'docx') {
+              mime = 'application/msword';
+            } else if (ext == 'zip') {
+              mime = 'application/zip';
+            }
+            await _uploadAndSendMedia(
+              file.path!,
+              file.name,
+              mime,
+            );
+          }
+        }
       }
     } catch (e) {
       _showError('Failed to pick document: $e');
+    }
+  }
+
+  Future<void> _pickAudio() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.audio,
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            await _uploadAndSendMedia(
+              file.path!,
+              file.name,
+              'audio/mpeg',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      _showError('Failed to pick audio: $e');
     }
   }
 

@@ -47,6 +47,7 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> loadDiscovery() async {
+    if (!mounted) return;
     if (_discoveryRequest != null) return _discoveryRequest!;
     if (state.valueOrNull == null) {
       state = const AsyncValue.loading();
@@ -66,12 +67,14 @@ class ChatDiscoveryNotifier
     // 1. Immediately hydrate state with local cached conversations from Drift (no network delay!)
     try {
       final cached = await _repository.getCachedConversations();
+      if (!mounted) return;
       state = AsyncValue.data(
         ChatDiscoveryModel(
           conversations: cached,
         ),
       );
     } catch (_) {
+      if (!mounted) return;
       if (state.valueOrNull == null) {
         state = const AsyncValue.data(ChatDiscoveryModel());
       }
@@ -82,6 +85,7 @@ class ChatDiscoveryNotifier
       final discovery = await _repository
           .getChatDiscovery()
           .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
       if (discovery.conversations.isNotEmpty ||
           discovery.allUsers.isNotEmpty ||
           discovery.publicGroups.isNotEmpty ||
@@ -90,17 +94,20 @@ class ChatDiscoveryNotifier
         state = AsyncValue.data(discovery);
       }
     } catch (e) {
+      if (!mounted) return;
       if (state.valueOrNull == null) {
         // Fallback to local cached conversations
         final cached = await _repository.getCachedConversations();
+        if (!mounted) return;
         state = AsyncValue.data(ChatDiscoveryModel(conversations: cached));
       }
     }
   }
 
   Future<void> refreshDiscovery() async {
+    if (!mounted) return;
     if (_discoveryRequest != null) return _discoveryRequest!;
-    final prev = state.value;
+    final prev = mounted ? state.value : null;
     final request = _refreshDiscovery(prev);
     _discoveryRequest = request;
     try {
@@ -117,6 +124,7 @@ class ChatDiscoveryNotifier
       final discovery = await _repository
           .getChatDiscovery()
           .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
       if (discovery.conversations.isNotEmpty ||
           discovery.allUsers.isNotEmpty ||
           discovery.publicGroups.isNotEmpty ||
@@ -124,6 +132,7 @@ class ChatDiscoveryNotifier
         state = AsyncValue.data(discovery);
       }
     } catch (e) {
+      if (!mounted) return;
       if (prev != null) {
         state = AsyncValue.data(prev);
       }
@@ -132,7 +141,9 @@ class ChatDiscoveryNotifier
 
   void _setupRealtimeUpdates() {
     _messageSubscription = _socketService.messageReceived.listen((message) {
+      if (!mounted) return;
       state.whenData((discovery) {
+        if (!mounted) return;
         final conversations = [...discovery.conversations];
         final index = conversations.indexWhere(
           (c) => c.id == message.conversationId,
@@ -165,6 +176,7 @@ class ChatDiscoveryNotifier
             }
           }
 
+          if (!mounted) return;
           state = AsyncValue.data(
             ChatDiscoveryModel(
               conversations: conversations,
@@ -181,12 +193,14 @@ class ChatDiscoveryNotifier
     });
 
     _presenceSubscription = _socketService.presence.listen((data) {
+      if (!mounted) return;
       final userId = data['userId'] as String?;
       final status = data['status'] as String?;
       if (userId == null || status == null) return;
       final isOnline = status.toUpperCase() == 'ONLINE';
 
       state.whenData((discovery) {
+        if (!mounted) return;
         bool changed = false;
 
         final convs = discovery.conversations.map((conv) {
@@ -215,6 +229,7 @@ class ChatDiscoveryNotifier
         }).toList();
 
         if (changed) {
+          if (!mounted) return;
           state = AsyncValue.data(
             ChatDiscoveryModel(
               conversations: convs,
@@ -230,13 +245,16 @@ class ChatDiscoveryNotifier
 
   void _setupPeriodicRefresh() {
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
       refreshDiscovery();
     });
   }
 
   Future<void> markAsRead(String conversationId) async {
     await _repository.markConversationAsRead(conversationId);
+    if (!mounted) return;
     state.whenData((discovery) {
+      if (!mounted) return;
       final conversations = [...discovery.conversations];
       final index = conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
@@ -249,6 +267,7 @@ class ChatDiscoveryNotifier
           conversations[index] = conversations[index].copyWith(
             members: members,
           );
+          if (!mounted) return;
           state = AsyncValue.data(
             ChatDiscoveryModel(
               conversations: conversations,
@@ -305,7 +324,9 @@ class ChatDiscoveryNotifier
   /// Injects [conv] into the current discovery state if it is not already there.
   /// If it already exists (same id), the entry is replaced with the fresh data.
   void injectConversation(ConversationModel conv) {
+    if (!mounted) return;
     state.whenData((discovery) {
+      if (!mounted) return;
       final convs = [...discovery.conversations];
       final idx = convs.indexWhere((c) => c.id == conv.id);
       if (idx == -1) {
@@ -313,6 +334,7 @@ class ChatDiscoveryNotifier
       } else {
         convs[idx] = conv;
       }
+      if (!mounted) return;
       state = AsyncValue.data(
         ChatDiscoveryModel(
           conversations: convs,
@@ -365,6 +387,7 @@ class ChatDiscoveryNotifier
   }
 
   int getTotalUnreadCount() {
+    if (!mounted) return 0;
     return state.maybeWhen(
       data: (discovery) {
         int total = 0;
@@ -387,6 +410,7 @@ class ChatDiscoveryNotifier
 
   @override
   void dispose() {
+    _discoveryRequest = null;
     _messageSubscription?.cancel();
     _presenceSubscription?.cancel();
     _refreshTimer?.cancel();

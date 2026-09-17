@@ -344,6 +344,8 @@ class MessageBubble extends StatelessWidget {
     final isSending = message.id.startsWith('temp_') || message.id.startsWith('local_');
     final isSeen = message.readBy.isNotEmpty &&
         (currentUserId == null || message.readBy.any((u) => u != currentUserId));
+    final isDelivered = message.deliveredTo.isNotEmpty &&
+        (currentUserId == null || message.deliveredTo.any((u) => u != currentUserId));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -385,6 +387,12 @@ class MessageBubble extends StatelessWidget {
                 Icons.done_all_rounded,
                 size: 15,
                 color: Color(0xFF00C6FF),
+              )
+            else if (isDelivered)
+              Icon(
+                Icons.done_all_rounded,
+                size: 15,
+                color: textColor,
               )
             else
               Icon(
@@ -799,40 +807,59 @@ class MessageBubble extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 4),
       child: Wrap(
-        spacing: 4,
-        runSpacing: 4,
+        spacing: 5,
+        runSpacing: 5,
         children: message.reactions.map((reaction) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E2638) : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.2),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
+          final isReactedByMe = currentUserId != null && reaction.userIds.contains(currentUserId);
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onReaction?.call(reaction.emoji);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+              decoration: BoxDecoration(
+                color: isReactedByMe
+                    ? const Color(0xFF00C6FF).withValues(alpha: isDark ? 0.22 : 0.12)
+                    : (isDark ? const Color(0xFF1E2638) : Colors.white),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isReactedByMe
+                      ? const Color(0xFF00C6FF).withValues(alpha: 0.8)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.25)),
+                  width: isReactedByMe ? 1.5 : 1,
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(reaction.emoji, style: const TextStyle(fontSize: 13)),
-                if (reaction.count > 1) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    '${reaction.count}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isReactedByMe
+                        ? const Color(0xFF00C6FF).withValues(alpha: 0.25)
+                        : Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
                   ),
                 ],
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(reaction.emoji, style: const TextStyle(fontSize: 13.5)),
+                  if (reaction.count > 1) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '${reaction.count}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isReactedByMe
+                            ? const Color(0xFF00C6FF)
+                            : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           );
         }).toList(),

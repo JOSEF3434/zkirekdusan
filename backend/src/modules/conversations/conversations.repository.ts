@@ -141,6 +141,16 @@ export class ConversationsRepository {
                 },
               },
             },
+            reads: {
+              select: {
+                userId: true,
+              },
+            },
+            deliveries: {
+              select: {
+                userId: true,
+              },
+            },
           },
         },
       },
@@ -204,6 +214,16 @@ export class ConversationsRepository {
                     displayName: true,
                   },
                 },
+              },
+            },
+            reads: {
+              select: {
+                userId: true,
+              },
+            },
+            deliveries: {
+              select: {
+                userId: true,
               },
             },
           },

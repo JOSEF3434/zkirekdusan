@@ -8,40 +8,33 @@ part of 'conversation_model.dart';
 
 _ConversationModel _$ConversationModelFromJson(Map<String, dynamic> json) =>
     _ConversationModel(
-      id: json['id']?.toString() ?? '',
-      type: json['type']?.toString() ?? 'DIRECT',
-      groupId: json['groupId']?.toString(),
-      channelId: json['channelId']?.toString(),
-      title: json['title']?.toString(),
+      id: json['id'] as String,
+      type: json['type'] as String,
+      groupId: json['groupId'] as String?,
+      channelId: json['channelId'] as String?,
+      title: json['title'] as String?,
       lastMessageAt: json['lastMessageAt'] == null
           ? null
-          : DateTime.tryParse(json['lastMessageAt'].toString()),
+          : DateTime.parse(json['lastMessageAt'] as String),
       lastMessage: json['lastMessage'] == null
           ? null
-          : (json['lastMessage'] is Map<String, dynamic>
-              ? MessagePreviewModel.fromJson(
-                  json['lastMessage'] as Map<String, dynamic>,
-                )
-              : null),
-      members: (json['members'] as List<dynamic>?)
+          : MessagePreviewModel.fromJson(
+              json['lastMessage'] as Map<String, dynamic>,
+            ),
+      members:
+          (json['members'] as List<dynamic>?)
               ?.map(
-                (e) => e is Map<String, dynamic>
-                    ? ConversationMemberModel.fromJson(e)
-                    : null,
+                (e) =>
+                    ConversationMemberModel.fromJson(e as Map<String, dynamic>),
               )
-              .whereType<ConversationMemberModel>()
               .toList() ??
           const [],
-      createdAt: json['createdAt'] != null
-          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
-          : DateTime.now(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
       metadata: json['metadata'] == null
           ? null
-          : (json['metadata'] is Map<String, dynamic>
-              ? ConversationMetadataModel.fromJson(
-                  json['metadata'] as Map<String, dynamic>,
-                )
-              : null),
+          : ConversationMetadataModel.fromJson(
+              json['metadata'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$ConversationModelToJson(_ConversationModel instance) =>
@@ -61,22 +54,20 @@ Map<String, dynamic> _$ConversationModelToJson(_ConversationModel instance) =>
 _ConversationMemberModel _$ConversationMemberModelFromJson(
   Map<String, dynamic> json,
 ) => _ConversationMemberModel(
-  userId: json['userId']?.toString() ?? '',
-  username: json['username']?.toString() ?? '',
-  displayName: json['displayName']?.toString(),
-  avatarUrl: json['avatarUrl']?.toString(),
+  userId: json['userId'] as String,
+  username: json['username'] as String,
+  displayName: json['displayName'] as String?,
+  avatarUrl: json['avatarUrl'] as String?,
   unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
   isMuted: json['isMuted'] as bool? ?? false,
   isPinned: json['isPinned'] as bool? ?? false,
   isOnline: json['isOnline'] as bool? ?? false,
-  lastSeen: json['lastSeen']?.toString(),
+  lastSeen: json['lastSeen'] as String?,
   typingStatus: json['typingStatus'] == null
       ? null
-      : (json['typingStatus'] is Map<String, dynamic>
-          ? TypingStatusModel.fromJson(
-              json['typingStatus'] as Map<String, dynamic>,
-            )
-          : null),
+      : TypingStatusModel.fromJson(
+          json['typingStatus'] as Map<String, dynamic>,
+        ),
 );
 
 Map<String, dynamic> _$ConversationMemberModelToJson(
@@ -96,12 +87,14 @@ Map<String, dynamic> _$ConversationMemberModelToJson(
 
 _MessagePreviewModel _$MessagePreviewModelFromJson(Map<String, dynamic> json) =>
     _MessagePreviewModel(
-      id: json['id']?.toString() ?? '',
-      content: json['content']?.toString(),
-      type: json['type']?.toString() ?? 'TEXT',
-      senderName: json['senderName']?.toString(),
+      id: json['id'] as String,
+      content: json['content'] as String?,
+      type: json['type'] as String,
+      senderName: json['senderName'] as String?,
       isMe: json['isMe'] as bool?,
-      attachmentPreview: json['attachmentPreview']?.toString(),
+      isSeen: json['isSeen'] as bool?,
+      isDelivered: json['isDelivered'] as bool?,
+      attachmentPreview: json['attachmentPreview'] as String?,
     );
 
 Map<String, dynamic> _$MessagePreviewModelToJson(
@@ -112,18 +105,20 @@ Map<String, dynamic> _$MessagePreviewModelToJson(
   'type': instance.type,
   'senderName': instance.senderName,
   'isMe': instance.isMe,
+  'isSeen': instance.isSeen,
+  'isDelivered': instance.isDelivered,
   'attachmentPreview': instance.attachmentPreview,
 };
 
 _ConversationMetadataModel _$ConversationMetadataModelFromJson(
   Map<String, dynamic> json,
 ) => _ConversationMetadataModel(
-  groupName: json['groupName']?.toString(),
-  groupAvatar: json['groupAvatar']?.toString(),
+  groupName: json['groupName'] as String?,
+  groupAvatar: json['groupAvatar'] as String?,
   memberCount: (json['memberCount'] as num?)?.toInt(),
   isVerified: json['isVerified'] as bool?,
-  channelName: json['channelName']?.toString(),
-  description: json['description']?.toString(),
+  channelName: json['channelName'] as String?,
+  description: json['description'] as String?,
 );
 
 Map<String, dynamic> _$ConversationMetadataModelToJson(
@@ -139,10 +134,10 @@ Map<String, dynamic> _$ConversationMetadataModelToJson(
 
 _TypingStatusModel _$TypingStatusModelFromJson(Map<String, dynamic> json) =>
     _TypingStatusModel(
-      isTyping: json['isTyping'] as bool? ?? false,
+      isTyping: json['isTyping'] as bool,
       startedAt: json['startedAt'] == null
           ? null
-          : DateTime.tryParse(json['startedAt'].toString()),
+          : DateTime.parse(json['startedAt'] as String),
     );
 
 Map<String, dynamic> _$TypingStatusModelToJson(_TypingStatusModel instance) =>

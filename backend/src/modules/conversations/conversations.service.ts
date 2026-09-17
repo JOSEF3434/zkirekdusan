@@ -235,12 +235,17 @@ export class ConversationsService {
     const latestMsg = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
     let lastMessage: any = undefined;
     if (latestMsg) {
+      const isMe = latestMsg.senderId === currentUserId;
+      const isSeen = isMe && (latestMsg.reads ?? []).some((r: any) => r.userId !== currentUserId);
+      const isDelivered = isMe && (latestMsg.deliveries ?? []).some((d: any) => d.userId !== currentUserId);
       lastMessage = {
         id: latestMsg.id,
         content: latestMsg.content,
         type: latestMsg.type,
         senderName: latestMsg.sender?.profile?.displayName ?? latestMsg.sender?.username ?? 'User',
-        isMe: latestMsg.senderId === currentUserId,
+        isMe,
+        isSeen,
+        isDelivered,
       };
     }
 

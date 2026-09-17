@@ -690,6 +690,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               ),
             ),
 
+            // Typing indicator bubble when other user is typing
+            if (typingUsers.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _buildTypingStatusBanner(isDark),
+              ),
+
             // Message Composer
             MessageComposer(
               conversationId: widget.conversationId,
@@ -894,6 +901,58 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           myDisplayName: myDisplayName,
           myAvatarUrl: null,
         );
+  }
+
+  Widget _buildTypingStatusBanner(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      margin: const EdgeInsets.only(left: 16, bottom: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E232E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'typing a message',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF00C6FF),
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(width: 2),
+          Text(
+            '...',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF00C6FF),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(width: 6),
+          Icon(
+            Icons.edit_note_rounded,
+            size: 16,
+            color: Color(0xFF00C6FF),
+          ),
+        ],
+      ),
+    );
   }
 }
 

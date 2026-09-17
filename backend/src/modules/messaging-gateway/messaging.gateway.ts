@@ -228,13 +228,20 @@ export class MessagingGateway
     @MessageBody() data: { conversationId: string },
   ) {
     const userId = (client as any).userId as string;
+    const payload = {
+      userId,
+      conversationId: data.conversationId,
+      isTyping: true,
+    };
     client
       .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.TYPING_INDICATOR, {
-        userId,
-        conversationId: data.conversationId,
-        isTyping: true,
-      });
+      .emit(WS_EVENTS.TYPING_INDICATOR, payload);
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit('typing:start', payload);
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit('typing:indicator', payload);
   }
 
   @SubscribeMessage(WS_EVENTS.TYPING_STOP)
@@ -243,13 +250,20 @@ export class MessagingGateway
     @MessageBody() data: { conversationId: string },
   ) {
     const userId = (client as any).userId as string;
+    const payload = {
+      userId,
+      conversationId: data.conversationId,
+      isTyping: false,
+    };
     client
       .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.TYPING_INDICATOR, {
-        userId,
-        conversationId: data.conversationId,
-        isTyping: false,
-      });
+      .emit(WS_EVENTS.TYPING_INDICATOR, payload);
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit('typing:stop', payload);
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit('typing:indicator', payload);
   }
 
   // ── Reactions ─────────────────────────────────────────────────────────────
@@ -272,15 +286,11 @@ export class MessagingGateway
         emoji: data.emoji,
         action: 'add',
       };
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.REACTION_NEW, payload);
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('reaction:added', payload);
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('reaction:updated', payload);
+      const conversation = await this.conversationsRepository.findById(
+        data.conversationId,
+      );
+      const memberIds = conversation?.members?.map((m: any) => m.userId) ?? [];
+      this.emitReaction(data.conversationId, payload, memberIds);
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -306,15 +316,11 @@ export class MessagingGateway
         emoji: data.emoji,
         action: 'remove',
       };
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.REACTION_REMOVED, payload);
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('reaction:removed', payload);
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('reaction:updated', payload);
+      const conversation = await this.conversationsRepository.findById(
+        data.conversationId,
+      );
+      const memberIds = conversation?.members?.map((m: any) => m.userId) ?? [];
+      this.emitReactionRemoved(data.conversationId, payload, memberIds);
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -566,6 +572,36 @@ export class MessagingGateway
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
         this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_DELETED, payload);
+      }
+    }
+  }
+
+  /** Broadcast reaction added to conversation room and to members directly */
+  emitReaction(conversationId: string, payload: any, memberUserIds?: string[]) {
+    this.server.to(`conversation:${conversationId}`).emit(WS_EVENTS.REACTION_NEW, payload);
+    this.server.to(`conversation:${conversationId}`).emit('reaction:added', payload);
+    this.server.to(`conversation:${conversationId}`).emit('reaction:updated', payload);
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.REACTION_NEW, payload);
+        this.server.to(`user:${userId}`).emit('reaction:added', payload);
+        this.server.to(`user:${userId}`).emit('reaction:updated', payload);
+      }
+    }
+  }
+
+  /** Broadcast reaction removed to conversation room and to members directly */
+  emitReactionRemoved(conversationId: string, payload: any, memberUserIds?: string[]) {
+    this.server.to(`conversation:${conversationId}`).emit(WS_EVENTS.REACTION_REMOVED, payload);
+    this.server.to(`conversation:${conversationId}`).emit('reaction:removed', payload);
+    this.server.to(`conversation:${conversationId}`).emit('reaction:updated', payload);
+
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        this.server.to(`user:${userId}`).emit(WS_EVENTS.REACTION_REMOVED, payload);
+        this.server.to(`user:${userId}`).emit('reaction:removed', payload);
+        this.server.to(`user:${userId}`).emit('reaction:updated', payload);
       }
     }
   }

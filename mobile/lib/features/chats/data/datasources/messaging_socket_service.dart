@@ -155,11 +155,21 @@ class MessagingSocketService {
 
     // Typing indicators
     _socket!.on('typing:start', (data) {
-      _typingController.add({...data as Map<String, dynamic>, 'isTyping': true});
+      if (data is Map<String, dynamic>) {
+        _typingController.add({...data, 'isTyping': true});
+      }
     });
 
     _socket!.on('typing:stop', (data) {
-      _typingController.add({...data as Map<String, dynamic>, 'isTyping': false});
+      if (data is Map<String, dynamic>) {
+        _typingController.add({...data, 'isTyping': false});
+      }
+    });
+
+    _socket!.on('typing:indicator', (data) {
+      if (data is Map<String, dynamic>) {
+        _typingController.add(data);
+      }
     });
 
     // Presence updates

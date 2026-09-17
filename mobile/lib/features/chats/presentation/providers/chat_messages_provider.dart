@@ -53,9 +53,11 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   }
 
   Future<void> loadMessages() async {
+    if (!mounted) return;
     // 1. Try to hydrate instantly from local database without showing empty spinner
     try {
       final cachedResult = await _repository.getMessages(conversationId: conversationId);
+      if (!mounted) return;
       if (cachedResult.data.isNotEmpty) {
         _nextCursor = cachedResult.nextCursor;
         _hasMore = cachedResult.hasMore;
@@ -63,6 +65,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
       }
     } catch (_) {}
 
+    if (!mounted) return;
     if (state.valueOrNull == null) {
       state = const AsyncValue.loading();
     }
@@ -70,10 +73,12 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
     // 2. Fetch latest messages from server
     try {
       final result = await _repository.getMessages(conversationId: conversationId);
+      if (!mounted) return;
       _nextCursor = result.nextCursor;
       _hasMore = result.hasMore;
       state = AsyncValue.data(result.data.reversed.toList());
     } catch (e, st) {
+      if (!mounted) return;
       if (state.valueOrNull != null && state.valueOrNull!.isNotEmpty) {
         // Keep cached messages for seamless offline viewing
       } else {
@@ -83,7 +88,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   }
 
   Future<void> loadMoreMessages() async {
-    if (_isLoadingMore || !_hasMore || _nextCursor == null) return;
+    if (!mounted || _isLoadingMore || !_hasMore || _nextCursor == null) return;
 
     _isLoadingMore = true;
     try {
@@ -91,11 +96,13 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
         conversationId: conversationId,
         cursor: _nextCursor,
       );
+      if (!mounted) return;
       
       _nextCursor = result.nextCursor;
       _hasMore = result.hasMore;
 
       state.whenData((currentMessages) {
+        if (!mounted) return;
         final newMessages = result.data.reversed.toList();
         state = AsyncValue.data([...newMessages, ...currentMessages]);
       });
@@ -107,9 +114,11 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
   void _setupRealtimeListeners() {
     // New message received
     _newMessageSub = _socketService.messageReceived.listen((message) {
+      if (!mounted) return;
       if (message.conversationId == conversationId) {
         final currentUserId = _ref.read(authProvider).user?.id;
         state.whenData((messages) {
+          if (!mounted) return;
           // Avoid duplicates
           if (!messages.any((m) => m.id == message.id)) {
             var newMsg = message;
@@ -121,6 +130,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
                 newMsg = newMsg.copyWith(readBy: [...newMsg.readBy, currentUserId]);
               }
             }
+            if (!mounted) return;
             state = AsyncValue.data([...messages, newMsg]);
           }
         });
@@ -129,12 +139,15 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
     // Message updated (edited)
     _updatedMessageSub = _socketService.messageUpdated.listen((message) {
+      if (!mounted) return;
       if (message.conversationId == conversationId) {
         state.whenData((messages) {
+          if (!mounted) return;
           final index = messages.indexWhere((m) => m.id == message.id);
           if (index != -1) {
             final updated = [...messages];
             updated[index] = message;
+            if (!mounted) return;
             state = AsyncValue.data(updated);
           }
         });
@@ -143,9 +156,11 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
     // Message deleted
     _deletedMessageSub = _socketService.messageDeleted.listen((data) {
+      if (!mounted) return;
       if (data['conversationId'] == conversationId) {
         final messageId = data['messageId'];
         state.whenData((messages) {
+          if (!mounted) return;
           state = AsyncValue.data(messages.where((m) => m.id != messageId).toList());
         });
       }
@@ -153,17 +168,16 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
     // Real-time reaction added/removed by any participant via socket
     _reactionSub = _socketService.reaction.listen((data) {
+      if (!mounted) return;
       final messageId = data['messageId'] as String?;
       final emoji = data['emoji'] as String?;
       final userId = data['userId'] as String?;
       final action = data['action'] as String? ?? 'add';
-      final currentUserId = _ref.read(authProvider).user?.id;
 
       if (messageId == null || emoji == null || userId == null) return;
-      // Skip if this event was triggered by our own optimistic action
-      if (userId == currentUserId) return;
 
       state.whenData((messages) {
+        if (!mounted) return;
         final index = messages.indexWhere((m) => m.id == messageId);
         if (index == -1) return;
 
@@ -206,17 +220,20 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 
         final updatedMessages = [...messages];
         updatedMessages[index] = message.copyWith(reactions: reactions);
+        if (!mounted) return;
         state = AsyncValue.data(updatedMessages);
       });
     });
 
     // Real-time read receipt updates
     _readReceiptSub = _socketService.readReceipt.listen((data) {
+      if (!mounted) return;
       final messageId = data['messageId'] as String?;
       final userId = data['userId'] as String?;
       if (messageId == null || userId == null) return;
 
       state.whenData((messages) {
+        if (!mounted) return;
         final index = messages.indexWhere((m) => m.id == messageId);
         if (index == -1) return;
 
@@ -225,6 +242,7 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
           final updatedReadBy = [...message.readBy, userId];
           final updatedMessages = [...messages];
           updatedMessages[index] = message.copyWith(readBy: updatedReadBy);
+          if (!mounted) return;
           state = AsyncValue.data(updatedMessages);
         }
       });
@@ -467,30 +485,38 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<MessageModel>>>
 final typingIndicatorProvider = StateNotifierProvider.family<TypingIndicatorNotifier, Map<String, bool>, String>(
   (ref, conversationId) {
     final socketService = ref.watch(messagingSocketServiceProvider);
-    return TypingIndicatorNotifier(conversationId, socketService);
+    return TypingIndicatorNotifier(conversationId, socketService, ref);
   },
 );
 
 class TypingIndicatorNotifier extends StateNotifier<Map<String, bool>> {
   final String conversationId;
   final MessagingSocketService _socketService;
+  final Ref _ref;
   StreamSubscription? _typingSub;
-  Timer? _typingTimer;
+  final Map<String, Timer> _userTimers = {};
 
-  TypingIndicatorNotifier(this.conversationId, this._socketService) : super({}) {
+  TypingIndicatorNotifier(this.conversationId, this._socketService, this._ref) : super({}) {
     _setupTypingListener();
   }
 
   void _setupTypingListener() {
     _typingSub = _socketService.typing.listen((data) {
+      if (!mounted) return;
       if (data['conversationId'] == conversationId) {
-        final userId = data['userId'] as String;
-        final isTyping = data['isTyping'] as bool;
-        
+        final userId = data['userId'] as String?;
+        final isTyping = data['isTyping'] as bool? ?? false;
+        if (userId == null) return;
+
+        final currentUserId = _ref.read(authProvider).user?.id;
+        if (userId == currentUserId) return; // Don't show typing for oneself
+
         if (isTyping) {
           state = {...state, userId: true};
           _resetTypingTimer(userId);
         } else {
+          _userTimers[userId]?.cancel();
+          _userTimers.remove(userId);
           final updated = Map<String, bool>.from(state);
           updated.remove(userId);
           state = updated;
@@ -500,8 +526,10 @@ class TypingIndicatorNotifier extends StateNotifier<Map<String, bool>> {
   }
 
   void _resetTypingTimer(String userId) {
-    _typingTimer?.cancel();
-    _typingTimer = Timer(const Duration(seconds: 3), () {
+    _userTimers[userId]?.cancel();
+    _userTimers[userId] = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      _userTimers.remove(userId);
       final updated = Map<String, bool>.from(state);
       updated.remove(userId);
       state = updated;
@@ -519,7 +547,10 @@ class TypingIndicatorNotifier extends StateNotifier<Map<String, bool>> {
   @override
   void dispose() {
     _typingSub?.cancel();
-    _typingTimer?.cancel();
+    for (final timer in _userTimers.values) {
+      timer.cancel();
+    }
+    _userTimers.clear();
     super.dispose();
   }
 }
