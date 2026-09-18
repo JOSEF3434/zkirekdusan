@@ -10,4 +10,4 @@ flutter pub get
 
 flutter build web \
   --release \
-  -t lib/main_prod.dart
+  -t lib/main.dart
