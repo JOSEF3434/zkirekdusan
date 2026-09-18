@@ -2,7 +2,9 @@
 // Reusable search result tiles for users, groups, streams, and skeleton states.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
@@ -170,8 +172,8 @@ class SearchChannelTile extends StatelessWidget {
         backgroundColor: theme.colorScheme.secondaryContainer,
         backgroundImage:
             channel.avatarUrl != null && channel.avatarUrl!.isNotEmpty
-                ? AppNetworkImage.provider(channel.avatarUrl!)
-                : null,
+            ? AppNetworkImage.provider(channel.avatarUrl!)
+            : null,
         child: channel.avatarUrl == null || channel.avatarUrl!.isEmpty
             ? const Icon(Icons.tv_rounded)
             : null,
@@ -392,7 +394,10 @@ class SearchErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+              label: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('common.retry')),
+              ),
             ),
           ],
         ),

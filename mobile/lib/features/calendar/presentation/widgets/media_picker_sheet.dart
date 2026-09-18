@@ -1,7 +1,9 @@
 // lib/features/calendar/presentation/widgets/media_picker_sheet.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class MediaPickerSheet extends StatelessWidget {
   const MediaPickerSheet({super.key});
@@ -18,41 +20,62 @@ class MediaPickerSheet extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('story.camera_photo')),
+                ),
                 onTap: () =>
                     Navigator.of(context).pop(_pickImage(ImageSource.camera)),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Choose Photos'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('story.gallery_photo')),
+                ),
                 onTap: () => Navigator.of(context).pop(_pickMultipleImages()),
               ),
               ListTile(
                 leading: const Icon(Icons.videocam),
-                title: const Text('Record Video'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('story.video_option')),
+                ),
                 onTap: () =>
                     Navigator.of(context).pop(_pickVideo(ImageSource.camera)),
               ),
               ListTile(
                 leading: const Icon(Icons.video_library),
-                title: const Text('Choose Video'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('common.video')),
+                ),
                 onTap: () =>
                     Navigator.of(context).pop(_pickVideo(ImageSource.gallery)),
               ),
               ListTile(
                 leading: const Icon(Icons.audiotrack),
-                title: const Text('Choose Audio'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('chat.attach.audio')),
+                ),
                 onTap: () => Navigator.of(context).pop(_pickAudio()),
               ),
               ListTile(
                 leading: const Icon(Icons.attach_file),
-                title: const Text('Choose File'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('chat.attach.files')),
+                ),
                 onTap: () => Navigator.of(context).pop(_pickFile()),
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.close),
-                title: const Text('Cancel'),
+                title: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('common.cancel')),
+                ),
                 onTap: () => Navigator.of(context).pop(),
               ),
             ],

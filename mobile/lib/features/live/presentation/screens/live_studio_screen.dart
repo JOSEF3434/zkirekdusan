@@ -1216,6 +1216,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
     final theme = Theme.of(context);
     final stream = bState.stream;
+    final tr = ref.read(trProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -1228,7 +1229,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   Text(_formatElapsed(bState.elapsed)),
                 ],
               )
-            : const Text('Live Studio'),
+            : Text(tr('live.studio_title')),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => _confirmLeave(context, bState.stream),
@@ -1327,10 +1328,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                       const SizedBox(height: 8),
                                       SwitchListTile(
                                         contentPadding: EdgeInsets.zero,
-                                        title: const Text('Record Stream'),
-                                        subtitle: const Text(
-                                          'Save stream into group recordings for VOD',
-                                          style: TextStyle(fontSize: 12),
+                                        title: Text(tr('live.record_stream')),
+                                        subtitle: Text(
+                                          tr('live.record_stream_desc'),
                                         ),
                                         value: stream.isRecordingEnabled,
                                         onChanged:
@@ -1437,6 +1437,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     LiveStreamDto stream,
     BroadcasterState bState,
   ) {
+    final tr = ref.read(trProvider);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
@@ -1469,7 +1470,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               minimumSize: const Size(0, 32),
             ),
             icon: const Icon(Icons.stop_circle, size: 16),
-            label: const Text('End', style: TextStyle(fontSize: 12)),
+            label: Text(
+              tr('live.end_stream_btn'),
+              style: const TextStyle(fontSize: 12),
+            ),
             onPressed: () => _confirmEndStream(context, stream.id, bState),
           ),
         ],
@@ -2269,15 +2273,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     String streamId,
     BroadcasterState bState,
   ) async {
+    final trFn = ref.read(trProvider);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('End Live Broadcast?'),
+        title: Text(trFn('live.end_broadcast_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Your live stream will end for all viewers.'),
+            Text(trFn('live.preparing')),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -2302,12 +2307,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(trFn('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('End Stream'),
+            child: Text(trFn('profile.end_stream_btn')),
           ),
         ],
       ),
@@ -2330,6 +2335,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     String streamId,
     BroadcasterState bState,
   ) async {
+    final trFn = ref.read(trProvider);
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -2372,7 +2378,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               Navigator.pop(ctx);
               context.pop();
             },
-            child: const Text('Close Studio'),
+            child: Text(trFn('common.close')),
           ),
           FilledButton.icon(
             onPressed: () async {
@@ -2388,8 +2394,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     .publishVod();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Stream published as Channel Video!'),
+                    SnackBar(
+                      content: Text(trFn('profile.publish_vod')),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -2398,13 +2404,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Publish VOD failed: $e')),
+                    SnackBar(content: Text('${trFn('state.error')}: $e')),
                   );
                 }
               }
             },
             icon: const Icon(Icons.video_library),
-            label: const Text('Post as Video (VOD)'),
+            label: Text(trFn('profile.publish_vod')),
           ),
         ],
       ),
@@ -2415,22 +2421,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     BuildContext context,
     LiveStreamDto? stream,
   ) async {
+    final trFn = ref.read(trProvider);
     if (stream?.status == LiveStreamStatus.live) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Leave Studio?'),
-          content: const Text(
-            'Your stream is still live. Leaving studio will stop broadcasting.',
-          ),
+          title: Text(trFn('live.setup_title')),
+          content: Text(trFn('live.preparing')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Stay'),
+              child: Text(trFn('common.dismiss')),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Leave'),
+              child: Text(trFn('common.done')),
             ),
           ],
         ),
@@ -2637,7 +2642,7 @@ class _StreamKeyCard extends StatelessWidget {
 
 // ─── Action bar ────────────────────────────────────────────────────────────
 
-class _ActionBar extends StatelessWidget {
+class _ActionBar extends ConsumerWidget {
   final LiveStreamStatus status;
   final bool isGoingLive;
   final bool isEndingStream;
@@ -2655,7 +2660,8 @@ class _ActionBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2683,7 +2689,7 @@ class _ActionBar extends StatelessWidget {
                     ),
                   )
                 : const Icon(Icons.live_tv),
-            label: const Text('Go Live'),
+            label: Text(tr('shell.go_live')),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFE53935),
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2701,7 +2707,7 @@ class _ActionBar extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.stop_circle_outlined),
-            label: const Text('End Stream'),
+            label: Text(tr('profile.end_stream_btn')),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
               side: const BorderSide(color: Colors.red),
@@ -2731,7 +2737,7 @@ class _ActionBar extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onPublishVod,
                   icon: const Icon(Icons.video_library),
-                  label: const Text('Publish VOD'),
+                  label: Text(tr('profile.publish_vod')),
                 ),
             ],
           ),

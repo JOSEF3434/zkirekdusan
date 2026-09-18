@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
@@ -138,7 +139,7 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -179,7 +180,7 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
                 }
               }
             },
-            child: const Text('Join Group'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.join_group_btn'))),
           ),
         ],
       ),
@@ -639,3 +640,5 @@ class _UserResultTile extends StatelessWidget {
     );
   }
 }
+
+

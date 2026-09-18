@@ -2,6 +2,8 @@
 // Error display widget for calendar
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class CalendarErrorWidget extends StatelessWidget {
   final String error;
@@ -41,7 +43,10 @@ class CalendarErrorWidget extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
+                label: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('common.try_again')),
+                ),
               ),
             ],
           ],

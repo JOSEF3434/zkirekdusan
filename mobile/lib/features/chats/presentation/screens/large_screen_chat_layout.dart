@@ -15,6 +15,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
@@ -547,7 +548,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                               onPressed: () =>
                                   NewChatSheet.show(context),
                               icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Start New Chat'),
+                              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('search.start_new_chat'))),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:
                                     const Color(0xFF00C6FF),
@@ -636,7 +637,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                         style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00C6FF),
                             foregroundColor: Colors.black),
-                        child: const Text('Retry'),
+                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                       ),
                     ],
                   ),
@@ -914,7 +915,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             ListTile(
               leading: const Icon(Icons.push_pin_outlined,
                   color: Color(0xFF00C6FF)),
-              title: const Text('Pin Conversation'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.pin'))),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -925,7 +926,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             ListTile(
               leading: const Icon(Icons.volume_off_outlined,
                   color: Colors.orangeAccent),
-              title: const Text('Mute Notifications'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.mute_notifications'))),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -936,7 +937,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             ListTile(
               leading: const Icon(Icons.mark_chat_read_outlined,
                   color: Color(0xFF10B981)),
-              title: const Text('Mark as Read'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.mark_read'))),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -1045,7 +1046,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ListTile(
                 leading: const Icon(Icons.person_outline_rounded,
                     color: Color(0xFF00C6FF)),
-                title: const Text('My Profile'),
+                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.my_profile'))),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/profile');
@@ -1054,7 +1055,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ListTile(
                 leading: const Icon(Icons.auto_stories_outlined,
                     color: Color(0xFF10B981)),
-                title: const Text('My Stories'),
+                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.my_stories'))),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/story/create');
@@ -1063,7 +1064,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ListTile(
                 leading: const Icon(Icons.settings_outlined,
                     color: Colors.orangeAccent),
-                title: const Text('Settings'),
+                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.settings'))),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/settings');
@@ -1621,3 +1622,6 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
+
+
+

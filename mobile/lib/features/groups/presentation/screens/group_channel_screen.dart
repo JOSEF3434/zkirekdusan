@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
@@ -968,17 +969,17 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave Group?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.leave'))),
         content: Text('Are you sure you want to leave "${group.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Leave'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.leave_action'))),
           ),
         ],
       ),
@@ -1000,7 +1001,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Group'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.channel'))),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -1034,7 +1035,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                     .read(groupDetailProvider(widget.groupId).notifier)
                     .refresh(),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
               ),
             ],
           ),
@@ -1066,3 +1067,6 @@ class _SliverGroupTabDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_SliverGroupTabDelegate oldDelegate) => true;
 }
+
+
+

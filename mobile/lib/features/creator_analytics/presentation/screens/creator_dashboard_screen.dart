@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/creator_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 import 'package:mobile/features/creator_analytics/presentation/providers/creator_dashboard_provider.dart';
@@ -15,7 +16,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Creator Dashboard'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
         actions: [
           if (permissions.isGlobalAdmin)
             IconButton(
@@ -60,7 +61,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () =>
                   ref.read(adminMetricsProvider.notifier).refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -113,8 +114,8 @@ class CreatorDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
           ListTile(
-            title: const Text('Manage Reports & Moderation'),
-            subtitle: const Text('Review flagged content and users'),
+            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.reports_moderation'))),
+            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.reports_sub'))),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             leading: const Icon(Icons.gavel),
             tileColor: theme.colorScheme.surfaceContainerHighest,
@@ -125,8 +126,8 @@ class CreatorDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           ListTile(
-            title: const Text('Go to Creator Workspace'),
-            subtitle: const Text('Manage groups and channels'),
+            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
+            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.groups_sub'))),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             leading: const Icon(Icons.dashboard),
             tileColor: theme.colorScheme.surfaceContainerHighest,
@@ -167,7 +168,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           FilledButton.icon(
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Go to Workspace'),
+            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
             onPressed: () => context.go('/creator'),
           ),
         ],
@@ -175,3 +176,5 @@ class CreatorDashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+

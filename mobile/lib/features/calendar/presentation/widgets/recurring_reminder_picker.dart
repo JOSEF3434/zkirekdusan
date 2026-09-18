@@ -1,5 +1,7 @@
 import 'package:abushakir/abushakir.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
 
@@ -99,17 +101,26 @@ class RecurringReminderPicker extends StatelessWidget {
                 children: [
                   RadioListTile<ReminderRepeat>(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('None'),
+                    title: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('common.none')),
+                    ),
                     value: ReminderRepeat.none,
                   ),
                   RadioListTile<ReminderRepeat>(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Monthly'),
+                    title: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('calendar.prev_month')),
+                    ),
                     value: ReminderRepeat.monthly,
                   ),
                   RadioListTile<ReminderRepeat>(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Yearly'),
+                    title: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('common.years')),
+                    ),
                     value: ReminderRepeat.yearly,
                   ),
                 ],

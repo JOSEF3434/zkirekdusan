@@ -36,18 +36,18 @@ class _AdminNotificationsScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Broadcast'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.broadcast'))),
         content: Text(
           'Send this alert to ${_selectedRole == 'ALL' ? 'ALL active platform users' : 'users with role $_selectedRole'}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Send Broadcast'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.broadcast'))),
           ),
         ],
       ),
@@ -161,3 +161,6 @@ class _AdminNotificationsScreenState
     );
   }
 }
+
+
+

@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/creator_channel_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator_analytics/presentation/providers/creator_dashboard_provider.dart';
 import 'package:mobile/features/creator_analytics/presentation/widgets/analytics_coming_soon.dart';
@@ -62,7 +63,7 @@ class CreatorChannelDashboardScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () =>
                   ref.read(channelAnalyticsProvider(args).notifier).refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -124,7 +125,7 @@ class CreatorChannelDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           FilledButton.icon(
             icon: const Icon(Icons.manage_history),
-            label: const Text('Manage Content & Moderation'),
+            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.content'))),
             onPressed: () =>
                 context.push('/creator/dashboard/channel/$channelId/videos'),
           ),
@@ -133,3 +134,5 @@ class CreatorChannelDashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+

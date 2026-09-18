@@ -3,6 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/features/admin/data/admin_repository.dart';
@@ -26,7 +27,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Reports & Moderation'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.reports_moderation'))),
         backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
         elevation: 0,
         actions: [
@@ -76,7 +77,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: () => ref.read(adminReportsProvider.notifier).loadReports(),
-                      child: const Text('Retry'),
+                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                     ),
                   ],
                 ),
@@ -439,7 +440,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   ),
                   icon: const Icon(Icons.block_rounded, size: 16),
-                  label: const Text('Ban Account', style: TextStyle(fontSize: 12.5)),
+                  label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.ban'), style: const TextStyle(fontSize: 12.5))),
                 ),
 
                 // 2. Deactivate User
@@ -466,7 +467,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Dismiss', style: TextStyle(fontSize: 12.5)),
+                  label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.dismiss'), style: const TextStyle(fontSize: 12.5))),
                 ),
 
                 // 4. Mark Resolved
@@ -475,7 +476,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                       .read(adminReportsProvider.notifier)
                       .resolveReport(report.id),
                   icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                  label: const Text('Resolve', style: TextStyle(fontSize: 12.5)),
+                  label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.restore'), style: const TextStyle(fontSize: 12.5))),
                 ),
               ],
             )
@@ -559,7 +560,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ban Account?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.confirm.ban_title'))),
         content: Text(
           'Are you sure you want to BAN ${report.targetUser?.displayName ?? report.targetId}? '
           'This will terminate their active sessions and restrict access to the app.',
@@ -567,12 +568,12 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ban User'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.ban'))),
           ),
         ],
       ),
@@ -604,19 +605,19 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Deactivate Account?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.deactivate'))),
         content: Text(
           'Are you sure you want to deactivate ${report.targetUser?.displayName ?? report.targetId}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Deactivate'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.deactivate'))),
           ),
         ],
       ),
@@ -642,3 +643,6 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     }
   }
 }
+
+
+

@@ -79,7 +79,7 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _addKeyword,
-                      child: const Text('Add Term'),
+                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.add'))),
                     ),
                   ],
                 ),
@@ -109,3 +109,4 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
     );
   }
 }
+

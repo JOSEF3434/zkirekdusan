@@ -435,23 +435,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                 }
 
                                 if (isDownloaded) {
+                                  final tr = ref.read(trProvider);
                                   return _ActionButton(
                                     icon: Icons.offline_pin,
                                     iconColor: Colors.green,
-                                    label: 'Downloaded',
+                                    label: tr('video.downloaded'),
                                     onTap: () {
                                       showDialog(
                                         context: context,
                                         builder: (dlgCtx) => AlertDialog(
-                                          title: const Text('Delete Download?'),
-                                          content: const Text(
-                                            'Remove this downloaded video from your device storage?',
+                                          title: Text(
+                                            tr('video.delete_download_title'),
+                                          ),
+                                          content: Text(
+                                            tr('video.delete_download_msg'),
                                           ),
                                           actions: [
                                             TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(dlgCtx),
-                                              child: const Text('Cancel'),
+                                              child: Text(tr('common.cancel')),
                                             ),
                                             FilledButton(
                                               style: FilledButton.styleFrom(
@@ -466,7 +469,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                                     )
                                                     .deleteDownload(video.id);
                                               },
-                                              child: const Text('Remove'),
+                                              child: Text(tr('common.remove')),
                                             ),
                                           ],
                                         ),
@@ -475,6 +478,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                   );
                                 }
 
+                                final tr = ref.read(trProvider);
                                 String? candidateDownloadUrl;
                                 for (final r in video.renditions) {
                                   if (r.url.trim().isNotEmpty) {
@@ -490,7 +494,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
                                 return _ActionButton(
                                   icon: Icons.download_outlined,
-                                  label: 'Download',
+                                  label: tr('video.download'),
                                   onTap: canDownload
                                       ? () {
                                           ref
@@ -508,11 +512,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
-                                                'Video added to Downloads list!',
+                                                tr('video.added_to_downloads'),
                                               ),
-                                              duration: Duration(seconds: 2),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
                                             ),
                                           );
                                         }
@@ -520,9 +526,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text(
-                                                'Download is unavailable for this video',
+                                                tr(
+                                                  'video.download_unavailable',
+                                                ),
                                               ),
                                             ),
                                           );

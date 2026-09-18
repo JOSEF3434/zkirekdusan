@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/admin_moderation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_analytics_dto.dart';
 import 'package:mobile/features/creator_analytics/presentation/providers/admin_moderation_provider.dart';
 import 'package:mobile/features/creator_analytics/presentation/widgets/confirm_action_dialog.dart';
@@ -66,7 +67,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin Moderation')),
+      appBar: AppBar(title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.moderation')))),
       body: _buildBody(state, theme),
     );
   }
@@ -88,7 +89,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
             ElevatedButton(
               onPressed: () =>
                   ref.read(adminModerationProvider.notifier).refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -162,7 +163,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
             trailing: report.status == 'PENDING'
                 ? FilledButton.tonal(
                     onPressed: () => _handleResolve(report),
-                    child: const Text('Resolve'),
+                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.restore'))),
                   )
                 : null,
           );
@@ -171,3 +172,6 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
     );
   }
 }
+
+
+

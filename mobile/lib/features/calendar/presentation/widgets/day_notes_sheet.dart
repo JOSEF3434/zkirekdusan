@@ -2,6 +2,7 @@
 import 'package:abushakir/abushakir.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
@@ -120,7 +121,7 @@ class DayNotesSheet extends ConsumerWidget {
             child: FilledButton.icon(
               onPressed: () => _showAddNoteSheet(context, selectedDate),
               icon: const Icon(Icons.add),
-              label: const Text('Add Note'),
+              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('calendar.add_note'))),
             ),
           ),
         ],
@@ -275,17 +276,17 @@ class DayNotesSheet extends ConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Delete Note'),
-          content: const Text('Are you sure you want to delete this note?'),
+          title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
+          content: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.confirm.delete_msg'))),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
             ),
           ],
         ),
@@ -329,3 +330,6 @@ class DayNotesSheet extends ConsumerWidget {
     );
   }
 }
+
+
+

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/groups/domain/channel_playlist_dto.dart';
@@ -23,7 +24,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Playlist'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('library.playlists'))),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -111,7 +112,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   onPressed: () => ref
                       .read(playlistDetailProvider(playlistId).notifier)
                       .refresh(),
-                  child: const Text('Retry'),
+                  child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                 ),
               ],
             ),
@@ -184,7 +185,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                         '/video/${playlist.items.first.videoId}',
                       ),
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Play All'),
+                      label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.play'))),
                     ),
                 ],
               ),
@@ -301,7 +302,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Edit Playlist'),
+          title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('playlist.edit_title'))),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -344,7 +345,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
             ),
             FilledButton(
               onPressed: () async {
@@ -373,7 +374,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   }
                 }
               },
-              child: const Text('Save'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
             ),
           ],
         ),
@@ -389,14 +390,14 @@ class PlaylistDetailScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Playlist?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('playlist.delete_title'))),
         content: Text(
           'Are you sure you want to delete "${playlist.title}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -421,10 +422,13 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 }
               }
             },
-            child: const Text('Delete'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),
     );
   }
 }
+
+
+

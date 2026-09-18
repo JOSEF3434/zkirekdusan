@@ -1,7 +1,8 @@
-// lib/features/groups/presentation/screens/tabs/group_playlists_tab.dart
+﻿// lib/features/groups/presentation/screens/tabs/group_playlists_tab.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/groups/presentation/providers/channel_playlists_provider.dart';
 import 'package:mobile/features/groups/presentation/widgets/channel_playlist_card.dart';
@@ -20,6 +21,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final channel = activeChannel ?? groupContext.primaryChannel;
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     if (channel == null) {
       return Center(
@@ -60,7 +62,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
               onPressed: () => ref
                   .read(channelPlaylistsProvider(channel.id).notifier)
                   .refresh(),
-              child: const Text('Retry'),
+              child: Text(tr('common.retry')),
             ),
           ],
         ),
@@ -100,7 +102,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
                       onPressed: () =>
                           _showCreatePlaylistDialog(context, ref, channel),
                       icon: const Icon(Icons.add),
-                      label: const Text('Create Playlist'),
+                      label: Text(tr('playlist.create_btn')),
                     ),
                   ],
                 ],
@@ -157,7 +159,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
               heroTag: null,
               onPressed: () => _showCreatePlaylistDialog(context, ref, channel),
               icon: const Icon(Icons.playlist_add),
-              label: const Text('New Playlist'),
+              label: Text(tr('playlist.new_tooltip')),
             )
           : null,
     );
@@ -168,13 +170,14 @@ class GroupPlaylistsTab extends ConsumerWidget {
     WidgetRef ref,
     VideoChannelSummaryDto channel,
   ) {
+    final tr = ref.read(trProvider);
     final titleController = TextEditingController();
     final descController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create Playlist'),
+        title: Text(tr('playlist.create_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -200,7 +203,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -233,7 +236,7 @@ class GroupPlaylistsTab extends ConsumerWidget {
                 }
               }
             },
-            child: const Text('Create'),
+            child: Text(tr('playlist.create')),
           ),
         ],
       ),

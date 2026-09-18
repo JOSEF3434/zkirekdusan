@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
@@ -439,7 +440,7 @@ class InlineConversationViewState
                     const Icon(Icons.error_outline_rounded,
                         size: 48, color: Colors.redAccent),
                     const SizedBox(height: 12),
-                    const Text('Failed to load messages'),
+                    Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.load_messages_failed'))),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () {
@@ -453,7 +454,7 @@ class InlineConversationViewState
                         backgroundColor: const Color(0xFF00C6FF),
                         foregroundColor: Colors.black,
                       ),
-                      child: const Text('Retry'),
+                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                     ),
                   ],
                 ),
@@ -611,7 +612,7 @@ class InlineConversationViewState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Done'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.done'))),
             ),
           ],
         ),
@@ -970,3 +971,5 @@ class _InlineHeader extends StatelessWidget {
     }
   }
 }
+
+

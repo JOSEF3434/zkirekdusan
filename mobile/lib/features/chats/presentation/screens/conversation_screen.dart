@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
@@ -19,10 +20,7 @@ import 'package:mobile/core/utils/media_url_resolver.dart';
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
 
-  const ConversationScreen({
-    super.key,
-    required this.conversationId,
-  });
+  const ConversationScreen({super.key, required this.conversationId});
 
   @override
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
@@ -40,7 +38,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void _scrollToMessage(String messageId, List<MessageModel> messageList) {
     final index = messageList.indexWhere((m) => m.id == messageId);
     if (index != -1 && _scrollController.hasClients) {
-      final target = (index * 75.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      final target = (index * 75.0).clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
       _scrollController.animateTo(
         target,
         duration: const Duration(milliseconds: 350),
@@ -73,21 +74,30 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
     // Mark conversation as read when opening
     Future.microtask(() {
-      ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
+      ref
+          .read(conversationsProvider.notifier)
+          .markAsRead(widget.conversationId);
       final currentUserId = ref.read(authProvider).user?.id;
       if (currentUserId != null) {
-        ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+        ref
+            .read(chatMessagesProvider(widget.conversationId).notifier)
+            .markIncomingAsRead(currentUserId);
       }
     });
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels <= _scrollController.position.minScrollExtent + 100) {
-      ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMoreMessages();
+    if (_scrollController.position.pixels <=
+        _scrollController.position.minScrollExtent + 100) {
+      ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .loadMoreMessages();
     }
     final currentUserId = ref.read(authProvider).user?.id;
     if (currentUserId != null) {
-      ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+      ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .markIncomingAsRead(currentUserId);
     }
   }
 
@@ -98,10 +108,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       _hasInitialScrolled = false;
       _lastMessageCount = 0;
       Future.microtask(() {
-        ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
+        ref
+            .read(conversationsProvider.notifier)
+            .markAsRead(widget.conversationId);
         final currentUserId = ref.read(authProvider).user?.id;
         if (currentUserId != null) {
-          ref.read(chatMessagesProvider(widget.conversationId).notifier).markIncomingAsRead(currentUserId);
+          ref
+              .read(chatMessagesProvider(widget.conversationId).notifier)
+              .markIncomingAsRead(currentUserId);
         }
       });
     }
@@ -119,16 +133,23 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
     final discoveryAsync = ref.watch(chatDiscoveryProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
-    final typingUsers = ref.watch(typingIndicatorProvider(widget.conversationId));
+    final typingUsers = ref.watch(
+      typingIndicatorProvider(widget.conversationId),
+    );
+    final tr = ref.watch(trProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOffline = ref.watch(connectivityProvider).isOffline;
 
-    final singleConvAsync = ref.watch(singleConversationProvider(widget.conversationId));
+    final singleConvAsync = ref.watch(
+      singleConversationProvider(widget.conversationId),
+    );
     ConversationModel? conversation = singleConvAsync.value;
     if (conversation == null) {
       discoveryAsync.whenData((discovery) {
         try {
-          conversation = discovery.conversations.firstWhere((c) => c.id == widget.conversationId);
+          conversation = discovery.conversations.firstWhere(
+            (c) => c.id == widget.conversationId,
+          );
         } catch (_) {}
       });
     }
@@ -143,36 +164,53 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         : null;
 
     final chatList = ref.watch(unifiedChatListProvider).value ?? [];
-    final listItem = chatList.where((i) =>
-        i.conversationId == widget.conversationId ||
-        i.id == widget.conversationId ||
-        (conversation?.groupId != null && i.targetGroupId == conversation!.groupId) ||
-        (otherMember?.userId != null && i.targetUserId == otherMember!.userId)).firstOrNull;
+    final listItem = chatList
+        .where(
+          (i) =>
+              i.conversationId == widget.conversationId ||
+              i.id == widget.conversationId ||
+              (conversation?.groupId != null &&
+                  i.targetGroupId == conversation!.groupId) ||
+              (otherMember?.userId != null &&
+                  i.targetUserId == otherMember!.userId),
+        )
+        .firstOrNull;
 
-    final displayName = (conversation?.title != null && conversation!.title!.isNotEmpty)
+    final displayName =
+        (conversation?.title != null && conversation!.title!.isNotEmpty)
         ? conversation!.title!
         : (otherMember?.displayName ??
-            otherMember?.username ??
-            listItem?.title ??
-            'Chat');
+              otherMember?.username ??
+              listItem?.title ??
+              'Chat');
 
-    final headerAvatarUrl = otherMember?.avatarUrl ??
+    final headerAvatarUrl =
+        otherMember?.avatarUrl ??
         conversation?.metadata?.groupAvatar ??
         listItem?.avatarUrl;
     final resolvedAvatarUrl = MediaUrlResolver.resolve(headerAvatarUrl);
 
     final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
     final isGroup = conversation?.type != 'DIRECT' && conversation != null;
-    final pinnedMessagesAsync = ref.watch(pinnedMessagesProvider(widget.conversationId));
+    final pinnedMessagesAsync = ref.watch(
+      pinnedMessagesProvider(widget.conversationId),
+    );
     final currentUserRole = ref.watch(authProvider).user?.role;
-    final isGlobalAdmin = currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
-    final isGroupOwnerOrAdmin = !isGroup ||
+    final isGlobalAdmin =
+        currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
+    final isGroupOwnerOrAdmin =
+        !isGroup ||
         isGlobalAdmin ||
         (conversation?.groupId != null &&
-            discoveryAsync.value?.myPrivateGroups.any((g) => g.id == conversation!.groupId) == true);
+            discoveryAsync.value?.myPrivateGroups.any(
+                  (g) => g.id == conversation!.groupId,
+                ) ==
+                true);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF7F9FC),
+      backgroundColor: isDark
+          ? const Color(0xFF0B0E14)
+          : const Color(0xFFF7F9FC),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF131822) : Colors.white,
         elevation: 0,
@@ -197,13 +235,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 children: [
                   CircleAvatar(
                     radius: 19,
-                    backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                    backgroundImage: (resolvedAvatarUrl != null && resolvedAvatarUrl.isNotEmpty)
+                    backgroundColor: const Color(
+                      0xFF00C6FF,
+                    ).withValues(alpha: 0.2),
+                    backgroundImage:
+                        (resolvedAvatarUrl != null &&
+                            resolvedAvatarUrl.isNotEmpty)
                         ? CachedNetworkImageProvider(resolvedAvatarUrl)
                         : null,
-                    child: (resolvedAvatarUrl == null || resolvedAvatarUrl.isEmpty)
+                    child:
+                        (resolvedAvatarUrl == null || resolvedAvatarUrl.isEmpty)
                         ? Text(
-                            displayName.isNotEmpty ? displayName[0].toUpperCase() : 'C',
+                            displayName.isNotEmpty
+                                ? displayName[0].toUpperCase()
+                                : 'C',
                             style: const TextStyle(
                               color: Color(0xFF00C6FF),
                               fontWeight: FontWeight.bold,
@@ -223,12 +268,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           color: const Color(0xFF10B981),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isDark ? const Color(0xFF131822) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF131822)
+                                : Colors.white,
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.6),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.6),
                               blurRadius: 4,
                             ),
                           ],
@@ -258,9 +307,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ),
                     const SizedBox(height: 1),
                     if (typingUsers.isNotEmpty)
-                      const Text(
-                        'typing...',
-                        style: TextStyle(
+                      Text(
+                        tr('chat.typing'),
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF00C6FF),
                           fontStyle: FontStyle.italic,
@@ -268,9 +317,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ),
                       )
                     else if (isOnline && !isGroup)
-                      const Text(
-                        'Online',
-                        style: TextStyle(
+                      Text(
+                        tr('chat.online'),
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF10B981),
                           fontWeight: FontWeight.w500,
@@ -279,26 +328,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     else if (isGroup)
                       Text(
                         '${conversation?.members.length ?? 0} members',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       )
                     else if (otherMember?.lastSeen != null)
                       Text(
                         'last seen ${_formatLastSeen(otherMember!.lastSeen!)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       )
                     else
                       Text(
                         'Offline',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                   ],
                 ),
@@ -331,8 +371,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, size: 22),
             color: isDark ? const Color(0xFF161C28) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            onSelected: (value) => _handleMenuAction(value, conversation, otherMember),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            onSelected: (value) =>
+                _handleMenuAction(value, conversation, otherMember),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'view_profile',
@@ -369,7 +412,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   value: 'invite_link',
                   child: Row(
                     children: [
-                      Icon(Icons.link_rounded, color: Color(0xFF00C6FF), size: 20),
+                      Icon(
+                        Icons.link_rounded,
+                        color: Color(0xFF00C6FF),
+                        size: 20,
+                      ),
                       SizedBox(width: 12),
                       Text('Group Invite Link'),
                     ],
@@ -380,9 +427,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
                     SizedBox(width: 12),
-                    Text('Clear Chat', style: TextStyle(color: Colors.redAccent)),
+                    Text(
+                      'Clear Chat',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
                   ],
                 ),
               ),
@@ -399,12 +453,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             if (isOffline)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                color: isDark ? const Color(0xFF1E1A11) : const Color(0xFFFFFBEB),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 6,
+                  horizontal: 16,
+                ),
+                color: isDark
+                    ? const Color(0xFF1E1A11)
+                    : const Color(0xFFFFFBEB),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.wifi_off_rounded, size: 14, color: Colors.amber.shade700),
+                    Icon(
+                      Icons.wifi_off_rounded,
+                      size: 14,
+                      color: Colors.amber.shade700,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Offline • Displaying local cached messages',
@@ -424,10 +487,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 pinnedMessages: pins,
                 canUnpin: isGroupOwnerOrAdmin,
                 onSelectMessage: (pinnedMsg) {
-                  messages.whenData((list) => _scrollToMessage(pinnedMsg.id, list));
+                  messages.whenData(
+                    (list) => _scrollToMessage(pinnedMsg.id, list),
+                  );
                 },
                 onUnpinMessage: (pinnedMsg) {
-                  ref.read(chatMessagesProvider(widget.conversationId).notifier).unpinMessage(pinnedMsg.id);
+                  ref
+                      .read(
+                        chatMessagesProvider(widget.conversationId).notifier,
+                      )
+                      .unpinMessage(pinnedMsg.id);
                 },
               ),
               loading: () => const SizedBox.shrink(),
@@ -448,7 +517,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             height: 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF00C6FF).withValues(alpha: 0.1),
+                              color: const Color(
+                                0xFF00C6FF,
+                              ).withValues(alpha: 0.1),
                             ),
                             child: const Icon(
                               Icons.chat_bubble_outline_rounded,
@@ -485,13 +556,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     _scrollToBottom(animate: false);
                     final currentUserId = ref.read(authProvider).user?.id;
                     if (currentUserId != null) {
-                      Future.microtask(() => ref
-                          .read(chatMessagesProvider(widget.conversationId).notifier)
-                          .markIncomingAsRead(currentUserId));
+                      Future.microtask(
+                        () => ref
+                            .read(
+                              chatMessagesProvider(
+                                widget.conversationId,
+                              ).notifier,
+                            )
+                            .markIncomingAsRead(currentUserId),
+                      );
                     }
                   } else if (messageList.length > _lastMessageCount) {
-                    final isNewFromMe = messageList.last.sender.id == currentUserId;
-                    final isNearBottom = _scrollController.hasClients &&
+                    final isNewFromMe =
+                        messageList.last.sender.id == currentUserId;
+                    final isNearBottom =
+                        _scrollController.hasClients &&
                         _scrollController.position.pixels >=
                             _scrollController.position.maxScrollExtent - 250;
                     if (isNewFromMe || isNearBottom) {
@@ -510,24 +589,28 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       final isMe = message.sender.id == currentUserId;
 
                       // Date separator
-                      final showDateSeparator = index == 0 ||
+                      final showDateSeparator =
+                          index == 0 ||
                           !_isSameDay(
                             message.createdAt,
                             messageList[index - 1].createdAt,
                           );
 
                       // Message grouping
-                      final isGroupStart = index == 0 ||
-                          messageList[index - 1].sender.id != message.sender.id ||
+                      final isGroupStart =
+                          index == 0 ||
+                          messageList[index - 1].sender.id !=
+                              message.sender.id ||
                           message.createdAt
                                   .difference(messageList[index - 1].createdAt)
                                   .inMinutes >
                               5;
 
-                      final isGroupEnd = index == messageList.length - 1 ||
-                          messageList[index + 1].sender.id != message.sender.id ||
-                          messageList[index + 1]
-                                  .createdAt
+                      final isGroupEnd =
+                          index == messageList.length - 1 ||
+                          messageList[index + 1].sender.id !=
+                              message.sender.id ||
+                          messageList[index + 1].createdAt
                                   .difference(message.createdAt)
                                   .inMinutes >
                               5;
@@ -542,7 +625,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             currentUserId: currentUserId,
                             isGroupStart: isGroupStart,
                             isGroupEnd: isGroupEnd,
-                            showAvatar: !isMe &&
+                            showAvatar:
+                                !isMe &&
                                 (isGroupEnd || conversation?.type != 'DIRECT'),
                             canManageForEveryone: isMe || isGroupOwnerOrAdmin,
                             onReply: () {
@@ -554,47 +638,73 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             },
                             onReaction: (emoji) {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId)
-                                      .notifier)
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
                                   .addReaction(message.id, emoji);
                             },
                             onPinForMe: () {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId)
-                                      .notifier)
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
                                   .pinMessageForMe(message.id);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Pinned for you (Saved)')),
+                                const SnackBar(
+                                  content: Text('Pinned for you (Saved)'),
+                                ),
                               );
                             },
                             onPinForEveryone: () {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId)
-                                      .notifier)
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
                                   .pinMessageForEveryone(message.id);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Pinned for everyone')),
+                                const SnackBar(
+                                  content: Text('Pinned for everyone'),
+                                ),
                               );
                             },
                             onUnpin: () {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId)
-                                      .notifier)
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
                                   .unpinMessage(message.id);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Unpinned message')),
+                                const SnackBar(
+                                  content: Text('Unpinned message'),
+                                ),
                               );
                             },
                             onDeleteMessage: (forEveryone) {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId)
-                                      .notifier)
-                                  .deleteMessage(message.id, forEveryone: forEveryone);
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
+                                  .deleteMessage(
+                                    message.id,
+                                    forEveryone: forEveryone,
+                                  );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(forEveryone
-                                      ? 'Message deleted for everyone'
-                                      : 'Message deleted for you'),
+                                  content: Text(
+                                    forEveryone
+                                        ? 'Message deleted for everyone'
+                                        : 'Message deleted for you',
+                                  ),
                                 ),
                               );
                             },
@@ -615,7 +725,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 },
                 loading: () => const Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF00C6FF),
+                    ),
                   ),
                 ),
                 error: (error, stack) {
@@ -630,8 +742,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               color: Colors.amber.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.wifi_off_rounded,
-                                size: 48, color: Colors.amber),
+                            child: const Icon(
+                              Icons.wifi_off_rounded,
+                              size: 48,
+                              color: Colors.amber,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -646,17 +761,28 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           Text(
                             'No cached messages found for this chat.\nConnect to the internet to load messages.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                            ),
                           ),
                           const SizedBox(height: 16),
                           OutlinedButton.icon(
                             onPressed: () {
                               ref
-                                  .read(chatMessagesProvider(widget.conversationId).notifier)
+                                  .read(
+                                    chatMessagesProvider(
+                                      widget.conversationId,
+                                    ).notifier,
+                                  )
                                   .loadMessages();
                             },
                             icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Check Connection'),
+                            label: Consumer(
+                              builder: (_, ref, _) => Text(
+                                ref.watch(trProvider)('chat.check_connection'),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -666,22 +792,36 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline_rounded,
-                            size: 48, color: Colors.redAccent),
+                        const Icon(
+                          Icons.error_outline_rounded,
+                          size: 48,
+                          color: Colors.redAccent,
+                        ),
                         const SizedBox(height: 12),
-                        const Text('Failed to load messages'),
+                        Consumer(
+                          builder: (_, ref, _) => Text(
+                            ref.watch(trProvider)('chat.load_messages_failed'),
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         ElevatedButton(
                           onPressed: () {
                             ref
-                                .read(chatMessagesProvider(widget.conversationId).notifier)
+                                .read(
+                                  chatMessagesProvider(
+                                    widget.conversationId,
+                                  ).notifier,
+                                )
                                 .loadMessages();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00C6FF),
                             foregroundColor: Colors.black,
                           ),
-                          child: const Text('Retry'),
+                          child: Consumer(
+                            builder: (_, ref, _) =>
+                                Text(ref.watch(trProvider)('common.retry')),
+                          ),
                         ),
                       ],
                     ),
@@ -752,7 +892,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   void _handleMenuAction(
-      String action, ConversationModel? conversation, ConversationMemberModel? otherMember) {
+    String action,
+    ConversationModel? conversation,
+    ConversationMemberModel? otherMember,
+  ) {
     switch (action) {
       case 'view_profile':
         if (otherMember?.username != null) {
@@ -763,10 +906,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         break;
       case 'mute':
         if (conversation != null) {
-          ref.read(conversationsProvider.notifier).muteConversation(conversation.id);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Notifications muted')),
-          );
+          ref
+              .read(conversationsProvider.notifier)
+              .muteConversation(conversation.id);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Notifications muted')));
         }
         break;
       case 'search':
@@ -778,17 +923,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         }
         break;
       case 'clear':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chat history cleared')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Chat history cleared')));
         break;
     }
   }
 
-  Future<void> _showInviteLinkDialog(BuildContext context, String groupId) async {
+  Future<void> _showInviteLinkDialog(
+    BuildContext context,
+    String groupId,
+  ) async {
     try {
-      final res = await ref.read(chatDiscoveryProvider.notifier).getGroupInviteLink(groupId);
-      final link = res['inviteLink'] as String? ?? 'https://streamhub.app/join/group/${res['inviteToken']}';
+      final res = await ref
+          .read(chatDiscoveryProvider.notifier)
+          .getGroupInviteLink(groupId);
+      final link =
+          res['inviteLink'] as String? ??
+          'https://streamhub.app/join/group/${res['inviteToken']}';
 
       if (context.mounted) {
         showDialog(
@@ -797,7 +949,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             backgroundColor: Theme.of(ctx).brightness == Brightness.dark
                 ? const Color(0xFF161C28)
                 : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: const Row(
               children: [
                 Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
@@ -815,13 +969,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(ctx).brightness == Brightness.dark
                         ? const Color(0xFF1E2638)
                         : Colors.grey[100],
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF00C6FF).withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: const Color(0xFF00C6FF).withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -838,11 +997,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF00C6FF)),
+                        icon: const Icon(
+                          Icons.copy_rounded,
+                          size: 18,
+                          color: Color(0xFF00C6FF),
+                        ),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: link));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Invite link copied!')),
+                            const SnackBar(
+                              content: Text('Invite link copied!'),
+                            ),
                           );
                         },
                       ),
@@ -854,7 +1019,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Done'),
+                child: Consumer(
+                  builder: (_, ref, _) =>
+                      Text(ref.watch(trProvider)('common.done')),
+                ),
               ),
             ],
           ),
@@ -884,15 +1052,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
     final currentUser = ref.read(authProvider).user;
     final myDisplayName = currentUser?.displayIdentifier ?? 'Caller';
-    final targetDisplayName =
-        otherMember.displayName ?? otherMember.username;
+    final targetDisplayName = otherMember.displayName ?? otherMember.username;
     final targetAvatarUrl = otherMember.avatarUrl;
 
     // Navigate to active call screen
     context.push('/call/active');
 
     // Initiate WebRTC call via CallService
-    await ref.read(callServiceProvider).initiateCall(
+    await ref
+        .read(callServiceProvider)
+        .initiateCall(
           targetUserId: otherMember.userId,
           conversationId: widget.conversationId,
           targetDisplayName: targetDisplayName,
@@ -945,14 +1114,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
           ),
           SizedBox(width: 6),
-          Icon(
-            Icons.edit_note_rounded,
-            size: 16,
-            color: Color(0xFF00C6FF),
-          ),
+          Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
         ],
       ),
     );
   }
 }
-

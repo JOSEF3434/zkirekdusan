@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/creator_video_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
 import 'package:mobile/features/creator_analytics/presentation/providers/creator_video_list_provider.dart';
@@ -118,7 +119,7 @@ class _CreatorVideoManagementScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Content'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.content'))),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Padding(
@@ -149,7 +150,7 @@ class _CreatorVideoManagementScreenState
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
-                          label: const Text('All'),
+                          label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.all'))),
                           selected: _statusFilter == null,
                           onSelected: (val) =>
                               setState(() => _statusFilter = null),
@@ -193,7 +194,7 @@ class _CreatorVideoManagementScreenState
             ElevatedButton(
               onPressed: () =>
                   ref.read(creatorVideoListProvider(_args).notifier).refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -233,3 +234,5 @@ class _CreatorVideoManagementScreenState
     );
   }
 }
+
+

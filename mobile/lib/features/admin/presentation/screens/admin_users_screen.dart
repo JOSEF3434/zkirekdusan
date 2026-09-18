@@ -265,7 +265,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                                   FilledButton.icon(
                                     onPressed: () => _fetchUsers(reset: true),
                                     icon: const Icon(Icons.refresh),
-                                    label: const Text('Retry'),
+                                    label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                                   ),
                                 ],
                               ),
@@ -398,3 +398,4 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     );
   }
 }
+

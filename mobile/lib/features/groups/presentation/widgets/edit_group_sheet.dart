@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/creator/presentation/providers/creator_workspace_provider.dart';
 import 'package:mobile/features/groups/data/group_repository.dart';
@@ -286,7 +287,7 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                       onPressed: _isLoading
                           ? null
                           : () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
+                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -302,7 +303,7 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Save Changes'),
+                          : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.settings.save'))),
                     ),
                   ),
                 ],
@@ -314,3 +315,4 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
     );
   }
 }
+

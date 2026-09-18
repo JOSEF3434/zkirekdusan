@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/groups/presentation/providers/channel_videos_provider.dart';
 import 'package:mobile/features/groups/presentation/widgets/channel_video_card.dart';
@@ -63,7 +64,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
               onPressed: () => ref
                   .read(channelVideosProvider(channel.id).notifier)
                   .refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -102,7 +103,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
                     FilledButton.icon(
                       onPressed: () => _startUpload(context, ref, channel),
                       icon: const Icon(Icons.upload),
-                      label: const Text('Upload First Video'),
+                      label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.upload_tooltip'))),
                     ),
                   ],
                 ],
@@ -158,7 +159,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
               heroTag: null,
               onPressed: () => _startUpload(context, ref, channel),
               icon: const Icon(Icons.add),
-              label: const Text('Upload'),
+              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.upload'))),
             )
           : null,
     );
@@ -186,3 +187,4 @@ class GroupVideoFeedTab extends ConsumerWidget {
     context.push('/upload');
   }
 }
+

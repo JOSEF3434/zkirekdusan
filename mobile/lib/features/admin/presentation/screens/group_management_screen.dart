@@ -233,7 +233,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                   style: const TextStyle(fontSize: 12, color: Colors.grey)),
               if (group.description != null && group.description!.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                const Text('Description:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Description: ', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(group.description!),
               ],
@@ -243,7 +243,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.close'))),
           ),
         ],
       ),
@@ -309,8 +309,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                         children: [
                           const Icon(Icons.error_outline, size: 48, color: Colors.red),
                           const SizedBox(height: 12),
-                          const Text('Failed to load pending groups',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.error'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                           const SizedBox(height: 8),
                           Text(_pendingError!,
                               textAlign: TextAlign.center,
@@ -319,7 +318,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                           FilledButton.icon(
                             onPressed: _fetchPendingGroups,
                             icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
+                            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                           ),
                         ],
                       ),
@@ -481,8 +480,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                               children: [
                                 const Icon(Icons.error_outline, size: 48, color: Colors.red),
                                 const SizedBox(height: 12),
-                                const Text('Failed to load groups',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.error'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                                 const SizedBox(height: 8),
                                 Text(_allGroupsError!,
                                     textAlign: TextAlign.center,
@@ -491,7 +489,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
                                 FilledButton.icon(
                                   onPressed: _fetchAllGroups,
                                   icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
+                                  label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                                 ),
                               ],
                             ),
@@ -634,3 +632,6 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     );
   }
 }
+
+
+

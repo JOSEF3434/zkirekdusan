@@ -1,6 +1,8 @@
 // lib/features/groups/presentation/widgets/group_member_tile.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/groups/domain/group_enums.dart';
 import 'package:mobile/features/groups/domain/group_member_dto.dart';
 import 'package:mobile/features/groups/presentation/widgets/group_role_badge.dart';
@@ -85,7 +87,10 @@ class GroupMemberTile extends StatelessWidget {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      const Text('Moderator'),
+                      Consumer(
+                        builder: (_, ref, _) =>
+                            Text(ref.watch(trProvider)('groups.admin')),
+                      ),
                     ],
                   ),
                 ),
@@ -100,7 +105,10 @@ class GroupMemberTile extends StatelessWidget {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      const Text('Member'),
+                      Consumer(
+                        builder: (_, ref, _) =>
+                            Text(ref.watch(trProvider)('common.user')),
+                      ),
                     ],
                   ),
                 ),
@@ -115,7 +123,10 @@ class GroupMemberTile extends StatelessWidget {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      const Text('Guest'),
+                      Consumer(
+                        builder: (_, ref, _) =>
+                            Text(ref.watch(trProvider)('common.user')),
+                      ),
                     ],
                   ),
                 ),

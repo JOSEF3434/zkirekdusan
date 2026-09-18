@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/explore/presentation/providers/search_provider.dart';
@@ -163,7 +164,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   TextButton(
                     onPressed: () =>
                         ref.read(recentSearchesProvider.notifier).clear(),
-                    child: const Text('Clear all'),
+                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('search.clear'))),
                   ),
                 ],
               ),
@@ -363,3 +364,4 @@ class _FilterChips extends ConsumerWidget {
     );
   }
 }
+

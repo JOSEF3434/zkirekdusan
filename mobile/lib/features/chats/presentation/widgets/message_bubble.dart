@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/voice_message_player.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
@@ -106,85 +108,101 @@ class MessageBubble extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onLongPress: () => _showMessageOptions(context),
-          onSecondaryTapDown: (_) => WebContextMenuManager.onSecondaryPointerDown(),
+          onSecondaryTapDown: (_) =>
+              WebContextMenuManager.onSecondaryPointerDown(),
           onSecondaryTap: () => _showMessageOptions(context),
           child: Padding(
-        padding: EdgeInsets.only(
-          left: isMe ? 54 : 12,
-          right: isMe ? 12 : 54,
-          top: isGroupStart ? 6 : 2,
-          bottom: isGroupEnd ? 6 : 2,
-        ),
-        child: Row(
-          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // Sender Avatar (for other users)
-            if (!isMe && showAvatar)
-              Padding(
-                padding: const EdgeInsets.only(right: 8, bottom: 2),
-                child: CircleAvatar(
-                  radius: 15,
-                  backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                  backgroundImage: message.sender.avatarUrl != null
-                      ? CachedNetworkImageProvider(message.sender.avatarUrl!)
-                      : null,
-                  child: message.sender.avatarUrl == null
-                      ? Text(
-                          (message.sender.displayName ?? message.sender.username).isNotEmpty
-                              ? (message.sender.displayName ?? message.sender.username)[0].toUpperCase()
-                              : 'U',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00C6FF),
-                          ),
-                        )
-                      : null,
-                ),
-              )
-            else if (!isMe && !showAvatar)
-              const SizedBox(width: 38),
-
-            // Message Bubble & Reactions Container
-            Flexible(
-              child: Column(
-                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Sender name for group chats
-                  if (!isMe && isGroupStart && message.sender.displayName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10, bottom: 3),
-                      child: Text(
-                        message.sender.displayName!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _getSenderColor(message.sender.id),
-                        ),
-                      ),
-                    ),
-
-                  // Message Bubble by Type (Matching Screenshot 4)
-                  if (_isAudioMessage)
-                    _buildVoiceBubble(context, isDark)
-                  else if (_isPureImage)
-                    _buildImageBubble(context, isDark)
-                  else if (_isPureVideo)
-                    _buildVideoBubble(context, isDark)
-                  else
-                    _buildTextBubble(context, isDark),
-
-                  // Reactions Badges (e.g. 🔥 3, ❤️ 1)
-                  if (message.reactions.isNotEmpty) _buildReactions(context, isDark),
-                ],
-              ),
+            padding: EdgeInsets.only(
+              left: isMe ? 54 : 12,
+              right: isMe ? 12 : 54,
+              top: isGroupStart ? 6 : 2,
+              bottom: isGroupEnd ? 6 : 2,
             ),
-          ],
+            child: Row(
+              mainAxisAlignment: isMe
+                  ? MainAxisAlignment.end
+                  : MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Sender Avatar (for other users)
+                if (!isMe && showAvatar)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8, bottom: 2),
+                    child: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: const Color(
+                        0xFF00C6FF,
+                      ).withValues(alpha: 0.2),
+                      backgroundImage: message.sender.avatarUrl != null
+                          ? CachedNetworkImageProvider(
+                              message.sender.avatarUrl!,
+                            )
+                          : null,
+                      child: message.sender.avatarUrl == null
+                          ? Text(
+                              (message.sender.displayName ??
+                                          message.sender.username)
+                                      .isNotEmpty
+                                  ? (message.sender.displayName ??
+                                            message.sender.username)[0]
+                                        .toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF00C6FF),
+                              ),
+                            )
+                          : null,
+                    ),
+                  )
+                else if (!isMe && !showAvatar)
+                  const SizedBox(width: 38),
+
+                // Message Bubble & Reactions Container
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: isMe
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Sender name for group chats
+                      if (!isMe &&
+                          isGroupStart &&
+                          message.sender.displayName != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10, bottom: 3),
+                          child: Text(
+                            message.sender.displayName!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _getSenderColor(message.sender.id),
+                            ),
+                          ),
+                        ),
+
+                      // Message Bubble by Type (Matching Screenshot 4)
+                      if (_isAudioMessage)
+                        _buildVoiceBubble(context, isDark)
+                      else if (_isPureImage)
+                        _buildImageBubble(context, isDark)
+                      else if (_isPureVideo)
+                        _buildVideoBubble(context, isDark)
+                      else
+                        _buildTextBubble(context, isDark),
+
+                      // Reactions Badges (e.g. 🔥 3, ❤️ 1)
+                      if (message.reactions.isNotEmpty)
+                        _buildReactions(context, isDark),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-    ),
       ),
     );
   }
@@ -231,13 +249,14 @@ class MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          VoiceMessagePlayer(
-            voiceNote: _effectiveVoiceNote,
-            isMe: isMe,
-          ),
+          VoiceMessagePlayer(voiceNote: _effectiveVoiceNote, isMe: isMe),
           Padding(
             padding: const EdgeInsets.only(right: 10, bottom: 6),
-            child: _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: false),
+            child: _buildTimestampRow(
+              isMe: isMe,
+              isDark: isDark,
+              isOutsideBubble: false,
+            ),
           ),
         ],
       ),
@@ -250,7 +269,9 @@ class MessageBubble extends StatelessWidget {
         : (message.content ?? '');
 
     return Column(
-      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isMe
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ClipRRect(
@@ -262,10 +283,7 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: _textBubbleDecoration(isDark),
-            child: Text(
-              message.content!,
-              style: _textStyle(isDark),
-            ),
+            child: Text(message.content!, style: _textStyle(isDark)),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
       ],
@@ -281,7 +299,9 @@ class MessageBubble extends StatelessWidget {
         : null;
 
     return Column(
-      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isMe
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ClipRRect(
@@ -293,10 +313,7 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: _textBubbleDecoration(isDark),
-            child: Text(
-              message.content!,
-              style: _textStyle(isDark),
-            ),
+            child: Text(message.content!, style: _textStyle(isDark)),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
       ],
@@ -309,7 +326,9 @@ class MessageBubble extends StatelessWidget {
       decoration: _textBubbleDecoration(isDark),
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (message.replyTo != null) _buildReplyPreview(context, isDark),
@@ -317,12 +336,13 @@ class MessageBubble extends StatelessWidget {
           if (_shouldShowTextContent)
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                message.content!,
-                style: _textStyle(isDark),
-              ),
+              child: Text(message.content!, style: _textStyle(isDark)),
             ),
-          _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: false),
+          _buildTimestampRow(
+            isMe: isMe,
+            isDark: isDark,
+            isOutsideBubble: false,
+          ),
         ],
       ),
     );
@@ -339,13 +359,20 @@ class MessageBubble extends StatelessWidget {
 
     final iconColor = isOutsideBubble
         ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488))
-        : (isMe ? Colors.black.withValues(alpha: 0.75) : const Color(0xFF00C6FF));
+        : (isMe
+              ? Colors.black.withValues(alpha: 0.75)
+              : const Color(0xFF00C6FF));
 
-    final isSending = message.id.startsWith('temp_') || message.id.startsWith('local_');
-    final isSeen = message.readBy.isNotEmpty &&
-        (currentUserId == null || message.readBy.any((u) => u != currentUserId));
-    final isDelivered = message.deliveredTo.isNotEmpty &&
-        (currentUserId == null || message.deliveredTo.any((u) => u != currentUserId));
+    final isSending =
+        message.id.startsWith('temp_') || message.id.startsWith('local_');
+    final isSeen =
+        message.readBy.isNotEmpty &&
+        (currentUserId == null ||
+            message.readBy.any((u) => u != currentUserId));
+    final isDelivered =
+        message.deliveredTo.isNotEmpty &&
+        (currentUserId == null ||
+            message.deliveredTo.any((u) => u != currentUserId));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -377,11 +404,7 @@ class MessageBubble extends StatelessWidget {
           if (isMe) ...[
             const SizedBox(width: 4),
             if (isSending)
-              Icon(
-                Icons.access_time_rounded,
-                size: 12,
-                color: textColor,
-              )
+              Icon(Icons.access_time_rounded, size: 12, color: textColor)
             else if (isSeen)
               const Icon(
                 Icons.done_all_rounded,
@@ -389,17 +412,9 @@ class MessageBubble extends StatelessWidget {
                 color: Color(0xFF00C6FF),
               )
             else if (isDelivered)
-              Icon(
-                Icons.done_all_rounded,
-                size: 15,
-                color: textColor,
-              )
+              Icon(Icons.done_all_rounded, size: 15, color: textColor)
             else
-              Icon(
-                Icons.done_rounded,
-                size: 14,
-                color: iconColor,
-              ),
+              Icon(Icons.done_rounded, size: 14, color: iconColor),
           ],
         ],
       ),
@@ -455,7 +470,6 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-
   Widget _buildReplyPreview(BuildContext context, bool isDark) {
     final reply = message.replyTo!;
 
@@ -465,7 +479,9 @@ class MessageBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: isMe
             ? Colors.black.withValues(alpha: 0.08)
-            : (isDark ? const Color(0xFF131822) : Colors.white.withValues(alpha: 0.6)),
+            : (isDark
+                  ? const Color(0xFF131822)
+                  : Colors.white.withValues(alpha: 0.6)),
         borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
@@ -520,7 +536,8 @@ class MessageBubble extends StatelessWidget {
   }
 
   bool get _isStandaloneAudio {
-    if (message.attachments.isNotEmpty || message.voiceNote != null) return false;
+    if (message.attachments.isNotEmpty || message.voiceNote != null)
+      return false;
     final typeUpper = message.type.toUpperCase();
     if (typeUpper == 'AUDIO' || typeUpper == 'VOICE_NOTE') return true;
     if (message.content != null && _isAudioUrl(message.content!)) return true;
@@ -531,7 +548,8 @@ class MessageBubble extends StatelessWidget {
     final text = message.content;
     if (text == null || text.trim().isEmpty) return false;
     if (_isStandaloneImage || _isStandaloneVideo || _isStandaloneAudio) {
-      if (_isImageUrl(text) || _isVideoUrl(text) || _isAudioUrl(text)) return false;
+      if (_isImageUrl(text) || _isVideoUrl(text) || _isAudioUrl(text))
+        return false;
     }
     if (message.attachments.isNotEmpty) {
       final firstUrl = message.attachments.first.url;
@@ -581,15 +599,18 @@ class MessageBubble extends StatelessWidget {
           final fileType = attachment.fileType.toUpperCase();
           final mimeType = attachment.mimeType.toLowerCase();
 
-          final isImage = fileType == 'IMAGE' ||
+          final isImage =
+              fileType == 'IMAGE' ||
               mimeType.startsWith('image/') ||
               _isImageUrl(attachment.url);
 
-          final isVideo = fileType == 'VIDEO' ||
+          final isVideo =
+              fileType == 'VIDEO' ||
               mimeType.startsWith('video/') ||
               _isVideoUrl(attachment.url);
 
-          final isAudio = fileType == 'AUDIO' ||
+          final isAudio =
+              fileType == 'AUDIO' ||
               fileType == 'VOICE_NOTE' ||
               mimeType.startsWith('audio/') ||
               _isAudioUrl(attachment.url);
@@ -609,15 +630,22 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildImageAttachment(
-      BuildContext context, MessageAttachmentModel attachment) {
+    BuildContext context,
+    MessageAttachmentModel attachment,
+  ) {
     return _buildImageCard(context, attachment.url);
   }
 
   Widget _buildImageCard(BuildContext context, String imageUrl) {
     final rawUrl = imageUrl.trim();
     final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
-    final isLocal = !kIsWeb && (resolvedUrl.startsWith('file://') ||
-        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync()));
+    final isLocal =
+        !kIsWeb &&
+        (resolvedUrl.startsWith('file://') ||
+            (resolvedUrl.isNotEmpty &&
+                !resolvedUrl.startsWith('http://') &&
+                !resolvedUrl.startsWith('https://') &&
+                File(resolvedUrl).existsSync()));
 
     return GestureDetector(
       onTap: () {
@@ -649,50 +677,65 @@ class MessageBubble extends StatelessWidget {
                   child: const Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF00C6FF),
+                      ),
                     ),
                   ),
                 )
               : isLocal
-                  ? Image.file(
-                      File(resolvedUrl.replaceFirst('file://', '')),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 180,
-                        width: 220,
-                        color: const Color(0xFF1E2638),
-                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 36),
-                      ),
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: resolvedUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        height: 180,
-                        width: 220,
-                        color: const Color(0xFF1E2638),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
-                          ),
+              ? Image.file(
+                  File(resolvedUrl.replaceFirst('file://', '')),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 180,
+                    width: 220,
+                    color: const Color(0xFF1E2638),
+                    child: const Icon(
+                      Icons.broken_image_rounded,
+                      color: Colors.grey,
+                      size: 36,
+                    ),
+                  ),
+                )
+              : CachedNetworkImage(
+                  imageUrl: resolvedUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    height: 180,
+                    width: 220,
+                    color: const Color(0xFF1E2638),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF00C6FF),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        height: 180,
-                        width: 220,
-                        color: const Color(0xFF1E2638),
-                        child: const Icon(Icons.broken_image_rounded, color: Colors.grey, size: 36),
-                      ),
                     ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    height: 180,
+                    width: 220,
+                    color: const Color(0xFF1E2638),
+                    child: const Icon(
+                      Icons.broken_image_rounded,
+                      color: Colors.grey,
+                      size: 36,
+                    ),
+                  ),
+                ),
         ),
       ),
     );
   }
 
   Widget _buildAudioAttachment(
-      BuildContext context, MessageAttachmentModel attachment) {
-    final resolvedUrl = MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
+    BuildContext context,
+    MessageAttachmentModel attachment,
+  ) {
+    final resolvedUrl =
+        MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
     // Re-use VoiceMessagePlayer via a synthetic voice note model
     final voiceNote = MessageVoiceNoteModel(
       fileId: attachment.fileId,
@@ -700,20 +743,28 @@ class MessageBubble extends StatelessWidget {
       duration: attachment.duration?.toInt() ?? 0,
       waveform: null,
     );
-    return VoiceMessagePlayer(
-      voiceNote: voiceNote,
-      isMe: isMe,
-    );
+    return VoiceMessagePlayer(voiceNote: voiceNote, isMe: isMe);
   }
 
   Widget _buildVideoAttachment(
-      BuildContext context, MessageAttachmentModel attachment) {
-    final resolvedUrl = MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
+    BuildContext context,
+    MessageAttachmentModel attachment,
+  ) {
+    final resolvedUrl =
+        MediaUrlResolver.resolve(attachment.url) ?? attachment.url;
     final resolvedThumbnail = MediaUrlResolver.resolve(attachment.thumbnailUrl);
-    return _buildVideoCard(context, resolvedUrl, thumbnailUrl: resolvedThumbnail);
+    return _buildVideoCard(
+      context,
+      resolvedUrl,
+      thumbnailUrl: resolvedThumbnail,
+    );
   }
 
-  Widget _buildVideoCard(BuildContext context, String videoUrl, {String? thumbnailUrl}) {
+  Widget _buildVideoCard(
+    BuildContext context,
+    String videoUrl, {
+    String? thumbnailUrl,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       constraints: const BoxConstraints(maxHeight: 220, maxWidth: 260),
@@ -730,7 +781,11 @@ class MessageBubble extends StatelessWidget {
                 height: 160,
               )
             else
-              Container(height: 160, width: 220, color: const Color(0xFF1E2638)),
+              Container(
+                height: 160,
+                width: 220,
+                color: const Color(0xFF1E2638),
+              ),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -750,7 +805,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildDocumentAttachment(
-      BuildContext context, MessageAttachmentModel attachment) {
+    BuildContext context,
+    MessageAttachmentModel attachment,
+  ) {
     return Container(
       padding: const EdgeInsets.all(10),
       margin: const EdgeInsets.only(bottom: 4),
@@ -769,7 +826,11 @@ class MessageBubble extends StatelessWidget {
               color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF00C6FF), size: 20),
+            child: const Icon(
+              Icons.insert_drive_file_rounded,
+              color: Color(0xFF00C6FF),
+              size: 20,
+            ),
           ),
           const SizedBox(width: 10),
           Flexible(
@@ -810,7 +871,8 @@ class MessageBubble extends StatelessWidget {
         spacing: 5,
         runSpacing: 5,
         children: message.reactions.map((reaction) {
-          final isReactedByMe = currentUserId != null && reaction.userIds.contains(currentUserId);
+          final isReactedByMe =
+              currentUserId != null && reaction.userIds.contains(currentUserId);
           return GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
@@ -821,15 +883,17 @@ class MessageBubble extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
               decoration: BoxDecoration(
                 color: isReactedByMe
-                    ? const Color(0xFF00C6FF).withValues(alpha: isDark ? 0.22 : 0.12)
+                    ? const Color(
+                        0xFF00C6FF,
+                      ).withValues(alpha: isDark ? 0.22 : 0.12)
                     : (isDark ? const Color(0xFF1E2638) : Colors.white),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isReactedByMe
                       ? const Color(0xFF00C6FF).withValues(alpha: 0.8)
                       : (isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.grey.withValues(alpha: 0.25)),
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.withValues(alpha: 0.25)),
                   width: isReactedByMe ? 1.5 : 1,
                 ),
                 boxShadow: [
@@ -894,8 +958,14 @@ class MessageBubble extends StatelessWidget {
 
           if (onReply != null)
             ListTile(
-              leading: const Icon(Icons.reply_rounded, color: Color(0xFF00C6FF)),
-              title: const Text('Reply'),
+              leading: const Icon(
+                Icons.reply_rounded,
+                color: Color(0xFF00C6FF),
+              ),
+              title: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('common.retry')),
+              ),
               onTap: () {
                 Navigator.pop(popupContext);
                 onReply!();
@@ -903,7 +973,10 @@ class MessageBubble extends StatelessWidget {
             ),
           ListTile(
             leading: const Icon(Icons.copy_rounded),
-            title: const Text('Copy Text'),
+            title: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('common.copy')),
+            ),
             onTap: () {
               if (message.content != null) {
                 Clipboard.setData(ClipboardData(text: message.content!));
@@ -914,7 +987,10 @@ class MessageBubble extends StatelessWidget {
           if (onEdit != null)
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('Edit'),
+              title: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('common.edit')),
+              ),
               onTap: () {
                 Navigator.pop(popupContext);
                 onEdit!();
@@ -922,8 +998,14 @@ class MessageBubble extends StatelessWidget {
             ),
           if (message.isPinned && onUnpin != null)
             ListTile(
-              leading: const Icon(Icons.push_pin_outlined, color: Color(0xFF00C6FF)),
-              title: const Text('Unpin from Chat'),
+              leading: const Icon(
+                Icons.push_pin_outlined,
+                color: Color(0xFF00C6FF),
+              ),
+              title: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('chat.unpinned')),
+              ),
               onTap: () {
                 Navigator.pop(popupContext);
                 onUnpin?.call();
@@ -931,8 +1013,14 @@ class MessageBubble extends StatelessWidget {
             )
           else if (onPinForMe != null || onPinForEveryone != null)
             ListTile(
-              leading: const Icon(Icons.push_pin_rounded, color: Color(0xFF00C6FF)),
-              title: const Text('Pin Message'),
+              leading: const Icon(
+                Icons.push_pin_rounded,
+                color: Color(0xFF00C6FF),
+              ),
+              title: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('chat.pinned_for_all')),
+              ),
               onTap: () {
                 Navigator.pop(popupContext);
                 _showPinOptionsDialog(context);
@@ -940,8 +1028,16 @@ class MessageBubble extends StatelessWidget {
             ),
           if (onDeleteMessage != null || onDelete != null)
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-              title: const Text('Delete Message', style: TextStyle(color: Colors.redAccent)),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+              ),
+              title: Consumer(
+                builder: (_, ref, _) => Text(
+                  ref.watch(trProvider)('admin.chat.delete_msg_confirm'),
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
               onTap: () {
                 Navigator.pop(popupContext);
                 _showDeleteOptionsDialog(context);
@@ -951,7 +1047,8 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
-    final isLargeScreenOrWeb = kIsWeb || MediaQuery.of(context).size.width > 600;
+    final isLargeScreenOrWeb =
+        kIsWeb || MediaQuery.of(context).size.width > 600;
 
     if (isLargeScreenOrWeb) {
       // Sleek centered card dialog on Web / Desktop
@@ -969,7 +1066,10 @@ class MessageBubble extends StatelessWidget {
             ),
           ),
           elevation: 20,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 24,
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 380),
             child: ClipRRect(
@@ -993,9 +1093,7 @@ class MessageBubble extends StatelessWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        builder: (sheetCtx) => SafeArea(
-          child: buildOptionsContent(sheetCtx),
-        ),
+        builder: (sheetCtx) => SafeArea(child: buildOptionsContent(sheetCtx)),
       ).then((_) {
         WebContextMenuManager.onCustomMenuClosed();
       });
@@ -1026,14 +1124,20 @@ class MessageBubble extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('common.cancel')),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               onPinForMe?.call();
             },
-            child: const Text('Pin for me only'),
+            child: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('chat.pinned_for_you')),
+            ),
           ),
           if (canManageForEveryone && onPinForEveryone != null)
             ElevatedButton(
@@ -1045,7 +1149,10 @@ class MessageBubble extends StatelessWidget {
                 backgroundColor: const Color(0xFF00C6FF),
                 foregroundColor: Colors.black,
               ),
-              child: const Text('Pin for everyone'),
+              child: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('chat.pinned_for_all')),
+              ),
             ),
         ],
       ),
@@ -1078,7 +1185,10 @@ class MessageBubble extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('common.cancel')),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -1089,7 +1199,10 @@ class MessageBubble extends StatelessWidget {
                 onDelete?.call();
               }
             },
-            child: const Text('Delete for me'),
+            child: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('chat.deleted_for_you')),
+            ),
           ),
           if (canManageForEveryone)
             ElevatedButton(
@@ -1105,7 +1218,10 @@ class MessageBubble extends StatelessWidget {
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Delete for everyone'),
+              child: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('chat.deleted_for_all')),
+              ),
             ),
         ],
       ),
@@ -1117,8 +1233,12 @@ class MessageBubble extends StatelessWidget {
   void _openImageViewer(BuildContext context, String imageUrl) {
     final rawUrl = imageUrl.trim();
     final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
-    final isLocal = resolvedUrl.startsWith('file://') ||
-        (resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://') && File(resolvedUrl).existsSync());
+    final isLocal =
+        resolvedUrl.startsWith('file://') ||
+        (resolvedUrl.isNotEmpty &&
+            !resolvedUrl.startsWith('http://') &&
+            !resolvedUrl.startsWith('https://') &&
+            File(resolvedUrl).existsSync());
 
     showDialog(
       context: context,

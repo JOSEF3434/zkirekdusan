@@ -1,6 +1,8 @@
 // lib/features/admin/presentation/widgets/admin_confirmation_dialog.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class AdminConfirmationDialog extends StatefulWidget {
   final String title;
@@ -39,7 +41,8 @@ class AdminConfirmationDialog extends StatefulWidget {
   }
 
   @override
-  State<AdminConfirmationDialog> createState() => _AdminConfirmationDialogState();
+  State<AdminConfirmationDialog> createState() =>
+      _AdminConfirmationDialogState();
 }
 
 class _AdminConfirmationDialogState extends State<AdminConfirmationDialog> {
@@ -55,7 +58,10 @@ class _AdminConfirmationDialogState extends State<AdminConfirmationDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(
+        widget.title,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -67,7 +73,9 @@ class _AdminConfirmationDialogState extends State<AdminConfirmationDialog> {
             TextFormField(
               controller: _reasonController,
               decoration: InputDecoration(
-                labelText: widget.requireReason ? 'Reason *' : 'Reason (optional)',
+                labelText: widget.requireReason
+                    ? 'Reason *'
+                    : 'Reason (optional)',
                 hintText: 'Provide reason for this administrative action...',
                 border: const OutlineInputBorder(),
                 isDense: true,
@@ -86,7 +94,10 @@ class _AdminConfirmationDialogState extends State<AdminConfirmationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Cancel'),
+          child: Consumer(
+            builder: (_, ref, _) =>
+                Text(ref.watch(trProvider)('common.cancel')),
+          ),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: widget.confirmColor),

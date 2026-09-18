@@ -150,6 +150,7 @@ class BookmarksScreen extends ConsumerWidget {
     WidgetRef ref,
     VideoResponseDto video,
   ) {
+    final tr = ref.read(trProvider);
     showModalBottomSheet(
       context: context,
       builder: (bContext) => SafeArea(
@@ -158,7 +159,7 @@ class BookmarksScreen extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.play_arrow),
-              title: const Text('Play Video'),
+              title: Text(tr('library.play_video')),
               onTap: () {
                 Navigator.pop(bContext);
                 context.push('/video/${video.id}');
@@ -166,7 +167,7 @@ class BookmarksScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.bookmark_remove_outlined),
-              title: const Text('Remove from Saved'),
+              title: Text(tr('library.remove_from_saved')),
               onTap: () async {
                 Navigator.pop(bContext);
                 await ref

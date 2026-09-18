@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/creator_comment_moderation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_comment_dto.dart';
 import 'package:mobile/features/creator_analytics/presentation/providers/creator_comment_moderation_provider.dart';
 import 'package:mobile/features/creator_analytics/presentation/widgets/confirm_action_dialog.dart';
@@ -100,7 +101,7 @@ class _CreatorCommentModerationScreenState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Moderate Comments')),
+      appBar: AppBar(title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.moderate_comments')))),
       body: _buildBody(state, theme),
     );
   }
@@ -125,7 +126,7 @@ class _CreatorCommentModerationScreenState
                     creatorCommentModerationProvider(widget.videoId).notifier,
                   )
                   .refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -208,3 +209,5 @@ class _CreatorCommentModerationScreenState
     );
   }
 }
+
+

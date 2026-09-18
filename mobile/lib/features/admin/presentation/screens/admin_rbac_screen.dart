@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/data/admin_repository.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
@@ -614,7 +615,7 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
                   color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            const Text('RBAC Management'),
+            Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.rbac_management'))),
           ],
         ),
         backgroundColor:
@@ -713,7 +714,7 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.save_rounded, color: Color(0xFF9C27B0), size: 32),
-        title: const Text('Save Permission Changes'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.settings.save'))),
         content: Text(
           'You are about to apply the updated permission set for the $roleName role.\n\n'
           'This change will take effect immediately for all users with this role.',
@@ -721,13 +722,13 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF9C27B0)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save Changes'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.settings.save'))),
           ),
         ],
       ),
@@ -752,7 +753,7 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.restore_rounded,
             color: Colors.orange, size: 32),
-        title: const Text('Reset to Defaults'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.reset'))),
         content: Text(
           'This will reset the permission set for the $roleName role to '
           'the platform defaults.\n\nYour unsaved edits will be discarded.',
@@ -760,12 +761,12 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reset'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.reset'))),
           ),
         ],
       ),
@@ -1322,7 +1323,7 @@ class _ActionBar extends StatelessWidget {
             TextButton.icon(
               onPressed: hasPendingChanges ? onReset : null,
               icon: const Icon(Icons.restore_rounded, size: 16),
-              label: const Text('Reset'),
+              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.reset'))),
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
@@ -1345,3 +1346,5 @@ class _ActionBar extends StatelessWidget {
     );
   }
 }
+
+

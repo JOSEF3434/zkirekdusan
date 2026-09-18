@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator/domain/creator_enums.dart';
 import 'package:mobile/features/groups/data/group_repository.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
@@ -184,7 +185,7 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
                       color: Colors.white,
                     ),
                   )
-                : const Text('Save Changes'),
+                : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.settings.save'))),
           ),
         ],
         const SizedBox(height: 32),
@@ -221,3 +222,4 @@ class _GroupSettingsTabState extends ConsumerState<GroupSettingsTab> {
     );
   }
 }
+

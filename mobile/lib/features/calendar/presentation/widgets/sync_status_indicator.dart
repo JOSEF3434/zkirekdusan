@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_sync_provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -166,14 +167,14 @@ class SyncStatusIndicator extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sync Options'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.sync),
-              title: const Text('Sync Now'),
-              subtitle: const Text('Upload and download all changes'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
+              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('offline.synced'))),
               onTap: () async {
                 Navigator.pop(context);
                 final manualSync = ref.read(manualSyncProvider);
@@ -189,8 +190,8 @@ class SyncStatusIndicator extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.flash_on),
-              title: const Text('Quick Sync'),
-              subtitle: const Text('Current month only'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
+              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.cache.duration_1_month'))),
               onTap: () async {
                 Navigator.pop(context);
                 final quickSync = ref.read(quickSyncProvider);
@@ -211,10 +212,12 @@ class SyncStatusIndicator extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.close'))),
           ),
         ],
       ),
     );
   }
 }
+
+

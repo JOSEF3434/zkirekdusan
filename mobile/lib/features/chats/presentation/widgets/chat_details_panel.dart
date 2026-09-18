@@ -3,6 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
@@ -134,7 +135,7 @@ class ChatDetailsPanel extends ConsumerWidget {
                         backgroundColor: const Color(0xFF00C6FF),
                         foregroundColor: Colors.black,
                       ),
-                      child: const Text('Retry'),
+                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
                     ),
                   ],
                 ),
@@ -921,3 +922,4 @@ class _MemberRow extends StatelessWidget {
     );
   }
 }
+

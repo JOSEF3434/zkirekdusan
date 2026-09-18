@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/creator/domain/creator_enums.dart';
@@ -43,7 +44,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Group?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.confirm.delete_title'))),
         content: Text(
           'Are you sure you want to delete "${widget.group.name}"? '
           'This will remove all associated channels and content.',
@@ -51,14 +52,14 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogCtx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: const Text('Delete'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),
@@ -256,8 +257,8 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
               Icons.edit_outlined,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-            title: const Text('Edit Group Details'),
-            subtitle: const Text('Change name, description, or visibility'),
+            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.edit.title'))),
+            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.edit.desc_label'))),
             onTap: _handleEdit,
           ),
 
@@ -268,8 +269,8 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 Icons.video_call_outlined,
                 color: theme.colorScheme.primary,
               ),
-              title: const Text('Upload Video'),
-              subtitle: const Text('Add new video content to this group'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('shell.upload_video'))),
+              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('upload.description_hint'))),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/creator/upload?groupId=${group.id}');
@@ -283,7 +284,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 Icons.people_outline,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              title: const Text('Manage Members'),
+              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.add_members'))),
               subtitle: Text('${group.membersCount} members'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -300,7 +301,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(Icons.sync, color: theme.colorScheme.secondary),
-            title: const Text('Repair & Sync Group'),
+            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
             subtitle: const Text(
               'Ensure creator permissions and channel setup',
             ),
@@ -343,3 +344,5 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
     );
   }
 }
+
+

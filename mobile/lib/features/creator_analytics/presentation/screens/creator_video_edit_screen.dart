@@ -1,6 +1,7 @@
 // lib/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
 import 'package:mobile/features/creator_analytics/domain/update_video_form.dart';
@@ -93,7 +94,7 @@ class _CreatorVideoEditScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Video'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.edit_details'))),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,
@@ -103,7 +104,7 @@ class _CreatorVideoEditScreenState
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Save'),
+                : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
           ),
         ],
       ),
@@ -186,3 +187,5 @@ class _CreatorVideoEditScreenState
     );
   }
 }
+
+

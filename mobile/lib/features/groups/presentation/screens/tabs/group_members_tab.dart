@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/groups/domain/group_enums.dart';
 import 'package:mobile/features/groups/presentation/providers/group_members_provider.dart';
@@ -35,7 +36,7 @@ class GroupMembersTab extends ConsumerWidget {
               onPressed: () => ref
                   .read(groupMembersProvider(groupContext.id).notifier)
                   .refresh(),
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -123,21 +124,21 @@ class GroupMembersTab extends ConsumerWidget {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Remove Member'),
+                    title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.remove_member_title'))),
                     content: Text(
                       'Are you sure you want to remove ${member.displayName ?? member.username ?? "this member"} from the group?',
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
+                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.red,
                         ),
-                        child: const Text('Remove'),
+                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.remove'))),
                       ),
                     ],
                   ),
@@ -173,3 +174,4 @@ class GroupMembersTab extends ConsumerWidget {
     );
   }
 }
+

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:abushakir/abushakir.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
@@ -422,7 +423,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             OutlinedButton.icon(
               onPressed: _isSaving ? null : _pickMedia,
               icon: const Icon(Icons.add_photo_alternate),
-              label: const Text('Add Media'),
+              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.add'))),
             ),
 
             const SizedBox(height: 24),
@@ -435,7 +436,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                     onPressed: _isSaving
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -448,7 +449,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Save'),
+                        : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
                   ),
                 ),
               ],
@@ -459,3 +460,5 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     );
   }
 }
+
+

@@ -3,7 +3,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class TelegramQrSheet extends StatelessWidget {
   final String title;
@@ -101,10 +103,14 @@ class TelegramQrSheet extends StatelessWidget {
                         width: 200,
                         height: 200,
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0E1621) : Colors.white,
+                          color: isDark
+                              ? const Color(0xFF0E1621)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFF00C6FF).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF00C6FF,
+                            ).withValues(alpha: 0.3),
                             width: 2,
                           ),
                         ),
@@ -123,14 +129,18 @@ class TelegramQrSheet extends StatelessWidget {
                         ),
                         child: CircleAvatar(
                           radius: 20,
-                          backgroundColor:
-                              const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                          backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                          backgroundColor: const Color(
+                            0xFF00C6FF,
+                          ).withValues(alpha: 0.2),
+                          backgroundImage:
+                              avatarUrl != null && avatarUrl!.isNotEmpty
                               ? CachedNetworkImageProvider(avatarUrl!)
                               : null,
                           child: avatarUrl == null || avatarUrl!.isEmpty
                               ? Text(
-                                  title.isNotEmpty ? title[0].toUpperCase() : 'U',
+                                  title.isNotEmpty
+                                      ? title[0].toUpperCase()
+                                      : 'U',
                                   style: const TextStyle(
                                     color: Color(0xFF00C6FF),
                                     fontWeight: FontWeight.bold,
@@ -183,10 +193,14 @@ class TelegramQrSheet extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.copy_rounded, size: 18),
-                    label: const Text('Copy Link'),
+                    label: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('common.copy')),
+                    ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          isDark ? Colors.white : const Color(0xFF00C6FF),
+                      foregroundColor: isDark
+                          ? Colors.white
+                          : const Color(0xFF00C6FF),
                       side: BorderSide(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.2)
@@ -212,7 +226,10 @@ class TelegramQrSheet extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.share_rounded, size: 18),
-                    label: const Text('Share QR'),
+                    label: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('profile.qr_and_share')),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF00C6FF),
                       foregroundColor: Colors.black,
@@ -244,7 +261,11 @@ class TelegramQrSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                icon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF00C6FF), size: 20),
+                icon: const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: Color(0xFF00C6FF),
+                  size: 20,
+                ),
                 label: Text(
                   'Scan another QR Code',
                   style: TextStyle(
@@ -289,7 +310,8 @@ class _QrPatternPainter extends CustomPainter {
     // Decorative grid dots
     for (int r = 3; r < 15; r++) {
       for (int c = 3; c < 15; c++) {
-        if ((r >= 7 && r <= 11) && (c >= 7 && c <= 11)) continue; // Center hole for avatar
+        if ((r >= 7 && r <= 11) && (c >= 7 && c <= 11))
+          continue; // Center hole for avatar
         if ((r * 7 + c * 13) % 3 == 0) {
           canvas.drawRRect(
             RRect.fromRectAndRadius(

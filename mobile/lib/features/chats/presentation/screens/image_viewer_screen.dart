@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -9,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
 class ImageViewerScreen extends StatefulWidget {
@@ -84,10 +86,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       );
 
       final file = await DefaultCacheManager().getSingleFile(image.url);
-      await Share.shareXFiles(
-        [XFile(file.path, name: image.originalName, mimeType: image.mimeType)],
-        text: image.originalName,
-      );
+      await Share.shareXFiles([
+        XFile(file.path, name: image.originalName, mimeType: image.mimeType),
+      ], text: image.originalName);
     } catch (_) {
       await Share.share(image.url, subject: image.originalName);
     }
@@ -125,8 +126,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
 
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final sanitizedName = image.originalName.replaceAll(RegExp(r'[^\w\.-]'), '_');
-      final savePath = '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
+      final sanitizedName = image.originalName.replaceAll(
+        RegExp(r'[^\w\.-]'),
+        '_',
+      );
+      final savePath =
+          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
       final file = await DefaultCacheManager().getSingleFile(image.url);
       final savedFile = await file.copy(savePath);
 
@@ -146,9 +151,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
     } finally {
       if (mounted) {
         setState(() => _isDownloading = false);
@@ -165,7 +170,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Delete Image', style: TextStyle(color: Colors.white)),
+        title: Consumer(
+          builder: (_, ref, _) => Text(
+            ref.watch(trProvider)('common.delete'),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
         content: const Text(
           'Are you sure you want to delete this image? This action cannot be undone.',
           style: TextStyle(color: Colors.white70),
@@ -173,12 +183,20 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+            child: Consumer(
+              builder: (_, ref, _) => Text(
+                ref.watch(trProvider)('common.cancel'),
+                style: const TextStyle(color: Colors.white60),
+              ),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Consumer(
+              builder: (_, ref, _) =>
+                  Text(ref.watch(trProvider)('common.delete')),
+            ),
           ),
         ],
       ),
@@ -186,7 +204,11 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
 
     if (confirmed == true && mounted) {
       widget.onDelete?.call(image, _currentIndex);
-      Navigator.pop(context, {'action': 'delete', 'image': image, 'index': _currentIndex});
+      Navigator.pop(context, {
+        'action': 'delete',
+        'image': image,
+        'index': _currentIndex,
+      });
     }
   }
 
@@ -237,8 +259,18 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                   ),
                   child: const Icon(Icons.share, color: Colors.blueAccent),
                 ),
-                title: const Text('Share to other apps', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('Send via WhatsApp, Telegram, etc.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: Consumer(
+                  builder: (_, ref, _) => Text(
+                    ref.watch(trProvider)('common.share'),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                subtitle: Consumer(
+                  builder: (_, ref, _) => Text(
+                    ref.watch(trProvider)('common.share'),
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _shareImage();
@@ -253,8 +285,18 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                   ),
                   child: const Icon(Icons.link, color: Colors.greenAccent),
                 ),
-                title: const Text('Copy Image Link', style: TextStyle(color: Colors.white)),
-                subtitle: Text(image.url, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                title: Consumer(
+                  builder: (_, ref, _) => Text(
+                    ref.watch(trProvider)('common.copy'),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                subtitle: Text(
+                  image.url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: image.url));
                   Navigator.pop(ctx);
@@ -288,7 +330,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(!isStarred ? 'Image starred' : 'Image removed from starred'),
+        content: Text(
+          !isStarred ? 'Image starred' : 'Image removed from starred',
+        ),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -301,7 +345,10 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
         backgroundColor: Colors.black,
         appBar: AppBar(backgroundColor: Colors.black),
         body: const Center(
-          child: Text('No image to display', style: TextStyle(color: Colors.white)),
+          child: Text(
+            'No image to display',
+            style: TextStyle(color: Colors.white),
+          ),
         ),
       );
     }
@@ -323,7 +370,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                 initialScale: PhotoViewComputedScale.contained,
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 2,
-                heroAttributes: PhotoViewHeroAttributes(tag: 'message-image-${image.fileId}'),
+                heroAttributes: PhotoViewHeroAttributes(
+                  tag: 'message-image-${image.fileId}',
+                ),
               );
             },
             itemCount: widget.images.length,
@@ -331,7 +380,8 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
               child: CircularProgressIndicator(
                 value: event == null
                     ? 0
-                    : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 1),
+                    : event.cumulativeBytesLoaded /
+                          (event.expectedTotalBytes ?? 1),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
@@ -366,7 +416,10 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                     const Spacer(),
                     if (widget.images.length > 1)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(16),
@@ -454,8 +507,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
   }
 
   void _showOptionsMenu() {
-    final isStarred =
-        _starredImageIds.contains(widget.images[_currentIndex].fileId);
+    final isStarred = _starredImageIds.contains(
+      widget.images[_currentIndex].fileId,
+    );
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -520,7 +574,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Image Info', style: TextStyle(color: Colors.white)),
+        title: Consumer(
+          builder: (_, ref, _) => Text(
+            ref.watch(trProvider)('dialog.about_title'),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,7 +598,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.white)),
+            child: Consumer(
+              builder: (_, ref, _) => Text(
+                ref.watch(trProvider)('common.close'),
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
           ),
         ],
       ),
@@ -578,10 +642,7 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ],
         ),
@@ -594,10 +655,7 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -610,18 +668,10 @@ class _InfoRow extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
     );

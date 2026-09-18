@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/error/exceptions.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
@@ -85,17 +86,21 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
   List<LiveStreamDto> get _filteredStreams {
     switch (_filter) {
       case 'live':
-        return _streams.where((s) => s.status == LiveStreamStatus.live).toList();
+        return _streams
+            .where((s) => s.status == LiveStreamStatus.live)
+            .toList();
       case 'scheduled':
         return _streams
             .where((s) => s.status == LiveStreamStatus.scheduled)
             .toList();
       case 'ended':
         return _streams
-            .where((s) =>
-                s.status == LiveStreamStatus.ended ||
-                s.status == LiveStreamStatus.vodReady ||
-                s.status == LiveStreamStatus.processing)
+            .where(
+              (s) =>
+                  s.status == LiveStreamStatus.ended ||
+                  s.status == LiveStreamStatus.vodReady ||
+                  s.status == LiveStreamStatus.processing,
+            )
             .toList();
       default:
         return _streams;
@@ -106,7 +111,8 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final channel = widget.activeChannel;
-    final canStream = widget.groupContext.capabilities.canStartLive ||
+    final canStream =
+        widget.groupContext.capabilities.canStartLive ||
         widget.groupContext.capabilities.canUploadVideo;
 
     if (channel == null) {
@@ -117,9 +123,10 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
       floatingActionButton: canStream
           ? FloatingActionButton.extended(
               heroTag: null,
-              onPressed: () => context.push('/live/studio?channelId=${channel.id}'),
+              onPressed: () =>
+                  context.push('/live/studio?channelId=${channel.id}'),
               icon: const Icon(Icons.videocam_outlined),
-              label: const Text('Go Live'),
+              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('shell.go_live'))),
               backgroundColor: const Color(0xFFE53935),
               foregroundColor: Colors.white,
             )
@@ -153,20 +160,20 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? _buildErrorView(theme)
-                      : _filteredStreams.isEmpty
-                          ? _buildEmptyView(theme)
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _filteredStreams.length,
-                              itemBuilder: (ctx, i) {
-                                return _StreamCard(
-                                  stream: _filteredStreams[i],
-                                  canManage: canStream,
-                                  onRefresh: _loadStreams,
-                                );
-                              },
-                            ),
+                  ? _buildErrorView(theme)
+                  : _filteredStreams.isEmpty
+                  ? _buildEmptyView(theme)
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredStreams.length,
+                      itemBuilder: (ctx, i) {
+                        return _StreamCard(
+                          stream: _filteredStreams[i],
+                          canManage: canStream,
+                          onRefresh: _loadStreams,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -199,8 +206,8 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
         color: isSelected
             ? Colors.transparent
             : (isDark
-                ? Colors.white.withValues(alpha: 0.15)
-                : Colors.black.withValues(alpha: 0.1)),
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.1)),
       ),
       onSelected: (_) => setState(() => _filter = key),
     );
@@ -213,12 +220,17 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.live_tv_outlined,
-                size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            Icon(
+              Icons.live_tv_outlined,
+              size: 64,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
             Text(
               'No live streams found',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -243,11 +255,14 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 12),
-            Text(_error ?? 'Failed to load streams', textAlign: TextAlign.center),
+            Text(
+              _error ?? 'Failed to load streams',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: _loadStreams,
-              child: const Text('Retry'),
+              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -271,7 +286,8 @@ class _StreamCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isLive = stream.status == LiveStreamStatus.live;
-    final isEnded = stream.status == LiveStreamStatus.ended ||
+    final isEnded =
+        stream.status == LiveStreamStatus.ended ||
         stream.status == LiveStreamStatus.vodReady;
 
     return Card(
@@ -350,7 +366,9 @@ class _StreamCard extends ConsumerWidget {
                         Row(
                           children: [
                             if (isLive)
-                              ViewerCountWidget(count: stream.currentViewerCount)
+                              ViewerCountWidget(
+                                count: stream.currentViewerCount,
+                              )
                             else if (stream.startedAt != null)
                               Text(
                                 timeago.format(
@@ -389,19 +407,23 @@ class _StreamCard extends ConsumerWidget {
                   children: [
                     if (isLive)
                       FilledButton.icon(
-                        onPressed: () => context.push('/live/room/${stream.id}'),
+                        onPressed: () =>
+                            context.push('/live/room/${stream.id}'),
                         icon: const Icon(Icons.play_arrow, size: 16),
-                        label: const Text('Watch Live'),
+                        label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('live.tab_now'))),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                         ),
                       ),
                     if (isEnded && canManage) ...[
                       OutlinedButton.icon(
                         onPressed: () => _publishVod(context, ref),
                         icon: const Icon(Icons.video_library, size: 16),
-                        label: const Text('Post as Video (VOD)'),
+                        label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.publish_vod'))),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -451,19 +473,19 @@ class _StreamCard extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Stream?'),
+        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.delete_stream_title'))),
         content: const Text(
           'This will permanently delete this stream. This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),
@@ -472,14 +494,11 @@ class _StreamCard extends ConsumerWidget {
     if (confirm == true && context.mounted) {
       try {
         final repo = ref.read(liveStreamingRepositoryProvider);
-        await repo.deleteStream(
-          stream.id,
-          channelId: stream.videoChannelId,
-        );
+        await repo.deleteStream(stream.id, channelId: stream.videoChannelId);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Stream deleted')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Stream deleted')));
           onRefresh();
         }
       } catch (e) {
@@ -492,3 +511,4 @@ class _StreamCard extends ConsumerWidget {
     }
   }
 }
+
