@@ -24,8 +24,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('story.camera_photo')),
                 ),
-                onTap: () =>
-                    Navigator.of(context).pop(_pickImage(ImageSource.camera)),
+                onTap: () async {
+                  final paths = await _pickImage(ImageSource.camera);
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
@@ -33,7 +37,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('story.gallery_photo')),
                 ),
-                onTap: () => Navigator.of(context).pop(_pickMultipleImages()),
+                onTap: () async {
+                  final paths = await _pickMultipleImages();
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.videocam),
@@ -41,8 +50,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('story.video_option')),
                 ),
-                onTap: () =>
-                    Navigator.of(context).pop(_pickVideo(ImageSource.camera)),
+                onTap: () async {
+                  final paths = await _pickVideo(ImageSource.camera);
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.video_library),
@@ -50,8 +63,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('common.video')),
                 ),
-                onTap: () =>
-                    Navigator.of(context).pop(_pickVideo(ImageSource.gallery)),
+                onTap: () async {
+                  final paths = await _pickVideo(ImageSource.gallery);
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.audiotrack),
@@ -59,7 +76,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('chat.attach.audio')),
                 ),
-                onTap: () => Navigator.of(context).pop(_pickAudio()),
+                onTap: () async {
+                  final paths = await _pickAudio();
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.attach_file),
@@ -67,7 +89,12 @@ class MediaPickerSheet extends StatelessWidget {
                   builder: (_, ref, _) =>
                       Text(ref.watch(trProvider)('chat.attach.files')),
                 ),
-                onTap: () => Navigator.of(context).pop(_pickFile()),
+                onTap: () async {
+                  final paths = await _pickFile();
+                  if (context.mounted) {
+                    Navigator.of(context).pop(paths);
+                  }
+                },
               ),
               const Divider(),
               ListTile(

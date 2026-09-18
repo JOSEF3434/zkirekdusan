@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 
 final calendarMediaServiceProvider = Provider<CalendarMediaService>((ref) {
   return CalendarMediaService(ref.watch(apiClientProvider));
@@ -22,7 +23,7 @@ class CalendarMediaService {
   }) async {
     final file = File(filePath);
     final bytes = await file.readAsBytes();
-    final filename = filePath.split(Platform.pathSeparator).last;
+    final filename = p.basename(filePath);
     final mimeType = lookupMimeType(filePath) ?? 'application/octet-stream';
 
     final formData = FormData.fromMap({
@@ -96,16 +97,20 @@ class CalendarMediaService {
     int? order,
     String? caption,
   }) async {
+    final data = <String, dynamic>{};
+    if (order != null) data['order'] = order;
+    if (caption != null) data['caption'] = caption;
+
     final response = await _dio.patch(
       '/calendar/notes/$noteId/media/$mediaId',
-      data: {'order': ?order, 'caption': ?caption},
+      data: data,
     );
 
-    final data = response.data;
-    if (data is Map && data.containsKey('data')) {
-      return data['data'] as Map<String, dynamic>;
-    } else if (data is Map) {
-      return data as Map<String, dynamic>;
+    final responseData = response.data;
+    if (responseData is Map && responseData.containsKey('data')) {
+      return responseData['data'] as Map<String, dynamic>;
+    } else if (responseData is Map) {
+      return responseData as Map<String, dynamic>;
     } else {
       throw Exception('Unexpected response format');
     }

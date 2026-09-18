@@ -1,6 +1,6 @@
 // lib/features/calendar/presentation/widgets/add_note_sheet.dart
-import 'dart:io';
 import 'package:abushakir/abushakir.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
@@ -12,6 +12,10 @@ import 'package:mobile/features/calendar/data/calendar_media_service.dart';
 import 'package:mobile/features/calendar/presentation/widgets/media_picker_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/recurring_reminder_picker.dart';
 import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
+import 'package:path/path.dart' as p;
+
+// Conditional imports for platform-specific code
+import 'dart:io' if (dart.library.html) 'dart:html' as io;
 
 class AddNoteSheet extends ConsumerStatefulWidget {
   final EtDatetime selectedDate;
@@ -56,6 +60,13 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
         widget.existingNote?.reminderRepeat ?? ReminderRepeat.none;
     _reminderHour = widget.existingNote?.reminderHour ?? 8;
     _reminderMinute = widget.existingNote?.reminderMinute ?? 0;
+
+    // Load existing media if editing
+    if (widget.existingNote != null && widget.existingNote!.media.isNotEmpty) {
+      // Note: For editing, we should show existing media URLs, not paths
+      // For now, we'll just track new media additions
+      // You may want to enhance this to show existing media from server
+    }
   }
 
   @override
@@ -216,6 +227,128 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     }
   }
 
+  bool _isImageFile(String path) {
+    final extension = path.toLowerCase().split('.').last;
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
+  }
+
+  bool _isVideoFile(String path) {
+    final extension = path.toLowerCase().split('.').last;
+    return [
+      'mp4',
+      'mov',
+      'avi',
+      'mkv',
+      'wmv',
+      'flv',
+      'webm',
+    ].contains(extension);
+  }
+
+  bool _isAudioFile(String path) {
+    final extension = path.toLowerCase().split('.').last;
+    return [
+      'mp3',
+      'wav',
+      'aac',
+      'flac',
+      'm4a',
+      'ogg',
+      'wma',
+    ].contains(extension);
+  }
+
+  Widget _buildFileIcon(IconData icon, String fileName, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: theme.colorScheme.primary),
+          const SizedBox(height: 8),
+          Text(
+            fileName.length > 15 ? '${fileName.substring(0, 12)}...' : fileName,
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePreview(String path, ThemeData theme, String fileName) {
+    if (kIsWeb) {
+      return Image.network(
+        path,
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildFileIcon(Icons.broken_image, fileName, theme),
+      );
+    } else {
+      try {
+        return Image.file(
+          io.File(path),
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildFileIcon(Icons.broken_image, fileName, theme),
+        );
+      } catch (e) {
+        return _buildFileIcon(Icons.broken_image, fileName, theme);
+      }
+    }
+  }
+
+  Widget _buildVideoPreview(String path, ThemeData theme, String fileName) {
+    Widget thumbnail;
+
+    if (kIsWeb) {
+      thumbnail = Container(
+        width: 120,
+        height: 120,
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: _buildFileIcon(Icons.videocam, fileName, theme),
+      );
+    } else {
+      try {
+        thumbnail = Image.file(
+          io.File(path),
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildFileIcon(Icons.videocam, fileName, theme),
+        );
+      } catch (e) {
+        thumbnail = _buildFileIcon(Icons.videocam, fileName, theme);
+      }
+    }
+
+    return Stack(
+      children: [
+        thumbnail,
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.play_circle_outline,
+              color: Colors.white,
+              size: 48,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -308,41 +441,58 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             // Media section
             if (_selectedMediaPaths.isNotEmpty) ...[
               Text(
-                'Attachments',
+                'Attachments (${_selectedMediaPaths.length})',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: 100,
+                height: 120,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _selectedMediaPaths.length,
                   itemBuilder: (context, index) {
                     final path = _selectedMediaPaths[index];
                     final progress = _uploadProgress[path];
+                    final isImage = _isImageFile(path);
+                    final isVideo = _isVideoFile(path);
+                    final isAudio = _isAudioFile(path);
+                    final fileName = p.basename(path);
 
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Stack(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(path),
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: 100,
-                                    height: 100,
-                                    color: theme
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    child: const Icon(Icons.attach_file),
-                                  ),
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: theme.colorScheme.outline.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: isImage
+                                  ? _buildImagePreview(path, theme, fileName)
+                                  : isVideo
+                                  ? _buildVideoPreview(path, theme, fileName)
+                                  : isAudio
+                                  ? _buildFileIcon(
+                                      Icons.audiotrack,
+                                      fileName,
+                                      theme,
+                                    )
+                                  : _buildFileIcon(
+                                      Icons.insert_drive_file,
+                                      fileName,
+                                      theme,
+                                    ),
                             ),
                           ),
                           if (progress != null && progress < 1.0)
@@ -353,9 +503,27 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Center(
-                                  child: CircularProgressIndicator(
-                                    value: progress,
-                                    backgroundColor: Colors.white24,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        value: progress,
+                                        backgroundColor: Colors.white24,
+                                        valueColor:
+                                            const AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${(progress * 100).toInt()}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -364,17 +532,21 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                             Positioned(
                               top: 4,
                               right: 4,
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
+                              child: Material(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  onTap: () => _removeMedia(index),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
                                 ),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black54,
-                                  padding: const EdgeInsets.all(4),
-                                  minimumSize: const Size(24, 24),
-                                ),
-                                onPressed: () => _removeMedia(index),
                               ),
                             ),
                         ],
@@ -423,7 +595,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             OutlinedButton.icon(
               onPressed: _isSaving ? null : _pickMedia,
               icon: const Icon(Icons.add_photo_alternate),
-              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.add'))),
+              label: Consumer(
+                builder: (_, ref, _) =>
+                    Text(ref.watch(trProvider)('common.add')),
+              ),
             ),
 
             const SizedBox(height: 24),
@@ -436,7 +611,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                     onPressed: _isSaving
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+                    child: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('common.cancel')),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -449,7 +627,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
+                        : Consumer(
+                            builder: (_, ref, _) =>
+                                Text(ref.watch(trProvider)('common.save')),
+                          ),
                   ),
                 ),
               ],
@@ -460,5 +641,3 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     );
   }
 }
-
-
