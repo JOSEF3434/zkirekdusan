@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
@@ -48,7 +49,8 @@ class VideoManagementSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?.id;
-    final isAuthor = currentUserId != null &&
+    final isAuthor =
+        currentUserId != null &&
         (currentUserId == video.author.id ||
             currentUserId == video.uploadedById ||
             authState.user?.role == 'ADMIN' ||
@@ -56,12 +58,12 @@ class VideoManagementSheet extends ConsumerWidget {
     final saveStateMap = ref.watch(saveProvider);
     final isSaved = saveStateMap[video.id] ?? (video.isSaved ?? false);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
     final downloadUrl = video.renditions.isNotEmpty
         ? video.renditions.first.url
         : (video.hlsUrl ?? video.dashUrl);
-    final canDownload = video.isDownloadable &&
-        downloadUrl != null &&
-        downloadUrl.isNotEmpty;
+    final canDownload =
+        video.isDownloadable && downloadUrl != null && downloadUrl.isNotEmpty;
 
     return SafeArea(
       child: Padding(
@@ -96,10 +98,10 @@ class VideoManagementSheet extends ConsumerWidget {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   const Icon(
-                                Icons.play_circle_outline,
-                                size: 18,
-                                color: Colors.white54,
-                              ),
+                                    Icons.play_circle_outline,
+                                    size: 18,
+                                    color: Colors.white54,
+                                  ),
                             )
                           : const Icon(
                               Icons.play_circle_outline,
@@ -123,7 +125,7 @@ class VideoManagementSheet extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '${video.author.displayName ?? video.author.username ?? "Channel"} • ${video.viewsCount} views',
+                          '${video.author.displayName ?? video.author.username ?? tr("video.channel_fallback")} • ${video.viewsCount} views',
                           style: TextStyle(
                             color: theme.colorScheme.onSurfaceVariant,
                             fontSize: 11,
@@ -141,30 +143,31 @@ class VideoManagementSheet extends ConsumerWidget {
             if (isAuthor) ...[
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit Video Details'),
-                subtitle: const Text('Title, description, and visibility'),
+                title: Text(tr('video.edit_details')),
+                subtitle: Text(tr('video.edit_details_subtitle')),
                 onTap: () => _showEditVideoDialog(context, ref),
               ),
               if (video.channelId != null) ...[
                 ListTile(
                   leading: const Icon(Icons.analytics_outlined),
-                  title: const Text('Video Analytics'),
-                  subtitle: const Text('Views, watch time, and engagement'),
+                  title: Text(tr('video.analytics')),
+                  subtitle: Text(tr('video.analytics_subtitle')),
                   onTap: () {
                     Navigator.pop(context);
                     context.push(
                       '/creator/dashboard/channel/${video.channelId}/analytics',
                       extra: {
                         'groupId': '',
-                        'channelName': video.channelName ?? 'Channel',
+                        'channelName':
+                            video.channelName ?? tr('video.channel_fallback'),
                       },
                     );
                   },
                 ),
                 ListTile(
                   leading: const Icon(Icons.comment_outlined),
-                  title: const Text('Moderate Comments'),
-                  subtitle: const Text('Review and filter viewer comments'),
+                  title: Text(tr('video.moderate_comments')),
+                  subtitle: Text(tr('video.moderate_comments_subtitle')),
                   onTap: () {
                     Navigator.pop(context);
                     context.push(
@@ -175,8 +178,11 @@ class VideoManagementSheet extends ConsumerWidget {
               ],
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete Video', style: TextStyle(color: Colors.red)),
-                subtitle: const Text('Permanently delete this video'),
+                title: Text(
+                  tr('video.delete'),
+                  style: const TextStyle(color: Colors.red),
+                ),
+                subtitle: Text(tr('video.delete_subtitle')),
                 onTap: () => _showDeleteConfirmDialog(context, ref),
               ),
               const Divider(height: 16),
@@ -185,7 +191,7 @@ class VideoManagementSheet extends ConsumerWidget {
             // ── Viewer / General Actions ────────────────────────────────────
             ListTile(
               leading: const Icon(Icons.play_circle_outline),
-              title: const Text('Play Video'),
+              title: Text(tr('video.play')),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/video/${video.id}');
@@ -193,30 +199,32 @@ class VideoManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('Download Offline'),
+              title: Text(tr('video.download_offline')),
               enabled: canDownload,
               subtitle: !canDownload
-                  ? const Text('Download disabled for this video')
+                  ? Text(tr('video.download_disabled'))
                   : null,
               onTap: () {
                 Navigator.pop(context);
                 if (canDownload) {
-                  ref.read(downloadServiceProvider.notifier).startDownload(
-                    videoId: video.id,
-                    url: downloadUrl,
-                    title: video.title,
-                    thumbnailUrl: video.thumbnailUrl,
-                  );
+                  ref
+                      .read(downloadServiceProvider.notifier)
+                      .startDownload(
+                        videoId: video.id,
+                        url: downloadUrl,
+                        title: video.title,
+                        thumbnailUrl: video.thumbnailUrl,
+                      );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Starting download...')),
+                      SnackBar(content: Text(tr('video.download_starting'))),
                     );
                   }
                 } else {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Download not available for this video'),
+                      SnackBar(
+                        content: Text(tr('video.download_not_available')),
                       ),
                     );
                   }
@@ -225,8 +233,8 @@ class VideoManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.playlist_add),
-              title: const Text('Save to Playlist'),
-              subtitle: const Text('Add or remove from your playlists'),
+              title: Text(tr('video.save_to_playlist')),
+              subtitle: Text(tr('video.save_to_playlist_subtitle')),
               onTap: () {
                 Navigator.pop(context);
                 SaveToPlaylistSheet.show(
@@ -241,16 +249,24 @@ class VideoManagementSheet extends ConsumerWidget {
                 isSaved ? Icons.bookmark : Icons.bookmark_border,
                 color: isSaved ? Colors.amber : null,
               ),
-              title: Text(isSaved ? 'Remove from Saved' : 'Save / Bookmark Video'),
-              subtitle: const Text('Save to your watch later & bookmarks'),
+              title: Text(
+                isSaved
+                    ? tr('video.remove_from_saved')
+                    : tr('video.save_bookmark'),
+              ),
+              subtitle: Text(tr('video.save_watch_later')),
               onTap: () async {
                 Navigator.pop(context);
-                await ref.read(saveProvider.notifier).toggleSave(video.id, isVideo: true);
+                await ref
+                    .read(saveProvider.notifier)
+                    .toggleSave(video.id, isVideo: true);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        isSaved ? 'Removed from saved' : 'Saved to library',
+                        isSaved
+                            ? tr('video.removed_from_saved')
+                            : tr('video.saved_to_library_msg'),
                       ),
                     ),
                   );
@@ -259,7 +275,7 @@ class VideoManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Share Video'),
+              title: Text(tr('video.share')),
               onTap: () {
                 Navigator.pop(context);
                 ShareButton(postId: video.id, title: video.title);
@@ -267,14 +283,16 @@ class VideoManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('Copy Link'),
+              title: Text(tr('common.copy')),
               onTap: () {
                 Navigator.pop(context);
                 Clipboard.setData(
-                  ClipboardData(text: 'https://zikrekidusan.onrender.com/video/${video.id}'),
+                  ClipboardData(
+                    text: 'https://zikrekidusan.onrender.com/video/${video.id}',
+                  ),
                 );
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Video link copied to clipboard')),
+                  SnackBar(content: Text(tr('video.link_copied'))),
                 );
               },
             ),
@@ -285,31 +303,32 @@ class VideoManagementSheet extends ConsumerWidget {
   }
 
   void _showEditVideoDialog(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     final titleController = TextEditingController(text: video.title);
     final descController = TextEditingController(text: video.description ?? '');
 
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Video Details'),
+        title: Text(tr('video.edit_details')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Video Title',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('video.title_label'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('common.description'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
@@ -318,7 +337,7 @@ class VideoManagementSheet extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -335,31 +354,29 @@ class VideoManagementSheet extends ConsumerWidget {
                 if (channelId != null && channelId.isNotEmpty) {
                   await dio.patch(
                     '/video-channels/$channelId/videos/${video.id}',
-                    data: {
-                      'title': newTitle,
-                      'description': newDesc,
-                    },
+                    data: {'title': newTitle, 'description': newDesc},
                   );
                 } else {
                   await dio.patch(
                     '/videos/${video.id}',
-                    data: {
-                      'title': newTitle,
-                      'description': newDesc,
-                    },
+                    data: {'title': newTitle, 'description': newDesc},
                   );
                 }
                 onVideoUpdated?.call();
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Video updated successfully')),
+                  SnackBar(content: Text(tr('video.updated'))),
                 );
               } catch (e) {
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to update video: $e')),
+                  SnackBar(
+                    content: Text(
+                      tr('video.update_failed', {'error': e.toString()}),
+                    ),
+                  ),
                 );
               }
             },
-            child: const Text('Save'),
+            child: Text(tr('common.save')),
           ),
         ],
       ),
@@ -367,18 +384,17 @@ class VideoManagementSheet extends ConsumerWidget {
   }
 
   void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Video?'),
-        content: Text(
-          'Are you sure you want to delete "${video.title}"? This action cannot be undone.',
-        ),
+        title: Text(tr('video.delete_confirm')),
+        content: Text(tr('video.delete_confirm_msg', {'title': video.title})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -392,15 +408,19 @@ class VideoManagementSheet extends ConsumerWidget {
                 await repo.deleteVideo(video.id, channelId: video.channelId);
                 onVideoDeleted?.call();
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Video deleted successfully')),
+                  SnackBar(content: Text(tr('video.deleted'))),
                 );
               } catch (e) {
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to delete video: $e')),
+                  SnackBar(
+                    content: Text(
+                      tr('video.delete_failed', {'error': e.toString()}),
+                    ),
+                  ),
                 );
               }
             },
-            child: const Text('Delete'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),

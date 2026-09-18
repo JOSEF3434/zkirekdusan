@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/social/presentation/providers/comments_provider.dart';
 
 class CommentsSheet extends ConsumerStatefulWidget {
@@ -13,7 +14,11 @@ class CommentsSheet extends ConsumerStatefulWidget {
   @override
   ConsumerState<CommentsSheet> createState() => _CommentsSheetState();
 
-  static void show(BuildContext context, String postId, {bool isVideo = false}) {
+  static void show(
+    BuildContext context,
+    String postId, {
+    bool isVideo = false,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -52,7 +57,6 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   void _submitComment() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
-
     ref.read(commentsProvider(_arg).notifier).createComment(text);
     _textController.clear();
     FocusScope.of(context).unfocus();
@@ -62,6 +66,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final commentsAsync = ref.watch(commentsProvider(_arg));
+    final tr = ref.watch(trProvider);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -95,7 +100,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Comments',
+                      tr('comments.title'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -114,9 +119,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                 child: commentsAsync.when(
                   data: (state) {
                     if (state.comments.isEmpty) {
-                      return const Center(
-                        child: Text('No comments yet. Be the first!'),
-                      );
+                      return Center(child: Text(tr('comments.empty')));
                     }
                     return ListView.builder(
                       controller: scrollController,
@@ -157,7 +160,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                               Text(
                                 comment.author.displayName ??
                                     comment.author.username ??
-                                    'User',
+                                    tr('common.user'),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -193,7 +196,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, stack) =>
-                      Center(child: Text('Failed to load comments: $error')),
+                      Center(child: Text(tr('comments.failed'))),
                 ),
               ),
 
@@ -212,7 +215,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                       child: TextField(
                         controller: _textController,
                         decoration: InputDecoration(
-                          hintText: 'Add a comment...',
+                          hintText: tr('comments.hint'),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
@@ -294,7 +297,6 @@ class _CommentLikeButtonState extends State<_CommentLikeButton>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: _handleTap,
       borderRadius: BorderRadius.circular(16),

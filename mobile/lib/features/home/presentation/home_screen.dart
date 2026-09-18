@@ -278,20 +278,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     builder: (context, ref, _) {
                       final auth = ref.watch(authProvider);
                       final isAuth = auth.status == AuthStatus.authenticated;
-                      final profile = isAuth ? ref.watch(profileProvider).profile : null;
+                      final profile = isAuth
+                          ? ref.watch(profileProvider).profile
+                          : null;
                       final avatarUrl = profile?.avatarUrl;
-                      final resolvedAvatar = avatarUrl != null && avatarUrl.isNotEmpty
+                      final resolvedAvatar =
+                          avatarUrl != null && avatarUrl.isNotEmpty
                           ? MediaUrlResolver.resolve(avatarUrl)
                           : null;
 
                       return IconButton(
                         tooltip: tr('nav.profile'),
-                        icon: resolvedAvatar != null && resolvedAvatar.isNotEmpty
+                        icon:
+                            resolvedAvatar != null && resolvedAvatar.isNotEmpty
                             ? CircleAvatar(
                                 radius: 13,
-                                backgroundImage: AppNetworkImage.provider(resolvedAvatar),
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                                backgroundImage: AppNetworkImage.provider(
+                                  resolvedAvatar,
+                                ),
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                               )
                             : const Icon(Icons.account_circle_outlined),
                         onPressed: () {
@@ -334,9 +341,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   tabs: [
                     Tab(text: tr('home.recommended')),
-                    const Tab(text: 'Latest'),
+                    Tab(text: tr('home.latest')),
                     if (isAuthenticated) Tab(text: tr('home.subscriptions')),
-                    const Tab(text: 'Explore'),
+                    Tab(text: tr('home.explore_tab')),
                   ],
                 ),
               ),
@@ -474,11 +481,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           return subStateAsync.when(
                             data: (state) {
                               if (state.videos.isEmpty) {
-                                return const SliverFillRemaining(
+                                return SliverFillRemaining(
                                   child: Center(
-                                    child: Text(
-                                      'No recent videos from your subscriptions',
-                                    ),
+                                    child: Text(tr('home.no_subscriptions')),
                                   ),
                                 );
                               }
@@ -557,8 +562,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: isSelected
                   ? Colors.transparent
                   : (isDark
-                      ? Colors.white.withValues(alpha: 0.15)
-                      : Colors.black.withValues(alpha: 0.1)),
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.1)),
             ),
             label: Text(
               cat.label,
@@ -583,6 +588,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     String? error,
     bool isRec,
   ) {
+    final tr = ref.read(trProvider);
     if (videos.isEmpty && !isLoadingMore) {
       if (isRec) {
         return SliverFillRemaining(
@@ -609,7 +615,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'No recommendations yet',
+                    tr('home.no_recommendations'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -617,7 +623,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Check back soon — as you watch and interact with videos, we\'ll recommend content tailored for you.',
+                    tr('home.no_recommendations_desc'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).textTheme.bodySmall?.color,
@@ -643,7 +649,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ).colorScheme.primary.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
-              const Text('No videos found'),
+              Text(tr('home.no_videos')),
             ],
           ),
         ),
@@ -665,11 +671,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                const Text('Failed to load more videos.'),
+                Text(tr('home.load_more_failed')),
                 TextButton(
                   onPressed: () =>
                       ref.read(videoFeedProvider.notifier).loadMore(),
-                  child: const Text('Retry'),
+                  child: Text(tr('common.retry')),
                 ),
               ],
             ),
@@ -686,6 +692,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildErrorState(String error, ThemeData theme) {
+    final tr = ref.read(trProvider);
     final connectivity = ref.watch(connectivityProvider);
     final downloadState = ref.watch(downloadServiceProvider);
     final downloads = downloadState.downloads.values.toList();
@@ -712,14 +719,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                'Unable to load content',
+                tr('home.unable_to_load'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Could not load videos from server. Pull down to refresh or tap Retry.',
+                tr('home.unable_to_load_desc'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -729,7 +736,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               FilledButton.icon(
                 onPressed: _onRefresh,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -742,6 +749,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     List<DownloadMetadata> downloads,
     ThemeData theme,
   ) {
+    final tr = ref.read(trProvider);
     if (downloads.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -759,7 +767,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No Connection • Offline Mode',
+                  tr('offline.mode_title'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -767,7 +775,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Download videos while online to watch them anytime offline without data.',
+                  tr('offline.mode_desc'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -777,7 +785,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 FilledButton.icon(
                   onPressed: _onRefresh,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry Connection'),
+                  label: Text(tr('offline.retry_connection')),
                 ),
               ],
             ),
@@ -809,16 +817,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 color: Colors.orange,
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Offline Mode • Showing your downloads',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  tr('offline.showing_downloads'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               TextButton.icon(
                 onPressed: _onRefresh,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                label: Text(
+                  tr('common.retry'),
+                  style: const TextStyle(fontSize: 12),
+                ),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: const Size(50, 32),
@@ -834,9 +848,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Your downloads',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                tr('offline.your_downloads'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 '${downloads.length} video(s)',
@@ -857,6 +874,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildOfflineVideoTile(DownloadMetadata item, ThemeData theme) {
+    final tr = ref.read(trProvider);
     final sizeMb = (item.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
 
     return Card(
@@ -969,7 +987,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '$sizeMb MB • Offline ready',
+                          tr('video.size_mb', {'size': sizeMb}),
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurfaceVariant,
@@ -995,6 +1013,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _showOfflineVideoOptions(DownloadMetadata item) {
+    final tr = ref.read(trProvider);
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -1006,7 +1025,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Icons.play_circle_outline,
                 color: Colors.teal,
               ),
-              title: const Text('Play Offline'),
+              title: Text(tr('offline.play')),
               onTap: () {
                 Navigator.of(ctx).pop();
                 context.push('/video/${item.videoId}');
@@ -1014,7 +1033,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete from downloads'),
+              title: Text(tr('offline.delete')),
               onTap: () {
                 Navigator.of(ctx).pop();
                 ref

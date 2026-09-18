@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:mobile/features/stories/data/datasources/stories_remote_datasource.dart';
 import 'package:mobile/features/stories/data/models/story_reaction_model.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class StoryReactionsSheet extends ConsumerStatefulWidget {
   final String storyId;
@@ -57,6 +58,7 @@ class _StoryReactionsSheetState extends ConsumerState<StoryReactionsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Container(
       height: MediaQuery.sizeOf(context).height * 0.6,
@@ -124,7 +126,7 @@ class _StoryReactionsSheetState extends ConsumerState<StoryReactionsSheet> {
 
                 final reactions = snapshot.data ?? [];
                 if (reactions.isEmpty) {
-                  return const Center(child: Text('No reactions yet'));
+                  return Center(child: Text(tr('stories.no_reactions')));
                 }
 
                 return ListView.builder(

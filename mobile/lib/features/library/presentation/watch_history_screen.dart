@@ -30,19 +30,19 @@ class WatchHistoryScreen extends ConsumerWidget {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Clear Watch History?'),
-                    content: const Text(
-                      'This will clear your watch history from all devices.',
-                    ),
+                    title: Text(tr('library.clear_history_title')),
+                    content: Text(tr('library.clear_history_msg')),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
+                        child: Text(tr('common.cancel')),
                       ),
                       FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Clear History'),
+                        child: Text(tr('library.clear_history_btn')),
                       ),
                     ],
                   ),
@@ -54,13 +54,19 @@ class WatchHistoryScreen extends ConsumerWidget {
                     ref.invalidate(watchHistoryProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Watch history cleared')),
+                        SnackBar(content: Text(tr('library.history_cleared'))),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to clear: $e')),
+                        SnackBar(
+                          content: Text(
+                            tr('library.history_clear_failed', {
+                              'error': e.toString(),
+                            }),
+                          ),
+                        ),
                       );
                     }
                   }
@@ -68,13 +74,20 @@ class WatchHistoryScreen extends ConsumerWidget {
               }
             },
             itemBuilder: (ctx) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_sweep_outlined, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
-                    Text('Clear all watch history', style: TextStyle(color: Colors.red)),
+                    const Icon(
+                      Icons.delete_sweep_outlined,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('library.clear_all_history'),
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ],
                 ),
               ),
@@ -100,13 +113,15 @@ class WatchHistoryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No watch history yet',
+                      tr('library.no_history'),
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Videos you watch will show up here.',
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                      tr('library.no_history_desc'),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -119,7 +134,10 @@ class WatchHistoryScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final video = response.data[index];
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
@@ -134,19 +152,28 @@ class WatchHistoryScreen extends ConsumerWidget {
                               video.thumbnailUrl!,
                               fit: BoxFit.cover,
                               errorBuilder: (ctx, err, stack) => const Center(
-                                child: Icon(Icons.play_circle_outline, color: Colors.white54),
+                                child: Icon(
+                                  Icons.play_circle_outline,
+                                  color: Colors.white54,
+                                ),
                               ),
                             )
                           else
                             const Center(
-                              child: Icon(Icons.play_circle_outline, color: Colors.white54),
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white54,
+                              ),
                             ),
                           if (video.duration > 0)
                             Positioned(
                               bottom: 4,
                               right: 4,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black87,
                                   borderRadius: BorderRadius.circular(3),
@@ -169,10 +196,13 @@ class WatchHistoryScreen extends ConsumerWidget {
                     video.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                   subtitle: Text(
-                    '${video.author.displayName ?? video.author.username ?? "Channel"} • ${video.viewsCount} views',
+                    '${video.author.displayName ?? video.author.username ?? tr("video.channel_fallback")} • ${video.viewsCount} views',
                     style: TextStyle(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 11,
@@ -184,8 +214,10 @@ class WatchHistoryScreen extends ConsumerWidget {
                       VideoManagementSheet.show(
                         context,
                         video: video,
-                        onVideoDeleted: () => ref.invalidate(watchHistoryProvider),
-                        onVideoUpdated: () => ref.invalidate(watchHistoryProvider),
+                        onVideoDeleted: () =>
+                            ref.invalidate(watchHistoryProvider),
+                        onVideoUpdated: () =>
+                            ref.invalidate(watchHistoryProvider),
                       );
                     },
                   ),
@@ -204,19 +236,22 @@ class WatchHistoryScreen extends ConsumerWidget {
                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                   const SizedBox(height: 12),
                   Text(
-                    'Failed to load watch history',
+                    tr('library.history_load_failed'),
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     err.toString(),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.tonal(
                     onPressed: () => ref.invalidate(watchHistoryProvider),
-                    child: const Text('Retry'),
+                    child: Text(tr('common.retry')),
                   ),
                 ],
               ),

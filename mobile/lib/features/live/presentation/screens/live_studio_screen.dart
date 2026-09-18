@@ -21,6 +21,7 @@ import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 // ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
 
@@ -30,8 +31,7 @@ class LiveStudioChannelItem {
 
   const LiveStudioChannelItem({required this.channel, required this.group});
 
-  String get displayName =>
-      channel.name.isNotEmpty ? channel.name : group.name;
+  String get displayName => channel.name.isNotEmpty ? channel.name : group.name;
   String get groupName => group.name;
   String? get avatarUrl =>
       channel.avatarUrl ?? group.avatarUrl ?? group.coverUrl;
@@ -144,8 +144,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     try {
       final repo = ref.read(uploadRepositoryProvider);
       final groups = await repo.getMyGroups();
-      final activeGroups =
-          groups.where((g) => g.status == 'ACTIVE').toList();
+      final activeGroups = groups.where((g) => g.status == 'ACTIVE').toList();
 
       final List<LiveStudioChannelItem> items = [];
       final Set<String> seenIds = {};
@@ -166,12 +165,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           _availableChannels = items;
           _loadingChannels = false;
           if (widget.channelId != null) {
-            _selectedChannelItem = items.cast<LiveStudioChannelItem?>().firstWhere(
+            _selectedChannelItem = items
+                .cast<LiveStudioChannelItem?>()
+                .firstWhere(
                   (it) => it?.channel.id == widget.channelId,
                   orElse: () => null,
                 );
           } else if (_selectedChannelItem != null) {
-            _selectedChannelItem = items.cast<LiveStudioChannelItem?>().firstWhere(
+            _selectedChannelItem = items
+                .cast<LiveStudioChannelItem?>()
+                .firstWhere(
                   (it) => it?.channel.id == _selectedChannelItem!.channel.id,
                   orElse: () => items.isNotEmpty ? items.first : null,
                 );
@@ -212,11 +215,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // ─── Setup page (create stream) ────────────────────────────────────────────
 
   Widget _buildSetupPage(BuildContext context) {
+    final tr = ref.read(trProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Set Up Stream'),
+        title: Text(tr('live.setup_title')),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -227,9 +231,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Stream Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            Text(
+              tr('live.stream_details'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 20),
 
@@ -242,10 +246,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             // Title
             TextField(
               controller: _titleCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Title *',
-                hintText: 'Give your stream a title',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('live.stream_title_label'),
+                hintText: tr('live.stream_title_hint'),
+                border: const OutlineInputBorder(),
               ),
               maxLength: 300,
             ),
@@ -254,31 +258,31 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             // Description
             TextField(
               controller: _descCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Tell viewers what your stream is about',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('live.description_label'),
+                hintText: tr('live.description_hint'),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
               maxLength: 500,
             ),
             // Stream Type Selector (Video with Camera vs Audio-Only)
-            const Text(
-              'Stream Mode',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            Text(
+              tr('live.stream_mode'),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 8),
             SegmentedButton<bool>(
-              segments: const [
+              segments: [
                 ButtonSegment<bool>(
                   value: true,
-                  icon: Icon(Icons.videocam_outlined),
-                  label: Text('Video Stream'),
+                  icon: const Icon(Icons.videocam_outlined),
+                  label: Text(tr('live.video_stream')),
                 ),
                 ButtonSegment<bool>(
                   value: false,
-                  icon: Icon(Icons.mic_outlined),
-                  label: Text('Audio-Only'),
+                  icon: const Icon(Icons.mic_outlined),
+                  label: Text(tr('live.audio_only')),
                 ),
               ],
               selected: {_isVideoStream},
@@ -290,14 +294,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
             // Options
             SwitchListTile(
-              title: const Text('Enable Chat'),
-              subtitle: const Text('Allow viewers to send messages'),
+              title: Text(tr('live.enable_chat')),
+              subtitle: Text(tr('live.enable_chat_desc')),
               value: _isChatEnabled,
               onChanged: (v) => setState(() => _isChatEnabled = v),
             ),
             SwitchListTile(
-              title: const Text('Enable Recording'),
-              subtitle: const Text('Save stream as VOD after ending'),
+              title: Text(tr('live.enable_recording')),
+              subtitle: Text(tr('live.enable_recording_desc')),
               value: _isRecordingEnabled,
               onChanged: (v) => setState(() => _isRecordingEnabled = v),
             ),
@@ -317,7 +321,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _isCreating || _loadingChannels ? null : _createStream,
+                onPressed: _isCreating || _loadingChannels
+                    ? null
+                    : _createStream,
                 icon: _isCreating
                     ? const SizedBox(
                         width: 16,
@@ -328,7 +334,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         ),
                       )
                     : const Icon(Icons.live_tv),
-                label: const Text('Create Stream'),
+                label: Text(tr('live.create_stream')),
               ),
             ),
           ],
@@ -338,15 +344,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   }
 
   Widget _buildChannelPicker(ThemeData theme) {
+    final tr = ref.read(trProvider);
     if (_loadingChannels && _availableChannels.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 24),
         alignment: Alignment.center,
-        child: const Column(
+        child: Column(
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Loading your channels…', style: TextStyle(fontSize: 13)),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 12),
+            Text(
+              tr('live.loading_channels'),
+              style: const TextStyle(fontSize: 13),
+            ),
           ],
         ),
       );
@@ -372,7 +382,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             ),
             FilledButton.tonal(
               onPressed: _loadChannels,
-              child: const Text('Retry'),
+              child: Text(tr('common.retry')),
             ),
           ],
         ),
@@ -384,7 +394,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.6,
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
@@ -399,21 +411,31 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     color: theme.colorScheme.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.live_tv, color: theme.colorScheme.primary, size: 24),
+                  child: Icon(
+                    Icons.live_tv,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Create a Channel to Go Live',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      Text(
+                        tr('live.create_channel_to_live'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'You need a channel to broadcast live streams.',
-                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                        tr('live.need_channel'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -425,7 +447,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               width: double.infinity,
               child: FilledButton.icon(
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Create Channel'),
+                label: Text(tr('creator.create_channel_btn')),
                 onPressed: () async {
                   await context.push('/creator/create-group');
                   _loadChannels();
@@ -450,7 +472,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Broadcast Channel',
+              tr('live.broadcast_channel'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -464,18 +486,22 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                child: const Text('Switch channel'),
+                child: Text(tr('live.switch_channel')),
               ),
           ],
         ),
         const SizedBox(height: 6),
         InkWell(
-          onTap: _availableChannels.length > 1 ? _showChannelSwitcherSheet : null,
+          onTap: _availableChannels.length > 1
+              ? _showChannelSwitcherSheet
+              : null,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.5,
+              ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
@@ -484,11 +510,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: theme.colorScheme.primaryContainer,
-                  backgroundImage: selected.avatarUrl != null &&
+                  backgroundImage:
+                      selected.avatarUrl != null &&
                           selected.avatarUrl!.isNotEmpty
                       ? NetworkImage(selected.avatarUrl!)
                       : null,
-                  child: selected.avatarUrl == null || selected.avatarUrl!.isEmpty
+                  child:
+                      selected.avatarUrl == null || selected.avatarUrl!.isEmpty
                       ? Text(
                           initial,
                           style: TextStyle(
@@ -518,14 +546,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1.5),
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: 0.12),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'CHANNEL',
+                              tr('live.channel_badge'),
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
@@ -566,22 +597,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   }
 
   Future<bool> _confirmAndDeleteChannel(LiveStudioChannelItem item) async {
+    final tr = ref.read(trProvider);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (alertCtx) => AlertDialog(
-        title: const Text('Delete Channel?'),
+        title: Text(tr('live.delete_channel_title')),
         content: Text(
-          'Are you sure you want to delete "${item.displayName}"? This channel will be permanently removed.',
+          tr('live.delete_channel_msg', {'name': item.displayName}),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(alertCtx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(alertCtx).pop(true),
-            child: const Text('Delete'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -591,25 +623,40 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     try {
       final dio = ref.read(apiClientProvider);
-      await dio.delete('/groups/${item.group.id}/video-channels/${item.channel.id}');
+      await dio.delete(
+        '/groups/${item.group.id}/video-channels/${item.channel.id}',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Channel "${item.displayName}" deleted.')),
+          SnackBar(
+            content: Text(
+              tr('live.channel_deleted', {'name': item.displayName}),
+            ),
+          ),
         );
         setState(() {
-          _availableChannels.removeWhere((c) => c.channel.id == item.channel.id);
+          _availableChannels.removeWhere(
+            (c) => c.channel.id == item.channel.id,
+          );
           if (_selectedChannelItem?.channel.id == item.channel.id) {
-            _selectedChannelItem =
-                _availableChannels.isNotEmpty ? _availableChannels.first : null;
+            _selectedChannelItem = _availableChannels.isNotEmpty
+                ? _availableChannels.first
+                : null;
           }
         });
         return true;
       }
     } catch (e) {
       if (mounted) {
-        final msg = e.toString().replaceFirst('Exception: ', '').replaceFirst('AppException: ', '');
+        final msg = e
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('AppException: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete channel: $msg'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(tr('live.channel_delete_failed', {'error': msg})),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -623,11 +670,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       return;
     }
 
+    final tr = ref.read(trProvider);
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final handleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String selectedGroupId = _selectedChannelItem?.group.id ?? _myGroups.first.id;
+    String selectedGroupId =
+        _selectedChannelItem?.group.id ?? _myGroups.first.id;
     bool isSubmitting = false;
     String? createErr;
 
@@ -636,7 +685,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('Create Video Channel'),
+            title: Text(tr('live.create_video_channel')),
             content: SingleChildScrollView(
               child: Form(
                 key: formKey,
@@ -649,38 +698,55 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
                           createErr!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     if (_myGroups.length > 1) ...[
                       DropdownButtonFormField<String>(
                         initialValue: selectedGroupId,
-                        decoration: const InputDecoration(
-                          labelText: 'Select Group',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: tr('live.select_group'),
+                          border: const OutlineInputBorder(),
                         ),
-                        items: _myGroups.map((g) => DropdownMenuItem(
-                          value: g.id,
-                          child: Text(g.name, overflow: TextOverflow.ellipsis),
-                        )).toList(),
+                        items: _myGroups
+                            .map(
+                              (g) => DropdownMenuItem(
+                                value: g.id,
+                                child: Text(
+                                  g.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) {
-                          if (val != null) setDialogState(() => selectedGroupId = val);
+                          if (val != null) {
+                            setDialogState(() => selectedGroupId = val);
+                          }
                         },
                       ),
                       const SizedBox(height: 12),
                     ],
                     TextFormField(
                       controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Channel Name *',
-                        hintText: 'e.g. My Broadcast Channel',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: tr('live.channel_name_label'),
+                        hintText: tr('live.channel_name_hint'),
+                        border: const OutlineInputBorder(),
                       ),
-                      validator: (val) =>
-                          val == null || val.trim().isEmpty ? 'Name is required' : null,
+                      validator: (val) => val == null || val.trim().isEmpty
+                          ? tr('live.channel_name_required')
+                          : null,
                       onChanged: (val) {
-                        if (handleCtrl.text.isEmpty || handleCtrl.text.startsWith('@')) {
-                          final clean = val.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+                        if (handleCtrl.text.isEmpty ||
+                            handleCtrl.text.startsWith('@')) {
+                          final clean = val.trim().toLowerCase().replaceAll(
+                            RegExp(r'[^a-z0-9_]'),
+                            '_',
+                          );
                           handleCtrl.text = clean.isNotEmpty ? '@$clean' : '';
                         }
                       },
@@ -688,24 +754,28 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: handleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Handle *',
-                        hintText: '@channel_handle',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: tr('live.handle_label'),
+                        hintText: tr('live.handle_hint'),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Handle is required';
-                        if (!val.startsWith('@')) return 'Handle must start with @';
-                        if (val.length < 3) return 'Handle too short';
+                        if (val == null || val.trim().isEmpty) {
+                          return tr('live.handle_required');
+                        }
+                        if (!val.startsWith('@')) {
+                          return tr('live.handle_must_start');
+                        }
+                        if (val.length < 3) return tr('live.handle_too_short');
                         return null;
                       },
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (Optional)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: tr('live.description_optional'),
+                        border: const OutlineInputBorder(),
                       ),
                       maxLines: 2,
                     ),
@@ -715,8 +785,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
-                child: const Text('Cancel'),
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogCtx).pop(),
+                child: Text(tr('common.cancel')),
               ),
               FilledButton(
                 onPressed: isSubmitting
@@ -731,7 +803,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                           final dio = ref.read(apiClientProvider);
                           final name = nameCtrl.text.trim();
                           final rawHandle = handleCtrl.text.trim();
-                          final slug = '${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '-')}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+                          final slug =
+                              '${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '-')}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
                           final resp = await dio.post(
                             '/groups/$selectedGroupId/video-channels',
                             data: {
@@ -744,7 +817,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                               'downloadPermission': 'PUBLIC',
                             },
                           );
-                          final newChannel = VideoChannelDto.fromJson(parseEnvelope(resp.data));
+                          final newChannel = VideoChannelDto.fromJson(
+                            parseEnvelope(resp.data),
+                          );
                           final group = _myGroups.firstWhere(
                             (g) => g.id == selectedGroupId,
                             orElse: () => _myGroups.first,
@@ -764,7 +839,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         } catch (e) {
                           setDialogState(() {
                             isSubmitting = false;
-                            createErr = e.toString().replaceFirst('Exception: ', '').replaceFirst('AppException: ', '');
+                            createErr = e
+                                .toString()
+                                .replaceFirst('Exception: ', '')
+                                .replaceFirst('AppException: ', '');
                           });
                         }
                       },
@@ -772,9 +850,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Text('Create'),
+                    : Text(tr('common.create')),
               ),
             ],
           );
@@ -802,7 +883,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               if (query.isEmpty) return true;
               return item.displayName.toLowerCase().contains(query) ||
                   item.groupName.toLowerCase().contains(query) ||
-                  (item.handle != null && item.handle!.toLowerCase().contains(query));
+                  (item.handle != null &&
+                      item.handle!.toLowerCase().contains(query));
             }).toList();
 
             return SafeArea(
@@ -830,7 +912,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 4,
+                        ),
                         child: Row(
                           children: [
                             const Expanded(
@@ -872,7 +957,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                 vertical: 10,
                               ),
                               filled: true,
-                              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                              fillColor: theme
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.5),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide.none,
@@ -900,38 +988,40 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                             : ListView.separated(
                                 shrinkWrap: true,
                                 itemCount: filtered.length,
-                                separatorBuilder: (_, _) => const Divider(
-                                  height: 1,
-                                  indent: 68,
-                                ),
+                                separatorBuilder: (_, _) =>
+                                    const Divider(height: 1, indent: 68),
                                 itemBuilder: (context, i) {
                                   final item = filtered[i];
                                   final isSelected =
                                       _selectedChannelItem?.channel.id ==
-                                          item.channel.id;
+                                      item.channel.id;
                                   final initial = item.displayName.isNotEmpty
                                       ? item.displayName[0].toUpperCase()
                                       : '?';
 
                                   return ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(
-                                            horizontal: 16, vertical: 4),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 4,
+                                    ),
                                     leading: CircleAvatar(
                                       radius: 20,
                                       backgroundColor:
                                           theme.colorScheme.primaryContainer,
-                                      backgroundImage: item.avatarUrl != null &&
+                                      backgroundImage:
+                                          item.avatarUrl != null &&
                                               item.avatarUrl!.isNotEmpty
                                           ? NetworkImage(item.avatarUrl!)
                                           : null,
-                                      child: item.avatarUrl == null ||
+                                      child:
+                                          item.avatarUrl == null ||
                                               item.avatarUrl!.isEmpty
                                           ? Text(
                                               initial,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                color: theme.colorScheme
+                                                color: theme
+                                                    .colorScheme
                                                     .onPrimaryContainer,
                                               ),
                                             )
@@ -983,7 +1073,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                               Icons.group_outlined,
                                               size: 13,
                                               color: theme
-                                                  .colorScheme.onSurfaceVariant,
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
                                             ),
                                             const SizedBox(width: 4),
                                             Expanded(
@@ -991,7 +1082,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                                 item.groupName,
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  color: theme.colorScheme
+                                                  color: theme
+                                                      .colorScheme
                                                       .onSurfaceVariant,
                                                 ),
                                                 maxLines: 1,
@@ -1011,14 +1103,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                       ),
                                       tooltip: 'Delete channel',
                                       onPressed: () async {
-                                        final deleted = await _confirmAndDeleteChannel(item);
+                                        final deleted =
+                                            await _confirmAndDeleteChannel(
+                                              item,
+                                            );
                                         if (deleted) {
                                           setSheetState(() {});
                                         }
                                       },
                                     ),
                                     onTap: () {
-                                      setState(() => _selectedChannelItem = item);
+                                      setState(
+                                        () => _selectedChannelItem = item,
+                                      );
                                       Navigator.of(ctx).pop();
                                     },
                                   );
@@ -1030,14 +1127,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.1,
+                            ),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.add,
-                              color: theme.colorScheme.primary, size: 20),
+                          child: Icon(
+                            Icons.add,
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
                         ),
-                        title: const Text('Create new channel',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        title: const Text(
+                          'Create new channel',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         trailing: const Icon(Icons.chevron_right, size: 20),
                         onTap: () async {
                           Navigator.of(ctx).pop();
@@ -1107,7 +1211,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   // ─── Studio page (after stream created) ───────────────────────────────────
 
   Widget _buildStudioPage(BuildContext context, String streamId) {
-    final bState = ref.watch(broadcasterProvider((streamId, _effectiveChannelId)));
+    final bState = ref.watch(
+      broadcasterProvider((streamId, _effectiveChannelId)),
+    );
     final theme = Theme.of(context);
     final stream = bState.stream;
 
@@ -1147,14 +1253,18 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                 // ── YouTube Studio Live Monitor Banner / Camera Preview ──
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  height: MediaQuery.of(context).viewInsets.bottom > 0 ? 0 : 180,
+                  height: MediaQuery.of(context).viewInsets.bottom > 0
+                      ? 0
+                      : 180,
                   child: MediaQuery.of(context).viewInsets.bottom > 0
                       ? const SizedBox.shrink()
                       : _buildLiveMonitor(theme, stream, bState),
                 ),
 
                 Expanded(
-                  child: stream.status == LiveStreamStatus.live && stream.isChatEnabled
+                  child:
+                      stream.status == LiveStreamStatus.live &&
+                          stream.isChatEnabled
                       ? Column(
                           children: [
                             // Collapsible stats summary when live
@@ -1204,7 +1314,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Recording & Archive Settings',
@@ -1222,11 +1333,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                           style: TextStyle(fontSize: 12),
                                         ),
                                         value: stream.isRecordingEnabled,
-                                        onChanged: stream.status == LiveStreamStatus.live
+                                        onChanged:
+                                            stream.status ==
+                                                LiveStreamStatus.live
                                             ? null
                                             : (v) {
                                                 ref
-                                                    .read(liveStreamingRepositoryProvider)
+                                                    .read(
+                                                      liveStreamingRepositoryProvider,
+                                                    )
                                                     .updateStream(stream.id, {
                                                       'isRecordingEnabled': v,
                                                     })
@@ -1238,7 +1353,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                                                               _effectiveChannelId,
                                                             )).notifier,
                                                           )
-                                                          .updateStreamState(updated);
+                                                          .updateStreamState(
+                                                            updated,
+                                                          );
                                                     })
                                                     .catchError((_) {});
                                               },
@@ -1299,7 +1416,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     isGoingLive: bState.isGoingLive,
                     isEndingStream: bState.isEndingStream,
                     onGoLive: () => _handleGoLive(streamId, bState),
-                    onEndStream: () => _confirmEndStream(context, streamId, bState),
+                    onEndStream: () =>
+                        _confirmEndStream(context, streamId, bState),
                     onPublishVod: () => ref
                         .read(
                           broadcasterProvider((
@@ -1395,8 +1513,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           resolution: Resolution.RESOLUTION_720,
           fps: 30,
         ),
-        initialCameraPosition:
-            isFront ? CameraPosition.front : CameraPosition.back,
+        initialCameraPosition: isFront
+            ? CameraPosition.front
+            : CameraPosition.back,
         onConnectionSuccess: _onConnectionSuccess,
         onConnectionFailed: _onConnectionFailed,
         onDisconnection: _onDisconnection,
@@ -1483,7 +1602,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     }
 
     final apiUri = Uri.tryParse(Env.apiBaseUrl);
-    if (apiUri != null && apiUri.host.isNotEmpty && host == apiUri.host.toLowerCase()) {
+    if (apiUri != null &&
+        apiUri.host.isNotEmpty &&
+        host == apiUri.host.toLowerCase()) {
       return false;
     }
 
@@ -1522,7 +1643,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     // Safely log RTMP host for debugging (never log stream keys or secrets)
     try {
       final uri = Uri.tryParse(targetUrl);
-      debugPrint('[LiveStudio] RTMP broadcasting to scheme=${uri?.scheme} host=${uri?.host} path=${uri?.path}');
+      debugPrint(
+        '[LiveStudio] RTMP broadcasting to scheme=${uri?.scheme} host=${uri?.host} path=${uri?.path}',
+      );
     } catch (_) {}
 
     final key = streamKey.trim();
@@ -1535,15 +1658,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     _lastStreamKey = key;
 
     try {
-      await _liveStreamController!.startStreaming(
-        streamKey: key,
-        url: targetUrl,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception(
-          'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
-        ),
-      );
+      await _liveStreamController!
+          .startStreaming(streamKey: key, url: targetUrl)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception(
+              'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
+            ),
+          );
 
       if (mounted) {
         setState(() {
@@ -1579,7 +1701,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Live streaming requires an active internet connection.'),
+              content: Text(
+                'Live streaming requires an active internet connection.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -1615,7 +1739,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       // If still missing, ask backend to regenerate
       if (key == null || key.isEmpty) {
         await notifier.regenerateStreamKey();
-        key = ref.read(broadcasterProvider((streamId, channelId))).streamKey?.rawKey;
+        key = ref
+            .read(broadcasterProvider((streamId, channelId)))
+            .streamKey
+            ?.rawKey;
       }
       if (key == null || key.isEmpty) {
         throw Exception(
@@ -1673,7 +1800,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   child: SizedBox(
                     width: 1280,
                     height: 720,
-                    child: ApiVideoCameraPreview(controller: _liveStreamController!),
+                    child: ApiVideoCameraPreview(
+                      controller: _liveStreamController!,
+                    ),
                   ),
                 ),
               )
@@ -1684,7 +1813,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.videocam_off, size: 36, color: Colors.white54),
+                      const Icon(
+                        Icons.videocam_off,
+                        size: 36,
+                        color: Colors.white54,
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'Camera Permission Required',
@@ -1697,7 +1830,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                       const SizedBox(height: 6),
                       FilledButton.tonal(
                         onPressed: () => _setupCamera(),
-                        child: const Text('Grant Camera Access', style: TextStyle(fontSize: 12)),
+                        child: const Text(
+                          'Grant Camera Access',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),
@@ -1714,8 +1850,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      _isInitializingCamera ? 'Starting Camera...' : 'Camera Standby',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      _isInitializingCamera
+                          ? 'Starting Camera...'
+                          : 'Camera Standby',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -1751,8 +1892,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _isMicMuted ? 'Tap mic to unmute' : 'High Quality Audio • 128kbps AAC',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      _isMicMuted
+                          ? 'Tap mic to unmute'
+                          : 'High Quality Audio • 128kbps AAC',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -1783,7 +1929,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             left: 10,
             child: isLive
                 ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(4),
@@ -1797,7 +1946,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.fiber_manual_record, color: Colors.white, size: 10),
+                        const Icon(
+                          Icons.fiber_manual_record,
+                          color: Colors.white,
+                          size: 10,
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           _isStreamingRtmp
@@ -1814,7 +1967,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     ),
                   )
                 : Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(4),
@@ -1839,7 +1995,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               children: [
                 if (bState.health != null) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(4),
@@ -1852,8 +2011,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                           color: bState.health!.health == StreamHealthLevel.good
                               ? Colors.greenAccent
                               : (bState.health!.health == StreamHealthLevel.fair
-                                  ? Colors.amberAccent
-                                  : Colors.redAccent),
+                                    ? Colors.amberAccent
+                                    : Colors.redAccent),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -1870,7 +2029,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   const SizedBox(width: 6),
                 ],
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(4),
@@ -1878,7 +2040,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.visibility, color: Colors.white, size: 13),
+                      const Icon(
+                        Icons.visibility,
+                        color: Colors.white,
+                        size: 13,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${bState.viewerCount}',
@@ -1911,7 +2077,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     Expanded(
                       child: Text(
                         _streamingError!,
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1919,7 +2088,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                     if (isLive && !_isStreamingRtmp)
                       InkWell(
                         onTap: () {
-                          final key = _lastStreamKey ?? bState.streamKey?.rawKey ?? '';
+                          final key =
+                              _lastStreamKey ?? bState.streamKey?.rawKey ?? '';
                           if (key.isNotEmpty) {
                             _startRtmpBroadcast(stream, key);
                           } else {
@@ -1953,9 +2123,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               children: [
                 // REC / Mode indicator
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: isLive ? Colors.red.withValues(alpha: 0.85) : Colors.white24,
+                    color: isLive
+                        ? Colors.red.withValues(alpha: 0.85)
+                        : Colors.white24,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -1997,9 +2172,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                               : 'Switch to Camera Video',
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                              minWidth: 34, minHeight: 34),
+                            minWidth: 34,
+                            minHeight: 34,
+                          ),
                           style: IconButton.styleFrom(
-                              backgroundColor: Colors.black54),
+                            backgroundColor: Colors.black54,
+                          ),
                           onPressed: () {
                             setState(() => _isVideoStream = !_isVideoStream);
                             if (_isVideoStream && !_isCameraInitialized) {
@@ -2011,14 +2189,20 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                         // Flip Camera (only in video mode)
                         if (_isVideoStream) ...[
                           IconButton.filledTonal(
-                            icon: const Icon(Icons.cameraswitch,
-                                size: 17, color: Colors.white),
+                            icon: const Icon(
+                              Icons.cameraswitch,
+                              size: 17,
+                              color: Colors.white,
+                            ),
                             tooltip: 'Flip Camera',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                                minWidth: 34, minHeight: 34),
+                              minWidth: 34,
+                              minHeight: 34,
+                            ),
                             style: IconButton.styleFrom(
-                                backgroundColor: Colors.black54),
+                              backgroundColor: Colors.black54,
+                            ),
                             onPressed: _flipCamera,
                           ),
                           const SizedBox(width: 6),
@@ -2034,7 +2218,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                             tooltip: 'Toggle Flashlight',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                                minWidth: 34, minHeight: 34),
+                              minWidth: 34,
+                              minHeight: 34,
+                            ),
                             style: IconButton.styleFrom(
                               backgroundColor: _isTorchOn
                                   ? Colors.amber.withValues(alpha: 0.3)
@@ -2049,13 +2235,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                           icon: Icon(
                             _isMicMuted ? Icons.mic_off : Icons.mic,
                             size: 17,
-                            color:
-                                _isMicMuted ? Colors.redAccent : Colors.white,
+                            color: _isMicMuted
+                                ? Colors.redAccent
+                                : Colors.white,
                           ),
                           tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                              minWidth: 34, minHeight: 34),
+                            minWidth: 34,
+                            minHeight: 34,
+                          ),
                           style: IconButton.styleFrom(
                             backgroundColor: _isMicMuted
                                 ? Colors.red.withValues(alpha: 0.35)
@@ -2088,9 +2277,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Your live stream will end for all viewers.',
-            ),
+            const Text('Your live stream will end for all viewers.'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -2158,7 +2345,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Your stream recording is saved in group channel streams.'),
+            const Text(
+              'Your stream recording is saved in group channel streams.',
+            ),
             const SizedBox(height: 14),
             Row(
               children: [

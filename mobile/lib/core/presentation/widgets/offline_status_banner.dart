@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/sync/sync_providers.dart';
 import 'package:mobile/core/sync/sync_types.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class OfflineStatusBanner extends ConsumerWidget {
   const OfflineStatusBanner({super.key});
@@ -13,6 +14,7 @@ class OfflineStatusBanner extends ConsumerWidget {
     final connectivity = ref.watch(connectivityProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final pendingCount = ref.watch(pendingSyncCountProvider).value ?? 0;
+    final tr = ref.watch(trProvider);
 
     final isOffline = connectivity.isOffline;
     final isSyncing = connectivity.isOnline && syncStatus == SyncStatus.syncing;
@@ -28,12 +30,16 @@ class OfflineStatusBanner extends ConsumerWidget {
       content = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.wifi_off_rounded, size: 14, color: Color(0xFFFFB300)),
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 14,
+            color: Color(0xFFFFB300),
+          ),
           const SizedBox(width: 6),
           Text(
             pendingCount > 0
-                ? 'Offline • $pendingCount changes pending sync'
-                : 'Offline Mode • Viewing cached content',
+                ? tr('offline.pending_sync', {'count': pendingCount})
+                : tr('offline.viewing_cached'),
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -44,10 +50,10 @@ class OfflineStatusBanner extends ConsumerWidget {
       );
     } else if (isSyncing) {
       backgroundColor = const Color(0xFF132238); // Dark blue
-      content = const Row(
+      content = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 12,
             height: 12,
             child: CircularProgressIndicator(
@@ -55,10 +61,10 @@ class OfflineStatusBanner extends ConsumerWidget {
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF64B5F6)),
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Syncing with server...',
-            style: TextStyle(
+            tr('offline.syncing'),
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: Color(0xFF90CAF9),
@@ -68,14 +74,18 @@ class OfflineStatusBanner extends ConsumerWidget {
       );
     } else if (isSuccess) {
       backgroundColor = const Color(0xFF142B1B); // Dark green
-      content = const Row(
+      content = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF81C784)),
-          SizedBox(width: 6),
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 14,
+            color: Color(0xFF81C784),
+          ),
+          const SizedBox(width: 6),
           Text(
-            'Synced with server',
-            style: TextStyle(
+            tr('offline.synced'),
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: Color(0xFFA5D6A7),

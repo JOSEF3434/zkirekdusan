@@ -21,6 +21,7 @@ import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart'
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 // ─── Reaction Particle ────────────────────────────────────────────────────────
 
@@ -31,17 +32,15 @@ class _Particle {
   late final Animation<double> opacity;
   late final Animation<double> y;
 
-  _Particle({
-    required this.emoji,
-    required this.xPos,
-    required this.ctrl,
-  }) {
-    opacity = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(parent: ctrl, curve: const Interval(0.5, 1.0)),
-    );
-    y = Tween<double>(begin: 0, end: -200).animate(
-      CurvedAnimation(parent: ctrl, curve: Curves.easeOut),
-    );
+  _Particle({required this.emoji, required this.xPos, required this.ctrl}) {
+    opacity = Tween<double>(
+      begin: 1,
+      end: 0,
+    ).animate(CurvedAnimation(parent: ctrl, curve: const Interval(0.5, 1.0)));
+    y = Tween<double>(
+      begin: 0,
+      end: -200,
+    ).animate(CurvedAnimation(parent: ctrl, curve: Curves.easeOut));
   }
 }
 
@@ -170,17 +169,20 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     }
 
     final ctrl = _playerCtrl;
-    _playerCtrl = null; // transfer ownership — prevents dispose() from killing it
+    _playerCtrl =
+        null; // transfer ownership — prevents dispose() from killing it
     _playerInitialized = false;
 
-    ref.read(miniPlayerProvider.notifier).showLive(
-      streamId: widget.streamId,
-      title: stream?.title ?? 'Live Stream',
-      channelName: stream?.videoChannel?.name,
-      thumbnailUrl: stream?.thumbnailUrl,
-      hlsUrl: hlsUrl,
-      controller: ctrl,
-    );
+    ref
+        .read(miniPlayerProvider.notifier)
+        .showLive(
+          streamId: widget.streamId,
+          title: stream?.title ?? 'Live Stream',
+          channelName: stream?.videoChannel?.name,
+          thumbnailUrl: stream?.thumbnailUrl,
+          hlsUrl: hlsUrl,
+          controller: ctrl,
+        );
 
     WakelockPlus.disable().ignore();
     if (mounted) context.pop();
@@ -317,17 +319,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
                         // ── Chat list ────────────────────────────────────────
                         Expanded(
-                          child:
-                              roomState.stream?.isChatEnabled != false
-                                  ? LiveChatWidget(streamId: widget.streamId)
-                                  : Center(
-                                      child: Text(
-                                        'Chat is disabled for this stream.',
-                                        style: theme.textTheme.bodyMedium?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
+                          child: roomState.stream?.isChatEnabled != false
+                              ? LiveChatWidget(streamId: widget.streamId)
+                              : Center(
+                                  child: Text(
+                                    ref.read(trProvider)('live.chat_disabled'),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
+                                  ),
+                                ),
                         ),
 
                         // ── Emoji reaction picker (hidden when keyboard is active) ──
@@ -363,15 +364,14 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               child: Column(
                 children: [
                   Expanded(
-                    child:
-                        roomState.stream?.isChatEnabled != false
-                            ? LiveChatWidget(streamId: widget.streamId)
-                            : const Center(
-                                child: Text(
-                                  'Chat disabled',
-                                  style: TextStyle(color: Colors.white54),
-                                ),
-                              ),
+                    child: roomState.stream?.isChatEnabled != false
+                        ? LiveChatWidget(streamId: widget.streamId)
+                        : Center(
+                            child: Text(
+                              ref.read(trProvider)('live.chat_disabled_short'),
+                              style: const TextStyle(color: Colors.white54),
+                            ),
+                          ),
                   ),
                   _buildEmojiBar(dark: true),
                 ],
@@ -547,6 +547,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildStreamStarting(LiveRoomState state) {
+    final tr = ref.read(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -559,9 +560,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 color: Colors.redAccent,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                'LIVE BROADCAST',
-                style: TextStyle(
+              child: Text(
+                tr('live.broadcast_badge'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
@@ -582,9 +583,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Broadcaster is preparing the live feed…',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              tr('live.preparing'),
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           ],
@@ -594,15 +595,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildBuffering() {
-    return const Center(
+    final tr = ref.read(trProvider);
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Colors.white),
-          SizedBox(height: 12),
+          const CircularProgressIndicator(color: Colors.white),
+          const SizedBox(height: 12),
           Text(
-            'Connecting to stream…',
-            style: TextStyle(color: Colors.white70),
+            tr('live.connecting'),
+            style: const TextStyle(color: Colors.white70),
           ),
         ],
       ),
@@ -610,15 +612,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildPlayerError() {
+    final tr = ref.read(trProvider);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.error_outline, color: Colors.white54, size: 48),
           const SizedBox(height: 12),
-          const Text(
-            'Unable to load stream',
-            style: TextStyle(color: Colors.white70),
+          Text(
+            tr('live.load_stream_failed'),
+            style: const TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -630,7 +633,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white30),
             ),
-            child: const Text('Retry'),
+            child: Text(tr('common.retry')),
           ),
         ],
       ),
@@ -638,15 +641,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildStreamEnded(LiveRoomState state) {
+    final tr = ref.read(trProvider);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.live_tv_outlined, color: Colors.white54, size: 64),
           const SizedBox(height: 16),
-          const Text(
-            'Stream has ended',
-            style: TextStyle(
+          Text(
+            tr('live.stream_ended'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -659,7 +663,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white30),
             ),
-            child: const Text('Go Back'),
+            child: Text(tr('common.go_back')),
           ),
         ],
       ),
@@ -667,6 +671,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildReconnectBanner() {
+    final tr = ref.read(trProvider);
     return Positioned(
       top: 0,
       left: 0,
@@ -674,10 +679,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       child: Container(
         color: Colors.orange.withValues(alpha: 0.9),
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
@@ -685,10 +690,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 color: Colors.white,
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
-              'Reconnecting…',
-              style: TextStyle(color: Colors.white, fontSize: 12),
+              tr('live.reconnecting'),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ],
         ),
@@ -739,8 +744,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   // ── Emoji reaction picker bar ──────────────────────────────────────────────
 
   Widget _buildEmojiBar({bool dark = false}) {
-    final bg =
-        dark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100;
+    final bg = dark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.grey.shade100;
     return Container(
       color: bg,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -771,6 +777,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   Widget _buildError(String error, ThemeData theme) {
+    final tr = ref.read(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -779,9 +786,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           children: [
             const Icon(Icons.error_outline, color: Colors.red, size: 64),
             const SizedBox(height: 16),
-            const Text(
-              'Failed to load stream',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Text(
+              tr('live.failed_load'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -793,14 +800,15 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () =>
-                  ref.read(liveRoomProvider(widget.streamId).notifier).refresh(),
-              child: const Text('Try Again'),
+              onPressed: () => ref
+                  .read(liveRoomProvider(widget.streamId).notifier)
+                  .refresh(),
+              child: Text(tr('common.retry')),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => context.pop(),
-              child: const Text('Go Back'),
+              child: Text(tr('common.go_back')),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
@@ -34,14 +35,17 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
   Future<void> _handleItemTap(UnifiedChatItem item) async {
     final notifier = ref.read(chatDiscoveryProvider.notifier);
 
-    if (item.conversationId != null && item.type == UnifiedChatType.conversation) {
+    if (item.conversationId != null &&
+        item.type == UnifiedChatType.conversation) {
       context.push('/chats/conversation/${item.conversationId}');
       return;
     }
 
     if (item.type == UnifiedChatType.user && item.targetUserId != null) {
       try {
-        final conv = await notifier.createOrGetDirectConversation(item.targetUserId!);
+        final conv = await notifier.createOrGetDirectConversation(
+          item.targetUserId!,
+        );
         if (mounted) {
           context.push('/chats/conversation/${conv.id}');
         }
@@ -62,7 +66,9 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
             item.type == UnifiedChatType.privateGroup) &&
         item.targetGroupId != null) {
       try {
-        final conv = await notifier.createOrGetGroupConversation(item.targetGroupId!);
+        final conv = await notifier.createOrGetGroupConversation(
+          item.targetGroupId!,
+        );
         if (mounted) {
           context.push('/chats/conversation/${conv.id}');
         }
@@ -91,14 +97,14 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     final chatItemsAsync = ref.watch(unifiedChatListProvider);
     // chatDiscoveryProvider is watched via notifier below for unread count
     final filter = ref.watch(conversationFilterProvider);
-    final unreadCount =
-        ref.watch(chatDiscoveryProvider.notifier).getTotalUnreadCount();
+    final unreadCount = ref
+        .watch(chatDiscoveryProvider.notifier)
+        .getTotalUnreadCount();
     final profile = ref.watch(profileProvider).profile;
     final authUser = ref.watch(authProvider).user;
     final userName = profile?.displayName ?? authUser?.username ?? 'You';
     final userAvatar = profile?.avatarUrl;
-
-
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.white,
@@ -107,15 +113,15 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
         elevation: 0,
         titleSpacing: 16,
         title: GestureDetector(
-          onTap: () => _showMyProfileSheet(context, userName, userAvatar, isDark),
+          onTap: () =>
+              _showMyProfileSheet(context, userName, userAvatar, isDark),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Avatar
               CircleAvatar(
                 radius: 18,
-                backgroundColor:
-                    const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
                 backgroundImage: userAvatar != null && userAvatar.isNotEmpty
                     ? CachedNetworkImageProvider(userAvatar)
                     : null,
@@ -155,12 +161,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded, size: 24),
-            tooltip: 'Global Search',
+            tooltip: tr('search.title'),
             onPressed: () => context.push('/search'),
           ),
           IconButton(
             icon: const Icon(Icons.edit_square, size: 22),
-            tooltip: 'Edit Profile',
+            tooltip: tr('profile.edit_profile'),
             onPressed: () {
               final profile = ref.read(profileProvider).profile;
               context.push('/profile/edit', extra: profile);
@@ -191,9 +197,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
           ),
           slivers: [
             // Stories Section (Matches Screenshot 2: Your Story + Friends with stories or Empty State)
-            const SliverToBoxAdapter(
-              child: StorySection(),
-            ),
+            const SliverToBoxAdapter(child: StorySection()),
 
             // Search Bar Input (Search only in chat page and its messages)
             SliverToBoxAdapter(
@@ -201,7 +205,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                 child: ChatSearchBar(
                   controller: _searchController,
-                  hintText: 'Search chats and messages...',
+                  hintText: tr('chat.hint'),
                   readOnly: false,
                   onChanged: (val) => setState(() {}),
                   onClear: () {
@@ -224,44 +228,44 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     _FilterChip(
-                      label: 'All',
+                      label: tr('chat.filter.all'),
                       isSelected: filter == 'all',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'all',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'all',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Unread',
+                      label: tr('chat.filter.unread'),
                       badgeCount: unreadCount > 0 ? unreadCount : null,
                       isSelected: filter == 'unread',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'unread',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'unread',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Personal',
+                      label: tr('chat.filter.personal'),
                       isSelected: filter == 'personal',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'personal',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'personal',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Groups',
+                      label: tr('chat.filter.groups'),
                       isSelected: filter == 'groups',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'groups',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'groups',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Channels',
+                      label: tr('chat.filter.channels'),
                       isSelected: filter == 'channels',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'channels',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'channels',
                     ),
                   ],
                 ),
@@ -286,11 +290,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                 final displayItems = query.isEmpty
                     ? items
                     : items.where((item) {
-                        final titleMatch =
-                            item.title.toLowerCase().contains(query);
+                        final titleMatch = item.title.toLowerCase().contains(
+                          query,
+                        );
                         final subtitleMatch =
                             item.subtitle?.toLowerCase().contains(query) ??
-                                false;
+                            false;
                         return titleMatch || subtitleMatch;
                       }).toList();
 
@@ -307,8 +312,9 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                               height: 80,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF00C6FF)
-                                    .withValues(alpha: 0.1),
+                                color: const Color(
+                                  0xFF00C6FF,
+                                ).withValues(alpha: 0.1),
                               ),
                               child: Icon(
                                 query.isNotEmpty
@@ -321,10 +327,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             const SizedBox(height: 16),
                             Text(
                               query.isNotEmpty
-                                  ? 'No chats or messages found'
+                                  ? tr('chat.empty_search')
                                   : (filter == 'all'
-                                      ? 'No chats found'
-                                      : 'No $filter chats'),
+                                        ? tr('chat.empty')
+                                        : tr('chat.empty_filter', {
+                                            'filter': filter,
+                                          })),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -334,8 +342,8 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             const SizedBox(height: 8),
                             Text(
                               query.isNotEmpty
-                                  ? 'Try searching for another keyword in chats'
-                                  : 'Start chatting with public groups or users',
+                                  ? tr('chat.empty_search_hint')
+                                  : tr('chat.empty_start_hint'),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[500],
@@ -345,10 +353,11 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             if (query.isNotEmpty)
                               ElevatedButton.icon(
                                 onPressed: () => context.push('/chats/search'),
-                                icon: const Icon(Icons.travel_explore_rounded,
-                                    size: 18),
-                                label:
-                                    const Text('Search in Messages Database'),
+                                icon: const Icon(
+                                  Icons.travel_explore_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(tr('search.in_messages_db')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF00C6FF),
                                   foregroundColor: Colors.black,
@@ -366,7 +375,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                               ElevatedButton.icon(
                                 onPressed: () => NewChatSheet.show(context),
                                 icon: const Icon(Icons.add, size: 18),
-                                label: const Text('Start New Chat'),
+                                label: Text(tr('search.start_new_chat')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF00C6FF),
                                   foregroundColor: Colors.black,
@@ -388,27 +397,27 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                 }
 
                 return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = displayItems[index];
-                      return UnifiedChatListTile(
-                        item: item,
-                        onTap: () => _handleItemTap(item),
-                        onLongPress: item.conversationId != null
-                            ? () => _showConversationOptions(
-                                context, item.conversationId!)
-                            : null,
-                      );
-                    },
-                    childCount: displayItems.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = displayItems[index];
+                    return UnifiedChatListTile(
+                      item: item,
+                      onTap: () => _handleItemTap(item),
+                      onLongPress: item.conversationId != null
+                          ? () => _showConversationOptions(
+                              context,
+                              item.conversationId!,
+                            )
+                          : null,
+                    );
+                  }, childCount: displayItems.length),
                 );
               },
               loading: () => const SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF00C6FF),
+                    ),
                   ),
                 ),
               ),
@@ -420,13 +429,19 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          isOffline ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                          isOffline
+                              ? Icons.wifi_off_rounded
+                              : Icons.error_outline_rounded,
                           size: 48,
-                          color: isOffline ? const Color(0xFF00C6FF) : Colors.redAccent,
+                          color: isOffline
+                              ? const Color(0xFF00C6FF)
+                              : Colors.redAccent,
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          isOffline ? 'Offline Mode' : 'Failed to load chats',
+                          isOffline
+                              ? tr('chat.offline_title')
+                              : tr('chat.load_failed'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -436,9 +451,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                         const SizedBox(height: 8),
                         Text(
                           isOffline
-                              ? 'Showing cached chats. Reconnect to send and receive new messages.'
-                              : 'Could not connect to chat service. Please try again.',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                              ? tr('chat.offline_cached')
+                              : tr('chat.load_failed_desc'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
@@ -453,7 +471,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             backgroundColor: const Color(0xFF00C6FF),
                             foregroundColor: Colors.black,
                           ),
-                          label: const Text('Retry'),
+                          label: Text(tr('common.retry')),
                         ),
                       ],
                     ),
@@ -477,9 +495,8 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     );
   }
 
-
-
   void _showConversationOptions(BuildContext context, String conversationId) {
+    final tr = ref.read(trProvider);
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
@@ -502,9 +519,11 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.push_pin_outlined,
-                  color: Color(0xFF00C6FF)),
-              title: const Text('Pin Conversation'),
+              leading: const Icon(
+                Icons.push_pin_outlined,
+                color: Color(0xFF00C6FF),
+              ),
+              title: Text(tr('chat.pin')),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -513,9 +532,11 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.volume_off_outlined,
-                  color: Colors.orangeAccent),
-              title: const Text('Mute Notifications'),
+              leading: const Icon(
+                Icons.volume_off_outlined,
+                color: Colors.orangeAccent,
+              ),
+              title: Text(tr('chat.mute_notifications')),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -524,9 +545,11 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.mark_chat_read_outlined,
-                  color: Color(0xFF10B981)),
-              title: const Text('Mark as Read'),
+              leading: const Icon(
+                Icons.mark_chat_read_outlined,
+                color: Color(0xFF10B981),
+              ),
+              title: Text(tr('chat.mark_read')),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -546,6 +569,7 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     String? avatarUrl,
     bool isDark,
   ) {
+    final tr = ref.read(trProvider);
     final auth = ref.read(authProvider);
     final username = auth.user?.username ?? '';
     final bgColor = isDark ? const Color(0xFF17212B) : Colors.white;
@@ -576,13 +600,17 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
 
               // Avatar + name header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor:
-                          const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                      backgroundColor: const Color(
+                        0xFF00C6FF,
+                      ).withValues(alpha: 0.15),
                       backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                           ? CachedNetworkImageProvider(avatarUrl)
                           : null,
@@ -631,27 +659,33 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
 
               // Actions
               ListTile(
-                leading: const Icon(Icons.person_outline_rounded,
-                    color: Color(0xFF00C6FF)),
-                title: const Text('My Profile'),
+                leading: const Icon(
+                  Icons.person_outline_rounded,
+                  color: Color(0xFF00C6FF),
+                ),
+                title: Text(tr('chat.my_profile')),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/profile');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.auto_stories_outlined,
-                    color: Color(0xFF10B981)),
-                title: const Text('My Stories'),
+                leading: const Icon(
+                  Icons.auto_stories_outlined,
+                  color: Color(0xFF10B981),
+                ),
+                title: Text(tr('chat.my_stories')),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/story/create');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.settings_outlined,
-                    color: Colors.orangeAccent),
-                title: const Text('Settings'),
+                leading: const Icon(
+                  Icons.settings_outlined,
+                  color: Colors.orangeAccent,
+                ),
+                title: Text(tr('chat.settings')),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/settings');
@@ -698,8 +732,8 @@ class _FilterChip extends StatelessWidget {
             color: isSelected
                 ? Colors.transparent
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.05)),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05)),
           ),
         ),
         child: Row(
@@ -718,8 +752,10 @@ class _FilterChip extends StatelessWidget {
             if (badgeCount != null) ...[
               const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 1.5,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.black : const Color(0xFF00C6FF),
                   borderRadius: BorderRadius.circular(10),
@@ -740,6 +776,3 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
-
-
-

@@ -55,7 +55,8 @@ class AdminDashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: tr('common.retry'),
-            onPressed: () => ref.read(adminDashboardProvider.notifier).refresh(),
+            onPressed: () =>
+                ref.read(adminDashboardProvider.notifier).refresh(),
           ),
         ],
       ),
@@ -75,9 +76,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                       child: CircularProgressIndicator(),
                     ),
                   ),
-                  error: (err, _) => Center(
-                    child: Text('${tr('common.error')}: $err'),
-                  ),
+                  error: (err, _) =>
+                      Center(child: Text('${tr('common.error')}: $err')),
                   data: (data) => _buildMetricsGrid(context, ref, data, perms),
                 ),
 
@@ -124,7 +124,8 @@ class AdminDashboardScreen extends ConsumerWidget {
     final int totalVideos = content?['videos'] ?? payload['totalVideos'] ?? 0;
     final int totalContent = content?['total'] ?? (totalPosts + totalVideos);
     final int activeStreams = live?['activeStreams'] ?? 0;
-    final int totalStreams = live?['total'] ?? payload['totalStreams'] ?? activeStreams;
+    final int totalStreams =
+        live?['total'] ?? payload['totalStreams'] ?? activeStreams;
 
     final cards = <Widget>[];
 
@@ -176,7 +177,8 @@ class AdminDashboardScreen extends ConsumerWidget {
           value: '$totalContent',
           icon: Icons.article_rounded,
           color: Colors.teal,
-          subtitle: '$totalVideos videos • $totalPosts posts',
+          subtitle:
+              '$totalVideos ${tr('common.videos')} • $totalPosts ${tr('common.posts')}',
           onTap: () => context.push('/admin/content'),
         ),
       );
@@ -225,7 +227,9 @@ class AdminDashboardScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Community & Users
-        if (perms.canManageUsers || perms.canManageGroups || perms.canManageRoles)
+        if (perms.canManageUsers ||
+            perms.canManageGroups ||
+            perms.canManageRoles)
           AdminSectionCard(
             title: tr('admin.section.directory'),
             subtitle: tr('admin.section.directory_sub'),
@@ -233,7 +237,10 @@ class AdminDashboardScreen extends ConsumerWidget {
               children: [
                 if (perms.canManageUsers)
                   ListTile(
-                    leading: const Icon(Icons.person_search_rounded, color: Colors.blue),
+                    leading: const Icon(
+                      Icons.person_search_rounded,
+                      color: Colors.blue,
+                    ),
                     title: Text(tr('admin.users')),
                     subtitle: Text(tr('admin.users_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -241,7 +248,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageRoles)
                   ListTile(
-                    leading: const Icon(Icons.admin_panel_settings_rounded, color: Colors.indigo),
+                    leading: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: Colors.indigo,
+                    ),
                     title: Text(tr('admin.roles')),
                     subtitle: Text(tr('admin.roles_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -249,15 +259,21 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.isAdmin)
                   ListTile(
-                    leading: const Icon(Icons.key_rounded, color: Color(0xFF9C27B0)),
-                    title: const Text('RBAC Permissions'),
-                    subtitle: const Text('Fine-grained access control matrix for all roles'),
+                    leading: const Icon(
+                      Icons.key_rounded,
+                      color: Color(0xFF9C27B0),
+                    ),
+                    title: Text(tr('admin.rbac_title')),
+                    subtitle: Text(tr('admin.rbac_subtitle')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/rbac'),
                   ),
                 if (perms.canManageGroups)
                   ListTile(
-                    leading: const Icon(Icons.groups_rounded, color: Colors.deepPurple),
+                    leading: const Icon(
+                      Icons.groups_rounded,
+                      color: Colors.deepPurple,
+                    ),
                     title: Text(tr('admin.groups')),
                     subtitle: Text(tr('admin.groups_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -265,7 +281,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageChannels)
                   ListTile(
-                    leading: const Icon(Icons.tag_rounded, color: Colors.purple),
+                    leading: const Icon(
+                      Icons.tag_rounded,
+                      color: Colors.purple,
+                    ),
                     title: Text(tr('admin.channels')),
                     subtitle: Text(tr('admin.channels_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -278,7 +297,10 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 16),
 
         // Moderation & Safety
-        if (perms.canManageReports || perms.canManageContent || perms.canManageLive || perms.canManageChat)
+        if (perms.canManageReports ||
+            perms.canManageContent ||
+            perms.canManageLive ||
+            perms.canManageChat)
           AdminSectionCard(
             title: tr('admin.section.moderation'),
             subtitle: tr('admin.section.moderation_sub'),
@@ -286,7 +308,10 @@ class AdminDashboardScreen extends ConsumerWidget {
               children: [
                 if (perms.canManageReports)
                   ListTile(
-                    leading: const Icon(Icons.flag_rounded, color: Colors.orange),
+                    leading: const Icon(
+                      Icons.flag_rounded,
+                      color: Colors.orange,
+                    ),
                     title: Text(tr('admin.reports')),
                     subtitle: Text(tr('admin.reports_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -294,7 +319,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageContent)
                   ListTile(
-                    leading: const Icon(Icons.article_rounded, color: Colors.teal),
+                    leading: const Icon(
+                      Icons.article_rounded,
+                      color: Colors.teal,
+                    ),
                     title: Text(tr('admin.content')),
                     subtitle: Text(tr('admin.content_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -302,7 +330,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageLive)
                   ListTile(
-                    leading: const Icon(Icons.live_tv_rounded, color: Colors.red),
+                    leading: const Icon(
+                      Icons.live_tv_rounded,
+                      color: Colors.red,
+                    ),
                     title: Text(tr('admin.live')),
                     subtitle: Text(tr('admin.live_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -310,14 +341,20 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageChat)
                   ListTile(
-                    leading: const Icon(Icons.chat_bubble_rounded, color: Colors.blueAccent),
+                    leading: const Icon(
+                      Icons.chat_bubble_rounded,
+                      color: Colors.blueAccent,
+                    ),
                     title: Text(tr('admin.chat')),
                     subtitle: Text(tr('admin.chat_sub')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/chat'),
                   ),
                 ListTile(
-                  leading: const Icon(Icons.security_rounded, color: Colors.amber),
+                  leading: const Icon(
+                    Icons.security_rounded,
+                    color: Colors.amber,
+                  ),
                   title: Text(tr('admin.spam')),
                   subtitle: Text(tr('admin.spam_sub')),
                   trailing: const Icon(Icons.chevron_right),
@@ -330,7 +367,10 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 16),
 
         // System & Operations
-        if (perms.canManageStorage || perms.canManageNotifications || perms.canViewAudit || perms.canManageSystem)
+        if (perms.canManageStorage ||
+            perms.canManageNotifications ||
+            perms.canViewAudit ||
+            perms.canManageSystem)
           AdminSectionCard(
             title: tr('admin.section.system'),
             subtitle: tr('admin.section.system_sub'),
@@ -338,7 +378,10 @@ class AdminDashboardScreen extends ConsumerWidget {
               children: [
                 if (perms.canManageStorage)
                   ListTile(
-                    leading: const Icon(Icons.cloud_queue_rounded, color: Colors.cyan),
+                    leading: const Icon(
+                      Icons.cloud_queue_rounded,
+                      color: Colors.cyan,
+                    ),
                     title: Text(tr('admin.storage')),
                     subtitle: Text(tr('admin.storage_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -346,7 +389,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageNotifications)
                   ListTile(
-                    leading: const Icon(Icons.campaign_rounded, color: Colors.deepOrange),
+                    leading: const Icon(
+                      Icons.campaign_rounded,
+                      color: Colors.deepOrange,
+                    ),
                     title: Text(tr('admin.notifications')),
                     subtitle: Text(tr('admin.notifications_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -354,7 +400,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canViewAudit)
                   ListTile(
-                    leading: const Icon(Icons.history_rounded, color: Colors.grey),
+                    leading: const Icon(
+                      Icons.history_rounded,
+                      color: Colors.grey,
+                    ),
                     title: Text(tr('admin.audit')),
                     subtitle: Text(tr('admin.audit_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -362,7 +411,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 if (perms.canManageSystem)
                   ListTile(
-                    leading: const Icon(Icons.settings_applications_rounded, color: Colors.blueGrey),
+                    leading: const Icon(
+                      Icons.settings_applications_rounded,
+                      color: Colors.blueGrey,
+                    ),
                     title: Text(tr('admin.system')),
                     subtitle: Text(tr('admin.system_sub')),
                     trailing: const Icon(Icons.chevron_right),
@@ -371,7 +423,6 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
           ),
-
       ],
     );
   }
@@ -381,14 +432,14 @@ class AdminDashboardScreen extends ConsumerWidget {
 // RBAC Entry Card — premium gradient card for the dashboard
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _RbacEntryCard extends StatefulWidget {
+class _RbacEntryCard extends ConsumerStatefulWidget {
   const _RbacEntryCard();
 
   @override
-  State<_RbacEntryCard> createState() => _RbacEntryCardState();
+  ConsumerState<_RbacEntryCard> createState() => _RbacEntryCardState();
 }
 
-class _RbacEntryCardState extends State<_RbacEntryCard>
+class _RbacEntryCardState extends ConsumerState<_RbacEntryCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scaleAnim;
@@ -402,8 +453,7 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
       lowerBound: 0.0,
       upperBound: 0.02,
     );
-    _scaleAnim =
-        Tween<double>(begin: 1.0, end: 0.97).animate(_controller);
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.97).animate(_controller);
   }
 
   @override
@@ -423,6 +473,7 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return AnimatedBuilder(
       animation: _scaleAnim,
@@ -436,18 +487,16 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [
-                Color(0xFF7B1FA2),
-                Color(0xFF512DA8),
-                Color(0xFF303F9F),
-              ],
+              colors: [Color(0xFF7B1FA2), Color(0xFF512DA8), Color(0xFF303F9F)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7B1FA2).withValues(alpha: isDark ? 0.45 : 0.3),
+                color: const Color(
+                  0xFF7B1FA2,
+                ).withValues(alpha: isDark ? 0.45 : 0.3),
                 blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
@@ -511,9 +560,9 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
                         children: [
                           Row(
                             children: [
-                              const Text(
-                                'RBAC Management',
-                                style: TextStyle(
+                              Text(
+                                tr('admin.rbac_management'),
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
@@ -523,15 +572,16 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.white.withValues(alpha: 0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
-                                  'Advanced',
-                                  style: TextStyle(
+                                child: Text(
+                                  tr('admin.rbac_advanced'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
@@ -542,7 +592,7 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Control permissions for each platform role. Grant or revoke access to any resource or action.',
+                            tr('admin.rbac_desc'),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 12.5,
@@ -554,10 +604,16 @@ class _RbacEntryCardState extends State<_RbacEntryCard>
                           Wrap(
                             spacing: 6,
                             runSpacing: 4,
-                            children: const [
-                              _RbacFeatureChip(label: '5 Roles'),
-                              _RbacFeatureChip(label: '28 Permissions'),
-                              _RbacFeatureChip(label: 'Live Editing'),
+                            children: [
+                              _RbacFeatureChip(
+                                label: tr('admin.rbac_chip_roles'),
+                              ),
+                              _RbacFeatureChip(
+                                label: tr('admin.rbac_chip_permissions'),
+                              ),
+                              _RbacFeatureChip(
+                                label: tr('admin.rbac_chip_editing'),
+                              ),
                             ],
                           ),
                         ],
@@ -599,8 +655,7 @@ class _RbacFeatureChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
       child: Text(
         label,

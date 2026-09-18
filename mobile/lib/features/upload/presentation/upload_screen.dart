@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/upload/presentation/providers/upload_provider.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
@@ -17,17 +18,18 @@ class UploadScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(uploadProvider);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           state.step == UploadStep.fillDetails
-              ? 'Video Details'
+              ? tr('video.details')
               : state.step == UploadStep.uploading
-              ? 'Uploading Video'
+              ? tr('upload.uploading')
               : state.step == UploadStep.processing
-              ? 'Processing Video'
-              : 'Upload Video',
+              ? tr('upload.processing')
+              : tr('shell.upload_video'),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
@@ -47,17 +49,16 @@ class UploadScreen extends ConsumerWidget {
   }
 
   void _confirmCancel(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Upload?'),
-        content: const Text(
-          'If you cancel now, your upload progress will be lost.',
-        ),
+        title: Text(tr('upload.cancel_title')),
+        content: Text(tr('upload.cancel_message')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Keep Uploading'),
+            child: Text(tr('upload.keep_uploading')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -66,7 +67,7 @@ class UploadScreen extends ConsumerWidget {
               ref.read(uploadProvider.notifier).cancelUpload();
               context.pop();
             },
-            child: const Text('Cancel Upload'),
+            child: Text(tr('upload.cancel_upload')),
           ),
         ],
       ),
@@ -107,6 +108,7 @@ class _VideoPickerWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -131,7 +133,7 @@ class _VideoPickerWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                'Select a video to upload',
+                tr('upload.select_video_title'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -139,7 +141,7 @@ class _VideoPickerWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Your videos will be private until you publish them.\nSupported formats: MP4, MOV, WebM, MKV',
+                tr('upload.select_video_desc'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -160,9 +162,9 @@ class _VideoPickerWidget extends ConsumerWidget {
                     }
                   },
                   icon: const Icon(Icons.video_library_rounded),
-                  label: const Text(
-                    'SELECT VIDEO FILE',
-                    style: TextStyle(
+                  label: Text(
+                    tr('upload.select_file_btn'),
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
                     ),
@@ -244,6 +246,7 @@ class _ChannelSelectorWidgetState
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.watch(trProvider);
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -257,7 +260,7 @@ class _ChannelSelectorWidgetState
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                'Could not load your upload channels',
+                tr('upload.load_channels_failed'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -272,7 +275,7 @@ class _ChannelSelectorWidgetState
                   _loadData();
                 },
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -289,19 +292,19 @@ class _ChannelSelectorWidgetState
             children: [
               const Icon(Icons.tv_off_rounded, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
-              const Text(
-                'No Channels Available',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                tr('upload.no_channels_title'),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'You must create a channel before you can upload videos.',
-                textAlign: TextAlign.center,
-              ),
+              Text(tr('upload.no_channels_desc'), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: () => context.pop(),
-                child: const Text('Go Back'),
+                child: Text(tr('upload.go_back')),
               ),
             ],
           ),
@@ -353,7 +356,9 @@ class _ChannelSelectorWidgetState
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 1,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -369,7 +374,11 @@ class _ChannelSelectorWidgetState
                         ? Colors.orange.withValues(alpha: 0.15)
                         : theme.colorScheme.primaryContainer,
                     child: isPending
-                        ? const Icon(Icons.lock_outline, color: Colors.orange, size: 22)
+                        ? const Icon(
+                            Icons.lock_outline,
+                            color: Colors.orange,
+                            size: 22,
+                          )
                         : Text(
                             group.name.isNotEmpty
                                 ? group.name.substring(0, 1).toUpperCase()
@@ -396,9 +405,9 @@ class _ChannelSelectorWidgetState
                         ),
                         if (isPending) ...[
                           const SizedBox(height: 4),
-                          const Text(
-                            'Pending Admin Approval',
-                            style: TextStyle(
+                          Text(
+                            tr('upload.pending_approval'),
+                            style: const TextStyle(
                               color: Colors.orange,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -493,6 +502,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
     final uploadState = ref.watch(uploadProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final tr = ref.watch(trProvider);
 
     return Form(
       key: _formKey,
@@ -572,14 +582,14 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
 
               // Custom Thumbnail Section
               Text(
-                'Thumbnail',
+                tr('upload.thumbnail_label'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Set a thumbnail that stands out and draws viewers\' attention.',
+                tr('upload.thumbnail_desc'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
@@ -647,7 +657,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Upload Custom Thumbnail',
+                                tr('upload.thumbnail_upload'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   color: theme.colorScheme.primary,
@@ -655,7 +665,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '1280×720 (16:9) • JPG, PNG (Optional)',
+                                tr('upload.thumbnail_hint'),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 11,
                                 ),
@@ -671,19 +681,19 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
               // Title Field
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title (required)',
-                  hintText: 'Add a title that describes your video',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.title_rounded),
+                decoration: InputDecoration(
+                  labelText: tr('upload.title_required'),
+                  hintText: tr('upload.title_hint'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.title_rounded),
                 ),
                 maxLength: 300,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
-                    return 'Title is required';
+                    return tr('upload.title_validation');
                   }
                   if (v.trim().length < 3) {
-                    return 'Title must be at least 3 characters';
+                    return tr('upload.title_min_length');
                   }
                   return null;
                 },
@@ -691,13 +701,12 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
 
               const SizedBox(height: 12),
 
-              // Description Field
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Tell viewers about your video',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('upload.description_label'),
+                  hintText: tr('upload.description_hint'),
+                  border: const OutlineInputBorder(),
                   alignLabelWithHint: true,
                 ),
                 maxLines: 4,
@@ -706,34 +715,33 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
 
               const SizedBox(height: 12),
 
-              // Visibility Selector
               DropdownButtonFormField<String>(
                 initialValue: _visibility,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Visibility',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.visibility_rounded),
+                decoration: InputDecoration(
+                  labelText: tr('upload.visibility_label'),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.visibility_rounded),
                 ),
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: 'PUBLIC',
                     child: Text(
-                      'Public — Anyone can view',
+                      tr('upload.visibility_public'),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'GROUP_ONLY',
                     child: Text(
-                      'Channel Only — Members only',
+                      tr('upload.visibility_channel'),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   DropdownMenuItem(
                     value: 'PRIVATE',
                     child: Text(
-                      'Private — Only you',
+                      tr('upload.visibility_private'),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -745,7 +753,6 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
 
               const SizedBox(height: 16),
 
-              // Playlist Selector
               ref
                   .watch(myPlaylistsProvider)
                   .when(
@@ -754,15 +761,15 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       return DropdownButtonFormField<String?>(
                         initialValue: _playlistId,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Add to Playlist (Optional)',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.playlist_add_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('upload.playlist_label'),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.playlist_add_rounded),
                         ),
                         items: [
-                          const DropdownMenuItem<String?>(
+                          DropdownMenuItem<String?>(
                             value: null,
-                            child: Text('None (No Playlist)'),
+                            child: Text(tr('upload.none_playlist')),
                           ),
                           ...playlists.map(
                             (p) => DropdownMenuItem<String?>(
@@ -800,7 +807,9 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   },
                   icon: const Icon(Icons.cloud_upload_rounded),
                   label: Text(
-                    _visibility == 'PUBLIC' ? 'PUBLISH VIDEO' : 'SAVE & UPLOAD',
+                    _visibility == 'PUBLIC'
+                        ? tr('upload.publish_btn')
+                        : tr('upload.save_upload_btn'),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -830,6 +839,7 @@ class _UploadProgressWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final percent = (progress * 100).clamp(0, 100).toStringAsFixed(0);
+    final tr = ref.watch(trProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -861,14 +871,14 @@ class _UploadProgressWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                'Uploading Video...',
+                tr('upload.uploading'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Please keep the app open until upload completes.',
+                tr('common.loading'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
@@ -885,7 +895,7 @@ class _UploadProgressWidget extends ConsumerWidget {
                   context.pop();
                 },
                 icon: const Icon(Icons.close),
-                label: const Text('Cancel Upload'),
+                label: Text(tr('upload.cancel_upload')),
               ),
             ],
           ),
@@ -977,6 +987,7 @@ class _UploadCompletedWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -1001,14 +1012,14 @@ class _UploadCompletedWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Upload Complete!',
+                tr('upload.uploading'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '"$title" is now ready and available.',
+                '"$title"',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
               ),
@@ -1023,9 +1034,9 @@ class _UploadCompletedWidget extends ConsumerWidget {
                       context.pushReplacement('/video/$videoId');
                     },
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text(
-                      'WATCH VIDEO',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      tr('video.play'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -1039,7 +1050,7 @@ class _UploadCompletedWidget extends ConsumerWidget {
                     context.pop();
                   },
                   icon: const Icon(Icons.home_rounded),
-                  label: const Text('GO TO HOME FEED'),
+                  label: Text(tr('upload.go_home')),
                 ),
               ),
             ],
@@ -1062,6 +1073,7 @@ class _UploadFailedWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -1086,7 +1098,7 @@ class _UploadFailedWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Upload Failed',
+                tr('state.error'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.red,
@@ -1094,7 +1106,7 @@ class _UploadFailedWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                error ?? 'An unexpected error occurred during upload.',
+                error ?? tr('upload.unknown_error'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
               ),
@@ -1107,7 +1119,7 @@ class _UploadFailedWidget extends ConsumerWidget {
                     ref.read(uploadProvider.notifier).cancelUpload();
                   },
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('TRY AGAIN'),
+                  label: Text(tr('upload.try_again')),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1119,7 +1131,7 @@ class _UploadFailedWidget extends ConsumerWidget {
                     ref.read(uploadProvider.notifier).cancelUpload();
                     context.pop();
                   },
-                  child: const Text('CANCEL'),
+                  child: Text(tr('common.cancel')),
                 ),
               ),
             ],

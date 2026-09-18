@@ -135,7 +135,7 @@ class RouterNotifier extends ChangeNotifier {
 
     // 2. If first launch is finished, do not stay on /onboarding
     if (!prefsState.isFirstLaunch && isOnboardingRoute) {
-      return '/home';
+      return authState.status == AuthStatus.authenticated ? '/home' : '/login';
     }
 
     // 3. While auth status is initializing (unknown):
@@ -173,25 +173,15 @@ class RouterNotifier extends ChangeNotifier {
       return null; // Stay on requested route
     }
 
-    // 5. Unauthenticated / Guest user behavior:
+    // 5. Unauthenticated user behavior:
     if (authState.status == AuthStatus.unauthenticated) {
-      if (isSplashRoute) {
-        return '/home'; // Guests land on Home
+      // Allow unauthenticated user to access login or register page
+      if (isAuthRoute) {
+        return null;
       }
 
-      final isProtectedRoute =
-          location.startsWith('/admin') ||
-          location.startsWith('/creator') ||
-          location.startsWith('/live/studio') ||
-          location.startsWith('/profile/edit') ||
-          location.startsWith('/settings/account') ||
-          location.startsWith('/story/create');
-
-      if (isProtectedRoute) {
-        return '/login';
-      }
-
-      return null; // Public routes like /home, /explore, /login, /register are permitted
+      // If not authenticated, redirect to login page instead of homepage
+      return '/login';
     }
 
     return null;

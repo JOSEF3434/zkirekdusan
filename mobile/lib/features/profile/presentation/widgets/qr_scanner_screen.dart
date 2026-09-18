@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class QrScannerScreen extends ConsumerStatefulWidget {
   const QrScannerScreen({super.key});
@@ -74,7 +75,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
               setState(() => _isTorchOn = !_isTorchOn);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(_isTorchOn ? 'Flashlight enabled' : 'Flashlight disabled'),
+                  content: Text(
+                    _isTorchOn ? 'Flashlight enabled' : 'Flashlight disabled',
+                  ),
                   duration: const Duration(seconds: 1),
                 ),
               );
@@ -93,11 +96,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
               gradient: RadialGradient(
                 center: Alignment.center,
                 radius: 1.2,
-                colors: [
-                  Color(0xFF131D2A),
-                  Color(0xFF090D14),
-                  Colors.black,
-                ],
+                colors: [Color(0xFF131D2A), Color(0xFF090D14), Colors.black],
               ),
             ),
           ),
@@ -138,7 +137,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00C6FF).withValues(alpha: 0.8),
+                              color: const Color(
+                                0xFF00C6FF,
+                              ).withValues(alpha: 0.8),
                               blurRadius: 10,
                               spreadRadius: 2,
                             ),
@@ -168,10 +169,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                 const SizedBox(height: 6),
                 Text(
                   'Scan profile or group invite QR to open directly',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
             ),
@@ -198,16 +196,24 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.keyboard_rounded, color: Color(0xFF00C6FF)),
+                  icon: const Icon(
+                    Icons.keyboard_rounded,
+                    color: Color(0xFF00C6FF),
+                  ),
                   label: const Text(
                     'Enter Code / @user',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
 
                 // Demo Scanner Trigger (Simulate scan)
                 FilledButton.icon(
-                  onPressed: () => _handleScannedCode('https://app.zikrekidusan.com/u/sara_bi'),
+                  onPressed: () => _handleScannedCode(
+                    'https://app.zikrekidusan.com/u/sara_bi',
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF00C6FF),
                     padding: const EdgeInsets.symmetric(
@@ -218,10 +224,16 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.black),
+                  icon: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: Colors.black,
+                  ),
                   label: const Text(
                     'Test QR',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -339,7 +351,10 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
+                prefixIcon: const Icon(
+                  Icons.link_rounded,
+                  color: Color(0xFF00C6FF),
+                ),
               ),
             ),
           ],
@@ -347,7 +362,10 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              ref.read(trProvider)('common.cancel'),
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -361,7 +379,12 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                 _handleScannedCode(text);
               }
             },
-            child: const Text('Go to Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Consumer(
+              builder: (_, ref, _) => Text(
+                ref.watch(trProvider)('profile.go_to_profile'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),
@@ -375,15 +398,24 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     final trimmed = rawCode.trim();
 
     // 1. Check if it's a canonical profile URL: https://app.zikrekidusan.com/u/<username>
-    final profileRegex = RegExp(r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com|zikrekidusan\.com)\/u\/([a-zA-Z0-9_\.\-]+)', caseSensitive: false);
+    final profileRegex = RegExp(
+      r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com|zikrekidusan\.com)\/u\/([a-zA-Z0-9_\.\-]+)',
+      caseSensitive: false,
+    );
     final profileMatch = profileRegex.firstMatch(trimmed);
 
     // 2. Check if custom scheme: zikrekidusan://profile/user/<username>
-    final schemeRegex = RegExp(r'zikrekidusan:\/\/profile\/user\/([a-zA-Z0-9_\.\-]+)', caseSensitive: false);
+    final schemeRegex = RegExp(
+      r'zikrekidusan:\/\/profile\/user\/([a-zA-Z0-9_\.\-]+)',
+      caseSensitive: false,
+    );
     final schemeMatch = schemeRegex.firstMatch(trimmed);
 
     // 3. Check group canonical link: https://app.zikrekidusan.com/g/<id> or t.me/<slug>
-    final groupRegex = RegExp(r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com\/g|t\.me)\/([a-zA-Z0-9_\.\-]+)', caseSensitive: false);
+    final groupRegex = RegExp(
+      r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com\/g|t\.me)\/([a-zA-Z0-9_\.\-]+)',
+      caseSensitive: false,
+    );
     final groupMatch = groupRegex.firstMatch(trimmed);
 
     if (profileMatch != null) {
@@ -398,7 +430,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     } else if (trimmed.startsWith('@')) {
       final username = trimmed.substring(1);
       _navigateToProfile(username);
-    } else if (!trimmed.contains(' ') && !trimmed.contains('/') && trimmed.length >= 3) {
+    } else if (!trimmed.contains(' ') &&
+        !trimmed.contains('/') &&
+        trimmed.length >= 3) {
       // Plain username fallback
       _navigateToProfile(trimmed);
     } else {
@@ -463,7 +497,10 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                       );
                     },
                     icon: const Icon(Icons.copy_rounded),
-                    label: const Text('Copy'),
+                    label: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('common.copy')),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -474,7 +511,12 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                       foregroundColor: Colors.black,
                     ),
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Consumer(
+                      builder: (_, ref, _) => Text(
+                        ref.watch(trProvider)('common.done'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -493,7 +535,8 @@ class _ScannerOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final backgroundPaint = Paint()..color = Colors.black.withValues(alpha: 0.65);
+    final backgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.65);
     final borderPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke

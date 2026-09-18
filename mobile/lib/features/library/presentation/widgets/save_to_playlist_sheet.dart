@@ -1,6 +1,7 @@
 // lib/features/library/presentation/widgets/save_to_playlist_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
 
@@ -25,15 +26,14 @@ class SaveToPlaylistSheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => SaveToPlaylistSheet(
-        videoId: videoId,
-        videoTitle: videoTitle,
-      ),
+      builder: (_) =>
+          SaveToPlaylistSheet(videoId: videoId, videoTitle: videoTitle),
     );
   }
 
   @override
-  ConsumerState<SaveToPlaylistSheet> createState() => _SaveToPlaylistSheetState();
+  ConsumerState<SaveToPlaylistSheet> createState() =>
+      _SaveToPlaylistSheetState();
 }
 
 class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
@@ -44,6 +44,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
   Widget build(BuildContext context) {
     final playlistsAsync = ref.watch(myPlaylistsProvider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return SafeArea(
       child: Padding(
@@ -72,14 +73,17 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Save video to...',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  tr('playlist.save_to_hint'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: () => _showNewPlaylistDialog(context),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('New playlist'),
+                  label: Text(tr('playlist.new_btn')),
                 ),
               ],
             ),
@@ -111,12 +115,12 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                             color: theme.colorScheme.outline,
                           ),
                           const SizedBox(height: 8),
-                          const Text('No playlists yet'),
+                          Text(tr('playlist.no_playlists')),
                           const SizedBox(height: 8),
                           FilledButton.tonalIcon(
                             onPressed: () => _showNewPlaylistDialog(context),
                             icon: const Icon(Icons.add),
-                            label: const Text('Create your first playlist'),
+                            label: Text(tr('playlist.create_first')),
                           ),
                         ],
                       ),
@@ -137,7 +141,11 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
 
                       return CheckboxListTile(
                         value: isSelected,
-                        title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        title: Text(
+                          p.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         subtitle: Text(
                           '${p.privacy.toUpperCase()} • ${p.items.length} videos',
                           style: const TextStyle(fontSize: 11),
@@ -157,25 +165,51 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                                 });
 
                                 try {
-                                  final repo = ref.read(playlistRepositoryProvider);
+                                  final repo = ref.read(
+                                    playlistRepositoryProvider,
+                                  );
                                   if (val == true) {
-                                    await repo.addVideoToPlaylist(p.id, widget.videoId);
+                                    await repo.addVideoToPlaylist(
+                                      p.id,
+                                      widget.videoId,
+                                    );
                                     if (!mounted) return;
                                     messenger.showSnackBar(
-                                      SnackBar(content: Text('Added to ${p.title}')),
+                                      SnackBar(
+                                        content: Text(
+                                          tr('playlist.added_to', {
+                                            'title': p.title,
+                                          }),
+                                        ),
+                                      ),
                                     );
                                   } else {
-                                    await repo.removeVideoFromPlaylist(p.id, widget.videoId);
+                                    await repo.removeVideoFromPlaylist(
+                                      p.id,
+                                      widget.videoId,
+                                    );
                                     if (!mounted) return;
                                     messenger.showSnackBar(
-                                      SnackBar(content: Text('Removed from ${p.title}')),
+                                      SnackBar(
+                                        content: Text(
+                                          tr('playlist.removed_from', {
+                                            'title': p.title,
+                                          }),
+                                        ),
+                                      ),
                                     );
                                   }
                                   ref.invalidate(myPlaylistsProvider);
                                 } catch (e) {
                                   if (!mounted) return;
                                   messenger.showSnackBar(
-                                    SnackBar(content: Text('Action failed: $e')),
+                                    SnackBar(
+                                      content: Text(
+                                        tr('playlist.action_failed', {
+                                          'error': e.toString(),
+                                        }),
+                                      ),
+                                    ),
                                   );
                                 } finally {
                                   if (mounted) {
@@ -195,7 +229,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Done'),
+                child: Text(tr('playlist.done')),
               ),
             ),
           ],
@@ -205,6 +239,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
   }
 
   void _showNewPlaylistDialog(BuildContext context) {
+    final tr = ref.read(trProvider);
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     String privacy = 'PUBLIC';
@@ -213,39 +248,48 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('New Playlist'),
+          title: Text(tr('playlist.create_title')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Title *',
-                  hintText: 'Enter playlist title',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('playlist.title_label'),
+                  hintText: tr('playlist.title_hint'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Optional description',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('playlist.desc_label'),
+                  hintText: tr('playlist.desc_hint'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: privacy,
-                decoration: const InputDecoration(
-                  labelText: 'Privacy',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: tr('playlist.privacy'),
+                  border: const OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
-                  DropdownMenuItem(value: 'UNLISTED', child: Text('Unlisted')),
-                  DropdownMenuItem(value: 'PRIVATE', child: Text('Private')),
+                items: [
+                  DropdownMenuItem(
+                    value: 'PUBLIC',
+                    child: Text(tr('playlist.public')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'UNLISTED',
+                    child: Text(tr('playlist.unlisted')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'PRIVATE',
+                    child: Text(tr('playlist.private')),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) setDialogState(() => privacy = val);
@@ -256,7 +300,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () async {
@@ -269,7 +313,9 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                   final repo = ref.read(playlistRepositoryProvider);
                   final created = await repo.createPlaylist(
                     title: title,
-                    description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                    description: descCtrl.text.trim().isEmpty
+                        ? null
+                        : descCtrl.text.trim(),
                     visibility: privacy.toUpperCase(),
                   );
                   await repo.addVideoToPlaylist(created.id, widget.videoId);
@@ -279,16 +325,26 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                     _selectedPlaylistIds.add(created.id);
                   });
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Created and added to "${created.title}"')),
+                    SnackBar(
+                      content: Text(
+                        tr('playlist.created_added', {'title': created.title}),
+                      ),
+                    ),
                   );
                 } catch (e) {
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Failed to create playlist: $e')),
+                    SnackBar(
+                      content: Text(
+                        tr('playlist.create_failed_short', {
+                          'error': e.toString(),
+                        }),
+                      ),
+                    ),
                   );
                 }
               },
-              child: const Text('Create'),
+              child: Text(tr('playlist.create')),
             ),
           ],
         ),

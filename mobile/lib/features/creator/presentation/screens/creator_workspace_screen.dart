@@ -10,6 +10,7 @@ import 'package:mobile/features/creator/presentation/widgets/creator_group_card.
 import 'package:mobile/features/creator/presentation/widgets/creator_loading_skeleton.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/groups/presentation/widgets/group_management_sheet.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class CreatorWorkspaceScreen extends ConsumerStatefulWidget {
   const CreatorWorkspaceScreen({super.key});
@@ -51,33 +52,37 @@ class _CreatorWorkspaceScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(creatorWorkspaceProvider);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Creator Workspace'),
+        title: Text(tr('creator.workspace_title')),
         actions: [
           IconButton(
             icon: const Icon(Icons.upload_file),
             onPressed: () => context.push('/creator/upload'),
-            tooltip: 'Upload Video',
+            tooltip: tr('creator.upload_tooltip'),
           ),
           IconButton(
             icon: const Icon(Icons.analytics),
             onPressed: () => context.push('/creator/dashboard'),
-            tooltip: 'Creator Dashboard',
+            tooltip: tr('creator.dashboard_tooltip'),
           ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             onPressed: () => context.push('/creator/create-group'),
-            tooltip: 'Create New Channel',
+            tooltip: tr('creator.create_channel_tooltip'),
           ),
         ],
       ),
-      body: _buildBody(state),
+      body: _buildBody(state, tr),
     );
   }
 
-  Widget _buildBody(CreatorWorkspaceState state) {
+  Widget _buildBody(
+    CreatorWorkspaceState state,
+    String Function(String, [Map<String, dynamic>?]) tr,
+  ) {
     if (state.isLoading && state.groups.isEmpty) {
       return const CreatorLoadingSkeleton();
     }
@@ -91,10 +96,9 @@ class _CreatorWorkspaceScreenState
 
     if (state.groups.isEmpty) {
       return CreatorEmptyState(
-        title: 'No Channels Available',
-        message:
-            'Create a channel to start uploading videos and building your audience.',
-        buttonText: 'Create Channel',
+        title: tr('creator.no_channels_title'),
+        message: tr('creator.no_channels_desc'),
+        buttonText: tr('creator.create_channel_btn'),
         onAction: () => context.push('/creator/create-group'),
       );
     }
@@ -129,13 +133,17 @@ class _CreatorWorkspaceScreenState
         controller: _scrollController,
         slivers: [
           if (activeGroups.isNotEmpty) ...[
-            _buildSectionHeader('Active Channels', Icons.star, Colors.blue),
+            _buildSectionHeader(
+              tr('creator.active_channels'),
+              Icons.star,
+              Colors.blue,
+            ),
             _buildGroupList(activeGroups),
           ],
 
           if (pendingGroups.isNotEmpty) ...[
             _buildSectionHeader(
-              'Pending Channels',
+              tr('creator.pending_channels'),
               Icons.hourglass_empty,
               Colors.orange,
             ),
@@ -143,13 +151,17 @@ class _CreatorWorkspaceScreenState
           ],
 
           if (rejectedGroups.isNotEmpty) ...[
-            _buildSectionHeader('Rejected Channels', Icons.cancel, Colors.red.shade900),
+            _buildSectionHeader(
+              tr('creator.rejected_channels'),
+              Icons.cancel,
+              Colors.red.shade900,
+            ),
             _buildGroupList(rejectedGroups, isRejected: true),
           ],
 
           if (suspendedGroups.isNotEmpty) ...[
             _buildSectionHeader(
-              'Suspended / Archived',
+              tr('creator.suspended_channels'),
               Icons.block,
               Colors.red,
             ),

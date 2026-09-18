@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/explore/domain/explore_content_model.dart';
 import 'package:mobile/features/explore/presentation/providers/discover_provider.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
@@ -16,10 +17,11 @@ class ExploreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final discoverStateAsync = ref.watch(discoverProvider);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Explore'),
+        title: Text(tr('explore.title')),
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
@@ -35,10 +37,10 @@ class ExploreScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              const Text('Could not load explore content'),
+              Text(tr('explore.load_failed')),
               TextButton(
                 onPressed: () => ref.read(discoverProvider.notifier).refresh(),
-                child: const Text('Retry'),
+                child: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -58,21 +60,24 @@ class ExploreScreen extends ConsumerWidget {
                     ).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No content available',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  Text(
+                    tr('explore.no_content'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Check back soon for trending content',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  Text(
+                    tr('explore.no_content_desc'),
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () =>
                         ref.read(discoverProvider.notifier).refresh(),
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
+                    label: Text(tr('explore.refresh')),
                   ),
                 ],
               ),
@@ -98,21 +103,24 @@ class ExploreScreen extends ConsumerWidget {
                     ).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No trending content yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  Text(
+                    tr('explore.no_trending'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Be the first to create and share!',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  Text(
+                    tr('explore.no_trending_desc'),
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () =>
                         ref.read(discoverProvider.notifier).refresh(),
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
+                    label: Text(tr('explore.refresh')),
                   ),
                 ],
               ),
@@ -128,16 +136,16 @@ class ExploreScreen extends ConsumerWidget {
                 children: [
                   if (content.trendingStreams.isNotEmpty) ...[
                     _SectionHeader(
-                      title: 'Live Now',
+                      title: tr('explore.live_now'),
                       icon: Icons.sensors,
                       color: Colors.red,
                     ),
-                    _buildLiveCarousel(content.trendingStreams),
+                    _buildLiveCarousel(content.trendingStreams, tr),
                     const SizedBox(height: 24),
                   ],
                   if (content.trendingVideos.isNotEmpty) ...[
                     _SectionHeader(
-                      title: 'Trending Videos',
+                      title: tr('explore.trending_videos'),
                       icon: Icons.local_fire_department,
                       color: Colors.orange,
                     ),
@@ -146,11 +154,15 @@ class ExploreScreen extends ConsumerWidget {
                   ],
                   if (content.trendingChannels.isNotEmpty) ...[
                     _SectionHeader(
-                      title: 'Popular Channels',
+                      title: tr('explore.popular_channels'),
                       icon: Icons.star_rounded,
                       color: Colors.amber,
                     ),
-                    _buildChannelCarousel(content.trendingChannels, context),
+                    _buildChannelCarousel(
+                      content.trendingChannels,
+                      context,
+                      tr,
+                    ),
                     const SizedBox(height: 24),
                   ],
                   // Add more sections as needed
@@ -163,7 +175,10 @@ class ExploreScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLiveCarousel(List<ExploreStreamDto> streams) {
+  Widget _buildLiveCarousel(
+    List<ExploreStreamDto> streams,
+    String Function(String, [Map<String, dynamic>?]) tr,
+  ) {
     return SizedBox(
       height: 180,
       child: ListView.separated(
@@ -189,7 +204,7 @@ class ExploreScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
-                      stream.title ?? 'Live',
+                      stream.title ?? tr('live.title'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -198,7 +213,7 @@ class ExploreScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${stream.viewerCount} viewers',
+                    tr('explore.viewers', {'count': stream.viewerCount}),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -236,6 +251,7 @@ class ExploreScreen extends ConsumerWidget {
   Widget _buildChannelCarousel(
     List<ExploreChannelDto> channels,
     BuildContext context,
+    String Function(String, [Map<String, dynamic>?]) tr,
   ) {
     return SizedBox(
       height: 120,
@@ -263,7 +279,7 @@ class ExploreScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    channel.name ?? 'Channel',
+                    channel.name ?? tr('video.channel_fallback'),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

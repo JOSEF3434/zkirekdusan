@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/core/notification_navigation_resolver.dart';
 import 'package:mobile/features/notifications/presentation/providers/notifications_provider.dart';
 import 'package:mobile/features/notifications/presentation/widgets/notification_tile.dart';
@@ -16,16 +17,17 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationsAsync = ref.watch(notificationsProvider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(tr('notifications.title')),
         actions: [
           notificationsAsync.when(
             data: (state) => state.unreadCount > 0
                 ? IconButton(
                     icon: const Icon(Icons.done_all_rounded),
-                    tooltip: 'Mark all as read',
+                    tooltip: tr('notifications.mark_all_read'),
                     onPressed: () => ref
                         .read(notificationsProvider.notifier)
                         .markAllAsRead(),
@@ -99,10 +101,11 @@ class NotificationsScreen extends ConsumerWidget {
 
 // ── Empty State ───────────────────────────────────────────────────────────────
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -115,10 +118,13 @@ class _EmptyState extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 16),
-            Text("You're all caught up!", style: theme.textTheme.titleLarge),
+            Text(
+              tr('notifications.caught_up'),
+              style: theme.textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(
-              'New notifications will appear here.',
+              tr('notifications.new_appear'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
@@ -133,15 +139,16 @@ class _EmptyState extends StatelessWidget {
 
 // ── Error State ───────────────────────────────────────────────────────────────
 
-class _ErrorState extends StatelessWidget {
+class _ErrorState extends ConsumerWidget {
   final String error;
   final VoidCallback onRetry;
 
   const _ErrorState({required this.error, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -155,12 +162,12 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Could not load notifications',
+              tr('notifications.load_failed'),
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Please check your connection and try again.',
+              tr('notifications.load_failed_desc'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -170,7 +177,7 @@ class _ErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+              label: Text(tr('common.retry')),
             ),
           ],
         ),

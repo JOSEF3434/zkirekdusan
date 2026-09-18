@@ -18,6 +18,7 @@ import 'package:mobile/features/stories/presentation/widgets/story_reaction_bar.
 import 'package:mobile/features/stories/presentation/widgets/story_viewer_analytics.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_viewer_controls.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_views_sheet.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class StoryViewerArgs {
   final List<StoryFeedGroupModel> groups;
@@ -78,7 +79,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     _videoController?.dispose();
     _currentVideoUrl = videoUrl;
 
-    final playbackUrl = MediaUrlResolver.isCloudinary(videoUrl) &&
+    final playbackUrl =
+        MediaUrlResolver.isCloudinary(videoUrl) &&
             !videoUrl.endsWith('.mp4') &&
             !videoUrl.endsWith('.m3u8')
         ? MediaUrlResolver.toCloudinaryMp4(videoUrl)
@@ -149,6 +151,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   }
 
   Future<void> _confirmDeleteStory(StoryModel story) async {
+    final tr = ref.read(trProvider);
     final notifier = ref.read(storyViewerProvider.notifier);
     notifier.setOverlayOpen(true);
     _videoController?.pause();
@@ -156,19 +159,17 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Story?'),
-        content: const Text(
-          'This story will be removed permanently and won\'t be visible to other users.',
-        ),
+        title: Text(tr('stories.delete_title')),
+        content: Text(tr('stories.delete_message')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -177,9 +178,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     if (confirmed == true) {
       final success = await notifier.deleteCurrentStory();
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Story deleted successfully')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(tr('stories.deleted'))));
       }
     }
 
@@ -414,23 +415,22 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                                 }
                               },
                               onSendComment: (text) async {
+                                final tr = ref.read(trProvider);
                                 final messenger = ScaffoldMessenger.of(context);
                                 try {
                                   await ref
                                       .read(storiesRemoteDatasourceProvider)
                                       .addComment(currentStory.id, text);
                                   messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Reply sent'),
+                                    SnackBar(
+                                      content: Text(tr('stories.reply_sent')),
                                       duration: Duration(seconds: 2),
                                     ),
                                   );
                                 } catch (e) {
                                   messenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Failed to send reply. Try again.',
-                                      ),
+                                    SnackBar(
+                                      content: Text(tr('stories.reply_failed')),
                                     ),
                                   );
                                 }
@@ -496,6 +496,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
           debugPrint(
             '[StoryViewer] Image load failed for: $resolvedImageUrl (error: $error)',
           );
+          final tr = ref.read(trProvider);
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -506,9 +507,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                   size: 48,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Unable to load media',
-                  style: TextStyle(color: Colors.white70),
+                Text(
+                  tr('stories.media_load_failed'),
+                  style: const TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -520,7 +521,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                     setState(() {});
                   },
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Retry'),
+                  label: Text(tr('common.retry')),
                 ),
               ],
             ),

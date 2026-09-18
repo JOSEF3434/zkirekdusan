@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class DownloadButton extends ConsumerWidget {
   final VideoResponseDto video;
@@ -18,19 +19,24 @@ class DownloadButton extends ConsumerWidget {
     this.defaultColor,
   });
 
-  void _handleTap(BuildContext context, WidgetRef ref, DownloadState downloadState) {
+  void _handleTap(
+    BuildContext context,
+    WidgetRef ref,
+    DownloadState downloadState,
+  ) {
+    final tr = ref.read(trProvider);
     final videoId = video.id;
     final isDownloading = downloadState.downloading.contains(videoId);
     final isCompleted = downloadState.downloads.containsKey(videoId);
     final progress = downloadState.progress[videoId] ?? 0.0;
 
     if (isCompleted) {
-      _showCompletedOptions(context, ref, videoId);
+      _showCompletedOptions(context, ref, videoId, tr);
       return;
     }
 
     if (isDownloading) {
-      _showDownloadingOptions(context, ref, videoId, progress);
+      _showDownloadingOptions(context, ref, videoId, progress, tr);
       return;
     }
 
@@ -52,13 +58,15 @@ class DownloadButton extends ConsumerWidget {
       renditionUrls: video.renditions.map((r) => r.url).toList(),
     );
 
-    ref.read(downloadServiceProvider.notifier).startDownload(
-      videoId: videoId,
-      url: downloadUrl,
-      title: video.title,
-      thumbnailUrl: resolvedThumb,
-      quality: '720p',
-    );
+    ref
+        .read(downloadServiceProvider.notifier)
+        .startDownload(
+          videoId: videoId,
+          url: downloadUrl,
+          title: video.title,
+          thumbnailUrl: resolvedThumb,
+          quality: '720p',
+        );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -72,7 +80,12 @@ class DownloadButton extends ConsumerWidget {
     );
   }
 
-  void _showCompletedOptions(BuildContext context, WidgetRef ref, String videoId) {
+  void _showCompletedOptions(
+    BuildContext context,
+    WidgetRef ref,
+    String videoId,
+    String Function(String, [Map<String, dynamic>?]) tr,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -80,8 +93,11 @@ class DownloadButton extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_circle_outline, color: Colors.teal),
-              title: const Text('Play Offline'),
+              leading: const Icon(
+                Icons.play_circle_outline,
+                color: Colors.teal,
+              ),
+              title: Text(tr('offline.play')),
               onTap: () {
                 Navigator.of(ctx).pop();
                 context.push('/video/$videoId');
@@ -89,12 +105,16 @@ class DownloadButton extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete Download'),
+              title: Text(tr('offline.delete')),
               onTap: () {
                 Navigator.of(ctx).pop();
-                ref.read(downloadServiceProvider.notifier).deleteDownload(videoId);
+                ref
+                    .read(downloadServiceProvider.notifier)
+                    .deleteDownload(videoId);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Video removed from offline storage.')),
+                  const SnackBar(
+                    content: Text('Video removed from offline storage.'),
+                  ),
                 );
               },
             ),
@@ -109,6 +129,7 @@ class DownloadButton extends ConsumerWidget {
     WidgetRef ref,
     String videoId,
     double progress,
+    String Function(String, [Map<String, dynamic>?]) tr,
   ) {
     showModalBottomSheet(
       context: context,
@@ -125,10 +146,12 @@ class DownloadButton extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.cancel_outlined, color: Colors.red),
-              title: const Text('Cancel Download'),
+              title: Text(tr('common.cancel')),
               onTap: () {
                 Navigator.of(ctx).pop();
-                ref.read(downloadServiceProvider.notifier).cancelDownload(videoId);
+                ref
+                    .read(downloadServiceProvider.notifier)
+                    .cancelDownload(videoId);
               },
             ),
           ],
@@ -139,6 +162,7 @@ class DownloadButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     final downloadState = ref.watch(downloadServiceProvider);
     final theme = Theme.of(context);
     final themeColor = defaultColor ?? theme.colorScheme.onSurfaceVariant;
@@ -159,7 +183,7 @@ class DownloadButton extends ConsumerWidget {
         color: activeColor,
         size: iconSize,
       );
-      label = 'Downloaded';
+      label = tr('video.downloaded');
     } else if (isDownloading) {
       activeColor = const Color(0xFF00C6FF);
       iconWidget = SizedBox(
@@ -178,7 +202,7 @@ class DownloadButton extends ConsumerWidget {
         color: themeColor,
         size: iconSize,
       );
-      label = 'Download';
+      label = tr('video.download');
     }
 
     return GestureDetector(

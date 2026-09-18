@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class IncomingCallScreen extends ConsumerStatefulWidget {
   const IncomingCallScreen({super.key});
@@ -38,6 +39,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
   Widget build(BuildContext context) {
     final callState = ref.watch(callStateProvider);
     final callService = ref.watch(callServiceProvider);
+    final tr = ref.watch(trProvider);
 
     // If caller cancels or call changes status, pop
     ref.listen<CallState>(callStateProvider, (previous, next) {
@@ -45,7 +47,8 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
         if (mounted && Navigator.canPop(context)) {
           context.pop();
         }
-      } else if (next.status == CallStatus.connected || next.status == CallStatus.connecting) {
+      } else if (next.status == CallStatus.connected ||
+          next.status == CallStatus.connecting) {
         if (mounted) {
           context.pushReplacement('/call/active');
         }
@@ -110,7 +113,10 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                   // Call Type Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(24),
@@ -122,13 +128,17 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isVideo ? Icons.videocam_rounded : Icons.phone_in_talk_rounded,
+                          isVideo
+                              ? Icons.videocam_rounded
+                              : Icons.phone_in_talk_rounded,
                           color: const Color(0xFF00C6FF),
                           size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          isVideo ? 'INCOMING VIDEO CALL' : 'INCOMING AUDIO CALL',
+                          isVideo
+                              ? tr('calls.incoming_video')
+                              : tr('calls.incoming_audio'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -161,8 +171,9 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: const Color(0xFF00C6FF)
-                                        .withValues(alpha: (1.0 - progress) * 0.5),
+                                    color: const Color(
+                                      0xFF00C6FF,
+                                    ).withValues(alpha: (1.0 - progress) * 0.5),
                                     width: 2,
                                   ),
                                 ),
@@ -173,15 +184,17 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                           AnimatedBuilder(
                             animation: _rippleController,
                             builder: (context, child) {
-                              final progress = (_rippleController.value + 0.5) % 1.0;
+                              final progress =
+                                  (_rippleController.value + 0.5) % 1.0;
                               return Container(
                                 width: 140 + (120 * progress),
                                 height: 140 + (120 * progress),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: const Color(0xFF00C6FF)
-                                        .withValues(alpha: (1.0 - progress) * 0.4),
+                                    color: const Color(
+                                      0xFF00C6FF,
+                                    ).withValues(alpha: (1.0 - progress) * 0.4),
                                     width: 1.5,
                                   ),
                                 ),
@@ -201,7 +214,9 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF00C6FF).withValues(alpha: 0.4),
+                                  color: const Color(
+                                    0xFF00C6FF,
+                                  ).withValues(alpha: 0.4),
                                   blurRadius: 30,
                                   spreadRadius: 5,
                                 ),
@@ -248,7 +263,10 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                   // Bottom Action Buttons: Decline (Red) & Accept (Green)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 36),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 48,
+                      vertical: 36,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -256,7 +274,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
                         _ActionColumn(
                           icon: Icons.call_end_rounded,
                           color: const Color(0xFFEF4444),
-                          label: 'Decline',
+                          label: tr('calls.decline'),
                           onTap: () {
                             callService.rejectCall();
                             if (mounted && Navigator.canPop(context)) {
@@ -267,9 +285,11 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
 
                         // Accept Button
                         _ActionColumn(
-                          icon: isVideo ? Icons.videocam_rounded : Icons.call_rounded,
+                          icon: isVideo
+                              ? Icons.videocam_rounded
+                              : Icons.call_rounded,
                           color: const Color(0xFF10B981),
-                          label: 'Accept',
+                          label: tr('calls.accept'),
                           onTap: () async {
                             await callService.acceptCall();
                             if (!context.mounted) return;

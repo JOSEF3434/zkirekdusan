@@ -23,9 +23,7 @@ class LikedVideosScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('library.liked')),
-      ),
+      appBar: AppBar(title: Text(tr('library.liked'))),
       body: likedAsync.when(
         data: (response) {
           if (response.data.isEmpty) {
@@ -36,20 +34,24 @@ class LikedVideosScreen extends ConsumerWidget {
                   Icon(
                     Icons.thumb_up_alt_outlined,
                     size: 64,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No liked videos yet',
+                    tr('library.no_liked'),
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Videos you like will appear here.',
+                    tr('library.no_liked_desc'),
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                   ),
                 ],
@@ -63,7 +65,10 @@ class LikedVideosScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final video = response.data[index];
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
@@ -74,10 +79,11 @@ class LikedVideosScreen extends ConsumerWidget {
                           ? Image.network(
                               video.thumbnailUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(
-                                Icons.play_circle_outline,
-                                color: Colors.white54,
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Icons.play_circle_outline,
+                                    color: Colors.white54,
+                                  ),
                             )
                           : const Icon(
                               Icons.play_circle_outline,
@@ -89,12 +95,15 @@ class LikedVideosScreen extends ConsumerWidget {
                     video.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4.0),
                     child: Text(
-                      '${video.author.displayName ?? video.author.username ?? "Channel"} • ${video.viewsCount} views',
+                      '${video.author.displayName ?? video.author.username ?? tr("library.channel_fallback")} • ${video.viewsCount} views',
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 12,
@@ -116,12 +125,13 @@ class LikedVideosScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-              const SizedBox(height: 16),
-              Text(
-                '${tr('state.error')}\n$err',
-                textAlign: TextAlign.center,
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
               ),
+              const SizedBox(height: 16),
+              Text('${tr('state.error')}\n$err', textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(likedVideosProvider),
@@ -134,7 +144,12 @@ class LikedVideosScreen extends ConsumerWidget {
     );
   }
 
-  void _showOptionsSheet(BuildContext context, WidgetRef ref, VideoResponseDto video) {
+  void _showOptionsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    VideoResponseDto video,
+  ) {
+    final tr = ref.read(trProvider);
     showModalBottomSheet(
       context: context,
       builder: (bContext) => SafeArea(
@@ -143,7 +158,7 @@ class LikedVideosScreen extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.play_arrow),
-              title: const Text('Play Video'),
+              title: Text(tr('library.play_video')),
               onTap: () {
                 Navigator.pop(bContext);
                 context.push('/video/${video.id}');
@@ -151,16 +166,18 @@ class LikedVideosScreen extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.thumb_down_outlined),
-              title: const Text('Remove from Liked Videos'),
+              title: Text(tr('library.remove_from_liked')),
               onTap: () async {
                 Navigator.pop(bContext);
-                await ref.read(likesProvider.notifier).toggleLike(video.id, isVideo: true);
+                await ref
+                    .read(likesProvider.notifier)
+                    .toggleLike(video.id, isVideo: true);
                 ref.invalidate(likedVideosProvider);
               },
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Share'),
+              title: Text(tr('library.share')),
               onTap: () {
                 Navigator.pop(bContext);
                 ShareButton(postId: video.id, title: video.title);

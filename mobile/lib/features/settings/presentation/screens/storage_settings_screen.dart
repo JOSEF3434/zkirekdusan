@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class StorageSettingsScreen extends ConsumerStatefulWidget {
   const StorageSettingsScreen({super.key});
@@ -15,15 +16,16 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
   bool _isProcessing = false;
 
   Future<void> _handleClearCache() async {
+    final tr = ref.read(trProvider);
     setState(() => _isProcessing = true);
     try {
       final cacheManager = ref.read(cacheManagerProvider);
       await cacheManager.clearCache();
       ref.invalidate(storageBreakdownProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cache cleared successfully.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(tr('storage.clear_success'))));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -31,22 +33,21 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
   }
 
   Future<void> _handleDeleteAllDownloads() async {
+    final tr = ref.read(trProvider);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete All Downloads?'),
-        content: const Text(
-          'This will permanently delete all downloaded videos from your device. You will need an internet connection to watch them again.',
-        ),
+        title: Text(tr('storage.delete_all_title')),
+        content: Text(tr('storage.delete_all_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete All'),
+            child: Text(tr('storage.delete_all_btn')),
           ),
         ],
       ),
@@ -62,7 +63,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
       ref.invalidate(downloadServiceProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All downloaded videos deleted.')),
+          SnackBar(content: Text(tr('storage.delete_all_success'))),
         );
       }
     } finally {
@@ -74,10 +75,11 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
   Widget build(BuildContext context) {
     final breakdownAsync = ref.watch(storageBreakdownProvider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Storage & Offline Data'),
+        title: Text(tr('storage.title')),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -89,7 +91,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
       ),
       body: breakdownAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error loading storage: $err')),
+        error: (err, _) => Center(child: Text('${tr('state.error')}: $err')),
         data: (breakdown) {
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -97,11 +99,15 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
               // Storage Overview Card
               Card(
                 elevation: 0,
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
                 child: Padding(
@@ -110,7 +116,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total App Storage',
+                        tr('storage.total'),
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -144,7 +150,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
 
               // Categories List
               Text(
-                'Storage Breakdown',
+                tr('storage.breakdown'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.primary,
@@ -153,29 +159,29 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
               const SizedBox(height: 8),
               _buildCategoryTile(
                 icon: Icons.download_done_rounded,
-                title: 'Downloaded Videos',
-                subtitle: 'Saved for offline playback',
+                title: tr('storage.downloaded_videos'),
+                subtitle: tr('storage.downloaded_videos_desc'),
                 size: breakdown.formattedVideo,
                 color: Colors.blue,
               ),
               _buildCategoryTile(
                 icon: Icons.chat_bubble_outline_rounded,
-                title: 'Chat Media',
-                subtitle: 'Images, voice notes, and attachments',
+                title: tr('storage.chat_media'),
+                subtitle: tr('storage.chat_media_desc'),
                 size: breakdown.formattedChat,
                 color: Colors.green,
               ),
               _buildCategoryTile(
                 icon: Icons.image_outlined,
-                title: 'Image & Thumbnails Cache',
-                subtitle: 'Cached for smooth browsing',
+                title: tr('storage.image_cache'),
+                subtitle: tr('storage.image_cache_desc'),
                 size: breakdown.formattedCache,
                 color: Colors.orange,
               ),
               _buildCategoryTile(
                 icon: Icons.cleaning_services_outlined,
-                title: 'Temporary Files',
-                subtitle: 'Incomplete downloads and staging',
+                title: tr('storage.temp_files'),
+                subtitle: tr('storage.temp_files_desc'),
                 size: breakdown.formattedTemp,
                 color: Colors.purple,
               ),
@@ -183,7 +189,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
 
               // Actions
               Text(
-                'Manage Space',
+                tr('storage.manage_space'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.primary,
@@ -194,12 +200,13 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: const CircleAvatar(
                   backgroundColor: Color(0x22FFA726),
-                  child: Icon(Icons.delete_sweep_outlined, color: Colors.orange),
+                  child: Icon(
+                    Icons.delete_sweep_outlined,
+                    color: Colors.orange,
+                  ),
                 ),
-                title: const Text('Clear Temporary Cache'),
-                subtitle: const Text(
-                  'Frees space by deleting cached images and temporary files. Downloaded videos are preserved.',
-                ),
+                title: Text(tr('storage.clear_cache_title')),
+                subtitle: Text(tr('storage.clear_cache_desc')),
                 trailing: _isProcessing
                     ? const SizedBox(
                         width: 20,
@@ -208,7 +215,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                       )
                     : OutlinedButton(
                         onPressed: _handleClearCache,
-                        child: const Text('Clear'),
+                        child: Text(tr('storage.clear_btn')),
                       ),
               ),
               const Divider(height: 24),
@@ -218,10 +225,8 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                   backgroundColor: Color(0x22EF5350),
                   child: Icon(Icons.delete_forever_outlined, color: Colors.red),
                 ),
-                title: const Text('Delete All Downloads'),
-                subtitle: const Text(
-                  'Permanently removes all offline video files from your device.',
-                ),
+                title: Text(tr('storage.delete_all_label')),
+                subtitle: Text(tr('storage.delete_all_desc')),
                 trailing: _isProcessing
                     ? const SizedBox(
                         width: 20,
@@ -233,7 +238,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                           backgroundColor: Colors.red,
                         ),
                         onPressed: _handleDeleteAllDownloads,
-                        child: const Text('Delete'),
+                        child: Text(tr('storage.delete_btn')),
                       ),
               ),
             ],
@@ -257,11 +262,8 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: Text(
-        size,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-      ),
+      subtitle: Text(subtitle),
+      trailing: Text(size, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }

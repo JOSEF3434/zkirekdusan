@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({super.key});
@@ -55,6 +56,7 @@ class _CallScreenState extends ConsumerState<CallScreen>
   Widget build(BuildContext context) {
     final callState = ref.watch(callStateProvider);
     final callService = ref.watch(callServiceProvider);
+    final tr = ref.watch(trProvider);
 
     // If call has ended, pop the screen
     ref.listen<CallState>(callStateProvider, (previous, next) {
@@ -90,7 +92,10 @@ class _CallScreenState extends ConsumerState<CallScreen>
             // Top Header: Back button + Call Status & Duration
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -164,13 +169,18 @@ class _CallScreenState extends ConsumerState<CallScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
+                                  colors: [
+                                    Color(0xFF00C6FF),
+                                    Color(0xFF0072FF),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF00C6FF).withValues(alpha: 0.35),
+                                    color: const Color(
+                                      0xFF00C6FF,
+                                    ).withValues(alpha: 0.35),
                                     blurRadius: 30,
                                     spreadRadius: 5,
                                   ),
@@ -250,7 +260,8 @@ class _CallScreenState extends ConsumerState<CallScreen>
                     child: RTCVideoView(
                       callService.localRenderer,
                       mirror: callState.isFrontCamera,
-                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                     ),
                   ),
                 ),
@@ -266,7 +277,10 @@ class _CallScreenState extends ConsumerState<CallScreen>
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF161C28).withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(32),
@@ -284,7 +298,7 @@ class _CallScreenState extends ConsumerState<CallScreen>
                               : Icons.mic_rounded,
                           isActive: callState.isMuted,
                           activeColor: Colors.redAccent,
-                          label: 'Mute',
+                          label: tr('calls.mute'),
                           onTap: () => callService.toggleMute(),
                         ),
 
@@ -295,7 +309,7 @@ class _CallScreenState extends ConsumerState<CallScreen>
                               : Icons.volume_down_rounded,
                           isActive: callState.isSpeakerOn,
                           activeColor: const Color(0xFF00C6FF),
-                          label: 'Speaker',
+                          label: tr('calls.speaker'),
                           onTap: () => callService.toggleSpeaker(),
                         ),
 
@@ -307,13 +321,13 @@ class _CallScreenState extends ConsumerState<CallScreen>
                                 : Icons.videocam_off_rounded,
                             isActive: !callState.isVideoEnabled,
                             activeColor: Colors.orangeAccent,
-                            label: 'Video',
+                            label: tr('calls.video'),
                             onTap: () => callService.toggleVideo(),
                           ),
                           _CallControlButton(
                             icon: Icons.flip_camera_ios_rounded,
                             isActive: false,
-                            label: 'Flip',
+                            label: tr('calls.flip'),
                             onTap: () => callService.switchCamera(),
                           ),
                         ],
@@ -384,9 +398,7 @@ class _CallScreenState extends ConsumerState<CallScreen>
         Positioned.fill(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.65),
-            ),
+            child: Container(color: Colors.black.withValues(alpha: 0.65)),
           ),
         ),
       ],
@@ -410,38 +422,40 @@ class _CallScreenState extends ConsumerState<CallScreen>
   }
 
   String _getStatusText(CallState state) {
+    final tr = ref.read(trProvider);
     switch (state.status) {
       case CallStatus.calling:
-        return 'Calling...';
+        return tr('calls.calling');
       case CallStatus.ringing:
-        return 'Ringing...';
+        return tr('calls.ringing');
       case CallStatus.connecting:
-        return 'Connecting...';
+        return tr('calls.connecting');
       case CallStatus.connected:
         return _formatDuration(state.callDuration);
       case CallStatus.ended:
-        return 'Call ended';
+        return tr('calls.ended');
       case CallStatus.idle:
         return '';
     }
   }
 
   String _getStatusSubtitle(CallState state) {
+    final tr = ref.read(trProvider);
     switch (state.status) {
       case CallStatus.calling:
-        return 'Waiting for answer...';
+        return tr('calls.waiting');
       case CallStatus.ringing:
-        return 'Incoming call...';
+        return tr('calls.incoming');
       case CallStatus.connecting:
-        return 'Establishing secure connection...';
+        return tr('calls.establishing');
       case CallStatus.connected:
-        return 'End-to-end encrypted';
+        return tr('calls.encrypted');
       case CallStatus.ended:
         return state.endReason == 'offline'
-            ? 'User is offline'
+            ? tr('calls.offline')
             : state.endReason == 'busy'
-                ? 'User is busy'
-                : 'Call completed';
+            ? tr('calls.busy')
+            : tr('calls.completed');
       case CallStatus.idle:
         return '';
     }
@@ -481,10 +495,7 @@ class _CallControlButton extends StatelessWidget {
           Container(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
             child: Icon(icon, color: effectiveColor, size: 22),
           ),
           const SizedBox(height: 4),

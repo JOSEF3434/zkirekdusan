@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
@@ -50,23 +50,23 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
     return streamsAsync.when(
       data: (streams) {
         // Filter logic
-        final liveStreams =
-            streams.where((s) => s.status == LiveStreamStatus.live).toList();
-        final scheduledStreams =
-            streams
-                .where((s) => s.status == LiveStreamStatus.scheduled)
-                .toList();
-        final endedStreams =
-            streams
-                .where(
-                  (s) =>
-                      s.status == LiveStreamStatus.ended ||
-                      s.status == LiveStreamStatus.vodReady ||
-                      s.status == LiveStreamStatus.processing,
-                )
-                .toList();
-        final draftStreams =
-            streams.where((s) => s.status == LiveStreamStatus.draft).toList();
+        final liveStreams = streams
+            .where((s) => s.status == LiveStreamStatus.live)
+            .toList();
+        final scheduledStreams = streams
+            .where((s) => s.status == LiveStreamStatus.scheduled)
+            .toList();
+        final endedStreams = streams
+            .where(
+              (s) =>
+                  s.status == LiveStreamStatus.ended ||
+                  s.status == LiveStreamStatus.vodReady ||
+                  s.status == LiveStreamStatus.processing,
+            )
+            .toList();
+        final draftStreams = streams
+            .where((s) => s.status == LiveStreamStatus.draft)
+            .toList();
 
         final displayedStreams = switch (_selectedFilter) {
           _StreamFilter.live => liveStreams,
@@ -271,7 +271,11 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
                                 Icons.add_circle_outline,
                                 size: 18,
                               ),
-                              label: const Text('Start Live Broadcast'),
+                              label: Consumer(
+                                builder: (_, ref, _) => Text(
+                                  ref.watch(trProvider)('profile.start_live'),
+                                ),
+                              ),
                             ),
                           ],
                         ],
@@ -303,36 +307,33 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (err, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    size: 48,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${tr('profile.error_loading_streams')}: $err',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.tonal(
-                    onPressed:
-                        () => ref.invalidate(
-                          profileLiveStreamsProvider(widget.userId),
-                        ),
-                    child: Text(tr('common.retry')),
-                  ),
-                ],
+      error: (err, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: theme.colorScheme.error,
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                '${tr('profile.error_loading_streams')}: $err',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.tonal(
+                onPressed: () =>
+                    ref.invalidate(profileLiveStreamsProvider(widget.userId)),
+                child: Text(tr('common.retry')),
+              ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -362,10 +363,9 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color:
-              isSelected
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
+          color: isSelected
+              ? theme.colorScheme.onPrimary
+              : theme.colorScheme.onSurface,
         ),
       ),
       backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
@@ -432,17 +432,15 @@ class _StreamCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color:
-              stream.status == LiveStreamStatus.live
-                  ? Colors.redAccent.withValues(alpha: 0.5)
-                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          color: stream.status == LiveStreamStatus.live
+              ? Colors.redAccent.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
           width: stream.status == LiveStreamStatus.live ? 1.5 : 1.0,
         ),
       ),
-      color:
-          isDark
-              ? const Color(0xFF161F2E)
-              : theme.colorScheme.surfaceContainerLowest,
+      color: isDark
+          ? const Color(0xFF161F2E)
+          : theme.colorScheme.surfaceContainerLowest,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -455,30 +453,22 @@ class _StreamCard extends ConsumerWidget {
                   aspectRatio: 16 / 9,
                   child:
                       stream.thumbnailUrl != null &&
-                              stream.thumbnailUrl!.isNotEmpty
-                          ? CachedNetworkImage(
-                            imageUrl:
-                                MediaUrlResolver.resolve(
-                                  stream.thumbnailUrl!,
-                                ) ??
-                                stream.thumbnailUrl!,
-                            fit: BoxFit.cover,
-                            placeholder:
-                                (context, url) => Container(
-                                  color: Colors.black26,
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                            errorWidget:
-                                (context, url, err) => _buildPlaceholderMedia(
-                                  context,
-                                  stream.status,
-                                ),
-                          )
-                          : _buildPlaceholderMedia(context, stream.status),
+                          stream.thumbnailUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl:
+                              MediaUrlResolver.resolve(stream.thumbnailUrl!) ??
+                              stream.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Colors.black26,
+                            child: const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (context, url, err) =>
+                              _buildPlaceholderMedia(context, stream.status),
+                        )
+                      : _buildPlaceholderMedia(context, stream.status),
                 ),
 
                 // Gradient overlay
@@ -679,10 +669,9 @@ class _StreamCard extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors:
-              isLive
-                  ? [const Color(0xFF8B0000), const Color(0xFF1E0000)]
-                  : [const Color(0xFF1A233A), const Color(0xFF0D111A)],
+          colors: isLive
+              ? [const Color(0xFF8B0000), const Color(0xFF1E0000)]
+              : [const Color(0xFF1A233A), const Color(0xFF0D111A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -695,8 +684,8 @@ class _StreamCard extends ConsumerWidget {
               isLive
                   ? Icons.sensors_rounded
                   : (status == LiveStreamStatus.scheduled
-                      ? Icons.event_available_rounded
-                      : Icons.live_tv_rounded),
+                        ? Icons.event_available_rounded
+                        : Icons.live_tv_rounded),
               size: 42,
               color: isLive ? Colors.redAccent : Colors.white70,
             ),
@@ -705,8 +694,8 @@ class _StreamCard extends ConsumerWidget {
               isLive
                   ? 'BROADCASTING'
                   : (status == LiveStreamStatus.scheduled
-                      ? 'UPCOMING STREAM'
-                      : 'LIVE ARCHIVE'),
+                        ? 'UPCOMING STREAM'
+                        : 'LIVE ARCHIVE'),
               style: TextStyle(
                 color: isLive ? Colors.redAccent : Colors.white54,
                 fontSize: 10.5,
@@ -872,10 +861,9 @@ class _StreamCard extends ConsumerWidget {
     } else if (stream.status == LiveStreamStatus.scheduled &&
         stream.scheduledAt != null) {
       final dt = DateTime.tryParse(stream.scheduledAt!);
-      final text =
-          dt != null
-              ? DateFormat('EEE, MMM d • h:mm a').format(dt)
-              : stream.scheduledAt!;
+      final text = dt != null
+          ? DateFormat('EEE, MMM d • h:mm a').format(dt)
+          : stream.scheduledAt!;
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
@@ -960,36 +948,38 @@ class _StreamCard extends ConsumerWidget {
           ],
         ] else if (stream.status == LiveStreamStatus.scheduled) ...[
           Expanded(
-            child:
-                isOwner
-                    ? FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+            child: isOwner
+                ? FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed: () => _startScheduledStream(context, ref),
-                      icon: const Icon(Icons.videocam_rounded, size: 18),
-                      label: const Text(
-                        'Go Live Now',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    )
-                    : OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () => _shareStream(context),
-                      icon: const Icon(Icons.notifications_active_outlined),
-                      label: const Text('Remind Me'),
                     ),
+                    onPressed: () => _startScheduledStream(context, ref),
+                    icon: const Icon(Icons.videocam_rounded, size: 18),
+                    label: const Text(
+                      'Go Live Now',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () => _shareStream(context),
+                    icon: const Icon(Icons.notifications_active_outlined),
+                    label: Consumer(
+                      builder: (_, ref, _) =>
+                          Text(ref.watch(trProvider)('profile.remind_me')),
+                    ),
+                  ),
           ),
           if (isOwner) ...[
             const SizedBox(width: 8),
@@ -1063,7 +1053,12 @@ class _StreamCard extends ConsumerWidget {
             FilledButton.tonalIcon(
               onPressed: () => _publishVod(context, ref),
               icon: const Icon(Icons.publish_rounded, size: 16),
-              label: const Text('Publish VOD', style: TextStyle(fontSize: 12)),
+              label: Consumer(
+                builder: (_, ref, _) => Text(
+                  ref.watch(trProvider)('profile.publish_vod'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
             ),
           ],
           const SizedBox(width: 8),
@@ -1112,107 +1107,100 @@ class _StreamCard extends ConsumerWidget {
             break;
         }
       },
-      itemBuilder:
-          (ctx) => [
-            const PopupMenuItem(
-              value: 'watch',
-              child: ListTile(
-                dense: true,
-                leading: Icon(Icons.visibility_outlined),
-                title: Text('View Stream Details'),
+      itemBuilder: (ctx) => [
+        const PopupMenuItem(
+          value: 'watch',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.visibility_outlined),
+            title: Text('View Stream Details'),
+          ),
+        ),
+        if (isOwner &&
+            (stream.status == LiveStreamStatus.draft ||
+                stream.status == LiveStreamStatus.scheduled)) ...[
+          const PopupMenuItem(
+            value: 'start',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.videocam_rounded, color: Colors.redAccent),
+              title: Text(
+                'Go Live Now',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            if (isOwner &&
-                (stream.status == LiveStreamStatus.draft ||
-                    stream.status == LiveStreamStatus.scheduled)) ...[
-              const PopupMenuItem(
-                value: 'start',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.videocam_rounded,
-                    color: Colors.redAccent,
-                  ),
-                  title: Text(
-                    'Go Live Now',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'studio',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.video_settings_rounded),
-                  title: Text('Open Studio'),
-                ),
-              ),
-            ],
-            if (isOwner) ...[
-              const PopupMenuItem(
-                value: 'edit',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.edit_outlined),
-                  title: Text('Edit Stream Info'),
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'key',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.key_rounded),
-                  title: Text('Stream Key & RTMP'),
-                ),
-              ),
-            ],
-            const PopupMenuItem(
-              value: 'share',
-              child: ListTile(
-                dense: true,
-                leading: Icon(Icons.share_outlined),
-                title: Text('Share Stream Link'),
+          ),
+          const PopupMenuItem(
+            value: 'studio',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.video_settings_rounded),
+              title: Text('Open Studio'),
+            ),
+          ),
+        ],
+        if (isOwner) ...[
+          const PopupMenuItem(
+            value: 'edit',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.edit_outlined),
+              title: Text('Edit Stream Info'),
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'key',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.key_rounded),
+              title: Text('Stream Key & RTMP'),
+            ),
+          ),
+        ],
+        const PopupMenuItem(
+          value: 'share',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.share_outlined),
+            title: Text('Share Stream Link'),
+          ),
+        ),
+        if (isOwner && stream.status == LiveStreamStatus.ended)
+          const PopupMenuItem(
+            value: 'publish',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.publish_rounded, color: Colors.green),
+              title: Text('Publish as VOD'),
+            ),
+          ),
+        if (isOwner && stream.status == LiveStreamStatus.live)
+          const PopupMenuItem(
+            value: 'end',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.stop_circle_rounded, color: Colors.redAccent),
+              title: Text(
+                'End Live Stream',
+                style: TextStyle(color: Colors.redAccent),
               ),
             ),
-            if (isOwner && stream.status == LiveStreamStatus.ended)
-              const PopupMenuItem(
-                value: 'publish',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.publish_rounded, color: Colors.green),
-                  title: Text('Publish as VOD'),
-                ),
+          ),
+        if (isOwner) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'delete',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: Text(
+                'Delete Stream',
+                style: TextStyle(color: Colors.redAccent),
               ),
-            if (isOwner && stream.status == LiveStreamStatus.live)
-              const PopupMenuItem(
-                value: 'end',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.stop_circle_rounded,
-                    color: Colors.redAccent,
-                  ),
-                  title: Text(
-                    'End Live Stream',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ),
-            if (isOwner) ...[
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'delete',
-                child: ListTile(
-                  dense: true,
-                  leading: Icon(Icons.delete_outline, color: Colors.redAccent),
-                  title: Text(
-                    'Delete Stream',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ),
-            ],
-          ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1281,28 +1269,24 @@ class _StreamCard extends ConsumerWidget {
   }
 
   Future<void> _confirmEndStream(BuildContext context, WidgetRef ref) async {
+    final tr = ref.read(trProvider);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('End Live Stream?'),
-            content: const Text(
-              'Are you sure you want to stop broadcasting? Viewers will be disconnected and recording will be finalized.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('End Stream'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('profile.end_stream_title')),
+        content: Text(tr('profile.end_stream_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('common.cancel')),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('profile.end_stream_btn')),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true && context.mounted) {
@@ -1310,44 +1294,42 @@ class _StreamCard extends ConsumerWidget {
         final repo = ref.read(liveStreamingRepositoryProvider);
         await repo.endStream(stream.id);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Live stream ended.')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(tr('profile.stream_ended'))));
           onRefresh();
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Error ending stream: $e')));
+          ).showSnackBar(SnackBar(content: Text(tr('profile.end_stream_error', {'error': e.toString()}))));
         }
       }
     }
   }
 
   Future<void> _confirmDeleteStream(BuildContext context, WidgetRef ref) async {
+    final tr = ref.read(trProvider);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Delete Stream?'),
-            content: Text(
-              'Are you sure you want to delete "${stream.title}"? This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('profile.delete_stream_title')),
+        content: Text(
+          tr('profile.delete_stream_msg', {'title': stream.title}),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('common.cancel')),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('common.delete')),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true && context.mounted) {
@@ -1361,7 +1343,7 @@ class _StreamCard extends ConsumerWidget {
         );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Stream deleted successfully.')),
+            SnackBar(content: Text(tr('profile.stream_deleted'))),
           );
           onRefresh();
         }
@@ -1369,7 +1351,7 @@ class _StreamCard extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Error deleting stream: $e')));
+          ).showSnackBar(SnackBar(content: Text(tr('profile.delete_stream_error', {'error': e.toString()}))));
         }
       }
     }
@@ -1389,140 +1371,129 @@ class _StreamCard extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder:
-          (ctx) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'RTMP Stream Configuration',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
                   const Text(
-                    'Use these settings in OBS Studio, Streamlabs, or PRISM to broadcast:',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                    'RTMP Stream Configuration',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Server Ingest URL',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            stream.rtmpIngestUrl ??
-                                'rtmp://live.zikrekidusan.com/live',
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(
-                                text:
-                                    stream.rtmpIngestUrl ??
-                                    'rtmp://live.zikrekidusan.com/live',
-                              ),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('RTMP URL copied to clipboard!'),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Stream Slug / ID',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            stream.slug.isNotEmpty ? stream.slug : stream.id,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(
-                                text:
-                                    stream.slug.isNotEmpty
-                                        ? stream.slug
-                                        : stream.id,
-                              ),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Stream key copied to clipboard!',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                 ],
               ),
-            ),
+              const SizedBox(height: 8),
+              const Text(
+                'Use these settings in OBS Studio, Streamlabs, or PRISM to broadcast:',
+                style: TextStyle(fontSize: 12.5, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Server Ingest URL',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        stream.rtmpIngestUrl ??
+                            'rtmp://live.zikrekidusan.com/live',
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(
+                            text:
+                                stream.rtmpIngestUrl ??
+                                'rtmp://live.zikrekidusan.com/live',
+                          ),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('RTMP URL copied to clipboard!'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Stream Slug / ID',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        stream.slug.isNotEmpty ? stream.slug : stream.id,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(
+                            text: stream.slug.isNotEmpty
+                                ? stream.slug
+                                : stream.id,
+                          ),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Stream key copied to clipboard!'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -1537,141 +1508,129 @@ class _StreamCard extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (modalCtx, setModalState) => Padding(
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 20,
-                    bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Edit Stream Info',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.pop(modalCtx),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: titleCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Stream Title *',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: descCtrl,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'Visibility',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<LiveStreamVisibility>(
-                          initialValue: selectedVisibility,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: LiveStreamVisibility.public,
-                              child: Text('Public (Anyone can discover)'),
-                            ),
-                            DropdownMenuItem(
-                              value: LiveStreamVisibility.unlisted,
-                              child: Text('Unlisted (Link only)'),
-                            ),
-                            DropdownMenuItem(
-                              value: LiveStreamVisibility.groupOnly,
-                              child: Text('Group Members Only'),
-                            ),
-                            DropdownMenuItem(
-                              value: LiveStreamVisibility.private,
-                              child: Text('Private (Only me)'),
-                            ),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => selectedVisibility = val);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: () async {
-                              final newTitle = titleCtrl.text.trim();
-                              if (newTitle.isEmpty) return;
-
-                              try {
-                                final repo = ref.read(
-                                  liveStreamingRepositoryProvider,
-                                );
-                                await repo.updateStream(stream.id, {
-                                  'title': newTitle,
-                                  'description': descCtrl.text.trim(),
-                                  'visibility':
-                                      selectedVisibility.name.toUpperCase(),
-                                });
-                                if (modalCtx.mounted) Navigator.pop(modalCtx);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Stream updated successfully!',
-                                      ),
-                                    ),
-                                  );
-                                  onRefresh();
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Failed to update stream: $e',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            child: const Text('Save Changes'),
-                          ),
-                        ),
-                      ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Edit Stream Info',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(modalCtx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Stream Title *',
+                    border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Visibility',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<LiveStreamVisibility>(
+                  initialValue: selectedVisibility,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: LiveStreamVisibility.public,
+                      child: Text('Public (Anyone can discover)'),
+                    ),
+                    DropdownMenuItem(
+                      value: LiveStreamVisibility.unlisted,
+                      child: Text('Unlisted (Link only)'),
+                    ),
+                    DropdownMenuItem(
+                      value: LiveStreamVisibility.groupOnly,
+                      child: Text('Group Members Only'),
+                    ),
+                    DropdownMenuItem(
+                      value: LiveStreamVisibility.private,
+                      child: Text('Private (Only me)'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setModalState(() => selectedVisibility = val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final newTitle = titleCtrl.text.trim();
+                      if (newTitle.isEmpty) return;
+
+                      try {
+                        final repo = ref.read(liveStreamingRepositoryProvider);
+                        await repo.updateStream(stream.id, {
+                          'title': newTitle,
+                          'description': descCtrl.text.trim(),
+                          'visibility': selectedVisibility.name.toUpperCase(),
+                        });
+                        if (modalCtx.mounted) Navigator.pop(modalCtx);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Stream updated successfully!'),
+                            ),
+                          );
+                          onRefresh();
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to update stream: $e'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.save_changes'))),
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
     );
   }
 

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator/domain/creator_enums.dart';
 import 'package:mobile/features/creator/presentation/providers/creator_workspace_provider.dart';
 
@@ -98,9 +99,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         (s) => s.createGroupStatus == CreateGroupStatus.loading,
       ),
     );
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Channel')),
+      appBar: AppBar(title: Text(tr('creator.create_channel_action'))),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -108,12 +110,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Channel Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('live.channel_name_label'),
+                border: const OutlineInputBorder(),
               ),
-              validator: (value) =>
-                  value == null || value.isEmpty ? 'Please enter a name' : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? tr('live.channel_name_required')
+                  : null,
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 16),
@@ -180,7 +183,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Create Channel'),
+                  : Text(tr('creator.create_channel_action')),
             ),
           ],
         ),

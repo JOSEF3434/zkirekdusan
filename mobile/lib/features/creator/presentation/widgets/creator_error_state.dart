@@ -1,7 +1,9 @@
 // lib/features/creator/presentation/widgets/creator_error_state.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
-class CreatorErrorState extends StatelessWidget {
+class CreatorErrorState extends ConsumerWidget {
   final String error;
   final VoidCallback onRetry;
 
@@ -12,7 +14,8 @@ class CreatorErrorState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -22,7 +25,7 @@ class CreatorErrorState extends StatelessWidget {
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(
-              'Oops! Something went wrong.',
+              tr('state.error'),
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -36,7 +39,7 @@ class CreatorErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: Text(tr('common.try_again')),
             ),
           ],
         ),

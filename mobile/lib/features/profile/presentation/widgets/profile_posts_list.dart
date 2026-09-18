@@ -122,7 +122,11 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
                 FilledButton.icon(
                   onPressed: () => context.push('/upload'),
                   icon: const Icon(Icons.add_circle_outline, size: 18),
-                  label: const Text('Create Post'),
+                  label: Consumer(
+                    builder: (_, ref, _) => Text(
+                      ref.watch(trProvider)('creator.create_channel_action'),
+                    ),
+                  ),
                 ),
               ],
             ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abushakir/abushakir.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_state_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/day_notes_sheet.dart';
@@ -20,6 +21,7 @@ class CalendarScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final calendarState = ref.watch(calendarProvider);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -73,21 +75,19 @@ class CalendarScreen extends ConsumerWidget {
                 // Today button
                 IconButton(
                   icon: const Icon(Icons.today),
-                  tooltip: 'Today',
+                  tooltip: tr('calendar.today_tooltip'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).goToToday(),
                 ),
-                // Previous month
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
-                  tooltip: 'Previous Month',
+                  tooltip: tr('calendar.prev_month'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).previousMonth(),
                 ),
-                // Next month
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
-                  tooltip: 'Next Month',
+                  tooltip: tr('calendar.next_month'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).nextMonth(),
                 ),
@@ -140,7 +140,7 @@ class CalendarScreen extends ConsumerWidget {
                 _showAddNoteSheet(context, calendarState.selectedDate!);
               },
               icon: const Icon(Icons.add),
-              label: const Text('Add Note'),
+              label: Text(tr('calendar.add_note')),
             )
           : null,
     );
@@ -393,34 +393,43 @@ class CalendarScreen extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Selected Date',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            EthiopianCalendarUtil.formatEthiopianDate(selected),
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontFamilyFallback: const [
-                'Noto Serif Ethiopic',
-                'Noto Sans Ethiopic',
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            EthiopianCalendarUtil.formatGregorianDate(gregorian),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
+      child: Consumer(
+        builder: (context, ref, _) {
+          final tr = ref.watch(trProvider);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('calendar.selected_date'),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withValues(
+                    alpha: 0.7,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                EthiopianCalendarUtil.formatEthiopianDate(selected),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamilyFallback: const [
+                    'Noto Serif Ethiopic',
+                    'Noto Sans Ethiopic',
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                EthiopianCalendarUtil.formatGregorianDate(gregorian),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withValues(
+                    alpha: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -26,7 +26,7 @@ class PlaylistsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: 'New Playlist',
+            tooltip: tr('playlist.new_tooltip'),
             onPressed: () => _showCreatePlaylistDialog(context, ref),
           ),
         ],
@@ -50,14 +50,14 @@ class PlaylistsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No playlists yet',
+                          tr('playlist.no_playlists'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Create a playlist to organize your favorite videos',
+                          tr('playlist.no_playlists_desc'),
                           style: TextStyle(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -67,7 +67,7 @@ class PlaylistsScreen extends ConsumerWidget {
                           onPressed: () =>
                               _showCreatePlaylistDialog(context, ref),
                           icon: const Icon(Icons.add),
-                          label: const Text('Create Playlist'),
+                          label: Text(tr('playlist.create_btn')),
                         ),
                       ],
                     ),
@@ -111,9 +111,9 @@ class PlaylistsScreen extends ConsumerWidget {
                                     errorBuilder:
                                         (context, error, stackTrace) =>
                                             const Icon(
-                                      Icons.playlist_play,
-                                      size: 32,
-                                    ),
+                                              Icons.playlist_play,
+                                              size: 32,
+                                            ),
                                   )
                                 else
                                   const Icon(Icons.playlist_play, size: 32),
@@ -127,7 +127,7 @@ class PlaylistsScreen extends ConsumerWidget {
                                       vertical: 2,
                                     ),
                                     child: Text(
-                                      '${playlist.items.length} ${playlist.items.length == 1 ? "video" : "videos"}',
+                                      '${playlist.items.length} ${playlist.items.length == 1 ? tr('common.video') : tr('common.videos')}',
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.white,
@@ -189,8 +189,9 @@ class PlaylistsScreen extends ConsumerWidget {
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color:
-                                              theme.colorScheme.onSurfaceVariant,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
                                       ),
                                     ),
@@ -211,29 +212,29 @@ class PlaylistsScreen extends ConsumerWidget {
                             }
                           },
                           itemBuilder: (ctx) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'edit',
                               child: Row(
                                 children: [
-                                  Icon(Icons.edit_outlined, size: 20),
-                                  SizedBox(width: 10),
-                                  Text('Edit details'),
+                                  const Icon(Icons.edit_outlined, size: 20),
+                                  const SizedBox(width: 10),
+                                  Text(tr('playlist.edit_details')),
                                 ],
                               ),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.delete_outline,
                                     size: 20,
                                     color: Colors.red,
                                   ),
-                                  SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                   Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
+                                    tr('playlist.delete'),
+                                    style: const TextStyle(color: Colors.red),
                                   ),
                                 ],
                               ),
@@ -254,7 +255,11 @@ class PlaylistsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     '${tr('state.error')}\n$err',
@@ -275,6 +280,7 @@ class PlaylistsScreen extends ConsumerWidget {
   }
 
   void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     String visibility = 'PUBLIC';
@@ -283,7 +289,7 @@ class PlaylistsScreen extends ConsumerWidget {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('New Playlist'),
+          title: Text(tr('playlist.create_title')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -291,33 +297,42 @@ class PlaylistsScreen extends ConsumerWidget {
                 TextField(
                   controller: titleCtrl,
                   autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    hintText: 'Enter playlist title',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.title_label'),
+                    hintText: tr('playlist.title_hint'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: descCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Optional description',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.desc_label'),
+                    hintText: tr('playlist.desc_hint'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: visibility,
-                  decoration: const InputDecoration(
-                    labelText: 'Visibility',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.visibility'),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
-                    DropdownMenuItem(value: 'UNLISTED', child: Text('Unlisted')),
-                    DropdownMenuItem(value: 'PRIVATE', child: Text('Private')),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'PUBLIC',
+                      child: Text(tr('playlist.public')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'UNLISTED',
+                      child: Text(tr('playlist.unlisted')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'PRIVATE',
+                      child: Text(tr('playlist.private')),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => visibility = val);
@@ -329,7 +344,7 @@ class PlaylistsScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () async {
@@ -337,28 +352,34 @@ class PlaylistsScreen extends ConsumerWidget {
                 if (title.isEmpty) return;
                 Navigator.pop(dialogCtx);
                 try {
-                  await ref.read(playlistRepositoryProvider).createPlaylist(
-                    title: title,
-                    description: descCtrl.text.trim().isEmpty
-                        ? null
-                        : descCtrl.text.trim(),
-                    visibility: visibility,
-                  );
+                  await ref
+                      .read(playlistRepositoryProvider)
+                      .createPlaylist(
+                        title: title,
+                        description: descCtrl.text.trim().isEmpty
+                            ? null
+                            : descCtrl.text.trim(),
+                        visibility: visibility,
+                      );
                   ref.invalidate(myPlaylistsProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Playlist created')),
+                      SnackBar(content: Text(tr('playlist.created'))),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to create playlist: $e')),
+                      SnackBar(
+                        content: Text(
+                          tr('playlist.create_failed', {'error': e.toString()}),
+                        ),
+                      ),
                     );
                   }
                 }
               },
-              child: const Text('Create'),
+              child: Text(tr('playlist.create')),
             ),
           ],
         ),
@@ -371,6 +392,7 @@ class PlaylistsScreen extends ConsumerWidget {
     WidgetRef ref,
     PlaylistDto playlist,
   ) {
+    final tr = ref.read(trProvider);
     final titleCtrl = TextEditingController(text: playlist.title);
     final descCtrl = TextEditingController(text: playlist.description ?? '');
     String visibility = playlist.visibility;
@@ -379,38 +401,47 @@ class PlaylistsScreen extends ConsumerWidget {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Edit Playlist'),
+          title: Text(tr('playlist.edit_title')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.title_label'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: descCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.desc_label'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   initialValue: visibility,
-                  decoration: const InputDecoration(
-                    labelText: 'Visibility',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.visibility'),
+                    border: const OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'PUBLIC', child: Text('Public')),
-                    DropdownMenuItem(value: 'UNLISTED', child: Text('Unlisted')),
-                    DropdownMenuItem(value: 'PRIVATE', child: Text('Private')),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'PUBLIC',
+                      child: Text(tr('playlist.public')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'UNLISTED',
+                      child: Text(tr('playlist.unlisted')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'PRIVATE',
+                      child: Text(tr('playlist.private')),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) setDialogState(() => visibility = val);
@@ -422,7 +453,7 @@ class PlaylistsScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () async {
@@ -430,27 +461,33 @@ class PlaylistsScreen extends ConsumerWidget {
                 if (newTitle.isEmpty) return;
                 Navigator.pop(dialogCtx);
                 try {
-                  await ref.read(playlistRepositoryProvider).updatePlaylist(
-                    playlist.id,
-                    title: newTitle,
-                    description: descCtrl.text.trim(),
-                    visibility: visibility,
-                  );
+                  await ref
+                      .read(playlistRepositoryProvider)
+                      .updatePlaylist(
+                        playlist.id,
+                        title: newTitle,
+                        description: descCtrl.text.trim(),
+                        visibility: visibility,
+                      );
                   ref.invalidate(myPlaylistsProvider);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Playlist updated')),
+                      SnackBar(content: Text(tr('playlist.updated'))),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update playlist: $e')),
+                      SnackBar(
+                        content: Text(
+                          tr('playlist.update_failed', {'error': e.toString()}),
+                        ),
+                      ),
                     );
                   }
                 }
               },
-              child: const Text('Save'),
+              child: Text(tr('common.save')),
             ),
           ],
         ),
@@ -463,17 +500,16 @@ class PlaylistsScreen extends ConsumerWidget {
     WidgetRef ref,
     PlaylistDto playlist,
   ) {
+    final tr = ref.read(trProvider);
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Playlist?'),
-        content: Text(
-          'Are you sure you want to delete "${playlist.title}"? This cannot be undone.',
-        ),
+        title: Text(tr('playlist.delete_title')),
+        content: Text(tr('playlist.delete_msg', {'title': playlist.title})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -486,18 +522,22 @@ class PlaylistsScreen extends ConsumerWidget {
                 ref.invalidate(myPlaylistsProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Playlist deleted')),
+                    SnackBar(content: Text(tr('playlist.deleted'))),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to delete playlist: $e')),
+                    SnackBar(
+                      content: Text(
+                        tr('playlist.delete_failed', {'error': e.toString()}),
+                      ),
+                    ),
                   );
                 }
               }
             },
-            child: const Text('Delete'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),

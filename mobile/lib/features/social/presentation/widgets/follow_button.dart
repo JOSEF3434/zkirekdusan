@@ -110,16 +110,17 @@ class _LoadingButton extends StatelessWidget {
   }
 }
 
-class _ErrorButton extends StatelessWidget {
+class _ErrorButton extends ConsumerWidget {
   final VoidCallback onRetry;
   const _ErrorButton({required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return OutlinedButton.icon(
       onPressed: onRetry,
       icon: const Icon(Icons.refresh_rounded, size: 16),
-      label: const Text('Error'),
+      label: Text(tr('follow.error_label')),
       style: OutlinedButton.styleFrom(
         foregroundColor: Theme.of(context).colorScheme.error,
         side: BorderSide(color: Theme.of(context).colorScheme.error),

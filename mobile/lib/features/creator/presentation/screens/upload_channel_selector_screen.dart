@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator/presentation/providers/upload_channels_provider.dart';
 import 'package:mobile/features/creator/presentation/widgets/creator_empty_state.dart';
 import 'package:mobile/features/creator/presentation/widgets/creator_error_state.dart';
@@ -11,22 +12,20 @@ import 'package:mobile/features/upload/presentation/providers/upload_provider.da
 class UploadChannelSelectorScreen extends ConsumerWidget {
   final String? initialGroupId;
 
-  const UploadChannelSelectorScreen({
-    super.key,
-    this.initialGroupId,
-  });
+  const UploadChannelSelectorScreen({super.key, this.initialGroupId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(uploadChannelsProvider(initialGroupId));
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Channel to Upload'),
+        title: Text(tr('creator.select_channel_title')),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Create Channel',
+            tooltip: tr('creator.create_channel_tooltip'),
             onPressed: () => context.push('/creator/create-group'),
           ),
         ],
@@ -53,14 +52,14 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
     }
 
     if (state.channels.isEmpty) {
+      final tr = ref.read(trProvider);
       return Column(
         children: [
           Expanded(
             child: CreatorEmptyState(
-              title: 'No Upload Channels Available',
-              message:
-                  'You must have an active channel with upload permissions to post videos.',
-              buttonText: 'Create Channel',
+              title: tr('creator.no_channels_title'),
+              message: tr('creator.no_channels_desc'),
+              buttonText: tr('creator.create_channel_btn'),
               onAction: () => context.push('/creator/create-group'),
             ),
           ),
@@ -76,7 +75,8 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
       onRefresh: () =>
           ref.read(uploadChannelsProvider(initialGroupId).notifier).refresh(),
       child: ListView.builder(
-        itemCount: state.channels.length + (state.pendingGroupsCount > 0 ? 2 : 1),
+        itemCount:
+            state.channels.length + (state.pendingGroupsCount > 0 ? 2 : 1),
         padding: const EdgeInsets.symmetric(vertical: 12),
         itemBuilder: (context, index) {
           if (index == 0) {
@@ -116,8 +116,8 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
     final subtitle = (channel != null && channel.name != group.name)
         ? group.name
         : (group.description != null && group.description!.isNotEmpty
-            ? group.description!
-            : 'Active channel ready for upload');
+              ? group.description!
+              : 'Active channel ready for upload');
 
     final avatarLetter = title.isNotEmpty
         ? title.substring(0, 1).toUpperCase()
@@ -129,9 +129,7 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
           .read(uploadChannelsProvider(initialGroupId).notifier)
           .resolveChannel(item);
 
-      ref
-          .read(uploadProvider.notifier)
-          .preselectChannel(groupDto, channelDto);
+      ref.read(uploadProvider.notifier).preselectChannel(groupDto, channelDto);
 
       if (context.mounted) {
         context.push('/upload');
@@ -154,8 +152,8 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
                 backgroundColor: theme.colorScheme.primaryContainer,
                 backgroundImage:
                     group.avatarUrl != null && group.avatarUrl!.isNotEmpty
-                        ? NetworkImage(group.avatarUrl!)
-                        : null,
+                    ? NetworkImage(group.avatarUrl!)
+                    : null,
                 child: group.avatarUrl == null || group.avatarUrl!.isEmpty
                     ? Text(
                         avatarLetter,
@@ -245,7 +243,10 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
               FilledButton.tonalIcon(
                 onPressed: handleSelect,
                 icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                label: const Text('Select'),
+                label: Consumer(
+                  builder: (context, ref, _) =>
+                      Text(ref.watch(trProvider)('creator.select_btn')),
+                ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

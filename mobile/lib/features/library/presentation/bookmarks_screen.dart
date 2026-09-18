@@ -7,7 +7,9 @@ import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 
-final bookmarkedVideosProvider = FutureProvider<VideoListResponseDto>((ref) async {
+final bookmarkedVideosProvider = FutureProvider<VideoListResponseDto>((
+  ref,
+) async {
   final repo = ref.watch(videoRepositoryProvider);
   return repo.getBookmarks(page: 1, limit: 50);
 });
@@ -22,9 +24,7 @@ class BookmarksScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('library.bookmarks')),
-      ),
+      appBar: AppBar(title: Text(tr('library.bookmarks'))),
       body: bookmarksAsync.when(
         data: (response) {
           if (response.data.isEmpty) {
@@ -35,20 +35,24 @@ class BookmarksScreen extends ConsumerWidget {
                   Icon(
                     Icons.bookmark_border,
                     size: 64,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No saved videos yet',
+                    tr('library.no_saved'),
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Videos you save will appear here.',
+                    tr('library.no_saved_desc'),
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                   ),
                 ],
@@ -62,7 +66,10 @@ class BookmarksScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final video = response.data[index];
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
@@ -73,10 +80,11 @@ class BookmarksScreen extends ConsumerWidget {
                           ? Image.network(
                               video.thumbnailUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => const Icon(
-                                Icons.play_circle_outline,
-                                color: Colors.white54,
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Icons.play_circle_outline,
+                                    color: Colors.white54,
+                                  ),
                             )
                           : const Icon(
                               Icons.play_circle_outline,
@@ -88,12 +96,15 @@ class BookmarksScreen extends ConsumerWidget {
                     video.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4.0),
                     child: Text(
-                      '${video.author.displayName ?? video.author.username ?? "Channel"} • ${video.viewsCount} views',
+                      '${video.author.displayName ?? video.author.username ?? tr("library.channel_fallback")} • ${video.viewsCount} views',
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 12,
@@ -115,12 +126,13 @@ class BookmarksScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-              const SizedBox(height: 16),
-              Text(
-                '${tr('state.error')}\n$err',
-                textAlign: TextAlign.center,
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
               ),
+              const SizedBox(height: 16),
+              Text('${tr('state.error')}\n$err', textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(bookmarkedVideosProvider),
@@ -133,7 +145,11 @@ class BookmarksScreen extends ConsumerWidget {
     );
   }
 
-  void _showOptionsSheet(BuildContext context, WidgetRef ref, VideoResponseDto video) {
+  void _showOptionsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    VideoResponseDto video,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (bContext) => SafeArea(
@@ -153,7 +169,9 @@ class BookmarksScreen extends ConsumerWidget {
               title: const Text('Remove from Saved'),
               onTap: () async {
                 Navigator.pop(bContext);
-                await ref.read(saveProvider.notifier).toggleSave(video.id, isVideo: true);
+                await ref
+                    .read(saveProvider.notifier)
+                    .toggleSave(video.id, isVideo: true);
                 ref.invalidate(bookmarkedVideosProvider);
               },
             ),

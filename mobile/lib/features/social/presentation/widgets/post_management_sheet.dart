@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_posts_provider.dart';
@@ -48,6 +49,7 @@ class PostManagementSheet extends ConsumerWidget {
     final saveStateMap = ref.watch(saveProvider);
     final isSaved = saveStateMap[post.id] ?? (post.isSaved ?? false);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return SafeArea(
       child: Padding(
@@ -95,7 +97,7 @@ class PostManagementSheet extends ConsumerWidget {
                         Text(
                           post.author.displayName ??
                               post.author.username ??
-                              'Post',
+                              tr('common.post'),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -104,7 +106,7 @@ class PostManagementSheet extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          'Post Management',
+                          tr('social.post_manage'),
                           style: TextStyle(
                             color: theme.colorScheme.onSurfaceVariant,
                             fontSize: 11,
@@ -122,8 +124,8 @@ class PostManagementSheet extends ConsumerWidget {
             if (isAuthor) ...[
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit Post'),
-                subtitle: const Text('Update post text and tags'),
+                title: Text(tr('social.edit_post')),
+                subtitle: Text(tr('social.edit_post_subtitle')),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditPostDialog(context, ref);
@@ -131,19 +133,22 @@ class PostManagementSheet extends ConsumerWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.push_pin_outlined),
-                title: const Text('Pin to Profile'),
-                subtitle: const Text('Keep this post at the top of your feed'),
+                title: Text(tr('social.pin_post')),
+                subtitle: Text(tr('social.pin_post_subtitle')),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Post pinned to profile')),
+                    SnackBar(content: Text(tr('social.post_pinned'))),
                   );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete Post', style: TextStyle(color: Colors.red)),
-                subtitle: const Text('Permanently remove this post'),
+                title: Text(
+                  tr('social.delete_post'),
+                  style: const TextStyle(color: Colors.red),
+                ),
+                subtitle: Text(tr('social.delete_post_subtitle')),
                 onTap: () {
                   Navigator.pop(context);
                   _showDeleteConfirmDialog(context, ref);
@@ -158,7 +163,7 @@ class PostManagementSheet extends ConsumerWidget {
                 isSaved ? Icons.bookmark : Icons.bookmark_border,
                 color: isSaved ? Colors.amber : null,
               ),
-              title: Text(isSaved ? 'Remove from Saved' : 'Save / Bookmark Post'),
+              title: Text(isSaved ? tr('social.unsave') : tr('social.save')),
               onTap: () async {
                 Navigator.pop(context);
                 await ref.read(saveProvider.notifier).toggleSave(post.id);
@@ -166,7 +171,7 @@ class PostManagementSheet extends ConsumerWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        isSaved ? 'Removed from saved' : 'Saved to bookmarks',
+                        isSaved ? tr('social.unsaved') : tr('social.saved'),
                       ),
                     ),
                   );
@@ -175,7 +180,7 @@ class PostManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Share Post'),
+              title: Text(tr('social.share_post')),
               onTap: () {
                 Navigator.pop(context);
                 ShareButton(postId: post.id, title: post.content);
@@ -183,14 +188,16 @@ class PostManagementSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('Copy Link'),
+              title: Text(tr('social.copy_link')),
               onTap: () {
                 Navigator.pop(context);
                 Clipboard.setData(
-                  ClipboardData(text: 'https://zikrekidusan.onrender.com/posts/${post.id}'),
+                  ClipboardData(
+                    text: 'https://zikrekidusan.onrender.com/posts/${post.id}',
+                  ),
                 );
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Post link copied to clipboard')),
+                  SnackBar(content: Text(tr('social.link_copied'))),
                 );
               },
             ),
@@ -198,21 +205,29 @@ class PostManagementSheet extends ConsumerWidget {
               const Divider(height: 16),
               ListTile(
                 leading: const Icon(Icons.flag_outlined, color: Colors.orange),
-                title: const Text('Report Post'),
+                title: Text(tr('social.report_post')),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Post reported for review')),
+                    SnackBar(content: Text(tr('social.post_reported'))),
                   );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.block_outlined),
-                title: Text('Mute @${post.author.username ?? "user"}'),
+                title: Text(
+                  tr('social.mute_user', {'0': post.author.username ?? 'user'}),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Muted @${post.author.username ?? "user"}')),
+                    SnackBar(
+                      content: Text(
+                        tr('social.muted_user', {
+                          '0': post.author.username ?? 'user',
+                        }),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -224,24 +239,25 @@ class PostManagementSheet extends ConsumerWidget {
   }
 
   void _showEditPostDialog(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     final textController = TextEditingController(text: post.content ?? '');
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Post'),
+        title: Text(tr('social.edit_post')),
         content: TextField(
           controller: textController,
           maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: "What's on your mind?",
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: tr('social.edit_post_hint'),
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () async {
@@ -249,23 +265,26 @@ class PostManagementSheet extends ConsumerWidget {
               Navigator.pop(dialogCtx);
               try {
                 final dio = ref.read(apiClientProvider);
-                await dio.patch('/posts/${post.id}', data: {'content': newContent});
+                await dio.patch(
+                  '/posts/${post.id}',
+                  data: {'content': newContent},
+                );
                 ref.invalidate(profilePostsProvider(post.author.id));
                 onPostUpdated?.call();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Post updated successfully')),
+                    SnackBar(content: Text(tr('social.post_updated'))),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to update post: $e')),
+                    SnackBar(content: Text(tr('social.post_update_failed'))),
                   );
                 }
               }
             },
-            child: const Text('Save'),
+            child: Text(tr('common.save')),
           ),
         ],
       ),
@@ -273,17 +292,16 @@ class PostManagementSheet extends ConsumerWidget {
   }
 
   void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref) {
+    final tr = ref.read(trProvider);
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Post?'),
-        content: const Text(
-          'Are you sure you want to delete this post? This action cannot be undone.',
-        ),
+        title: Text(tr('social.delete_post_confirm')),
+        content: Text(tr('social.delete_post_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -296,18 +314,18 @@ class PostManagementSheet extends ConsumerWidget {
                 onPostDeleted?.call();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Post deleted')),
+                    SnackBar(content: Text(tr('social.post_deleted'))),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to delete post: $e')),
+                    SnackBar(content: Text(tr('social.post_delete_failed'))),
                   );
                 }
               }
             },
-            child: const Text('Delete'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),

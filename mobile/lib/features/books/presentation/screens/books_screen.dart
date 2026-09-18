@@ -19,7 +19,7 @@ class BooksScreen extends ConsumerWidget {
       ),
       body: Center(
         child: Text(
-          'Welcome to books page',
+          tr('books.welcome'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w500,
           ),

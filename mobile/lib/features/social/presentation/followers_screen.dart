@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/social/data/follow_repository.dart';
 import 'package:mobile/features/social/data/social_repository.dart';
 import 'package:mobile/features/social/domain/follow_model.dart';
@@ -27,7 +28,7 @@ final followingProvider =
 
 class FollowersScreen extends ConsumerWidget {
   final String profileId;
-  final int initialTabIndex; // 0 for followers, 1 for following
+  final int initialTabIndex;
 
   const FollowersScreen({
     super.key,
@@ -37,16 +38,17 @@ class FollowersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return DefaultTabController(
       length: 2,
       initialIndex: initialTabIndex,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Follows'),
-          bottom: const TabBar(
+          title: Text(tr('social.followers_title')),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Followers'),
-              Tab(text: 'Following'),
+              Tab(text: tr('social.tab_followers')),
+              Tab(text: tr('social.tab_following')),
             ],
           ),
         ),
@@ -54,11 +56,11 @@ class FollowersScreen extends ConsumerWidget {
           children: [
             _FollowList(
               provider: followersProvider(profileId),
-              emptyMessage: 'No followers yet.',
+              emptyMessageKey: 'social.no_followers',
             ),
             _FollowList(
               provider: followingProvider(profileId),
-              emptyMessage: 'Not following anyone yet.',
+              emptyMessageKey: 'social.not_following',
             ),
           ],
         ),
@@ -69,19 +71,18 @@ class FollowersScreen extends ConsumerWidget {
 
 class _FollowList extends ConsumerWidget {
   final ProviderBase<AsyncValue<PaginatedResponse<FollowerDto>>> provider;
-  final String emptyMessage;
+  final String emptyMessageKey;
 
-  const _FollowList({required this.provider, required this.emptyMessage});
+  const _FollowList({required this.provider, required this.emptyMessageKey});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncList = ref.watch(provider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(provider);
-      },
+      onRefresh: () async => ref.invalidate(provider),
       child: asyncList.when(
         data: (response) {
           final users = response.data;
@@ -97,11 +98,13 @@ class _FollowList extends ConsumerWidget {
                       Icon(
                         Icons.people_outline,
                         size: 64,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        emptyMessage,
+                        tr(emptyMessageKey),
                         style: TextStyle(
                           fontSize: 15,
                           color: theme.colorScheme.onSurfaceVariant,
@@ -133,7 +136,7 @@ class _FollowList extends ConsumerWidget {
                       : null,
                 ),
                 title: Text(
-                  user.displayName ?? user.username ?? 'User',
+                  user.displayName ?? user.username ?? tr('common.user'),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 subtitle: user.username != null
@@ -149,12 +152,12 @@ class _FollowList extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Error: $e'),
+              Text(tr('social.error', {'error': e.toString()})),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: () => ref.invalidate(provider),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -166,12 +169,12 @@ class _FollowList extends ConsumerWidget {
 
 class _FollowButton extends ConsumerWidget {
   final FollowerDto user;
-
   const _FollowButton({required this.user});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final followStateAsync = ref.watch(followProvider(user.id));
+    final tr = ref.watch(trProvider);
     final theme = Theme.of(context);
 
     final isFollowing =
@@ -190,8 +193,10 @@ class _FollowButton extends ConsumerWidget {
                       ref.read(followProvider(user.id).notifier).unfollow();
                     },
               style: OutlinedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 side: BorderSide(color: theme.colorScheme.outlineVariant),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -203,7 +208,10 @@ class _FollowButton extends ConsumerWidget {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Following', style: TextStyle(fontSize: 13)),
+                  : Text(
+                      tr('follow.following'),
+                      style: const TextStyle(fontSize: 13),
+                    ),
             )
           : FilledButton(
               key: const ValueKey('follow'),
@@ -214,8 +222,10 @@ class _FollowButton extends ConsumerWidget {
                       ref.read(followProvider(user.id).notifier).follow();
                     },
               style: FilledButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -229,7 +239,10 @@ class _FollowButton extends ConsumerWidget {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Follow', style: TextStyle(fontSize: 13)),
+                  : Text(
+                      tr('follow.follow'),
+                      style: const TextStyle(fontSize: 13),
+                    ),
             ),
     );
   }

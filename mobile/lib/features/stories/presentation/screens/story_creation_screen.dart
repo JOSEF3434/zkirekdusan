@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/stories/presentation/providers/story_creation_provider.dart';
 
 class StoryCreationScreen extends ConsumerStatefulWidget {
@@ -46,14 +47,15 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
   }
 
   Future<void> _handleUpload() async {
+    final tr = ref.read(trProvider);
     final notifier = ref.read(storyCreationProvider.notifier);
     notifier.setCaption(_captionController.text.trim());
 
     final success = await notifier.uploadStory();
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Story published successfully!'),
+        SnackBar(
+          content: Text(tr('story.published')),
           backgroundColor: Colors.green,
         ),
       );
@@ -65,6 +67,7 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(storyCreationProvider);
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -75,9 +78,12 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Create Story',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          tr('story.creation_title'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           if (state.selectedFile != null)
@@ -92,9 +98,9 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text(
-                      'Share',
-                      style: TextStyle(
+                  : Text(
+                      tr('story.share_btn'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -187,16 +193,16 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
                                     child: Center(
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
-                                        children: const [
-                                          Icon(
+                                        children: [
+                                          const Icon(
                                             Icons.videocam_rounded,
                                             size: 64,
                                             color: Colors.white70,
                                           ),
-                                          SizedBox(height: 12),
+                                          const SizedBox(height: 12),
                                           Text(
-                                            'Video Story Selected',
-                                            style: TextStyle(
+                                            tr('story.video_selected'),
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 16,
                                             ),
@@ -249,7 +255,7 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
                     controller: _captionController,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Add a caption...',
+                      hintText: tr('story.caption_hint'),
                       hintStyle: const TextStyle(color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: 0.1),
@@ -272,6 +278,7 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
   }
 
   Widget _buildMediaPicker(ThemeData theme) {
+    final tr = ref.read(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -291,19 +298,19 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Share a 24-Hour Story',
-              style: TextStyle(
+            Text(
+              tr('story.share_title'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Photos and videos disappear automatically after 24 hours.',
+            Text(
+              tr('story.share_desc'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 36),
 
@@ -313,21 +320,21 @@ class _StoryCreationScreenState extends ConsumerState<StoryCreationScreen> {
               children: [
                 _buildOptionButton(
                   icon: Icons.photo_library_rounded,
-                  label: 'Gallery Photo',
+                  label: tr('story.gallery_photo'),
                   color: theme.colorScheme.primary,
                   onTap: () => _pickImage(ImageSource.gallery),
                 ),
                 const SizedBox(width: 16),
                 _buildOptionButton(
                   icon: Icons.camera_alt_rounded,
-                  label: 'Camera Photo',
+                  label: tr('story.camera_photo'),
                   color: theme.colorScheme.tertiary,
                   onTap: () => _pickImage(ImageSource.camera),
                 ),
                 const SizedBox(width: 16),
                 _buildOptionButton(
                   icon: Icons.videocam_rounded,
-                  label: 'Video',
+                  label: tr('story.video_option'),
                   color: Colors.deepOrange,
                   onTap: () => _pickVideo(ImageSource.gallery),
                 ),

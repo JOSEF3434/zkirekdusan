@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/domain/creator_permission_service.dart';
 import 'package:mobile/features/creator/presentation/providers/channel_selector_provider.dart';
@@ -307,7 +308,11 @@ class _CreateChannelFormState extends ConsumerState<_CreateChannelForm> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Create Channel'),
+                  : Consumer(
+                      builder: (_, ref, _) => Text(
+                        ref.watch(trProvider)('creator.create_channel_action'),
+                      ),
+                    ),
             ),
             const SizedBox(height: 16),
           ],

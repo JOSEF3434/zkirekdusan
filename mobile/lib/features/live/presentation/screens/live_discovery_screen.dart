@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/live/presentation/providers/live_discovery_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_card_widget.dart';
 
@@ -11,15 +12,16 @@ class LiveDiscoveryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Live'),
-          bottom: const TabBar(
+          title: Text(tr('live.title')),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'LIVE NOW'),
-              Tab(text: 'Scheduled'),
+              Tab(text: tr('live.tab_now')),
+              Tab(text: tr('live.tab_scheduled')),
             ],
           ),
         ),
@@ -31,8 +33,6 @@ class LiveDiscoveryScreen extends ConsumerWidget {
   }
 }
 
-// ─── Live NOW ─────────────────────────────────────────────────────────────────
-
 class _LiveStreamsList extends ConsumerWidget {
   const _LiveStreamsList();
 
@@ -40,9 +40,7 @@ class _LiveStreamsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(liveStreamsProvider);
 
-    if (state.isLoading) {
-      return _Skeletons();
-    }
+    if (state.isLoading) return _Skeletons();
 
     if (state.error != null && state.streams.isEmpty) {
       return _ErrorState(
@@ -54,8 +52,8 @@ class _LiveStreamsList extends ConsumerWidget {
     if (state.streams.isEmpty) {
       return _EmptyState(
         icon: Icons.live_tv_outlined,
-        message: 'No streams are live right now.',
-        sub: 'Check back soon or browse scheduled streams.',
+        messageKey: 'live.no_streams',
+        subKey: 'live.no_streams_hint',
         onRefresh: () => ref.read(liveStreamsProvider.notifier).refresh(),
       );
     }
@@ -90,8 +88,6 @@ class _LiveStreamsList extends ConsumerWidget {
   }
 }
 
-// ─── Scheduled ────────────────────────────────────────────────────────────────
-
 class _ScheduledStreamsList extends ConsumerWidget {
   const _ScheduledStreamsList();
 
@@ -111,8 +107,8 @@ class _ScheduledStreamsList extends ConsumerWidget {
     if (state.streams.isEmpty) {
       return _EmptyState(
         icon: Icons.schedule,
-        message: 'No scheduled streams.',
-        sub: 'When creators schedule streams, they appear here.',
+        messageKey: 'live.no_scheduled',
+        subKey: 'live.no_scheduled_hint',
         onRefresh: () => ref.read(scheduledStreamsProvider.notifier).refresh(),
       );
     }
@@ -146,8 +142,6 @@ class _ScheduledStreamsList extends ConsumerWidget {
     );
   }
 }
-
-// ─── Shared widgets ───────────────────────────────────────────────────────────
 
 class _Skeletons extends StatelessWidget {
   @override
@@ -206,21 +200,22 @@ class _SkeletonCard extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   final IconData icon;
-  final String message;
-  final String sub;
+  final String messageKey;
+  final String subKey;
   final VoidCallback onRefresh;
 
   const _EmptyState({
     required this.icon,
-    required this.message,
-    required this.sub,
+    required this.messageKey,
+    required this.subKey,
     required this.onRefresh,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -230,12 +225,12 @@ class _EmptyState extends StatelessWidget {
             Icon(icon, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              message,
+              tr(messageKey),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
-              sub,
+              tr(subKey),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600),
             ),
@@ -243,7 +238,7 @@ class _EmptyState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+              label: Text(tr('explore.refresh')),
             ),
           ],
         ),
@@ -252,14 +247,15 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
+class _ErrorState extends ConsumerWidget {
   final String message;
   final VoidCallback onRetry;
 
   const _ErrorState({required this.message, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -268,9 +264,9 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            const Text(
-              'Failed to load streams',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              tr('live.load_failed'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -282,7 +278,7 @@ class _ErrorState extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: Text(tr('common.try_again')),
             ),
           ],
         ),
