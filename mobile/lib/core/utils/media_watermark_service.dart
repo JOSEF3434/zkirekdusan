@@ -1,15 +1,16 @@
 // lib/core/utils/media_watermark_service.dart
 // Watermark service that brands media downloads with App Logo + 'ዝክረ ቅዱሳን'
 // in a modern, platform-style (TikTok/Instagram) overlay.
+// Cross-platform: Web triggers a browser Blob download;
+// Android/iOS/Desktop saves to the local filesystem.
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:mobile/core/utils/media_save_helper.dart';
 
 class MediaWatermarkService {
   MediaWatermarkService._();
@@ -35,65 +36,39 @@ class MediaWatermarkService {
     }
   }
 
-  /// Downloads a media file from [url] and stamps the watermark if it is an image.
-  /// Saves the final file into device internal documents storage.
-  /// Returns the saved [File].
-  Future<File> downloadAndWatermark({
+  /// Downloads a media file from [url], stamps the watermark (images only),
+  /// then saves to device storage or triggers a browser download on web.
+  Future<void> downloadAndWatermark({
     required String url,
     String? customFileName,
     void Function(double progress)? onProgress,
   }) async {
-    final cleanFileName = customFileName ??
-        url.split('/').last.split('?').first;
+    final cleanFileName =
+        customFileName ?? url.split('/').last.split('?').first;
     final isImage = _isImageFile(cleanFileName);
 
-    final appDir = await getApplicationDocumentsDirectory();
-    final saveDir = Directory('${appDir.path}/ZkireKdusan_Downloads');
-    if (!await saveDir.exists()) {
-      await saveDir.create(recursive: true);
-    }
-
-    final targetPath = '${saveDir.path}/$cleanFileName';
-
-    if (!isImage) {
-      // For non-images (videos/audio/documents), download directly
-      await _dio.download(
-        url,
-        targetPath,
-        onReceiveProgress: (received, total) {
-          if (total > 0 && onProgress != null) {
-            onProgress(received / total);
-          }
-        },
-      );
-      return File(targetPath);
-    }
-
-    // For images: download bytes, apply watermark, save to target
+    // ── Download bytes ────────────────────────────────────────────────────────
     final response = await _dio.get<List<int>>(
       url,
       options: Options(responseType: ResponseType.bytes),
       onReceiveProgress: (received, total) {
         if (total > 0 && onProgress != null) {
-          onProgress(received / total * 0.5); // First 50% for download
+          onProgress(received / total * (isImage ? 0.6 : 1.0));
         }
       },
     );
+    if (response.data == null) throw Exception('Failed to download: $url');
 
-    if (response.data == null) {
-      throw Exception('Failed to download media bytes');
+    Uint8List bytes = Uint8List.fromList(response.data!);
+
+    // ── Apply watermark for images ────────────────────────────────────────────
+    if (isImage) {
+      bytes = await applyWatermark(bytes);
+      if (onProgress != null) onProgress(1.0);
     }
 
-    final rawBytes = Uint8List.fromList(response.data!);
-    final watermarkedBytes = await applyWatermark(rawBytes);
-
-    if (onProgress != null) {
-      onProgress(1.0);
-    }
-
-    final file = File(targetPath);
-    await file.writeAsBytes(watermarkedBytes, flush: true);
-    return file;
+    // ── Save / trigger download ───────────────────────────────────────────────
+    await MediaSaveHelper.saveFile(bytes: bytes, fileName: cleanFileName);
   }
 
   /// Applies the 'Logo + ዝክረ ቅዱሳን' TikTok-style watermark onto image [imageBytes].
@@ -134,29 +109,30 @@ class MediaWatermarkService {
     final margin = 20.0 * scale;
 
     // 6. Measure text layout
-    final paragraphBuilder = ui.ParagraphBuilder(
-      ui.ParagraphStyle(
-        textAlign: TextAlign.start,
-        fontSize: fontSize,
-        fontWeight: FontWeight.w600,
-        maxLines: 1,
-      ),
-    )
-      ..pushStyle(
-        ui.TextStyle(
-          color: const Color(0xFFFFFFFF),
-          fontSize: fontSize,
-          fontWeight: FontWeight.w700,
-          shadows: [
-            ui.Shadow(
-              color: const Color(0x99000000),
-              offset: Offset(scale, scale),
-              blurRadius: 3.0 * scale,
+    final paragraphBuilder =
+        ui.ParagraphBuilder(
+            ui.ParagraphStyle(
+              textAlign: TextAlign.start,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+              maxLines: 1,
             ),
-          ],
-        ),
-      )
-      ..addText(watermarkText);
+          )
+          ..pushStyle(
+            ui.TextStyle(
+              color: const Color(0xFFFFFFFF),
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              shadows: [
+                ui.Shadow(
+                  color: const Color(0x99000000),
+                  offset: Offset(scale, scale),
+                  blurRadius: 3.0 * scale,
+                ),
+              ],
+            ),
+          )
+          ..addText(watermarkText);
 
     final paragraph = paragraphBuilder.build()
       ..layout(ui.ParagraphConstraints(width: imgWidth * 0.5));
@@ -165,11 +141,11 @@ class MediaWatermarkService {
     final textHeight = paragraph.height;
 
     // Badge container dimensions
-    final badgeWidth = paddingHorizontal * 2 +
+    final badgeWidth =
+        paddingHorizontal * 2 +
         (logoImage != null ? logoSize + spacing : 0) +
         textWidth;
-    final badgeHeight =
-        math.max(logoSize, textHeight) + (paddingVertical * 2);
+    final badgeHeight = math.max(logoSize, textHeight) + (paddingVertical * 2);
 
     // Position at bottom-right (TikTok style)
     final badgeLeft = imgWidth - badgeWidth - margin;
@@ -195,7 +171,8 @@ class MediaWatermarkService {
 
     // Semi-transparent dark pill background
     final backgroundPaint = Paint()
-      ..color = const Color(0xB8121214) // ~72% dark
+      ..color =
+          const Color(0xB8121214) // ~72% dark
       ..style = PaintingStyle.fill;
     canvas.drawRRect(pillRRect, backgroundPaint);
 
@@ -249,11 +226,14 @@ class MediaWatermarkService {
 
     // 10. Finish rendering to image
     final picture = recorder.endRecording();
-    final watermarkedImage =
-        await picture.toImage(imgWidth.toInt(), imgHeight.toInt());
+    final watermarkedImage = await picture.toImage(
+      imgWidth.toInt(),
+      imgHeight.toInt(),
+    );
 
-    final byteData =
-        await watermarkedImage.toByteData(format: ui.ImageByteFormat.png);
+    final byteData = await watermarkedImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     if (byteData == null) {
       throw Exception('Failed to encode watermarked image');
     }

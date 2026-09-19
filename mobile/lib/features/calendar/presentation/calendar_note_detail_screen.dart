@@ -2,7 +2,8 @@
 // Premium full-screen detail view for a single Calendar Note.
 // Navigated to via GoRouter path: /calendar/note/:noteId
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,9 +22,9 @@ import 'package:abushakir/abushakir.dart';
 
 final _calendarNoteByIdProvider =
     FutureProvider.family<CalendarNoteModel?, String>((ref, noteId) async {
-  final repo = ref.watch(calendarOfflineRepositoryProvider);
-  return repo.getNoteById(noteId);
-});
+      final repo = ref.watch(calendarOfflineRepositoryProvider);
+      return repo.getNoteById(noteId);
+    });
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -176,25 +177,30 @@ class _CalendarNoteDetailScreenState
                 ),
                 theme: theme,
               ),
-              onSelected: (value) => _handleMenuAction(context, value, etDate, note, fullText),
+              onSelected: (value) =>
+                  _handleMenuAction(context, value, etDate, note, fullText),
               itemBuilder: (_) => [
                 // Admin-only
                 if (canManage) ...[
                   const PopupMenuItem(
                     value: 'edit',
-                    child: Row(children: [
-                      Icon(Icons.edit_outlined),
-                      SizedBox(width: 12),
-                      Text('Edit'),
-                    ]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined),
+                        SizedBox(width: 12),
+                        Text('Edit'),
+                      ],
+                    ),
                   ),
                   const PopupMenuItem(
                     value: 'delete',
-                    child: Row(children: [
-                      Icon(Icons.delete_outline, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
                   const PopupMenuDivider(),
                 ],
@@ -202,20 +208,24 @@ class _CalendarNoteDetailScreenState
                 if (fullText.isNotEmpty)
                   const PopupMenuItem(
                     value: 'copy',
-                    child: Row(children: [
-                      Icon(Icons.copy_outlined),
-                      SizedBox(width: 12),
-                      Text('Copy text'),
-                    ]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.copy_outlined),
+                        SizedBox(width: 12),
+                        Text('Copy text'),
+                      ],
+                    ),
                   ),
                 if (hasMedia)
                   const PopupMenuItem(
                     value: 'download',
-                    child: Row(children: [
-                      Icon(Icons.download_outlined),
-                      SizedBox(width: 12),
-                      Text('Download media'),
-                    ]),
+                    child: Row(
+                      children: [
+                        Icon(Icons.download_outlined),
+                        SizedBox(width: 12),
+                        Text('Download media'),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -252,7 +262,9 @@ class _CalendarNoteDetailScreenState
                     note.content!,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       height: 1.7,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.85,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -304,8 +316,7 @@ class _CalendarNoteDetailScreenState
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: GestureDetector(
-                      onTap: () =>
-                          _openFullscreen(context, note.media, index),
+                      onTap: () => _openFullscreen(context, note.media, index),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
                         child: url != null
@@ -345,10 +356,7 @@ class _CalendarNoteDetailScreenState
         color: theme.colorScheme.surface.withValues(alpha: 0.85),
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8),
         ],
       ),
       child: child,
@@ -436,9 +444,9 @@ class _CalendarNoteDetailScreenState
         context.pop();
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
       }
     }
   }
@@ -481,9 +489,9 @@ class _CalendarNoteDetailScreenState
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     }
   }
@@ -495,10 +503,8 @@ class _CalendarNoteDetailScreenState
   ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _FullscreenMediaView(
-          media: media,
-          initialIndex: initialIndex,
-        ),
+        builder: (_) =>
+            _FullscreenMediaView(media: media, initialIndex: initialIndex),
       ),
     );
   }
@@ -535,10 +541,7 @@ class _CalendarNoteDetailScreenState
     );
   }
 
-  Widget _buildNotFound(
-    BuildContext context,
-    String Function(String) tr,
-  ) {
+  Widget _buildNotFound(BuildContext context, String Function(String) tr) {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -554,8 +557,9 @@ class _CalendarNoteDetailScreenState
             const SizedBox(height: 20),
             Text(
               'Note not found',
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -583,10 +587,7 @@ class _FullscreenMediaView extends StatefulWidget {
   final List<dynamic> media;
   final int initialIndex;
 
-  const _FullscreenMediaView({
-    required this.media,
-    required this.initialIndex,
-  });
+  const _FullscreenMediaView({required this.media, required this.initialIndex});
 
   @override
   State<_FullscreenMediaView> createState() => _FullscreenMediaViewState();
@@ -640,22 +641,19 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
     );
 
     try {
-      final savedFile =
-          await MediaWatermarkService.instance.downloadAndWatermark(url: url);
+      await MediaWatermarkService.instance.downloadAndWatermark(url: url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Saved to ${savedFile.path.split('/').last} with ዝክረ ቅዱሳን mark',
-            ),
+          const SnackBar(
+            content: Text('Media saved to internal storage with ዝክረ ቅዱሳን mark'),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isDownloading = false);
@@ -716,7 +714,9 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
                   if (widget.media.length > 1)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
@@ -762,9 +762,7 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
                     width: i == _currentIndex ? 12 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: i == _currentIndex
-                          ? Colors.white
-                          : Colors.white38,
+                      color: i == _currentIndex ? Colors.white : Colors.white38,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );
@@ -898,8 +896,9 @@ class _ReminderCard extends StatelessWidget {
                   Text(
                     '${_formatTime(note.reminderHour ?? 8, note.reminderMinute ?? 0)}  ·  $repeatLabel',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onTertiaryContainer
-                          .withValues(alpha: 0.75),
+                      color: theme.colorScheme.onTertiaryContainer.withValues(
+                        alpha: 0.75,
+                      ),
                     ),
                   ),
               ],

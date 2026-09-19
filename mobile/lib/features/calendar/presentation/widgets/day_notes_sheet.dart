@@ -79,8 +79,9 @@ class DayNotesSheet extends ConsumerWidget {
                           EthiopianCalendarUtil.toGregorian(selectedDate),
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color
-                              ?.withValues(alpha: 0.7),
+                          color: theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ],
@@ -116,15 +117,19 @@ class DayNotesSheet extends ConsumerWidget {
                       selectedDate: selectedDate,
                       canManage: canManage,
                       onDeleted: () {
-                        ref.invalidate(calendarNotesForDateProvider((
-                          year: selectedDate.year,
-                          month: selectedDate.month,
-                          day: selectedDate.day,
-                        )));
-                        ref.invalidate(calendarNotesForMonthProvider((
-                          year: selectedDate.year,
-                          month: selectedDate.month,
-                        )));
+                        ref.invalidate(
+                          calendarNotesForDateProvider((
+                            year: selectedDate.year,
+                            month: selectedDate.month,
+                            day: selectedDate.day,
+                          )),
+                        );
+                        ref.invalidate(
+                          calendarNotesForMonthProvider((
+                            year: selectedDate.year,
+                            month: selectedDate.month,
+                          )),
+                        );
                       },
                     );
                   },
@@ -186,8 +191,7 @@ class DayNotesSheet extends ConsumerWidget {
             Text(
               'No notes for this day',
               style: theme.textTheme.titleMedium?.copyWith(
-                color:
-                    theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
               ),
             ),
             if (canManage) ...[
@@ -195,8 +199,9 @@ class DayNotesSheet extends ConsumerWidget {
               Text(
                 'Tap "Add Note" to create one',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.textTheme.bodySmall?.color
-                      ?.withValues(alpha: 0.5),
+                  color: theme.textTheme.bodySmall?.color?.withValues(
+                    alpha: 0.5,
+                  ),
                 ),
               ),
             ],
@@ -228,10 +233,7 @@ class DayNotesSheet extends ConsumerWidget {
         )),
       );
       ref.invalidate(
-        calendarNotesForMonthProvider((
-          year: date.year,
-          month: date.month,
-        )),
+        calendarNotesForMonthProvider((year: date.year, month: date.month)),
       );
     }
   }
@@ -261,8 +263,10 @@ class _NoteListItem extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
           title: note.title != null && note.title!.isNotEmpty
               ? Text(
                   note.title!,
@@ -280,26 +284,29 @@ class _NoteListItem extends ConsumerWidget {
               : null,
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onSelected: (action) =>
-                _handleAction(context, ref, action),
+            onSelected: (action) => _handleAction(context, ref, action),
             itemBuilder: (context) => [
               // ── Admin-only actions ──
               if (canManage) ...[
                 const PopupMenuItem(
                   value: 'edit',
-                  child: Row(children: [
-                    Icon(Icons.edit_outlined),
-                    SizedBox(width: 12),
-                    Text('Edit'),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined),
+                      SizedBox(width: 12),
+                      Text('Edit'),
+                    ],
+                  ),
                 ),
                 const PopupMenuItem(
                   value: 'delete',
-                  child: Row(children: [
-                    Icon(Icons.delete_outline, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
                 ),
                 const PopupMenuDivider(),
               ],
@@ -307,20 +314,24 @@ class _NoteListItem extends ConsumerWidget {
               if (note.content != null && note.content!.isNotEmpty)
                 const PopupMenuItem(
                   value: 'copy',
-                  child: Row(children: [
-                    Icon(Icons.copy_outlined),
-                    SizedBox(width: 12),
-                    Text('Copy text'),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.copy_outlined),
+                      SizedBox(width: 12),
+                      Text('Copy text'),
+                    ],
+                  ),
                 ),
               if (note.media.isNotEmpty)
                 const PopupMenuItem(
                   value: 'download',
-                  child: Row(children: [
-                    Icon(Icons.download_outlined),
-                    SizedBox(width: 12),
-                    Text('Download media'),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.download_outlined),
+                      SizedBox(width: 12),
+                      Text('Download media'),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -345,8 +356,7 @@ class _NoteListItem extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
-                    onTap: () =>
-                        _openFullscreen(context, note.media, index),
+                    onTap: () => _openFullscreen(context, note.media, index),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: url != null
@@ -355,8 +365,7 @@ class _NoteListItem extends ConsumerWidget {
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
-                                  _mediaTile(theme),
+                              errorBuilder: (_, _, _) => _mediaTile(theme),
                             )
                           : _mediaTile(theme),
                     ),
@@ -370,14 +379,14 @@ class _NoteListItem extends ConsumerWidget {
   }
 
   Widget _mediaTile(ThemeData theme) => Container(
-        width: 80,
-        height: 80,
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: Icon(
-          Icons.attach_file,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-        ),
-      );
+    width: 80,
+    height: 80,
+    color: theme.colorScheme.surfaceContainerHighest,
+    child: Icon(
+      Icons.attach_file,
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+    ),
+  );
 
   Future<void> _handleAction(
     BuildContext context,
@@ -417,8 +426,7 @@ class _NoteListItem extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Consumer(
-          builder: (_, ref, _) =>
-              Text(ref.watch(trProvider)('common.delete')),
+          builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete')),
         ),
         content: Consumer(
           builder: (_, ref, _) =>
@@ -450,15 +458,15 @@ class _NoteListItem extends ConsumerWidget {
         await deleteNote(note.id);
         onDeleted();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note deleted')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Note deleted')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting note: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting note: $e')));
         }
       }
     }
@@ -499,9 +507,9 @@ class _NoteListItem extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     }
   }
@@ -513,10 +521,8 @@ class _NoteListItem extends ConsumerWidget {
   ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _FullscreenMediaView(
-          media: media,
-          initialIndex: initialIndex,
-        ),
+        builder: (_) =>
+            _FullscreenMediaView(media: media, initialIndex: initialIndex),
       ),
     );
   }
@@ -528,10 +534,7 @@ class _FullscreenMediaView extends StatefulWidget {
   final List<dynamic> media;
   final int initialIndex;
 
-  const _FullscreenMediaView({
-    required this.media,
-    required this.initialIndex,
-  });
+  const _FullscreenMediaView({required this.media, required this.initialIndex});
 
   @override
   State<_FullscreenMediaView> createState() => _FullscreenMediaViewState();
@@ -583,22 +586,19 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
     );
 
     try {
-      final savedFile =
-          await MediaWatermarkService.instance.downloadAndWatermark(url: url);
+      await MediaWatermarkService.instance.downloadAndWatermark(url: url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Saved to ${savedFile.path.split('/').last} with ዝክረ ቅዱሳን mark',
-            ),
+          const SnackBar(
+            content: Text('Media saved to internal storage with ዝክረ ቅዱሳን mark'),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isDownloading = false);
@@ -653,7 +653,9 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
                   if (widget.media.length > 1)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
@@ -699,9 +701,7 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
                     width: i == _currentIndex ? 12 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: i == _currentIndex
-                          ? Colors.white
-                          : Colors.white38,
+                      color: i == _currentIndex ? Colors.white : Colors.white38,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );
