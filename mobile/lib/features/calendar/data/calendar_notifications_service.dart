@@ -8,6 +8,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
+import 'package:mobile/core/navigation/navigation_service.dart';
 
 final calendarNotificationsServiceProvider =
     Provider<CalendarNotificationsService>((ref) {
@@ -236,15 +237,18 @@ class CalendarNotificationsService {
     return await _notifications.pendingNotificationRequests();
   }
 
-  /// Handle notification tap
+  /// Handle notification tap — navigate to the note detail screen.
   static void _onNotificationTapped(NotificationResponse response) {
+    final noteId = response.payload;
     developer.log(
-      '📱 Notification tapped: payload=${response.payload}',
+      '📱 Notification tapped: payload=$noteId',
       name: 'CalendarNotifications',
     );
 
-    // TODO: Navigate to calendar note detail screen
-    // This would require access to navigation context
-    // For now, just log the event
+    if (noteId != null && noteId.isNotEmpty) {
+      // Navigate to the calendar note detail screen via GoRouter deep link.
+      // NavigationService holds a reference to the GoRouter set during app init.
+      NavigationService.instance.navigateToCalendarNote(noteId);
+    }
   }
 }

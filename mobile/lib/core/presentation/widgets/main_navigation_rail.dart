@@ -14,7 +14,7 @@ import 'package:mobile/features/notifications/presentation/providers/unread_coun
 /// Reusable desktop/tablet persistent sidebar rail.
 /// Displays Home, Calendar, Create, Chats, Books plus trailing shortcuts
 /// (Notifications, Downloads, Watch History, Liked Videos, Channels, Cache & Storage, Admin Panel).
-class MainNavigationRail extends ConsumerWidget {
+class MainNavigationRail extends ConsumerStatefulWidget {
   final int? selectedIndex;
   final String? currentPath;
   final Function(int)? onDestinationSelected;
@@ -26,8 +26,27 @@ class MainNavigationRail extends ConsumerWidget {
     this.onDestinationSelected,
   });
 
+  @override
+  ConsumerState<MainNavigationRail> createState() => _MainNavigationRailState();
+}
+
+class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   int? _resolveSelectedIndex(String? path) {
-    if (selectedIndex != null) return selectedIndex;
+    if (widget.selectedIndex != null) return widget.selectedIndex;
     if (path == null) return null;
     if (path == '/home' || path.startsWith('/home/')) return 0;
     if (path == '/calendar' || path.startsWith('/calendar/')) return 1;
@@ -36,9 +55,13 @@ class MainNavigationRail extends ConsumerWidget {
     return null;
   }
 
-  void _handleDestinationSelected(int index, BuildContext context, WidgetRef ref) {
-    if (onDestinationSelected != null) {
-      onDestinationSelected!(index);
+  void _handleDestinationSelected(
+    int index,
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    if (widget.onDestinationSelected != null) {
+      widget.onDestinationSelected!(index);
       return;
     }
 
@@ -85,7 +108,7 @@ class MainNavigationRail extends ConsumerWidget {
 
     switch (index) {
       case 0:
-        if (currentPath == '/home') {
+        if (widget.currentPath == '/home') {
           ref.read(homeRefreshSignalProvider.notifier).state++;
         }
         context.go('/home');
@@ -103,148 +126,165 @@ class MainNavigationRail extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
     final isDesktop = ResponsiveLayout.isDesktop(context);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final adminPermissions = ref.watch(adminPermissionsProvider);
 
-    final resolvedIndex = _resolveSelectedIndex(currentPath);
-    final path = currentPath ?? '';
+    final resolvedIndex = _resolveSelectedIndex(widget.currentPath);
+    final path = widget.currentPath ?? '';
 
-    return NavigationRail(
-      extended: isDesktop,
-      selectedIndex: resolvedIndex,
-      onDestinationSelected: (index) => _handleDestinationSelected(index, context, ref),
-      labelType: isDesktop ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-      trailing: SizedBox(
-        width: isDesktop ? 220 : 64,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Divider(
-                indent: isDesktop ? 16 : 8,
-                endIndent: isDesktop ? 16 : 8,
-                height: 16,
-                thickness: 0.5,
-                color: theme.dividerColor.withValues(alpha: 0.2),
-              ),
-              // 1. Notifications with Badge
-              _RailActionItem(
-                icon: Icons.notifications_outlined,
-                selectedIcon: Icons.notifications,
-                label: tr('nav.notifications'),
-                isExtended: isDesktop,
-                badgeCount: unreadCount > 0 ? unreadCount : null,
-                isSelected: path.startsWith('/notifications'),
-                onTap: () => context.push('/notifications'),
-              ),
-              // 2. Downloaded Videos
-              _RailActionItem(
-                icon: Icons.download_done_rounded,
-                selectedIcon: Icons.download_done_rounded,
-                label: tr('nav.downloads'),
-                isExtended: isDesktop,
-                isSelected: path.startsWith('/library/downloads'),
-                onTap: () => context.push('/library/downloads'),
-              ),
-              // 3. Watch History
-              _RailActionItem(
-                icon: Icons.history_rounded,
-                selectedIcon: Icons.history_rounded,
-                label: tr('nav.history'),
-                isExtended: isDesktop,
-                isSelected: path.startsWith('/library/history'),
-                onTap: () => context.push('/library/history'),
-              ),
-              // 4. Liked Videos
-              _RailActionItem(
-                icon: Icons.thumb_up_alt_outlined,
-                selectedIcon: Icons.thumb_up,
-                label: tr('nav.liked'),
-                isExtended: isDesktop,
-                isSelected: path.startsWith('/library/liked'),
-                onTap: () => context.push('/library/liked'),
-              ),
-              // 5. Follow Channels
-              _RailActionItem(
-                icon: Icons.subscriptions_outlined,
-                selectedIcon: Icons.subscriptions,
-                label: tr('nav.channels'),
-                isExtended: isDesktop,
-                isSelected: path.contains('/following'),
-                onTap: () {
-                  final authUser = ref.read(authProvider).user;
-                  if (authUser != null) {
-                    context.push('/profile/${authUser.id}/following');
-                  } else {
-                    context.push('/explore');
-                  }
-                },
-              ),
-              // 6. Cache & Storage
-              _RailActionItem(
-                icon: Icons.cleaning_services_outlined,
-                selectedIcon: Icons.cleaning_services,
-                label: tr('nav.cache_storage'),
-                isExtended: isDesktop,
-                isSelected: false,
-                onTap: () => showCacheStorageDialog(context, ref),
-              ),
-              // 7. Admin Panel
-              if (adminPermissions.hasAdminAccess) ...[
-                Divider(
-                  indent: isDesktop ? 16 : 8,
-                  endIndent: isDesktop ? 16 : 8,
-                  height: 16,
-                  thickness: 0.5,
-                  color: theme.dividerColor.withValues(alpha: 0.2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: false,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: NavigationRail(
+                  extended: isDesktop,
+                  selectedIndex: resolvedIndex,
+                  onDestinationSelected: (index) =>
+                      _handleDestinationSelected(index, context, ref),
+                  labelType: isDesktop
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+                  trailing: SizedBox(
+                    width: isDesktop ? 220 : 64,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Divider(
+                          indent: isDesktop ? 16 : 8,
+                          endIndent: isDesktop ? 16 : 8,
+                          height: 16,
+                          thickness: 0.5,
+                          color: theme.dividerColor.withValues(alpha: 0.2),
+                        ),
+                        // 1. Notifications with Badge
+                        _RailActionItem(
+                          icon: Icons.notifications_outlined,
+                          selectedIcon: Icons.notifications,
+                          label: tr('nav.notifications'),
+                          isExtended: isDesktop,
+                          badgeCount: unreadCount > 0 ? unreadCount : null,
+                          isSelected: path.startsWith('/notifications'),
+                          onTap: () => context.push('/notifications'),
+                        ),
+                        // 2. Downloaded Videos
+                        _RailActionItem(
+                          icon: Icons.download_done_rounded,
+                          selectedIcon: Icons.download_done_rounded,
+                          label: tr('nav.downloads'),
+                          isExtended: isDesktop,
+                          isSelected: path.startsWith('/library/downloads'),
+                          onTap: () => context.push('/library/downloads'),
+                        ),
+                        // 3. Watch History
+                        _RailActionItem(
+                          icon: Icons.history_rounded,
+                          selectedIcon: Icons.history_rounded,
+                          label: tr('nav.history'),
+                          isExtended: isDesktop,
+                          isSelected: path.startsWith('/library/history'),
+                          onTap: () => context.push('/library/history'),
+                        ),
+                        // 4. Liked Videos
+                        _RailActionItem(
+                          icon: Icons.thumb_up_alt_outlined,
+                          selectedIcon: Icons.thumb_up,
+                          label: tr('nav.liked'),
+                          isExtended: isDesktop,
+                          isSelected: path.startsWith('/library/liked'),
+                          onTap: () => context.push('/library/liked'),
+                        ),
+                        // 5. Follow Channels
+                        _RailActionItem(
+                          icon: Icons.subscriptions_outlined,
+                          selectedIcon: Icons.subscriptions,
+                          label: tr('nav.channels'),
+                          isExtended: isDesktop,
+                          isSelected: path.contains('/following'),
+                          onTap: () {
+                            final authUser = ref.read(authProvider).user;
+                            if (authUser != null) {
+                              context.push('/profile/${authUser.id}/following');
+                            } else {
+                              context.push('/explore');
+                            }
+                          },
+                        ),
+                        // 6. Cache & Storage
+                        _RailActionItem(
+                          icon: Icons.cleaning_services_outlined,
+                          selectedIcon: Icons.cleaning_services,
+                          label: tr('nav.cache_storage'),
+                          isExtended: isDesktop,
+                          isSelected: false,
+                          onTap: () => showCacheStorageDialog(context, ref),
+                        ),
+                        // 7. Admin Panel
+                        if (adminPermissions.hasAdminAccess) ...[
+                          Divider(
+                            indent: isDesktop ? 16 : 8,
+                            endIndent: isDesktop ? 16 : 8,
+                            height: 16,
+                            thickness: 0.5,
+                            color: theme.dividerColor.withValues(alpha: 0.2),
+                          ),
+                          _RailActionItem(
+                            icon: Icons.admin_panel_settings_outlined,
+                            selectedIcon: Icons.admin_panel_settings,
+                            label: tr('nav.admin_panel'),
+                            isExtended: isDesktop,
+                            iconColor: const Color(0xFFFFB300),
+                            isSelected: path.startsWith('/admin'),
+                            onTap: () => context.push('/admin'),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
+                  destinations: [
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.home_outlined),
+                      selectedIcon: const Icon(Icons.home),
+                      label: Text(tr('nav.home')),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      selectedIcon: const Icon(Icons.calendar_month),
+                      label: Text(tr('nav.calendar')),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.add_circle_outline),
+                      selectedIcon: const Icon(Icons.add_circle),
+                      label: Text(tr('nav.create')),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      selectedIcon: const Icon(Icons.chat_bubble),
+                      label: Text(tr('nav.chats')),
+                    ),
+                    NavigationRailDestination(
+                      icon: const Icon(Icons.menu_book_outlined),
+                      selectedIcon: const Icon(Icons.menu_book),
+                      label: Text(tr('nav.books')),
+                    ),
+                  ],
                 ),
-                _RailActionItem(
-                  icon: Icons.admin_panel_settings_outlined,
-                  selectedIcon: Icons.admin_panel_settings,
-                  label: tr('nav.admin_panel'),
-                  isExtended: isDesktop,
-                  iconColor: const Color(0xFFFFB300),
-                  isSelected: path.startsWith('/admin'),
-                  onTap: () => context.push('/admin'),
-                ),
-              ],
-              const SizedBox(height: 12),
-            ],
+              ),
+            ),
           ),
-        ),
-      ),
-      destinations: [
-        NavigationRailDestination(
-          icon: const Icon(Icons.home_outlined),
-          selectedIcon: const Icon(Icons.home),
-          label: Text(tr('nav.home')),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.calendar_month_outlined),
-          selectedIcon: const Icon(Icons.calendar_month),
-          label: Text(tr('nav.calendar')),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.add_circle_outline),
-          selectedIcon: const Icon(Icons.add_circle),
-          label: Text(tr('nav.create')),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.chat_bubble_outline),
-          selectedIcon: const Icon(Icons.chat_bubble),
-          label: Text(tr('nav.chats')),
-        ),
-        NavigationRailDestination(
-          icon: const Icon(Icons.menu_book_outlined),
-          selectedIcon: const Icon(Icons.menu_book),
-          label: Text(tr('nav.books')),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -273,7 +313,9 @@ class _RailActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveIcon = isSelected && selectedIcon != null ? selectedIcon! : icon;
+    final effectiveIcon = isSelected && selectedIcon != null
+        ? selectedIcon!
+        : icon;
     final effectiveColor = isSelected
         ? const Color(0xFF00C6FF)
         : (iconColor ?? (isDark ? Colors.white70 : Colors.black87));
@@ -296,10 +338,7 @@ class _RailActionItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Tooltip(
           message: label,
-          child: IconButton(
-            icon: iconWidget,
-            onPressed: onTap,
-          ),
+          child: IconButton(icon: iconWidget, onPressed: onTap),
         ),
       );
     }

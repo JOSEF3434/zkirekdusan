@@ -8,14 +8,14 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
-import 'package:mobile/features/calendar/data/calendar_media_service.dart';
+import 'package:mobile/features/calendar/data/calendar_media_upload_queue.dart';
 import 'package:mobile/features/calendar/presentation/widgets/media_picker_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/recurring_reminder_picker.dart';
 import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
 import 'package:path/path.dart' as p;
 
-// Conditional imports for platform-specific code
-import 'dart:io' if (dart.library.html) 'dart:html' as io;
+import 'dart:developer' as developer;
+import 'dart:io' as io;
 
 class AddNoteSheet extends ConsumerStatefulWidget {
   final EtDatetime selectedDate;
@@ -36,7 +36,6 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   late final TextEditingController _contentController;
   bool _isSaving = false;
   final List<String> _selectedMediaPaths = [];
-  final Map<String, double> _uploadProgress = {};
 
   // Reminder state
   DateTime? _reminderDateTime;
@@ -79,31 +78,47 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   Future<void> _pickMedia() async {
     final result = await showModalBottomSheet<List<String>>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => const MediaPickerSheet(),
     );
 
-    if (result != null) {
-      final paths = result;
-      if (paths.isNotEmpty && mounted) {
-        setState(() {
-          _selectedMediaPaths.addAll(paths);
-        });
+    if (result != null && result.isNotEmpty && mounted) {
+      setState(() {
+        _selectedMediaPaths.addAll(result);
+      });
+      // If note already exists (editing), start upload immediately
+      final noteId = widget.existingNote?.id;
+      if (noteId != null) {
+        await ref
+            .read(mediaUploadQueueProvider.notifier)
+            .enqueueAll(
+              localPaths: result,
+              noteId: noteId,
+              startOrder: _selectedMediaPaths.length - result.length,
+            );
       }
     }
   }
 
   void _removeMedia(int index) {
     setState(() {
-      final path = _selectedMediaPaths[index];
       _selectedMediaPaths.removeAt(index);
-      _uploadProgress.remove(path);
     });
   }
 
   Future<void> _save() async {
-    if (_titleController.text.isEmpty && _contentController.text.isEmpty) {
+    final titleText = _titleController.text.trim();
+    final contentText = _contentController.text.trim();
+
+    if (titleText.isEmpty &&
+        contentText.isEmpty &&
+        _selectedMediaPaths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title or content')),
+        const SnackBar(
+          content: Text('Please enter a title, content, or attach media'),
+        ),
       );
       return;
     }
@@ -163,15 +178,28 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
         );
       }
 
-      // Upload media if any
-      if (_selectedMediaPaths.isNotEmpty) {
-        await _uploadMedia(note.id);
+      // Upload media if any and note is newly created (editing uploads immediately)
+      if (_selectedMediaPaths.isNotEmpty && widget.existingNote == null) {
+        await ref
+            .read(mediaUploadQueueProvider.notifier)
+            .enqueueAll(localPaths: _selectedMediaPaths, noteId: note.id);
       }
 
       if (mounted) {
         // Invalidate cache to refresh
-        ref.invalidate(calendarNotesForDateProvider);
-        ref.invalidate(calendarNotesForMonthProvider);
+        ref.invalidate(
+          calendarNotesForDateProvider((
+            year: widget.selectedDate.year,
+            month: widget.selectedDate.month,
+            day: widget.selectedDate.day,
+          )),
+        );
+        ref.invalidate(
+          calendarNotesForMonthProvider((
+            year: widget.selectedDate.year,
+            month: widget.selectedDate.month,
+          )),
+        );
 
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,7 +212,12 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      developer.log(
+        'Failed to save calendar note: $e',
+        error: e,
+        stackTrace: st,
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -193,36 +226,6 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
-      }
-    }
-  }
-
-  Future<void> _uploadMedia(String noteId) async {
-    final mediaService = ref.read(calendarMediaServiceProvider);
-
-    for (var i = 0; i < _selectedMediaPaths.length; i++) {
-      final path = _selectedMediaPaths[i];
-      try {
-        // Upload file
-        final fileData = await mediaService.uploadFile(
-          filePath: path,
-          onProgress: (sent, total) {
-            if (mounted) {
-              setState(() {
-                _uploadProgress[path] = sent / total;
-              });
-            }
-          },
-        );
-
-        // Attach to note
-        await mediaService.addMediaToNote(
-          noteId: noteId,
-          fileId: fileData['id'] as String,
-          order: i,
-        );
-      } catch (e) {
-        debugPrint('Error uploading media: $e');
       }
     }
   }
@@ -280,14 +283,8 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
   Widget _buildImagePreview(String path, ThemeData theme, String fileName) {
     if (kIsWeb) {
-      return Image.network(
-        path,
-        width: 120,
-        height: 120,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildFileIcon(Icons.broken_image, fileName, theme),
-      );
+      // On web, we can't use Image.file with a local path. Show a placeholder.
+      return _buildFileIcon(Icons.image, fileName, theme);
     } else {
       try {
         return Image.file(
@@ -438,125 +435,211 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
             const SizedBox(height: 16),
 
-            // Media section
-            if (_selectedMediaPaths.isNotEmpty) ...[
-              Text(
-                'Attachments (${_selectedMediaPaths.length})',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 120,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _selectedMediaPaths.length,
-                  itemBuilder: (context, index) {
-                    final path = _selectedMediaPaths[index];
-                    final progress = _uploadProgress[path];
-                    final isImage = _isImageFile(path);
-                    final isVideo = _isVideoFile(path);
-                    final isAudio = _isAudioFile(path);
-                    final fileName = p.basename(path);
+            // Media section — show queue items for existing note, or local list for new note
+            Builder(
+              builder: (context) {
+                final noteId = widget.existingNote?.id;
+                final queueItems = noteId != null
+                    ? ref.watch(noteUploadQueueProvider(noteId))
+                    : <UploadQueueItem>[];
+                final allPaths = _selectedMediaPaths;
 
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: theme.colorScheme.outline.withValues(
-                                  alpha: 0.2,
-                                ),
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: isImage
-                                  ? _buildImagePreview(path, theme, fileName)
-                                  : isVideo
-                                  ? _buildVideoPreview(path, theme, fileName)
-                                  : isAudio
-                                  ? _buildFileIcon(
-                                      Icons.audiotrack,
-                                      fileName,
-                                      theme,
-                                    )
-                                  : _buildFileIcon(
-                                      Icons.insert_drive_file,
-                                      fileName,
-                                      theme,
+                if (allPaths.isEmpty && queueItems.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Attachments (${allPaths.length + queueItems.where((q) => !allPaths.contains(q.localPath)).length})',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: allPaths.length,
+                        itemBuilder: (context, index) {
+                          final path = allPaths[index];
+                          // Find queue item for real-time progress
+                          final queueItem = queueItems
+                              .where((q) => q.localPath == path)
+                              .firstOrNull;
+                          final progress =
+                              queueItem?.status == UploadStatus.uploading
+                              ? queueItem!.progress
+                              : null;
+                          final isDone = queueItem?.status == UploadStatus.done;
+                          final isFailed =
+                              queueItem?.status == UploadStatus.failed;
+                          final isImage = _isImageFile(path);
+                          final isVideo = _isVideoFile(path);
+                          final isAudio = _isAudioFile(path);
+                          final fileName = p.basename(path);
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isDone
+                                          ? theme.colorScheme.primary
+                                          : isFailed
+                                          ? theme.colorScheme.error
+                                          : theme.colorScheme.outline
+                                                .withValues(alpha: 0.2),
+                                      width: isDone || isFailed ? 2 : 1,
                                     ),
-                            ),
-                          ),
-                          if (progress != null && progress < 1.0)
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: isImage
+                                        ? _buildImagePreview(
+                                            path,
+                                            theme,
+                                            fileName,
+                                          )
+                                        : isVideo
+                                        ? _buildVideoPreview(
+                                            path,
+                                            theme,
+                                            fileName,
+                                          )
+                                        : isAudio
+                                        ? _buildFileIcon(
+                                            Icons.audiotrack,
+                                            fileName,
+                                            theme,
+                                          )
+                                        : _buildFileIcon(
+                                            Icons.insert_drive_file,
+                                            fileName,
+                                            theme,
+                                          ),
+                                  ),
                                 ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: progress,
-                                        backgroundColor: Colors.white24,
-                                        valueColor:
-                                            const AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                // Upload progress overlay
+                                if (progress != null)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${(progress * 100).toInt()}%',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircularProgressIndicator(
+                                              value: progress,
+                                              backgroundColor: Colors.white24,
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                    Color
+                                                  >(Colors.white),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              '${(progress * 100).toInt()}%',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (!_isSaving)
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: Material(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(12),
-                                child: InkWell(
-                                  onTap: () => _removeMedia(index),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 18,
                                     ),
                                   ),
-                                ),
-                              ),
+                                // Done badge
+                                if (isDone)
+                                  Positioned(
+                                    bottom: 4,
+                                    left: 4,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.green,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                    ),
+                                  ),
+                                // Failed badge with retry
+                                if (isFailed)
+                                  Positioned(
+                                    bottom: 4,
+                                    left: 4,
+                                    child: GestureDetector(
+                                      onTap: () => ref
+                                          .read(
+                                            mediaUploadQueueProvider.notifier,
+                                          )
+                                          .retryFailed(),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.redAccent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.refresh,
+                                          color: Colors.white,
+                                          size: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                // Remove button
+                                if (!_isSaving)
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Material(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: InkWell(
+                                        onTap: () => _removeMedia(index),
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(4),
+                                          child: Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
 
             // Add media button
             const SizedBox(height: 16),

@@ -36,6 +36,7 @@ import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/features/books/presentation/screens/books_screen.dart';
 import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
+import 'package:mobile/features/calendar/presentation/calendar_note_detail_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
 import 'package:mobile/features/chats/presentation/chats_screen.dart';
 import 'package:mobile/features/explore/presentation/search_screen.dart';
@@ -48,6 +49,7 @@ import 'package:mobile/features/live/presentation/screens/live_studio_screen.dar
 import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/notifications/presentation/notifications_screen.dart';
+import 'package:mobile/core/navigation/navigation_service.dart';
 import 'package:mobile/features/social/presentation/followers_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/creator_workspace_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/create_group_screen.dart';
@@ -190,7 +192,7 @@ class RouterNotifier extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = RouterNotifier(ref);
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     refreshListenable: notifier,
@@ -265,6 +267,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/upload',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const UploadScreen(),
+      ),
+      GoRoute(
+        path: '/calendar/note/:noteId',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final noteId = state.pathParameters['noteId']!;
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: CalendarNoteDetailScreen(noteId: noteId),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
+                child: child,
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/qr-scan',
@@ -669,4 +696,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  // Register the router with NavigationService so static contexts
+  // (e.g., notification tap handlers) can navigate without a BuildContext.
+  NavigationService.instance.setRouter(router);
+
+  return router;
 });

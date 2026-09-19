@@ -1,7 +1,6 @@
-// lib/features/calendar/data/calendar_media_service.dart
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
@@ -21,12 +20,12 @@ class CalendarMediaService {
     void Function(int sent, int total)? onProgress,
     CancelToken? cancelToken,
   }) async {
-    final file = File(filePath);
-    final bytes = await file.readAsBytes();
-    final filename = p.basename(filePath);
-    final mimeType = lookupMimeType(filePath) ?? 'application/octet-stream';
+    final xFile = XFile(filePath);
+    final bytes = await xFile.readAsBytes();
+    final filename = xFile.name.isNotEmpty ? xFile.name : p.basename(filePath);
+    final mimeType = lookupMimeType(filename) ?? 'application/octet-stream';
 
-    final formData = FormData.fromMap({
+    FormData createFormData() => FormData.fromMap({
       'file': MultipartFile.fromBytes(
         bytes,
         filename: filename,
@@ -34,16 +33,35 @@ class CalendarMediaService {
       ),
     });
 
-    final response = await _dio.post(
-      '/uploads',
-      data: formData,
-      cancelToken: cancelToken,
-      options: Options(
-        sendTimeout: const Duration(minutes: 5),
-        receiveTimeout: const Duration(minutes: 5),
-      ),
-      onSendProgress: onProgress,
-    );
+    Response response;
+    try {
+      response = await _dio.post(
+        '/uploads/media',
+        data: createFormData(),
+        cancelToken: cancelToken,
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
+        onSendProgress: onProgress,
+      );
+    } on DioException catch (dioErr) {
+      if (dioErr.response?.statusCode == 404) {
+        // Fallback to chat upload endpoint if /uploads/media is not routed
+        response = await _dio.post(
+          '/uploads/chat',
+          data: createFormData(),
+          cancelToken: cancelToken,
+          options: Options(
+            sendTimeout: const Duration(minutes: 5),
+            receiveTimeout: const Duration(minutes: 5),
+          ),
+          onSendProgress: onProgress,
+        );
+      } else {
+        rethrow;
+      }
+    }
 
     // Parse envelope response
     final data = response.data;

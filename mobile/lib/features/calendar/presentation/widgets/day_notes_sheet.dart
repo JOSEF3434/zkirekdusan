@@ -119,7 +119,7 @@ class DayNotesSheet extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: FilledButton.icon(
-              onPressed: () => _showAddNoteSheet(context, selectedDate),
+              onPressed: () => _showAddNoteSheet(context, ref, selectedDate),
               icon: const Icon(Icons.add),
               label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('calendar.add_note'))),
             ),
@@ -271,7 +271,7 @@ class DayNotesSheet extends ConsumerWidget {
     String action,
   ) async {
     if (action == 'edit') {
-      await _showAddNoteSheet(context, selectedDate, existingNote: note);
+      await _showAddNoteSheet(context, ref, selectedDate, existingNote: note);
     } else if (action == 'delete') {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -298,8 +298,19 @@ class DayNotesSheet extends ConsumerWidget {
           await deleteNote(note.id);
 
           // Invalidate cache
-          ref.invalidate(calendarNotesForDateProvider);
-          ref.invalidate(calendarNotesForMonthProvider);
+          ref.invalidate(
+            calendarNotesForDateProvider((
+              year: selectedDate.year,
+              month: selectedDate.month,
+              day: selectedDate.day,
+            )),
+          );
+          ref.invalidate(
+            calendarNotesForMonthProvider((
+              year: selectedDate.year,
+              month: selectedDate.month,
+            )),
+          );
 
           if (context.mounted) {
             ScaffoldMessenger.of(
@@ -319,15 +330,32 @@ class DayNotesSheet extends ConsumerWidget {
 
   Future<void> _showAddNoteSheet(
     BuildContext context,
+    WidgetRef ref,
     EtDatetime date, {
     CalendarNoteModel? existingNote,
   }) async {
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (context) =>
           AddNoteSheet(selectedDate: date, existingNote: existingNote),
     );
+
+    if (result == true) {
+      ref.invalidate(
+        calendarNotesForDateProvider((
+          year: date.year,
+          month: date.month,
+          day: date.day,
+        )),
+      );
+      ref.invalidate(
+        calendarNotesForMonthProvider((
+          year: date.year,
+          month: date.month,
+        )),
+      );
+    }
   }
 }
 
