@@ -163,14 +163,54 @@ class CalendarOfflineRepository {
     return results;
   }
 
-  /// Get note by ID (local first)
+  /// Get note by ID (local first, remote fallback)
   Future<CalendarNoteModel?> getNoteById(String id) async {
+    // 1. Try local cache first
     final localNote = await _dao.getNoteById(id);
-    if (localNote == null) return null;
+    if (localNote != null) {
+      final media = await _dao.getMediaForNote(id);
+      return _mapToModel(localNote, media: media);
+    }
 
-    final media = await _dao.getMediaForNote(id);
-
-    return _mapToModel(localNote, media: media);
+    // 2. Fallback: fetch from remote API and cache locally
+    try {
+      final serverNote = await _remoteRepo.getNote(id);
+      // Cache it so the next open is instant
+      await _dao.upsertNote(
+        LocalCalendarNotesCompanion.insert(
+          id: serverNote.id,
+          userId: serverNote.userId,
+          ethiopianYear: serverNote.ethiopianYear,
+          ethiopianMonth: serverNote.ethiopianMonth,
+          ethiopianDay: serverNote.ethiopianDay,
+          gregorianDate: serverNote.gregorianDate,
+          title: Value(serverNote.title),
+          content: Value(serverNote.content),
+          hasReminder: Value(serverNote.hasReminder),
+          reminderDateTime: Value(serverNote.reminderDateTime),
+          reminderRepeat: Value(serverNote.reminderRepeat.name.toUpperCase()),
+          reminderEthiopianMonth: Value(serverNote.reminderEthiopianMonth),
+          reminderEthiopianDay: Value(serverNote.reminderEthiopianDay),
+          reminderHour: Value(serverNote.reminderHour),
+          reminderMinute: Value(serverNote.reminderMinute),
+          reminderTimezone: Value(serverNote.reminderTimezone),
+          reminderNextOccurrence: Value(serverNote.reminderNextOccurrence),
+          createdAt: serverNote.createdAt,
+          updatedAt: serverNote.updatedAt,
+          deletedAt: Value(serverNote.deletedAt),
+          isSynced: const Value(true),
+          lastSyncedAt: Value(DateTime.now()),
+        ),
+      );
+      return serverNote;
+    } catch (e) {
+      developer.log(
+        'Remote getNoteById fallback failed: $e',
+        name: 'CalendarOfflineRepository',
+        error: e,
+      );
+      return null;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════

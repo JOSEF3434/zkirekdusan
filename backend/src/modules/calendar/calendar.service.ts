@@ -150,11 +150,7 @@ export class CalendarService {
       throw new NotFoundException('Calendar note not found');
     }
 
-    // Check ownership
-    if (note.userId !== userId) {
-      throw new ForbiddenException('Access denied');
-    }
-
+    // Allow any authenticated user to read; only the owner can edit/delete
     return note;
   }
 

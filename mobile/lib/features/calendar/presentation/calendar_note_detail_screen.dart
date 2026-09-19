@@ -2,7 +2,7 @@
 // Premium full-screen detail view for a single Calendar Note.
 // Navigated to via GoRouter path: /calendar/note/:noteId
 
-import 'dart:io';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,7 +68,7 @@ class _CalendarNoteDetailScreenState
   }
 
   void _setScreenshotPrevention(bool prevent) {
-    if (Platform.isAndroid) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       if (prevent) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         // FLAG_SECURE equivalent via method channel (best-effort on Flutter side)
