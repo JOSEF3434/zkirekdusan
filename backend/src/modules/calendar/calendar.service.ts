@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateCalendarNoteDto } from './dto/create-calendar-note.dto.js';
 import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 function validateReminderRule(dto: CreateCalendarNoteDto | UpdateCalendarNoteDto) {
   const repeat = dto.reminderRepeat;
@@ -30,11 +31,14 @@ function validateReminderRule(dto: CreateCalendarNoteDto | UpdateCalendarNoteDto
 
 @Injectable()
 export class CalendarService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   async create(userId: string, dto: CreateCalendarNoteDto) {
     validateReminderRule(dto);
-    return this.prisma.calendarNote.create({
+    const note = await this.prisma.calendarNote.create({
       data: {
         userId,
         ethiopianYear: dto.ethiopianYear,
@@ -69,6 +73,20 @@ export class CalendarService {
         },
       },
     });
+
+    // Broadcast to all users (fire-and-forget — never block the response)
+    this.notificationsService
+      .notifyCalendarNotePublished({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        ethiopianDay: note.ethiopianDay,
+        ethiopianMonth: note.ethiopianMonth,
+        ethiopianYear: note.ethiopianYear,
+      })
+      .catch(() => null);
+
+    return note;
   }
 
   async findAll(userId: string, query: QueryCalendarNotesDto) {

@@ -536,8 +536,9 @@ class MessageBubble extends StatelessWidget {
   }
 
   bool get _isStandaloneAudio {
-    if (message.attachments.isNotEmpty || message.voiceNote != null)
+    if (message.attachments.isNotEmpty || message.voiceNote != null) {
       return false;
+    }
     final typeUpper = message.type.toUpperCase();
     if (typeUpper == 'AUDIO' || typeUpper == 'VOICE_NOTE') return true;
     if (message.content != null && _isAudioUrl(message.content!)) return true;
@@ -548,8 +549,9 @@ class MessageBubble extends StatelessWidget {
     final text = message.content;
     if (text == null || text.trim().isEmpty) return false;
     if (_isStandaloneImage || _isStandaloneVideo || _isStandaloneAudio) {
-      if (_isImageUrl(text) || _isVideoUrl(text) || _isAudioUrl(text))
+      if (_isImageUrl(text) || _isVideoUrl(text) || _isAudioUrl(text)) {
         return false;
+      }
     }
     if (message.attachments.isNotEmpty) {
       final firstUrl = message.attachments.first.url;

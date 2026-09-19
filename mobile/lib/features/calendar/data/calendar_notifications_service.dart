@@ -92,8 +92,11 @@ class CalendarNotificationsService {
     }
   }
 
-  /// Schedule a notification for a calendar note reminder
-  Future<void> scheduleReminder(CalendarNoteModel note) async {
+  /// Schedule a notification for a calendar note reminder, with optional overridden scheduled time
+  Future<void> scheduleReminder(
+    CalendarNoteModel note, {
+    DateTime? overrideScheduledTime,
+  }) async {
     if (!note.hasReminder) {
       developer.log(
         '⚠️ Note has no reminder or datetime',
@@ -104,14 +107,18 @@ class CalendarNotificationsService {
 
     try {
       final schedule = CalendarReminderSchedule.nextForNote(note);
-      if (schedule == null) {
+      if (schedule == null && overrideScheduledTime == null) {
         developer.log(
           '⚠️ Reminder time is in the past',
           name: 'CalendarNotifications',
         );
         return;
       }
-      final reminderTime = schedule.notificationGregorian;
+      final reminderTime =
+          overrideScheduledTime ?? schedule!.notificationGregorian;
+      if (reminderTime.isBefore(DateTime.now())) {
+        return;
+      }
 
       final notificationId = note.id.hashCode & 0x7fffffff;
 
@@ -142,9 +149,11 @@ class CalendarNotificationsService {
       // Schedule the notification
       await _notifications.zonedSchedule(
         notificationId,
-        note.title ?? 'Calendar Reminder',
+        note.title ?? 'የቀን ማስታወሻ',
         note.content ??
-            'Tomorrow: ${schedule.event.day} ${schedule.event.month}/${schedule.event.year}',
+            (schedule != null
+                ? 'Tomorrow: ${schedule.event.day}/${schedule.event.month}/${schedule.event.year}'
+                : 'Calendar Note Reminder'),
         tz.TZDateTime.from(reminderTime, tz.local),
         notificationDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -164,6 +173,72 @@ class CalendarNotificationsService {
         error: e,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  /// Schedules a batch of notes, prioritizing YEARLY notes over MONTHLY notes on the same day,
+  /// and staggering overlapping notifications by 5 minutes.
+  Future<void> scheduleRemindersWithPriorityAndStaggering(
+    List<CalendarNoteModel> notes,
+  ) async {
+    final validNotes =
+        <({CalendarNoteModel note, CalendarReminderSchedule schedule})>[];
+
+    for (final note in notes) {
+      if (!note.hasReminder) continue;
+      final schedule = CalendarReminderSchedule.nextForNote(note);
+      if (schedule != null &&
+          schedule.notificationGregorian.isAfter(DateTime.now())) {
+        validNotes.add((note: note, schedule: schedule));
+      }
+    }
+
+    if (validNotes.isEmpty) return;
+
+    // Group by target notification day (YYYY-MM-DD)
+    final Map<String,
+            List<({CalendarNoteModel note, CalendarReminderSchedule schedule})>>
+        dayGroups = {};
+    for (final item in validNotes) {
+      final dt = item.schedule.notificationGregorian;
+      final key =
+          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      dayGroups.putIfAbsent(key, () => []).add(item);
+    }
+
+    for (final entry in dayGroups.entries) {
+      final group = entry.value;
+
+      // Sort by priority:
+      // 1. YEARLY (highest priority - 0)
+      // 2. MONTHLY (next priority - 1)
+      // 3. NONE (last priority - 2)
+      group.sort((a, b) {
+        int priority(ReminderRepeat r) {
+          switch (r) {
+            case ReminderRepeat.yearly:
+              return 0;
+            case ReminderRepeat.monthly:
+              return 1;
+            case ReminderRepeat.none:
+              return 2;
+          }
+        }
+
+        final pA = priority(a.note.reminderRepeat);
+        final pB = priority(b.note.reminderRepeat);
+        if (pA != pB) return pA.compareTo(pB);
+
+        return (a.note.title ?? '').compareTo(b.note.title ?? '');
+      });
+
+      // Stagger by 5 minutes for multiple notes on the same day
+      for (int i = 0; i < group.length; i++) {
+        final item = group[i];
+        final baseTime = item.schedule.notificationGregorian;
+        final staggeredTime = baseTime.add(Duration(minutes: i * 5));
+        await scheduleReminder(item.note, overrideScheduledTime: staggeredTime);
+      }
     }
   }
 

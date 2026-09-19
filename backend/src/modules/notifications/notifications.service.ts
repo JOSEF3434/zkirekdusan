@@ -78,6 +78,112 @@ export class NotificationsService {
     });
   }
 
+  // ── Broadcast to all users ────────────────────────────────────────────────
+  async notifyAllUsers(payload: {
+    title: string;
+    body: string;
+    type?: NotificationType;
+    data?: Record<string, any>;
+  }): Promise<void> {
+    const type = payload.type ?? NotificationType.SYSTEM;
+
+    // 1. Fetch active users to record notifications
+    const users = await this.prisma.user.findMany({
+      select: { id: true },
+      take: 2000,
+    });
+
+    // 2. Real-time Socket.IO event broadcast
+    try {
+      this.notificationsGateway.server?.emit('notification_broadcast', {
+        title: payload.title,
+        body: payload.body,
+        type,
+        data: payload.data,
+        createdAt: new Date().toISOString(),
+      });
+    } catch {
+      // socket broadcast error fallback
+    }
+
+    // 3. Persist DB notifications in batches
+    if (users.length > 0) {
+      await this.prisma.notification
+        .createMany({
+          data: users.map((u) => ({
+            userId: u.id,
+            type,
+            title: payload.title,
+            body: payload.body,
+            data: payload.data ? payload.data : undefined,
+          })),
+          skipDuplicates: true,
+        })
+        .catch(() => null);
+    }
+
+    // 4. Send FCM Multicast to all registered device tokens in batches of 500
+    const deviceTokens = await this.prisma.deviceToken.findMany({
+      select: { token: true },
+    });
+
+    if (deviceTokens.length > 0) {
+      const stringData: Record<string, string> = {
+        type: type.toString(),
+      };
+      if (payload.data) {
+        for (const [k, v] of Object.entries(payload.data)) {
+          if (v !== undefined && v !== null) {
+            stringData[k] = typeof v === 'string' ? v : JSON.stringify(v);
+          }
+        }
+      }
+
+      const allTokens = deviceTokens.map((t) => t.token);
+      const batchSize = 500;
+      for (let i = 0; i < allTokens.length; i += batchSize) {
+        const batch = allTokens.slice(i, i + batchSize);
+        await this.firebaseService
+          .sendMulticast({
+            tokens: batch,
+            title: payload.title,
+            body: payload.body,
+            data: stringData,
+          })
+          .catch(() => null);
+      }
+    }
+  }
+
+  async notifyCalendarNotePublished(note: {
+    id: string;
+    title?: string | null;
+    content?: string | null;
+    ethiopianDay: number;
+    ethiopianMonth: number;
+    ethiopianYear: number;
+  }): Promise<void> {
+    const title =
+      note.title && note.title.trim().length > 0
+        ? `አዲስ የዝክረ ቅዱሳን ማስታወሻ: ${note.title}`
+        : 'አዲስ የዝክረ ቅዱሳን ማስታወሻ ተለጥፏል';
+    const body =
+      note.content && note.content.trim().length > 0
+        ? (note.content.length > 120 ? `${note.content.substring(0, 117)}...` : note.content)
+        : `ለዕለት ${note.ethiopianDay}/${note.ethiopianMonth}/${note.ethiopianYear} የተለጠፈ ማስታወሻ ለመመልከት ይጫኑ`;
+
+    return this.notifyAllUsers({
+      title,
+      body,
+      type: NotificationType.SYSTEM,
+      data: {
+        noteId: note.id,
+        calendarNoteId: note.id,
+        type: 'CALENDAR_NOTE',
+      },
+    });
+  }
+
   // ── Factory helpers ────────────────────────────────────────────────────────
 
   async notifyMessage(

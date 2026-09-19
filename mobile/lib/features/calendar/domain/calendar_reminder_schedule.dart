@@ -86,9 +86,9 @@ class CalendarReminderSchedule {
     DateTime? now,
   }) {
     final current = now ?? DateTime.now();
-    final hour = note.reminderHour ?? note.reminderDateTime?.hour;
-    final minute = note.reminderMinute ?? note.reminderDateTime?.minute;
-    if (!note.hasReminder || hour == null || minute == null) return null;
+    final hour = note.reminderHour ?? note.reminderDateTime?.hour ?? 12;
+    final minute = note.reminderMinute ?? note.reminderDateTime?.minute ?? 0;
+    if (!note.hasReminder) return null;
 
     if (note.reminderRepeat == ReminderRepeat.none) {
       final reminder = note.reminderDateTime;

@@ -37,10 +37,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   bool _isSaving = false;
   final List<String> _selectedMediaPaths = [];
 
-  // Reminder state
+  // Reminder state - default to Monthly repeat at 12:00 PM
   DateTime? _reminderDateTime;
-  ReminderRepeat _reminderRepeat = ReminderRepeat.none;
-  int _reminderHour = 8;
+  ReminderRepeat _reminderRepeat = ReminderRepeat.monthly;
+  int _reminderHour = 12;
   int _reminderMinute = 0;
 
   @override
@@ -53,11 +53,11 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
       text: widget.existingNote?.content ?? '',
     );
 
-    // Initialize reminder state
+    // Initialize reminder state (defaulting to monthly and 12:00 for new notes)
     _reminderDateTime = widget.existingNote?.reminderDateTime;
     _reminderRepeat =
-        widget.existingNote?.reminderRepeat ?? ReminderRepeat.none;
-    _reminderHour = widget.existingNote?.reminderHour ?? 8;
+        widget.existingNote?.reminderRepeat ?? ReminderRepeat.monthly;
+    _reminderHour = widget.existingNote?.reminderHour ?? 12;
     _reminderMinute = widget.existingNote?.reminderMinute ?? 0;
 
     // Load existing media if editing

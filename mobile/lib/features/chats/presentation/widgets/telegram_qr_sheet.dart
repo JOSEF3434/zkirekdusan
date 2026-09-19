@@ -310,8 +310,9 @@ class _QrPatternPainter extends CustomPainter {
     // Decorative grid dots
     for (int r = 3; r < 15; r++) {
       for (int c = 3; c < 15; c++) {
-        if ((r >= 7 && r <= 11) && (c >= 7 && c <= 11))
+        if ((r >= 7 && r <= 11) && (c >= 7 && c <= 11)) {
           continue; // Center hole for avatar
+        }
         if ((r * 7 + c * 13) % 3 == 0) {
           canvas.drawRRect(
             RRect.fromRectAndRadius(

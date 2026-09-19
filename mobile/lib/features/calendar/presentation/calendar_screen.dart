@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abushakir/abushakir.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_state_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/day_notes_sheet.dart';
@@ -17,9 +18,15 @@ import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
 
+  bool _canManage(WidgetRef ref) {
+    final role = ref.watch(authProvider).user?.role ?? '';
+    return role == 'SUPER_ADMIN' || role == 'ADMIN';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final canManage = _canManage(ref);
     final calendarState = ref.watch(calendarProvider);
     final tr = ref.watch(trProvider);
 
@@ -122,7 +129,7 @@ class CalendarScreen extends ConsumerWidget {
             // Calendar grid
             SliverPadding(
               padding: const EdgeInsets.all(8),
-              sliver: _buildCalendarGrid(theme, calendarState, ref),
+              sliver: _buildCalendarGrid(theme, calendarState, ref, canManage),
             ),
 
             // Selected date info
@@ -133,7 +140,7 @@ class CalendarScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: calendarState.selectedDate != null
+      floatingActionButton: canManage && calendarState.selectedDate != null
           ? FloatingActionButton.extended(
               heroTag: null,
               onPressed: () {
@@ -177,6 +184,7 @@ class CalendarScreen extends ConsumerWidget {
     ThemeData theme,
     CalendarState state,
     WidgetRef ref,
+    bool canManage,
   ) {
     final year = state.year;
     final month = state.month;
@@ -244,10 +252,12 @@ class CalendarScreen extends ConsumerWidget {
             ref.read(calendarProvider.notifier).selectDate(year, month, day);
             _showDayNotesSheet(context, cellDate);
           },
-          onLongPress: () {
-            ref.read(calendarProvider.notifier).selectDate(year, month, day);
-            _showAddNoteSheet(context, cellDate);
-          },
+          onLongPress: canManage
+              ? () {
+                  ref.read(calendarProvider.notifier).selectDate(year, month, day);
+                  _showAddNoteSheet(context, cellDate);
+                }
+              : null,
         );
       }, childCount: rows * 7),
     );
@@ -264,7 +274,7 @@ class CalendarScreen extends ConsumerWidget {
     required bool hasReminder,
     required bool hasMedia,
     required VoidCallback onTap,
-    required VoidCallback onLongPress,
+    required VoidCallback? onLongPress,
   }) {
     return Material(
       color: isSelected

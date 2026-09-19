@@ -36,10 +36,11 @@ void calendarReminderCallbackDispatcher() {
         name: 'ReminderWorker',
       );
 
-      // Schedule notifications for each note
+      // Map notes and schedule with yearly priority and 5-minute staggering
+      final notesList = <CalendarNoteModel>[];
       for (final noteData in upcomingNotes) {
-        try {
-          final note = CalendarNoteModel(
+        notesList.add(
+          CalendarNoteModel(
             id: noteData.id,
             userId: noteData.userId,
             ethiopianYear: noteData.ethiopianYear,
@@ -65,16 +66,12 @@ void calendarReminderCallbackDispatcher() {
             createdAt: noteData.createdAt,
             updatedAt: noteData.updatedAt,
             deletedAt: noteData.deletedAt,
-          );
-
-          await notificationsService.scheduleReminder(note);
-        } catch (e) {
-          developer.log(
-            '⚠️ Failed to schedule reminder for note ${noteData.id}: $e',
-            name: 'ReminderWorker',
-          );
-        }
+          ),
+        );
       }
+
+      await notificationsService
+          .scheduleRemindersWithPriorityAndStaggering(notesList);
 
       // Clean up
       await db.close();

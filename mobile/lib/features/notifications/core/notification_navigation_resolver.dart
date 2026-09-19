@@ -80,10 +80,26 @@ class NotificationNavigationResolver {
           }
           break;
 
+        case 'CALENDAR_NOTE':
+        case 'CALENDAR_REMINDER':
+          final noteId = (data['noteId'] ??
+              data['calendarNoteId'] ??
+              data['id']) as String?;
+          if (noteId != null && noteId.isNotEmpty) {
+            context.push('/calendar/note/$noteId');
+          } else {
+            context.push('/calendar');
+          }
+          break;
+
         case 'SYSTEM':
         default:
-          // Safe fallback — just go to notifications
-          context.push('/notifications');
+          final noteId = (data['noteId'] ?? data['calendarNoteId']) as String?;
+          if (noteId != null && noteId.isNotEmpty) {
+            context.push('/calendar/note/$noteId');
+          } else {
+            context.push('/notifications');
+          }
           break;
       }
     } catch (e) {
