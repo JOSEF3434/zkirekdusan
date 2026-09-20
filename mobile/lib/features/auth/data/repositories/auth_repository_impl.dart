@@ -160,4 +160,14 @@ class AuthRepositoryImpl implements AuthRepository {
     username: model.username,
     role: model.role,
   );
+
+  @override
+  Future<void> saveFlag(String key, String value) async {
+    await _storage.saveToken(value, key: 'flag_$key');
+  }
+
+  @override
+  Future<String?> getStoredFlag(String key) async {
+    return _storage.getToken(key: 'flag_$key');
+  }
 }

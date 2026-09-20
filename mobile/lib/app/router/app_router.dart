@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
+import 'package:mobile/features/security/presentation/app_lock_screen.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/splash/presentation/splash_screen.dart';
 import 'package:mobile/features/splash/presentation/onboarding_screen.dart';
@@ -100,6 +102,9 @@ class RouterNotifier extends ChangeNotifier {
     _ref.listen(authProvider, (_, next) => notifyListeners());
     _ref.listen(preferencesProvider, (_, next) => notifyListeners());
     _ref.listen(splashCompletedProvider, (_, next) => notifyListeners());
+    _ref.listen(appLockProvider, (prev, next) {
+      if (prev?.status != next.status) notifyListeners();
+    });
     _ref.listen(callStateProvider, (prev, next) {
       if (prev?.status != next.status) {
         notifyListeners();
@@ -116,6 +121,29 @@ class RouterNotifier extends ChangeNotifier {
     final isAuthRoute = location == '/login' || location == '/register';
     final isSplashRoute = location == '/';
     final isOnboardingRoute = location == '/onboarding';
+    final isLockRoute = location == '/lock';
+
+    // App Lock: if locked and not already on lock/auth/splash, redirect to /lock
+    final lockState = _ref.read(appLockProvider);
+    if (lockState.status == AppLockStatus.locked &&
+        !isLockRoute &&
+        !isAuthRoute &&
+        !isSplashRoute &&
+        !isOnboardingRoute) {
+      final authStatus = _ref.read(authProvider).status;
+      if (authStatus == AuthStatus.authenticated) {
+        return '/lock?from=${Uri.encodeComponent(location)}';
+      }
+    }
+
+    // If lock is unlocked/disabled and user landed on /lock, return to previous screen or /home
+    if (isLockRoute && lockState.status != AppLockStatus.locked) {
+      final from = state.uri.queryParameters['from'];
+      if (from != null && from.isNotEmpty && from != '/lock') {
+        return from;
+      }
+      return '/home';
+    }
 
     // Handle Incoming Call: immediately route to /call/incoming
     final callState = _ref.read(callStateProvider);
@@ -199,6 +227,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: notifier.redirect,
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/lock',
+        builder: (context, state) => const AppLockScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),

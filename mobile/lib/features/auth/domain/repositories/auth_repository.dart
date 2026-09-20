@@ -32,4 +32,10 @@ abstract class AuthRepository {
 
   /// Returns the currently cached auth user, if any
   Future<AuthUser?> getCachedUser();
+
+  /// Save an arbitrary flag to persistent storage (e.g. 'session_only').
+  Future<void> saveFlag(String key, String value);
+
+  /// Read a flag previously saved with [saveFlag]. Returns null if not set.
+  Future<String?> getStoredFlag(String key);
 }

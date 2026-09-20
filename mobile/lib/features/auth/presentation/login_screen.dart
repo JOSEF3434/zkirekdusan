@@ -19,6 +19,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _hasNavigated = false;
+  bool _rememberMe = true; // Default ON — professional UX like Telegram
 
   @override
   void dispose() {
@@ -59,6 +60,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           phoneNumber: phone,
           username: username,
           password: password,
+          rememberMe: _rememberMe,
         );
   }
 
@@ -218,6 +220,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Remember Me ──────────────────────────────────────
+                    GestureDetector(
+                      onTap: () =>
+                          setState(() => _rememberMe = !_rememberMe),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              onChanged: (v) =>
+                                  setState(() => _rememberMe = v ?? true),
+                              activeColor: cs.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            tr('auth.remember_me'),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 

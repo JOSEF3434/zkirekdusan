@@ -71,6 +71,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuthentication() async {
     try {
+      // If user logged in with Remember Me = OFF, clear session on cold start
+      final isSessionOnly =
+          await _repository.getStoredFlag('session_only') == 'true';
+      if (isSessionOnly) {
+        await _repository.logout();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+
       final isAuth = await _repository.isAuthenticated();
       if (isAuth) {
         // Fast restore from local cache
@@ -101,6 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? phoneNumber,
     String? username,
     required String password,
+    bool rememberMe = true,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -110,6 +120,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         username: username,
         password: password,
       );
+      // Save "session only" flag — cleared on cold start if rememberMe is false
+      await _repository.saveFlag('session_only', rememberMe ? 'false' : 'true');
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
       String errorMessage;

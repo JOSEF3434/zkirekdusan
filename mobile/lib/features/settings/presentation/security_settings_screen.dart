@@ -1,9 +1,13 @@
 // lib/features/settings/presentation/security_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
+import 'package:mobile/features/security/presentation/providers/app_lock_settings_provider.dart';
+import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
+import 'package:mobile/features/security/presentation/pin_setup_screen.dart';
 
 class SecuritySettingsScreen extends ConsumerWidget {
   const SecuritySettingsScreen({super.key});
@@ -13,6 +17,9 @@ class SecuritySettingsScreen extends ConsumerWidget {
     final tr = ref.watch(trProvider);
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
+    final lockSettings = ref.watch(appLockSettingsProvider);
+    final lockNotifier = ref.read(appLockSettingsProvider.notifier);
+    final biometricAvailable = ref.watch(biometricAvailableProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -26,7 +33,129 @@ class SecuritySettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Authentication ─────────────────────────────────────────────────
+          // ── App Lock ────────────────────────────────────────────────────
+          SettingsGroup(
+            label: 'App Lock',
+            children: [
+              // Enable / Disable toggle
+              SettingsSwitchTile(
+                icon: Icons.screen_lock_portrait_rounded,
+                iconColor: const Color(0xFF6C63FF),
+                title: 'Enable App Lock',
+                subtitle: lockSettings.isEnabled
+                    ? 'Lock screen shown when app is backgrounded'
+                    : 'App opens without a lock screen',
+                value: lockSettings.isEnabled,
+                onChanged: (v) async {
+                  if (v) {
+                    // Navigate to PIN setup to get the PIN first
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const PinSetupScreen(),
+                      ),
+                    );
+                    // PinSetupScreen calls setEnabled internally on success
+                    if (result != true && context.mounted) {
+                      // User cancelled setup — do not enable
+                    }
+                  } else {
+                    await lockNotifier.disable();
+                    await ref.read(appLockProvider.notifier).disable();
+                  }
+                },
+              ),
+
+              // Lock Method picker (only if enabled)
+              if (lockSettings.isEnabled) ...[
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF43E97B).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.fingerprint_rounded,
+                        color: Color(0xFF43E97B), size: 22),
+                  ),
+                  title: const Text('Lock Method',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: Text(_methodLabel(lockSettings.method)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showMethodPicker(context, lockSettings, lockNotifier,
+                      biometricAvailable.asData?.value ?? false),
+                ),
+
+                // Auto-lock timeout
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9F43).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.timer_outlined,
+                        color: Color(0xFFFF9F43), size: 22),
+                  ),
+                  title: const Text('Auto-lock After',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: Text(_timeoutLabel(lockSettings.timeoutMinutes)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showTimeoutPicker(context, lockSettings, lockNotifier),
+                ),
+
+                // Change PIN
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.dialpad_rounded,
+                        color: Color(0xFF00C6FF), size: 22),
+                  ),
+                  title: const Text('Change PIN',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  subtitle: const Text('Set a new 6-digit PIN'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const PinSetupScreen(isChange: true)),
+                  ),
+                ),
+
+                // Lock Now
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.lock_rounded,
+                        color: Colors.redAccent, size: 22),
+                  ),
+                  title: const Text('Lock Now',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.redAccent)),
+                  subtitle: const Text('Immediately lock the app'),
+                  onTap: () {
+                    ref.read(appLockProvider.notifier).lock();
+                    context.go('/lock');
+                  },
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Authentication ────────────────────────────────────────────────
           SettingsGroup(
             label: tr('settings.security.authentication'),
             children: [
@@ -40,22 +169,6 @@ class SecuritySettingsScreen extends ConsumerWidget {
                 value: s.twoFactorEnabled,
                 onChanged: (v) => n.setTwoFactor(v),
               ),
-              SettingsSwitchTile(
-                icon: Icons.fingerprint_rounded,
-                iconColor: const Color(0xFF43E97B),
-                title: tr('settings.security.biometric'),
-                subtitle: tr('settings.security.biometric_desc'),
-                value: s.biometricLockEnabled,
-                onChanged: (v) => n.setBiometricLock(v),
-                isLast: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // ── Alerts ────────────────────────────────────────────────────────
-          SettingsGroup(
-            label: tr('settings.security.alerts'),
-            children: [
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
                 iconColor: const Color(0xFFFF9F43),
@@ -82,7 +195,8 @@ class SecuritySettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // ── Active Sessions ─────────────────────────────────────────────────
+
+          // ── Active Sessions ─────────────────────────────────────────────
           SettingsGroup(
             label: tr('settings.security.active_sessions'),
             children: [
@@ -92,7 +206,8 @@ class SecuritySettingsScreen extends ConsumerWidget {
                     terminateTooltip: tr('settings.security.terminate_tooltip'),
                     onTerminate: session.isCurrent
                         ? null
-                        : () => _confirmTerminate(context, ref, session.id, session.deviceName, tr),
+                        : () => _confirmTerminate(
+                            context, ref, session.id, session.deviceName, tr),
                   )),
             ],
           ),
@@ -119,6 +234,115 @@ class SecuritySettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // ── App Lock Helpers ─────────────────────────────────────────────────────
+
+  String _methodLabel(AppLockMethod method) {
+    switch (method) {
+      case AppLockMethod.biometric:
+        return 'Biometric (fingerprint / face)';
+      case AppLockMethod.biometricWithPin:
+        return 'Biometric + PIN fallback';
+      default:
+        return 'PIN (6-digit code)';
+    }
+  }
+
+  String _timeoutLabel(int minutes) {
+    if (minutes == 0) return 'Immediately';
+    if (minutes < 0) return 'Never';
+    if (minutes == 1) return '1 minute';
+    return '$minutes minutes';
+  }
+
+  void _showMethodPicker(BuildContext context, AppLockSettings settings,
+      AppLockSettingsNotifier notifier, bool biometricAvail) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const Text('Lock Method',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            _MethodTile(
+              label: 'PIN (6-digit code)',
+              icon: Icons.dialpad_rounded,
+              selected: settings.method == AppLockMethod.pin,
+              onTap: () {
+                notifier.setMethod(AppLockMethod.pin);
+                Navigator.pop(context);
+              },
+            ),
+            if (biometricAvail) ...[
+              _MethodTile(
+                label: 'Biometric',
+                icon: Icons.fingerprint_rounded,
+                selected: settings.method == AppLockMethod.biometric,
+                onTap: () {
+                  notifier.setMethod(AppLockMethod.biometric);
+                  Navigator.pop(context);
+                },
+              ),
+              _MethodTile(
+                label: 'Biometric + PIN fallback',
+                icon: Icons.security_rounded,
+                selected: settings.method == AppLockMethod.biometricWithPin,
+                onTap: () {
+                  notifier.setMethod(AppLockMethod.biometricWithPin);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTimeoutPicker(BuildContext context, AppLockSettings settings,
+      AppLockSettingsNotifier notifier) {
+    const options = [0, 1, 5, 15, 30, -1];
+    final labels = ['Immediately', '1 minute', '5 minutes', '15 minutes', '30 minutes', 'Never'];
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const Text('Auto-lock After',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ...List.generate(options.length, (i) => ListTile(
+              leading: Icon(
+                settings.timeoutMinutes == options[i]
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: settings.timeoutMinutes == options[i]
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              title: Text(labels[i]),
+              onTap: () {
+                notifier.setTimeout(options[i]);
+                Navigator.pop(context);
+              },
+            )),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   void _showChangePassword(BuildContext context, String Function(String, [Map<String, dynamic>?]) tr) {
     final currentCtrl = TextEditingController();
@@ -328,3 +552,40 @@ class _SessionTile extends StatelessWidget {
     );
   }
 }
+
+class _MethodTile extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MethodTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: selected ? theme.colorScheme.primary : null,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          color: selected ? theme.colorScheme.primary : null,
+        ),
+      ),
+      trailing: selected
+          ? Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary)
+          : null,
+      onTap: onTap,
+    );
+  }
+}
+

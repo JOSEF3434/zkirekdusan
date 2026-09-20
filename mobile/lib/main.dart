@@ -17,6 +17,7 @@ import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
+import 'package:mobile/core/services/app_lifecycle_observer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,13 +83,22 @@ void main() async {
   final localizationService = LocalizationService();
   await localizationService.init();
 
+  // Create a ProviderContainer so we can pass a Ref to the lifecycle observer
+  final container = ProviderContainer(
+    overrides: [
+      appDatabaseProvider.overrideWithValue(appDatabase),
+      sharedPreferencesProvider.overrideWithValue(sharedPrefs),
+      localizationServiceProvider.overrideWithValue(localizationService),
+    ],
+  );
+
+  // Register lifecycle observer for App Lock auto-lock on background/foreground
+  final lifecycleObserver = AppLifecycleObserver(container);
+  WidgetsBinding.instance.addObserver(lifecycleObserver);
+
   runApp(
-    ProviderScope(
-      overrides: [
-        appDatabaseProvider.overrideWithValue(appDatabase),
-        sharedPreferencesProvider.overrideWithValue(sharedPrefs),
-        localizationServiceProvider.overrideWithValue(localizationService),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const StreamHubApp(),
     ),
   );
