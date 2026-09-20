@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/core/utils/media_save_helper.dart';
@@ -48,22 +49,36 @@ class MediaWatermarkService {
     final isImage = _isImageFile(cleanFileName);
 
     // ── Download bytes ────────────────────────────────────────────────────────
-    final response = await _dio.get<List<int>>(
-      url,
-      options: Options(responseType: ResponseType.bytes),
-      onReceiveProgress: (received, total) {
-        if (total > 0 && onProgress != null) {
-          onProgress(received / total * (isImage ? 0.6 : 1.0));
-        }
-      },
-    );
-    if (response.data == null) throw Exception('Failed to download: $url');
-
-    Uint8List bytes = Uint8List.fromList(response.data!);
+    Uint8List bytes;
+    try {
+      final response = await _dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+        onReceiveProgress: (received, total) {
+          if (total > 0 && onProgress != null) {
+            onProgress(received / total * (isImage ? 0.6 : 1.0));
+          }
+        },
+      );
+      if (response.data == null) throw Exception('Failed to download: $url');
+      bytes = Uint8List.fromList(response.data!);
+    } catch (e) {
+      debugPrint('[MediaWatermarkService] Dio fetch failed: $e');
+      if (kIsWeb) {
+        // Fallback on web if CORS blocks binary fetching: trigger direct download/open
+        await MediaSaveHelper.downloadUrl(url: url, fileName: cleanFileName);
+        return;
+      }
+      rethrow;
+    }
 
     // ── Apply watermark for images ────────────────────────────────────────────
     if (isImage) {
-      bytes = await applyWatermark(bytes);
+      try {
+        bytes = await applyWatermark(bytes);
+      } catch (e) {
+        debugPrint('[MediaWatermarkService] Watermark failed, saving original: $e');
+      }
       if (onProgress != null) onProgress(1.0);
     }
 

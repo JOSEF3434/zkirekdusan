@@ -8,6 +8,7 @@ import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/media_watermark_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
 
@@ -285,7 +286,10 @@ class _NoteListItem extends ConsumerWidget {
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (action) => _handleAction(context, ref, action),
-            itemBuilder: (context) => [
+            itemBuilder: (context) {
+              final globalDownloadEnabled = ref.read(calendarDownloadEnabledProvider);
+              final canDownload = globalDownloadEnabled && note.allowDownload && note.media.isNotEmpty;
+              return [
               // ── Admin-only actions ──
               if (canManage) ...[
                 const PopupMenuItem(
@@ -322,7 +326,7 @@ class _NoteListItem extends ConsumerWidget {
                     ],
                   ),
                 ),
-              if (note.media.isNotEmpty)
+              if (canDownload)
                 const PopupMenuItem(
                   value: 'download',
                   child: Row(
@@ -333,7 +337,8 @@ class _NoteListItem extends ConsumerWidget {
                     ],
                   ),
                 ),
-            ],
+            ];
+            },
           ),
           // Tap → navigate to detail
           onTap: () {
@@ -356,7 +361,12 @@ class _NoteListItem extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
-                    onTap: () => _openFullscreen(context, note.media, index),
+                    onTap: () => _openFullscreen(
+                      context,
+                      ref,
+                      note.media,
+                      index,
+                    ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: url != null
@@ -516,13 +526,19 @@ class _NoteListItem extends ConsumerWidget {
 
   void _openFullscreen(
     BuildContext context,
+    WidgetRef ref,
     List<dynamic> media,
     int initialIndex,
   ) {
+    final globalDownloadEnabled = ref.read(calendarDownloadEnabledProvider);
+    final canDownload = globalDownloadEnabled && note.allowDownload;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            _FullscreenMediaView(media: media, initialIndex: initialIndex),
+        builder: (_) => _FullscreenMediaView(
+          media: media,
+          initialIndex: initialIndex,
+          canDownload: canDownload,
+        ),
       ),
     );
   }
@@ -533,8 +549,13 @@ class _NoteListItem extends ConsumerWidget {
 class _FullscreenMediaView extends StatefulWidget {
   final List<dynamic> media;
   final int initialIndex;
+  final bool canDownload;
 
-  const _FullscreenMediaView({required this.media, required this.initialIndex});
+  const _FullscreenMediaView({
+    required this.media,
+    required this.initialIndex,
+    this.canDownload = false,
+  });
 
   @override
   State<_FullscreenMediaView> createState() => _FullscreenMediaViewState();
@@ -666,20 +687,21 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
                       ),
                     ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: _isDownloading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.download, color: Colors.white),
-                    tooltip: 'Download with mark',
-                    onPressed: _isDownloading ? null : _downloadCurrent,
-                  ),
+                  if (widget.canDownload)
+                    IconButton(
+                      icon: _isDownloading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.download, color: Colors.white),
+                      tooltip: 'Download with ዝክረ ቅዱሳን mark',
+                      onPressed: _isDownloading ? null : _downloadCurrent,
+                    ),
                   const SizedBox(width: 8),
                 ],
               ),

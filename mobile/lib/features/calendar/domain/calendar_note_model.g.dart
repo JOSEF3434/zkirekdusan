@@ -38,6 +38,7 @@ _CalendarNoteModel _$CalendarNoteModelFromJson(
           ?.map((e) => CalendarNoteMedia.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const [],
+  allowDownload: json['allowDownload'] as bool? ?? false,
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
   deletedAt: json['deletedAt'] == null
@@ -67,6 +68,7 @@ Map<String, dynamic> _$CalendarNoteModelToJson(
   'reminderTimezone': instance.reminderTimezone,
   'reminderNextOccurrence': instance.reminderNextOccurrence?.toIso8601String(),
   'media': instance.media,
+  'allowDownload': instance.allowDownload,
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'deletedAt': instance.deletedAt?.toIso8601String(),
@@ -119,6 +121,7 @@ _CreateCalendarNoteDto _$CreateCalendarNoteDtoFromJson(
   reminderHour: (json['reminderHour'] as num?)?.toInt(),
   reminderMinute: (json['reminderMinute'] as num?)?.toInt(),
   reminderTimezone: json['reminderTimezone'] as String? ?? 'Africa/Addis_Ababa',
+  allowDownload: json['allowDownload'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$CreateCalendarNoteDtoToJson(
@@ -138,6 +141,7 @@ Map<String, dynamic> _$CreateCalendarNoteDtoToJson(
   'reminderHour': instance.reminderHour,
   'reminderMinute': instance.reminderMinute,
   'reminderTimezone': instance.reminderTimezone,
+  'allowDownload': instance.allowDownload,
 };
 
 _UpdateCalendarNoteDto _$UpdateCalendarNoteDtoFromJson(
@@ -160,6 +164,7 @@ _UpdateCalendarNoteDto _$UpdateCalendarNoteDtoFromJson(
   reminderHour: (json['reminderHour'] as num?)?.toInt(),
   reminderMinute: (json['reminderMinute'] as num?)?.toInt(),
   reminderTimezone: json['reminderTimezone'] as String?,
+  allowDownload: json['allowDownload'] as bool?,
 );
 
 Map<String, dynamic> _$UpdateCalendarNoteDtoToJson(
@@ -179,4 +184,5 @@ Map<String, dynamic> _$UpdateCalendarNoteDtoToJson(
   'reminderHour': instance.reminderHour,
   'reminderMinute': instance.reminderMinute,
   'reminderTimezone': instance.reminderTimezone,
+  'allowDownload': instance.allowDownload,
 };

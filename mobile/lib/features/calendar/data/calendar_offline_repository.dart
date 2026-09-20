@@ -235,6 +235,7 @@ class CalendarOfflineRepository {
     int? reminderMinute,
     String reminderTimezone = 'Africa/Addis_Ababa',
     DateTime? reminderNextOccurrence,
+    bool allowDownload = false,
   }) async {
     // 1. Try remote creation first
     try {
@@ -253,6 +254,7 @@ class CalendarOfflineRepository {
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         reminderTimezone: reminderTimezone,
+        allowDownload: allowDownload,
       );
 
       final serverNote = await _remoteRepo.createNote(dto);
@@ -333,6 +335,7 @@ class CalendarOfflineRepository {
           'reminderHour': ?reminderHour,
           'reminderMinute': ?reminderMinute,
           'reminderTimezone': reminderTimezone,
+          'allowDownload': allowDownload,
         },
       );
 
@@ -358,6 +361,7 @@ class CalendarOfflineRepository {
             reminderTimezone: reminderTimezone,
             reminderNextOccurrence: reminderNextOccurrence,
             media: const [],
+            allowDownload: allowDownload,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
@@ -378,6 +382,7 @@ class CalendarOfflineRepository {
     int? reminderMinute,
     String? reminderTimezone,
     DateTime? reminderNextOccurrence,
+    bool? allowDownload,
   }) async {
     try {
       final dto = UpdateCalendarNoteDto(
@@ -391,6 +396,7 @@ class CalendarOfflineRepository {
         reminderHour: reminderHour,
         reminderMinute: reminderMinute,
         reminderTimezone: reminderTimezone,
+        allowDownload: allowDownload,
       );
 
       final serverNote = await _remoteRepo.updateNote(id, dto);
@@ -450,6 +456,7 @@ class CalendarOfflineRepository {
           'reminderHour': ?reminderHour,
           'reminderMinute': ?reminderMinute,
           'reminderTimezone': ?reminderTimezone,
+          'allowDownload': ?allowDownload,
         },
       );
 
@@ -475,6 +482,7 @@ class CalendarOfflineRepository {
             reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
             reminderNextOccurrence: reminderNextOccurrence,
             media: const [],
+            allowDownload: allowDownload ?? false,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );

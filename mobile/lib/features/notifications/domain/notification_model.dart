@@ -1,20 +1,75 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+// lib/features/notifications/domain/notification_model.dart
 
-part 'notification_model.freezed.dart';
-part 'notification_model.g.dart';
+class NotificationResponseDto {
+  final String id;
+  final String type;
+  final String title;
+  final String body;
+  final Map<String, dynamic>? data;
+  final bool isRead;
+  final DateTime createdAt;
 
-@freezed
-abstract class NotificationResponseDto with _$NotificationResponseDto {
-  const factory NotificationResponseDto({
-    required String id,
-    required String type,
-    required String title,
-    required String body,
+  const NotificationResponseDto({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    this.data,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  factory NotificationResponseDto.fromJson(Map<String, dynamic> json) {
+    return NotificationResponseDto(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? 'SYSTEM',
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      data: json['data'] as Map<String, dynamic>?,
+      isRead: json['isRead'] as bool? ?? false,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'title': title,
+    'body': body,
+    if (data != null) 'data': data,
+    'isRead': isRead,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  NotificationResponseDto copyWith({
+    String? id,
+    String? type,
+    String? title,
+    String? body,
     Map<String, dynamic>? data,
-    required bool isRead,
-    required DateTime createdAt,
-  }) = _NotificationResponseDto;
+    bool? isRead,
+    DateTime? createdAt,
+  }) {
+    return NotificationResponseDto(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      data: data ?? this.data,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
-  factory NotificationResponseDto.fromJson(Map<String, dynamic> json) =>
-      _$NotificationResponseDtoFromJson(json);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NotificationResponseDto &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

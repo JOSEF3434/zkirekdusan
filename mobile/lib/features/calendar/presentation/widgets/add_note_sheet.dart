@@ -9,6 +9,7 @@ import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/data/calendar_media_upload_queue.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/media_picker_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/recurring_reminder_picker.dart';
 import 'package:mobile/features/calendar/domain/calendar_reminder_schedule.dart';
@@ -36,6 +37,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   late final TextEditingController _contentController;
   bool _isSaving = false;
   final List<String> _selectedMediaPaths = [];
+  bool _allowDownload = false; // per-post download flag (default OFF)
 
   // Reminder state - default to Monthly repeat at 12:00 PM
   DateTime? _reminderDateTime;
@@ -59,6 +61,9 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
         widget.existingNote?.reminderRepeat ?? ReminderRepeat.monthly;
     _reminderHour = widget.existingNote?.reminderHour ?? 12;
     _reminderMinute = widget.existingNote?.reminderMinute ?? 0;
+
+    // Initialize allowDownload from existing note if editing
+    _allowDownload = widget.existingNote?.allowDownload ?? false;
 
     // Load existing media if editing
     if (widget.existingNote != null && widget.existingNote!.media.isNotEmpty) {
@@ -148,6 +153,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           reminderMinute: _reminderMinute,
           reminderTimezone: 'Africa/Addis_Ababa',
           reminderNextOccurrence: _reminderDateTime,
+          allowDownload: _allowDownload,
         );
       } else {
         // Create new note
@@ -175,6 +181,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           reminderMinute: _reminderMinute,
           reminderTimezone: 'Africa/Addis_Ababa',
           reminderNextOccurrence: _reminderDateTime,
+          allowDownload: _allowDownload,
         );
       }
 
@@ -643,6 +650,56 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
             // Add media button
             const SizedBox(height: 16),
+
+            // ── Per-post download toggle (only shown if global download is enabled) ──
+            Consumer(
+              builder: (context, ref, _) {
+                final globalDownloadEnabled =
+                    ref.watch(calendarDownloadEnabledProvider);
+                if (!globalDownloadEnabled) return const SizedBox.shrink();
+                return Column(
+                  children: [
+                    Card(
+                      margin: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: _allowDownload
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: CheckboxListTile(
+                        value: _allowDownload,
+                        onChanged: _isSaving
+                            ? null
+                            : (val) =>
+                                setState(() => _allowDownload = val ?? false),
+                        title: const Text('Allow users to download this media'),
+                        subtitle: const Text(
+                          'When checked, users can save media files to their '
+                          'ZikreKdusan folder with a watermark. Off by default.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        secondary: Icon(
+                          _allowDownload
+                              ? Icons.download_done_rounded
+                              : Icons.download_outlined,
+                          color: _allowDownload
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                        controlAffinity: ListTileControlAffinity.trailing,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
 
             // Reminder picker
             RecurringReminderPicker(

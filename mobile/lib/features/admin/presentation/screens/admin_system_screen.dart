@@ -6,6 +6,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
 
 class AdminSystemScreen extends ConsumerStatefulWidget {
   const AdminSystemScreen({super.key});
@@ -84,6 +85,37 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                       value: _aiModerationEnabled,
                       onChanged: (val) {
                         setState(() => _aiModerationEnabled = val);
+                      },
+                    ),
+                    const Divider(),
+                    // ── Calendar Media Download Toggle (Super-Admin only) ──
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final downloadEnabled = ref.watch(calendarDownloadEnabledProvider);
+                        return SwitchListTile(
+                          secondary: const Icon(Icons.download_for_offline_outlined),
+                          title: const Text('Allow Calendar Media Downloads'),
+                          subtitle: const Text(
+                            'When ON, admins can mark individual calendar posts as downloadable. '
+                            'Files are saved to the ZikreKdusan folder in the device\'s File Manager.',
+                          ),
+                          value: downloadEnabled,
+                          activeThumbColor: Theme.of(context).colorScheme.primary,
+                          onChanged: (val) {
+                            ref
+                                .read(calendarDownloadEnabledProvider.notifier)
+                                .setEnabled(val);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  val
+                                      ? 'Calendar downloads enabled. Admins can now allow downloads per post.'
+                                      : 'Calendar downloads disabled globally.',
+                                ),
+                              ),
+                            );
+                          },
+                        );
                       },
                     ),
                   ],

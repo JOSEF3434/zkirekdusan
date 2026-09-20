@@ -70,8 +70,20 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
     final current = state.valueOrNull;
     if (current == null) return;
 
-    // Check for duplicates
-    final exists = current.notifications.any((n) => n.id == notification.id);
+    // Check for duplicates by id or by noteId in data payload
+    final notifNoteId =
+        notification.data?['noteId'] ?? notification.data?['calendarNoteId'];
+    final exists = current.notifications.any((n) {
+      if (n.id == notification.id) return true;
+      if (notifNoteId != null) {
+        final existingNoteId =
+            n.data?['noteId'] ?? n.data?['calendarNoteId'];
+        if (existingNoteId != null && existingNoteId == notifNoteId) {
+          return true;
+        }
+      }
+      return false;
+    });
     if (exists) return;
 
     state = AsyncValue.data(
@@ -80,6 +92,12 @@ class NotificationsNotifier extends AsyncNotifier<NotificationsState> {
         unreadCount: current.unreadCount + 1,
       ),
     );
+  }
+
+  /// Called from FcmService when a foreground push message arrives.
+  /// Deduplicates against existing notifications before adding.
+  void addFromFcm(NotificationResponseDto notification) {
+    _onSocketNotification(notification);
   }
 
   Future<void> refresh() async {

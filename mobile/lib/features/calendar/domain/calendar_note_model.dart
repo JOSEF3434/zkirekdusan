@@ -35,6 +35,7 @@ abstract class CalendarNoteModel with _$CalendarNoteModel {
     @Default('Africa/Addis_Ababa') String reminderTimezone,
     DateTime? reminderNextOccurrence,
     @Default([]) List<CalendarNoteMedia> media,
+    @Default(false) bool allowDownload,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? deletedAt,
@@ -79,6 +80,7 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     int? reminderHour,
     int? reminderMinute,
     @Default('Africa/Addis_Ababa') String reminderTimezone,
+    @Default(false) bool allowDownload,
   }) = _CreateCalendarNoteDto;
 
   factory CreateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -102,6 +104,7 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     if (reminderHour != null) 'reminderHour': reminderHour,
     if (reminderMinute != null) 'reminderMinute': reminderMinute,
     'reminderTimezone': reminderTimezone,
+    'allowDownload': allowDownload,
   };
 }
 
@@ -124,6 +127,7 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     int? reminderHour,
     int? reminderMinute,
     String? reminderTimezone,
+    bool? allowDownload,
   }) = _UpdateCalendarNoteDto;
 
   factory UpdateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -156,6 +160,7 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     if (reminderHour != null) map['reminderHour'] = reminderHour;
     if (reminderMinute != null) map['reminderMinute'] = reminderMinute;
     if (reminderTimezone != null) map['reminderTimezone'] = reminderTimezone;
+    if (allowDownload != null) map['allowDownload'] = allowDownload;
     return map;
   }
 }

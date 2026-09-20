@@ -13,7 +13,7 @@ import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/features/notifications/core/notification_navigation_resolver.dart';
 import 'package:mobile/features/notifications/data/notifications_repository.dart';
 import 'package:mobile/features/notifications/domain/notification_model.dart';
-import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
+import 'package:mobile/features/notifications/presentation/providers/notifications_provider.dart';
 
 const _kFcmDeviceTokenKey = 'fcm_device_token';
 
@@ -123,8 +123,30 @@ class FcmService {
         debugPrint(
           '[FCM Foreground] Received message: ${message.notification?.title}',
         );
-        // Invalidate unread count so UI updates automatically
-        _ref.invalidate(unreadNotificationCountProvider);
+        try {
+          final data = Map<String, dynamic>.from(message.data);
+          final id = data['notificationId'] as String? ??
+              message.messageId ??
+              DateTime.now().millisecondsSinceEpoch.toString();
+
+          final notification = NotificationResponseDto(
+            id: id,
+            type: (data['type'] as String?) ?? 'SYSTEM',
+            title: message.notification?.title ??
+                (data['title'] as String?) ??
+                'Notification',
+            body: message.notification?.body ??
+                (data['body'] as String?) ??
+                '',
+            data: data,
+            isRead: false,
+            createdAt: message.sentTime ?? DateTime.now(),
+          );
+
+          _ref.read(notificationsProvider.notifier).addFromFcm(notification);
+        } catch (e) {
+          debugPrint('[FCM Foreground] Error handling message: $e');
+        }
       });
 
       // 6. Handle notification click when app is in background

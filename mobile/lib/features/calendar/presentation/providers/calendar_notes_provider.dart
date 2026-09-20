@@ -50,6 +50,7 @@ final createCalendarNoteProvider =
         int? reminderMinute,
         String? reminderTimezone,
         DateTime? reminderNextOccurrence,
+        bool? allowDownload,
       })
     >(
       (ref) =>
@@ -70,6 +71,7 @@ final createCalendarNoteProvider =
             int? reminderMinute,
             String? reminderTimezone,
             DateTime? reminderNextOccurrence,
+            bool? allowDownload,
           }) {
             final repository = ref.read(calendarOfflineRepositoryProvider);
             return repository.createNote(
@@ -89,6 +91,7 @@ final createCalendarNoteProvider =
               reminderMinute: reminderMinute,
               reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
               reminderNextOccurrence: reminderNextOccurrence,
+              allowDownload: allowDownload ?? false,
             );
           },
     );
@@ -109,6 +112,7 @@ final updateCalendarNoteProvider =
         int? reminderMinute,
         String? reminderTimezone,
         DateTime? reminderNextOccurrence,
+        bool? allowDownload,
       })
     >(
       (ref) =>
@@ -125,6 +129,7 @@ final updateCalendarNoteProvider =
             reminderMinute,
             reminderTimezone,
             reminderNextOccurrence,
+            allowDownload,
           }) {
             final repository = ref.read(calendarOfflineRepositoryProvider);
             return repository.updateNote(
@@ -140,6 +145,7 @@ final updateCalendarNoteProvider =
               reminderMinute: reminderMinute,
               reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
               reminderNextOccurrence: reminderNextOccurrence,
+              allowDownload: allowDownload,
             );
           },
     );
