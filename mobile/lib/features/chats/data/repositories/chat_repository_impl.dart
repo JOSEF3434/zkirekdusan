@@ -48,14 +48,15 @@ class ChatRepositoryImpl implements ChatRepository {
     final isOnline = _ref.read(connectivityProvider).isOnline;
     if (isOnline) {
       try {
-        final discovery = await _remoteDatasource
-            .getChatDiscovery()
-            .timeout(const Duration(seconds: 15));
+        final discovery = await _remoteDatasource.getChatDiscovery().timeout(
+          const Duration(seconds: 15),
+        );
 
         // Persist remote conversations into local database
         if (discovery.conversations.isNotEmpty) {
-          final companions =
-              discovery.conversations.map(_conversationToCompanion).toList();
+          final companions = discovery.conversations
+              .map(_conversationToCompanion)
+              .toList();
           await _db.conversationsDao.upsertConversations(companions);
         }
 
@@ -111,10 +112,7 @@ class ChatRepositoryImpl implements ChatRepository {
       }).toList();
     } catch (_) {}
 
-    return ChatDiscoveryModel(
-      conversations: cached,
-      allUsers: cachedUsers,
-    );
+    return ChatDiscoveryModel(conversations: cached, allUsers: cachedUsers);
   }
 
   @override
@@ -132,7 +130,8 @@ class ChatRepositoryImpl implements ChatRepository {
         return remoteList;
       } catch (e) {
         debugPrint(
-            '[ChatRepo] Remote conversations fetch failed: $e, falling back to cache');
+          '[ChatRepo] Remote conversations fetch failed: $e, falling back to cache',
+        );
       }
     }
 
@@ -146,15 +145,23 @@ class ChatRepositoryImpl implements ChatRepository {
 
     if (isOnline) {
       try {
-        final remote = await _remoteDatasource.getConversationById(conversationId);
-        await _db.conversationsDao.upsertConversation(_conversationToCompanion(remote));
+        final remote = await _remoteDatasource.getConversationById(
+          conversationId,
+        );
+        await _db.conversationsDao.upsertConversation(
+          _conversationToCompanion(remote),
+        );
         return remote;
       } catch (e) {
-        debugPrint('[ChatRepo] Remote getConversationById failed: $e, falling back to cache');
+        debugPrint(
+          '[ChatRepo] Remote getConversationById failed: $e, falling back to cache',
+        );
       }
     }
 
-    final local = await _db.conversationsDao.getConversationById(conversationId);
+    final local = await _db.conversationsDao.getConversationById(
+      conversationId,
+    );
     if (local != null) {
       return _companionToConversation(local);
     }
@@ -253,24 +260,25 @@ class ChatRepositoryImpl implements ChatRepository {
     String? cursor,
     int limit = 50,
   }) async {
-    final isOnline = _ref.read(connectivityProvider).isOnline;
+    // Try the API first. The connectivity probe can briefly report offline
+    // while the API is already reachable, which previously made a populated
+    // conversation look empty by returning only the local cache.
+    try {
+      final remote = await _remoteDatasource.getMessages(
+        conversationId: conversationId,
+        cursor: cursor,
+        limit: limit,
+      );
 
-    if (isOnline) {
-      try {
-        final remote = await _remoteDatasource.getMessages(
-          conversationId: conversationId,
-          cursor: cursor,
-          limit: limit,
-        );
+      // Cache remote messages locally for subsequent offline viewing.
+      final companions = remote.data.map(_messageToCompanion).toList();
+      await _db.messagesDao.upsertMessages(companions);
 
-        // Cache remote messages locally
-        final companions = remote.data.map(_messageToCompanion).toList();
-        await _db.messagesDao.upsertMessages(companions);
-
-        return remote;
-      } catch (e) {
-        debugPrint('[ChatRepo] Remote getMessages failed: $e, falling back to cache');
-      }
+      return remote;
+    } catch (e) {
+      debugPrint(
+        '[ChatRepo] Remote getMessages failed, falling back to cache: $e',
+      );
     }
 
     // Load from local database
@@ -308,8 +316,11 @@ class ChatRepositoryImpl implements ChatRepository {
     final senderDisplayName = currentUser?.displayIdentifier;
     final String? senderAvatarUrl = null;
 
-    List<MessageAttachmentModel> optimisticAttachments = initialAttachments ?? [];
-    if (optimisticAttachments.isEmpty && attachmentIds != null && attachmentIds.isNotEmpty) {
+    List<MessageAttachmentModel> optimisticAttachments =
+        initialAttachments ?? [];
+    if (optimisticAttachments.isEmpty &&
+        attachmentIds != null &&
+        attachmentIds.isNotEmpty) {
       optimisticAttachments = attachmentIds.map((id) {
         return MessageAttachmentModel(
           fileId: id,
@@ -318,8 +329,8 @@ class ChatRepositoryImpl implements ChatRepository {
           mimeType: type == 'IMAGE'
               ? 'image/jpeg'
               : (type == 'AUDIO' || type == 'VOICE_NOTE'
-                  ? 'audio/m4a'
-                  : 'application/octet-stream'),
+                    ? 'audio/m4a'
+                    : 'application/octet-stream'),
           originalName: 'Attachment',
         );
       }).toList();
@@ -338,12 +349,14 @@ class ChatRepositoryImpl implements ChatRepository {
       content: drift.Value(content),
       messageType: drift.Value(type),
       replyToMessageId: drift.Value(replyToId),
-      attachmentsJson: drift.Value(optimisticAttachments.isNotEmpty
-          ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
-          : null),
-      voiceNoteJson: drift.Value(voiceNote != null
-          ? jsonEncode(voiceNote.toJson())
-          : null),
+      attachmentsJson: drift.Value(
+        optimisticAttachments.isNotEmpty
+            ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
+            : null,
+      ),
+      voiceNoteJson: drift.Value(
+        voiceNote != null ? jsonEncode(voiceNote.toJson()) : null,
+      ),
       status: const drift.Value('pending'),
       isPendingSync: const drift.Value(true),
       createdAt: drift.Value(now),
@@ -359,15 +372,17 @@ class ChatRepositoryImpl implements ChatRepository {
           operationType: const drift.Value('CREATE_MESSAGE'),
           entityType: const drift.Value('MESSAGE'),
           entityId: drift.Value(localId),
-          payload: drift.Value(jsonEncode({
-            'conversationId': conversationId,
-            'content': content,
-            'type': type,
-            'replyToId': replyToId,
-            'fileIds': attachmentIds,
-            'clientId': effectiveClientId,
-            'localId': localId,
-          })),
+          payload: drift.Value(
+            jsonEncode({
+              'conversationId': conversationId,
+              'content': content,
+              'type': type,
+              'replyToId': replyToId,
+              'fileIds': attachmentIds,
+              'clientId': effectiveClientId,
+              'localId': localId,
+            }),
+          ),
           createdAt: drift.Value(now),
           updatedAt: drift.Value(now),
           status: const drift.Value('pending'),
@@ -405,10 +420,14 @@ class ChatRepositoryImpl implements ChatRepository {
           serverId: serverMessage.id,
           status: 'sent',
           attachmentsJson: serverMessage.attachments.isNotEmpty
-              ? jsonEncode(serverMessage.attachments.map((a) => a.toJson()).toList())
+              ? jsonEncode(
+                  serverMessage.attachments.map((a) => a.toJson()).toList(),
+                )
               : (optimisticAttachments.isNotEmpty
-                  ? jsonEncode(optimisticAttachments.map((a) => a.toJson()).toList())
-                  : null),
+                    ? jsonEncode(
+                        optimisticAttachments.map((a) => a.toJson()).toList(),
+                      )
+                    : null),
           voiceNoteJson: serverMessage.voiceNote != null
               ? jsonEncode(serverMessage.voiceNote!.toJson())
               : (voiceNote != null ? jsonEncode(voiceNote.toJson()) : null),
@@ -418,7 +437,8 @@ class ChatRepositoryImpl implements ChatRepository {
         await _db.syncQueueDao.removeEntriesForEntity(localId);
 
         // If server message didn't have voiceNote but we had local voiceNote, retain it
-        final resolvedMessage = serverMessage.voiceNote == null && voiceNote != null
+        final resolvedMessage =
+            serverMessage.voiceNote == null && voiceNote != null
             ? serverMessage.copyWith(voiceNote: voiceNote)
             : serverMessage;
 
@@ -474,10 +494,9 @@ class ChatRepositoryImpl implements ChatRepository {
         operationType: const drift.Value('EDIT_MESSAGE'),
         entityType: const drift.Value('MESSAGE'),
         entityId: drift.Value(messageId),
-        payload: drift.Value(jsonEncode({
-          'messageId': messageId,
-          'content': content,
-        })),
+        payload: drift.Value(
+          jsonEncode({'messageId': messageId, 'content': content}),
+        ),
         createdAt: drift.Value(now),
         updatedAt: drift.Value(now),
         status: const drift.Value('pending'),
@@ -500,7 +519,10 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<void> deleteMessage(String messageId, {bool forEveryone = false}) async {
+  Future<void> deleteMessage(
+    String messageId, {
+    bool forEveryone = false,
+  }) async {
     final now = DateTime.now();
     await _db.messagesDao.markMessageDeleted(messageId, now);
 
@@ -552,10 +574,9 @@ class ChatRepositoryImpl implements ChatRepository {
         operationType: const drift.Value('SEND_REACTION'),
         entityType: const drift.Value('REACTION'),
         entityId: drift.Value(messageId),
-        payload: drift.Value(jsonEncode({
-          'messageId': messageId,
-          'emoji': emoji,
-        })),
+        payload: drift.Value(
+          jsonEncode({'messageId': messageId, 'emoji': emoji}),
+        ),
         createdAt: drift.Value(DateTime.now()),
         updatedAt: drift.Value(DateTime.now()),
         status: const drift.Value('pending'),
@@ -571,7 +592,10 @@ class ChatRepositoryImpl implements ChatRepository {
     final isOnline = _ref.read(connectivityProvider).isOnline;
     if (isOnline) {
       try {
-        await _remoteDatasource.removeReaction(messageId: messageId, emoji: emoji);
+        await _remoteDatasource.removeReaction(
+          messageId: messageId,
+          emoji: emoji,
+        );
         return;
       } catch (_) {}
     }
@@ -582,10 +606,9 @@ class ChatRepositoryImpl implements ChatRepository {
         operationType: const drift.Value('REMOVE_REACTION'),
         entityType: const drift.Value('REACTION'),
         entityId: drift.Value(messageId),
-        payload: drift.Value(jsonEncode({
-          'messageId': messageId,
-          'emoji': emoji,
-        })),
+        payload: drift.Value(
+          jsonEncode({'messageId': messageId, 'emoji': emoji}),
+        ),
         createdAt: drift.Value(DateTime.now()),
         updatedAt: drift.Value(DateTime.now()),
         status: const drift.Value('pending'),
@@ -708,8 +731,12 @@ class ChatRepositoryImpl implements ChatRepository {
       lastMessageType: drift.Value(m.lastMessage?.type),
       lastMessageSenderName: drift.Value(m.lastMessage?.senderName),
       lastMessageAt: drift.Value(m.lastMessageAt),
-      membersJson: drift.Value(jsonEncode(m.members.map((e) => e.toJson()).toList())),
-      metadataJson: drift.Value(m.metadata != null ? jsonEncode(m.metadata!.toJson()) : null),
+      membersJson: drift.Value(
+        jsonEncode(m.members.map((e) => e.toJson()).toList()),
+      ),
+      metadataJson: drift.Value(
+        m.metadata != null ? jsonEncode(m.metadata!.toJson()) : null,
+      ),
       createdAt: drift.Value(m.createdAt),
       updatedAt: drift.Value(m.lastMessageAt ?? m.createdAt),
     );
@@ -721,7 +748,10 @@ class ChatRepositoryImpl implements ChatRepository {
       try {
         final decoded = jsonDecode(d.membersJson!) as List<dynamic>;
         members = decoded
-            .map((e) => ConversationMemberModel.fromJson(e as Map<String, dynamic>))
+            .map(
+              (e) =>
+                  ConversationMemberModel.fromJson(e as Map<String, dynamic>),
+            )
             .toList();
       } catch (_) {}
     }
@@ -730,7 +760,8 @@ class ChatRepositoryImpl implements ChatRepository {
     if (d.metadataJson != null && d.metadataJson!.isNotEmpty) {
       try {
         metadata = ConversationMetadataModel.fromJson(
-            jsonDecode(d.metadataJson!) as Map<String, dynamic>);
+          jsonDecode(d.metadataJson!) as Map<String, dynamic>,
+        );
       } catch (_) {}
     }
 
@@ -772,21 +803,35 @@ class ChatRepositoryImpl implements ChatRepository {
       content: drift.Value(m.content),
       messageType: drift.Value(m.type),
       replyToMessageId: drift.Value(m.replyToId),
-      replyToJson: drift.Value(m.replyTo != null ? jsonEncode(m.replyTo!.toJson()) : null),
+      replyToJson: drift.Value(
+        m.replyTo != null ? jsonEncode(m.replyTo!.toJson()) : null,
+      ),
       isEdited: drift.Value(m.isEdited),
       isPinned: drift.Value(m.isPinned),
       status: const drift.Value('sent'),
       isPendingSync: const drift.Value(false),
       attachmentsJson: drift.Value(
-          m.attachments.isNotEmpty ? jsonEncode(m.attachments.map((a) => a.toJson()).toList()) : null),
+        m.attachments.isNotEmpty
+            ? jsonEncode(m.attachments.map((a) => a.toJson()).toList())
+            : null,
+      ),
       voiceNoteJson: drift.Value(
-          m.voiceNote != null ? jsonEncode(m.voiceNote!.toJson()) : null),
+        m.voiceNote != null ? jsonEncode(m.voiceNote!.toJson()) : null,
+      ),
       attachmentUrl: drift.Value(
-          m.attachments.isNotEmpty ? m.attachments.first.url : (m.voiceNote?.url)),
+        m.attachments.isNotEmpty ? m.attachments.first.url : (m.voiceNote?.url),
+      ),
       reactionsJson: drift.Value(
-          m.reactions.isNotEmpty ? jsonEncode(m.reactions.map((r) => r.toJson()).toList()) : null),
-      readByJson: drift.Value(m.readBy.isNotEmpty ? jsonEncode(m.readBy) : null),
-      deliveredToJson: drift.Value(m.deliveredTo.isNotEmpty ? jsonEncode(m.deliveredTo) : null),
+        m.reactions.isNotEmpty
+            ? jsonEncode(m.reactions.map((r) => r.toJson()).toList())
+            : null,
+      ),
+      readByJson: drift.Value(
+        m.readBy.isNotEmpty ? jsonEncode(m.readBy) : null,
+      ),
+      deliveredToJson: drift.Value(
+        m.deliveredTo.isNotEmpty ? jsonEncode(m.deliveredTo) : null,
+      ),
       createdAt: drift.Value(m.createdAt),
       updatedAt: drift.Value(m.updatedAt),
     );
@@ -797,7 +842,8 @@ class ChatRepositoryImpl implements ChatRepository {
     if (d.replyToJson != null && d.replyToJson!.isNotEmpty) {
       try {
         replyTo = MessageReplyModel.fromJson(
-            jsonDecode(d.replyToJson!) as Map<String, dynamic>);
+          jsonDecode(d.replyToJson!) as Map<String, dynamic>,
+        );
       } catch (_) {}
     }
 
@@ -806,7 +852,9 @@ class ChatRepositoryImpl implements ChatRepository {
       try {
         final decoded = jsonDecode(d.attachmentsJson!) as List<dynamic>;
         attachments = decoded
-            .map((a) => MessageAttachmentModel.fromJson(a as Map<String, dynamic>))
+            .map(
+              (a) => MessageAttachmentModel.fromJson(a as Map<String, dynamic>),
+            )
             .toList();
       } catch (_) {}
     }
@@ -815,7 +863,8 @@ class ChatRepositoryImpl implements ChatRepository {
     if (d.voiceNoteJson != null && d.voiceNoteJson!.isNotEmpty) {
       try {
         voiceNote = MessageVoiceNoteModel.fromJson(
-            jsonDecode(d.voiceNoteJson!) as Map<String, dynamic>);
+          jsonDecode(d.voiceNoteJson!) as Map<String, dynamic>,
+        );
       } catch (_) {}
     }
 
@@ -824,7 +873,9 @@ class ChatRepositoryImpl implements ChatRepository {
       try {
         final decoded = jsonDecode(d.reactionsJson!) as List<dynamic>;
         reactions = decoded
-            .map((r) => MessageReactionModel.fromJson(r as Map<String, dynamic>))
+            .map(
+              (r) => MessageReactionModel.fromJson(r as Map<String, dynamic>),
+            )
             .toList();
       } catch (_) {}
     }
@@ -839,8 +890,8 @@ class ChatRepositoryImpl implements ChatRepository {
     List<String> deliveredTo = [];
     if (d.deliveredToJson != null && d.deliveredToJson!.isNotEmpty) {
       try {
-        deliveredTo =
-            (jsonDecode(d.deliveredToJson!) as List<dynamic>).cast<String>();
+        deliveredTo = (jsonDecode(d.deliveredToJson!) as List<dynamic>)
+            .cast<String>();
       } catch (_) {}
     }
 
