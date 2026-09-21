@@ -82,7 +82,7 @@ Map<String, dynamic> _$MessageModelToJson(_MessageModel instance) =>
 _MessageSenderModel _$MessageSenderModelFromJson(Map<String, dynamic> json) =>
     _MessageSenderModel(
       id: json['id'] as String,
-      username: json['username'] as String,
+      username: json['username'] as String?,
       displayName: json['displayName'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
     );

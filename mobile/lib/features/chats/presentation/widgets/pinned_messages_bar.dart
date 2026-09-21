@@ -88,8 +88,11 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  const Icon(Icons.push_pin_rounded,
-                      color: Color(0xFF00C6FF), size: 20),
+                  const Icon(
+                    Icons.push_pin_rounded,
+                    color: Color(0xFF00C6FF),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Pinned Messages (${widget.pinnedMessages.length})',
@@ -117,7 +120,9 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar>
                   return ListTile(
                     leading: CircleAvatar(
                       radius: 18,
-                      backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                      backgroundColor: const Color(
+                        0xFF00C6FF,
+                      ).withValues(alpha: 0.15),
                       child: Text(
                         '#${index + 1}',
                         style: const TextStyle(
@@ -128,7 +133,7 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar>
                       ),
                     ),
                     title: Text(
-                      msg.sender.displayName ?? msg.sender.username,
+                      msg.sender.displayName ?? msg.sender.username ?? 'User',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -254,7 +259,9 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar>
                             '• ${currentMsg.sender.displayName ?? currentMsg.sender.username}',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

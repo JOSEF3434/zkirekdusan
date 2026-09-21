@@ -37,7 +37,7 @@ abstract class MessageModel with _$MessageModel {
 abstract class MessageSenderModel with _$MessageSenderModel {
   const factory MessageSenderModel({
     required String id,
-    required String username,
+    String? username,
     String? displayName,
     String? avatarUrl,
   }) = _MessageSenderModel;

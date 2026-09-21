@@ -452,7 +452,7 @@ $MessageForwardModelCopyWith<$Res>? get forward {
 /// @nodoc
 mixin _$MessageSenderModel {
 
- String get id; String get username; String? get displayName; String? get avatarUrl;
+ String get id; String? get username; String? get displayName; String? get avatarUrl;
 /// Create a copy of MessageSenderModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -485,7 +485,7 @@ abstract mixin class $MessageSenderModelCopyWith<$Res>  {
   factory $MessageSenderModelCopyWith(MessageSenderModel value, $Res Function(MessageSenderModel) _then) = _$MessageSenderModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String username, String? displayName, String? avatarUrl
+ String id, String? username, String? displayName, String? avatarUrl
 });
 
 
@@ -502,11 +502,11 @@ class _$MessageSenderModelCopyWithImpl<$Res>
 
 /// Create a copy of MessageSenderModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? username = null,Object? displayName = freezed,Object? avatarUrl = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? username = freezed,Object? displayName = freezed,Object? avatarUrl = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
-as String,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String,username: freezed == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -593,7 +593,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String username,  String? displayName,  String? avatarUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? username,  String? displayName,  String? avatarUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MessageSenderModel() when $default != null:
 return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case _:
@@ -614,7 +614,7 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String username,  String? displayName,  String? avatarUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? username,  String? displayName,  String? avatarUrl)  $default,) {final _that = this;
 switch (_that) {
 case _MessageSenderModel():
 return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case _:
@@ -634,7 +634,7 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String username,  String? displayName,  String? avatarUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? username,  String? displayName,  String? avatarUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _MessageSenderModel() when $default != null:
 return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case _:
@@ -649,11 +649,11 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl);case 
 @JsonSerializable()
 
 class _MessageSenderModel implements MessageSenderModel {
-  const _MessageSenderModel({required this.id, required this.username, this.displayName, this.avatarUrl});
+  const _MessageSenderModel({required this.id, this.username, this.displayName, this.avatarUrl});
   factory _MessageSenderModel.fromJson(Map<String, dynamic> json) => _$MessageSenderModelFromJson(json);
 
 @override final  String id;
-@override final  String username;
+@override final  String? username;
 @override final  String? displayName;
 @override final  String? avatarUrl;
 
@@ -690,7 +690,7 @@ abstract mixin class _$MessageSenderModelCopyWith<$Res> implements $MessageSende
   factory _$MessageSenderModelCopyWith(_MessageSenderModel value, $Res Function(_MessageSenderModel) _then) = __$MessageSenderModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String username, String? displayName, String? avatarUrl
+ String id, String? username, String? displayName, String? avatarUrl
 });
 
 
@@ -707,11 +707,11 @@ class __$MessageSenderModelCopyWithImpl<$Res>
 
 /// Create a copy of MessageSenderModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? username = null,Object? displayName = freezed,Object? avatarUrl = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? username = freezed,Object? displayName = freezed,Object? avatarUrl = freezed,}) {
   return _then(_MessageSenderModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
-as String,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
+as String,username: freezed == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
+as String?,displayName: freezed == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

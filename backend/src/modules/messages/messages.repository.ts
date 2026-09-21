@@ -212,10 +212,20 @@ export class MessagesRepository {
   }
 
   async addReaction(messageId: string, userId: string, emoji: string) {
-    return this.prisma.messageReaction.upsert({
-      where: { messageId_userId_emoji: { messageId, userId, emoji } },
-      create: { messageId, userId, emoji },
-      update: {},
+    return this.prisma.$transaction(async (tx) => {
+      await tx.messageReaction.deleteMany({
+        where: {
+          messageId,
+          userId,
+          emoji: { not: emoji },
+        },
+      });
+
+      return tx.messageReaction.upsert({
+        where: { messageId_userId_emoji: { messageId, userId, emoji } },
+        create: { messageId, userId, emoji },
+        update: {},
+      });
     });
   }
 

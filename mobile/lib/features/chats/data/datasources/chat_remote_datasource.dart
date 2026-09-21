@@ -87,7 +87,9 @@ class ChatRemoteDatasource {
       final response = await _apiClient.get('/conversations');
       final list = parseEnvelopeList(response.data);
       return list
-          .map((json) => ConversationModel.fromJson(json as Map<String, dynamic>))
+          .map(
+            (json) => ConversationModel.fromJson(json as Map<String, dynamic>),
+          )
           .toList();
     } catch (e) {
       throw _handleError(e);
@@ -219,10 +221,7 @@ class ChatRemoteDatasource {
     try {
       final response = await _apiClient.get(
         '/conversations/$conversationId/messages',
-        queryParameters: {
-          'cursor': ?cursor,
-          'limit': limit,
-        },
+        queryParameters: {'cursor': ?cursor, 'limit': limit},
       );
       final data = parseEnvelope(response.data);
       return PaginatedMessagesModel.fromJson(data);
@@ -240,9 +239,7 @@ class ChatRemoteDatasource {
     String? clientId,
   }) async {
     try {
-      final Map<String, dynamic> body = {
-        'type': type,
-      };
+      final Map<String, dynamic> body = {'type': type};
       if (content != null) body['content'] = content;
       if (replyToId != null) body['replyToId'] = replyToId;
       if (attachmentIds != null && attachmentIds.isNotEmpty) {
@@ -306,8 +303,7 @@ class ChatRemoteDatasource {
   }) async {
     try {
       await _apiClient.delete(
-        '/messages/$messageId/reactions',
-        data: {'emoji': emoji},
+        '/messages/$messageId/reactions/${Uri.encodeComponent(emoji)}',
       );
     } catch (e) {
       throw _handleError(e);
@@ -409,9 +405,15 @@ class ChatRemoteDatasource {
       } else {
         try {
           final fileBytes = await XFile(filePath).readAsBytes();
-          multipartFile = MultipartFile.fromBytes(fileBytes, filename: fileName);
+          multipartFile = MultipartFile.fromBytes(
+            fileBytes,
+            filename: fileName,
+          );
         } catch (_) {
-          multipartFile = await MultipartFile.fromFile(filePath, filename: fileName);
+          multipartFile = await MultipartFile.fromFile(
+            filePath,
+            filename: fileName,
+          );
         }
       }
 
@@ -445,7 +447,9 @@ class ChatRemoteDatasource {
       );
       final list = parseEnvelopeList(response.data);
       return list
-          .map((json) => ConversationModel.fromJson(json as Map<String, dynamic>))
+          .map(
+            (json) => ConversationModel.fromJson(json as Map<String, dynamic>),
+          )
           .toList();
     } catch (e) {
       throw _handleError(e);

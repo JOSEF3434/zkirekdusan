@@ -21,12 +21,65 @@ class VoiceMessagePlayer extends ConsumerStatefulWidget {
   ConsumerState<VoiceMessagePlayer> createState() => _VoiceMessagePlayerState();
 }
 
+class _VoicePlaybackRegistration {
+  final String id;
+  final Future<void> Function() play;
+  final Future<void> Function() pause;
+
+  const _VoicePlaybackRegistration({
+    required this.id,
+    required this.play,
+    required this.pause,
+  });
+}
+
+class _VoicePlaybackCoordinator {
+  static final List<_VoicePlaybackRegistration> _players = [];
+  static String? _activeId;
+
+  static void register(_VoicePlaybackRegistration registration) {
+    _players.removeWhere((player) => player.id == registration.id);
+    _players.add(registration);
+  }
+
+  static void unregister(String id) {
+    _players.removeWhere((player) => player.id == id);
+    if (_activeId == id) _activeId = null;
+  }
+
+  static Future<void> play(_VoicePlaybackRegistration registration) async {
+    final active = _players
+        .where((player) => player.id == _activeId)
+        .firstOrNull;
+    if (active != null && active.id != registration.id) {
+      await active.pause();
+    }
+    _activeId = registration.id;
+    await registration.play();
+  }
+
+  static Future<void> pause(String id) async {
+    final player = _players.where((player) => player.id == id).firstOrNull;
+    if (player != null) await player.pause();
+    if (_activeId == id) _activeId = null;
+  }
+
+  static Future<void> playNext(String id) async {
+    final index = _players.indexWhere((player) => player.id == id);
+    if (index == -1) return;
+    final next = index + 1 < _players.length ? _players[index + 1] : null;
+    _activeId = null;
+    if (next != null) await play(next);
+  }
+}
+
 class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
   late final AudioPlayer _audioPlayer;
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   bool _isLoading = false;
+  bool _isFinishing = false;
   double _playbackSpeed = 1.0;
 
   // Waveform bars
@@ -43,7 +96,18 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     if (widget.voiceNote.duration > 0) {
       _duration = Duration(seconds: widget.voiceNote.duration);
     }
+    _registerForPlayback();
     _initAudioPlayer();
+  }
+
+  void _registerForPlayback() {
+    _VoicePlaybackCoordinator.register(
+      _VoicePlaybackRegistration(
+        id: widget.voiceNote.fileId,
+        play: () => _audioPlayer.play(),
+        pause: () => _audioPlayer.pause(),
+      ),
+    );
   }
 
   @override
@@ -57,6 +121,8 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     }
     if (widget.voiceNote.url != oldWidget.voiceNote.url &&
         widget.voiceNote.url.isNotEmpty) {
+      _VoicePlaybackCoordinator.unregister(oldWidget.voiceNote.fileId);
+      _registerForPlayback();
       _initAudioPlayer();
     }
   }
@@ -79,7 +145,9 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
       final resolvedUrl = MediaUrlResolver.resolve(rawUrl) ?? rawUrl;
 
       // 1. Check local persistent disk cache first (offline-first & instant)
-      final cachedFile = await ChatMediaCacheService.getLocalCachedFile(resolvedUrl);
+      final cachedFile = await ChatMediaCacheService.getLocalCachedFile(
+        resolvedUrl,
+      );
       if (cachedFile != null && await cachedFile.exists()) {
         await _audioPlayer.setFilePath(cachedFile.path);
       } else if (resolvedUrl.startsWith('file://')) {
@@ -93,7 +161,8 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
         ChatMediaCacheService.getOrDownloadMedia(resolvedUrl);
       }
 
-      if (_audioPlayer.duration != null && _audioPlayer.duration! > Duration.zero) {
+      if (_audioPlayer.duration != null &&
+          _audioPlayer.duration! > Duration.zero) {
         _duration = _audioPlayer.duration!;
       } else if (widget.voiceNote.duration > 0) {
         _duration = Duration(seconds: widget.voiceNote.duration);
@@ -110,14 +179,10 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
           setState(() {
             _isPlaying = state.playing;
           });
+        }
 
-          if (state.processingState == ProcessingState.completed) {
-            _audioPlayer.seek(Duration.zero);
-            setState(() {
-              _isPlaying = false;
-              _position = Duration.zero;
-            });
-          }
+        if (state.processingState == ProcessingState.completed) {
+          _finishAndAdvance();
         }
       });
 
@@ -137,14 +202,43 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
     }
   }
 
+  Future<void> _finishAndAdvance() async {
+    if (_isFinishing) return;
+    _isFinishing = true;
+
+    // Stop before seeking. Seeking a still-playing player can leave just_audio
+    // reporting `playing: true`, which keeps the finished bubble's pause icon.
+    try {
+      await _audioPlayer.pause();
+      await _audioPlayer.seek(Duration.zero);
+    } catch (_) {}
+
+    if (!mounted) {
+      _isFinishing = false;
+      return;
+    }
+    setState(() {
+      _isPlaying = false;
+      _position = Duration.zero;
+    });
+    await _VoicePlaybackCoordinator.playNext(widget.voiceNote.fileId);
+    _isFinishing = false;
+  }
+
   Future<void> _togglePlayPause() async {
     if (_isPlaying) {
-      await _audioPlayer.pause();
+      await _VoicePlaybackCoordinator.pause(widget.voiceNote.fileId);
     } else {
       if (_position >= _duration && _duration > Duration.zero) {
         await _audioPlayer.seek(Duration.zero);
       }
-      await _audioPlayer.play();
+      await _VoicePlaybackCoordinator.play(
+        _VoicePlaybackRegistration(
+          id: widget.voiceNote.fileId,
+          play: () => _audioPlayer.play(),
+          pause: () => _audioPlayer.pause(),
+        ),
+      );
     }
   }
 
@@ -163,6 +257,7 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
 
   @override
   void dispose() {
+    _VoicePlaybackCoordinator.unregister(widget.voiceNote.fileId);
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -216,8 +311,9 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       ),
                     )
@@ -246,12 +342,13 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                     if (box != null && _duration.inMilliseconds > 0) {
                       final localPos = details.localPosition.dx;
                       final totalWidth = box.size.width - 65;
-                      final ratio = (localPos / (totalWidth > 0 ? totalWidth : 140))
-                          .clamp(0.0, 1.0);
+                      final ratio =
+                          (localPos / (totalWidth > 0 ? totalWidth : 140))
+                              .clamp(0.0, 1.0);
                       _audioPlayer.seek(
                         Duration(
-                          milliseconds:
-                              (ratio * _duration.inMilliseconds).toInt(),
+                          milliseconds: (ratio * _duration.inMilliseconds)
+                              .toInt(),
                         ),
                       );
                     }
@@ -275,11 +372,11 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                             decoration: BoxDecoration(
                               color: isActive
                                   ? (isMe
-                                      ? const Color(0xFF0F172A)
-                                      : const Color(0xFF00C6FF))
+                                        ? const Color(0xFF0F172A)
+                                        : const Color(0xFF00C6FF))
                                   : (isMe
-                                      ? Colors.black.withValues(alpha: 0.25)
-                                      : Colors.white.withValues(alpha: 0.28)),
+                                        ? Colors.black.withValues(alpha: 0.25)
+                                        : Colors.white.withValues(alpha: 0.28)),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           );
@@ -311,7 +408,9 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                       onTap: _cyclePlaybackSpeed,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1.5),
+                          horizontal: 6,
+                          vertical: 1.5,
+                        ),
                         decoration: BoxDecoration(
                           color: (isMe ? Colors.black : Colors.white)
                               .withValues(alpha: 0.12),
@@ -321,8 +420,8 @@ class _VoiceMessagePlayerState extends ConsumerState<VoiceMessagePlayer> {
                           _playbackSpeed == 1.0
                               ? '1x'
                               : _playbackSpeed == 1.5
-                                  ? '1.5x'
-                                  : '2x',
+                              ? '1.5x'
+                              : '2x',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,

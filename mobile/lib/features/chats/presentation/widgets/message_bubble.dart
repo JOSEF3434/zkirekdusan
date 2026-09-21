@@ -141,12 +141,11 @@ class MessageBubble extends StatelessWidget {
                       child: message.sender.avatarUrl == null
                           ? Text(
                               (message.sender.displayName ??
-                                          message.sender.username)
-                                      .isNotEmpty
-                                  ? (message.sender.displayName ??
-                                            message.sender.username)[0]
-                                        .toUpperCase()
-                                  : 'U',
+                                      message.sender.username ??
+                                      'U')
+                                  .characters
+                                  .first
+                                  .toUpperCase(),
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -495,7 +494,7 @@ class MessageBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            reply.sender.displayName ?? reply.sender.username,
+            reply.sender.displayName ?? reply.sender.username ?? 'User',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
