@@ -55,7 +55,7 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
 
   /// Whether the right info/details panel is open.
   /// Defaults to TRUE – open by default like Telegram Desktop.
-  bool _isDetailsPanelOpen = true;
+  bool _isDetailsPanelOpen = false;
 
   /// Resizable panel widths.
   double _listPanelWidth = _kListPanelDefaultWidth;
@@ -134,14 +134,56 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
         _selectedConversationId = convId;
         _selectedTargetUserId = item.targetUserId;
         _selectedTargetGroupId = item.targetGroupId;
-        // Open details panel when selecting a new conversation (default open)
-        _isDetailsPanelOpen = true;
+        // Wide layouts keep details open beside the conversation. Compact
+        // layouts open details as an overlay only when the info button is used.
+        _isDetailsPanelOpen = !_isCompactLayout;
       });
     }
   }
 
   void _toggleDetailsPanel() {
+    if (_isCompactLayout) {
+      _showDetailsOverlay();
+      return;
+    }
     setState(() => _isDetailsPanelOpen = !_isDetailsPanelOpen);
+  }
+
+  bool get _isCompactLayout {
+    final width = MediaQuery.sizeOf(context).width;
+    return width < 1100;
+  }
+
+  void _showDetailsOverlay() {
+    final conversationId = _selectedConversationId;
+    if (conversationId == null) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final sheetSize = MediaQuery.sizeOf(sheetContext);
+        final height = sheetSize.height;
+        final width = sheetSize.width;
+        return Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            height: height,
+            width: width >= 700 ? 420 : width,
+            child: ChatDetailsPanel(
+              conversationId: conversationId,
+              onClose: () => Navigator.of(sheetContext).pop(),
+              onJumpToMessage: (messageId) {
+                Navigator.of(sheetContext).pop();
+                _inlineConvKey.currentState?.scrollToMessage(messageId);
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -154,6 +196,7 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
     final dragHandleColor = isDark
         ? Colors.white.withValues(alpha: 0.04)
         : Colors.black.withValues(alpha: 0.04);
+    final isCompact = _isCompactLayout;
 
     return Scaffold(
       backgroundColor: isDark
@@ -202,44 +245,43 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
           ),
 
           // ── RIGHT: Details panel (animated, resizable) ────────────────────
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeInOut,
-            child: _isDetailsPanelOpen && _selectedConversationId != null
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Drag handle on the left edge of details panel
-                      _ResizeDivider(
-                        color: dragHandleColor,
-                        onDelta: (dx) {
-                          setState(() {
-                            // Dragging right shrinks the panel, left grows it
-                            _detailsPanelWidth = (_detailsPanelWidth - dx)
-                                .clamp(
-                                  _kDetailsPanelMinWidth,
-                                  _kDetailsPanelMaxWidth,
-                                );
-                          });
-                        },
-                      ),
-                      SizedBox(
-                        width: _detailsPanelWidth,
-                        child: ChatDetailsPanel(
-                          conversationId: _selectedConversationId!,
-                          onClose: () =>
-                              setState(() => _isDetailsPanelOpen = false),
-                          onJumpToMessage: (messageId) {
-                            _inlineConvKey.currentState?.scrollToMessage(
-                              messageId,
-                            );
+          if (!isCompact)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              child: _isDetailsPanelOpen && _selectedConversationId != null
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ResizeDivider(
+                          color: dragHandleColor,
+                          onDelta: (dx) {
+                            setState(() {
+                              _detailsPanelWidth = (_detailsPanelWidth - dx)
+                                  .clamp(
+                                    _kDetailsPanelMinWidth,
+                                    _kDetailsPanelMaxWidth,
+                                  );
+                            });
                           },
                         ),
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
+                        SizedBox(
+                          width: _detailsPanelWidth,
+                          child: ChatDetailsPanel(
+                            conversationId: _selectedConversationId!,
+                            onClose: () =>
+                                setState(() => _isDetailsPanelOpen = false),
+                            onJumpToMessage: (messageId) {
+                              _inlineConvKey.currentState?.scrollToMessage(
+                                messageId,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
         ],
       ),
     );

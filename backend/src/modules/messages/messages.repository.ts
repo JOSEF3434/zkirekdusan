@@ -101,7 +101,7 @@ const MESSAGE_INCLUDE = {
 
 @Injectable()
 export class MessagesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(
     conversationId: string,
@@ -138,21 +138,21 @@ export class MessagesRepository {
             : undefined,
         forward: dto.forwardFromMessageId
           ? {
-              create: {
-                originalMessageId: dto.forwardFromMessageId,
-                originalSenderId: senderId,
-                originalConversationId:
-                  dto.forwardFromConversationId ?? conversationId,
-              },
-            }
+            create: {
+              originalMessageId: dto.forwardFromMessageId,
+              originalSenderId: senderId,
+              originalConversationId:
+                dto.forwardFromConversationId ?? conversationId,
+            },
+          }
           : undefined,
         mentions:
           dto.mentionedUserIds && dto.mentionedUserIds.length > 0
             ? {
-                create: dto.mentionedUserIds.map((userId) => ({
-                  mentionedUserId: userId,
-                })),
-              }
+              create: dto.mentionedUserIds.map((userId) => ({
+                mentionedUserId: userId,
+              })),
+            }
             : undefined,
       },
       include: MESSAGE_INCLUDE,
