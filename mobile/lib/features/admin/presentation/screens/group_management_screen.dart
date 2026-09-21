@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/data/admin_repository.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_status_badge.dart';
@@ -111,17 +112,20 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     final reason = await AdminConfirmationDialog.show(
       context,
       title: 'Approve Group',
-      message: 'Approve group "${group.name}"? It will become active immediately.',
+      message:
+          'Approve group "${group.name}"? It will become active immediately.',
       confirmColor: Colors.green,
       confirmLabel: 'Approve',
       requireReason: false,
     );
     if (reason == null && !mounted) return;
 
-    final ok = await ref.read(adminRepositoryProvider).approveGroup(
-      group.id,
-      reason: reason?.isEmpty ?? true ? null : reason,
-    );
+    final ok = await ref
+        .read(adminRepositoryProvider)
+        .approveGroup(
+          group.id,
+          reason: reason?.isEmpty ?? true ? null : reason,
+        );
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Group "${group.name}" approved successfully')),
@@ -140,7 +144,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
       requireReason: true,
     );
     if (reason != null && reason.isNotEmpty) {
-      final ok = await ref.read(adminRepositoryProvider).rejectGroup(group.id, reason: reason);
+      final ok = await ref
+          .read(adminRepositoryProvider)
+          .rejectGroup(group.id, reason: reason);
       if (ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Group "${group.name}" rejected')),
@@ -154,13 +160,16 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     final reason = await AdminConfirmationDialog.show(
       context,
       title: 'Suspend Group',
-      message: 'Suspend group "${group.name}"? Members will not be able to post.',
+      message:
+          'Suspend group "${group.name}"? Members will not be able to post.',
       confirmColor: Colors.orange,
       confirmLabel: 'Suspend',
       requireReason: true,
     );
     if (reason != null && reason.isNotEmpty) {
-      final ok = await ref.read(adminRepositoryProvider).suspendGroup(group.id, reason: reason);
+      final ok = await ref
+          .read(adminRepositoryProvider)
+          .suspendGroup(group.id, reason: reason);
       if (ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Group "${group.name}" suspended')),
@@ -190,7 +199,9 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
       requireReason: true,
     );
     if (reason != null && reason.isNotEmpty) {
-      final ok = await ref.read(adminRepositoryProvider).deleteGroup(group.id, reason: reason);
+      final ok = await ref
+          .read(adminRepositoryProvider)
+          .deleteGroup(group.id, reason: reason);
       if (ok && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Group "${group.name}" deleted')),
@@ -212,7 +223,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
             children: [
               Row(
                 children: [
-                  const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Status: ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   AdminStatusBadge(status: group.status),
                 ],
               ),
@@ -224,16 +238,51 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
               Text('Members: ${group.memberCount}'),
               const SizedBox(height: 4),
               if (group.creatorUsername != null) ...[
-                Text('Created by: @${group.creatorUsername}'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Created by: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Flexible(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          context.push(
+                            '/profile/user/${Uri.encodeComponent(group.creatorUsername!)}',
+                          );
+                        },
+                        child: Text(
+                          '@${group.creatorUsername}',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
               ],
-              Text('ID: ${group.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                'ID: ${group.id}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
               const SizedBox(height: 4),
-              Text('Created: ${group.createdAt.toLocal().toString().split('.')[0]}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              if (group.description != null && group.description!.isNotEmpty) ...[
+              Text(
+                'Created: ${group.createdAt.toLocal().toString().split('.')[0]}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              if (group.description != null &&
+                  group.description!.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                const Text('Description: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Description: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
                 Text(group.description!),
               ],
@@ -243,7 +292,10 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.close'))),
+            child: Consumer(
+              builder: (context, ref, child) =>
+                  Text(ref.watch(trProvider)('common.close')),
+            ),
           ),
         ],
       ),
@@ -258,10 +310,7 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
       appBar: AppBar(
         title: Text(tr('admin.groups')),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshAll,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshAll),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -301,137 +350,187 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
         child: _isLoadingPending && _pendingGroups.isEmpty
             ? const Center(child: CircularProgressIndicator())
             : _pendingError != null && _pendingGroups.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 12),
+                      Consumer(
+                        builder: (context, ref, child) => Text(
+                          ref.watch(trProvider)('common.error'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _pendingError!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _fetchPendingGroups,
+                        icon: const Icon(Icons.refresh),
+                        label: Consumer(
+                          builder: (context, ref, child) =>
+                              Text(ref.watch(trProvider)('common.retry')),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : _pendingGroups.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.verified_outlined,
+                      size: 56,
+                      color: Colors.green.shade300,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No groups pending approval.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _pendingGroups.length,
+                separatorBuilder: (_, i) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final group = _pendingGroups[index];
+                  return Card(
+                    elevation: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.amber.shade100,
+                        child: Text(
+                          group.name.isNotEmpty
+                              ? group.name[0].toUpperCase()
+                              : 'G',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              group.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const AdminStatusBadge(status: 'PENDING_APPROVAL'),
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 2),
+                          Text(
+                            '@${group.slug ?? group.handle ?? group.id} • ${group.memberCount} members'
+                            '${group.creatorUsername != null ? ' • by @${group.creatorUsername}' : ''}',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                          const SizedBox(height: 12),
-                          Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.error'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                          const SizedBox(height: 8),
-                          Text(_pendingError!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: _fetchPendingGroups,
-                            icon: const Icon(Icons.refresh),
-                            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.green,
+                              size: 26,
+                            ),
+                            tooltip: 'Approve Group',
+                            onPressed: () => _handleApproveGroup(group),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.cancel_outlined,
+                              color: Colors.red,
+                              size: 26,
+                            ),
+                            tooltip: 'Reject Group',
+                            onPressed: () => _handleRejectGroup(group),
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected: (val) {
+                              if (val == 'DETAILS') {
+                                _showGroupDetails(group);
+                              } else if (val == 'DELETE') {
+                                _handleDeleteGroup(group);
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: 'DETAILS',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('View Details'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'DELETE',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Delete Group',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  )
-                : _pendingGroups.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified_outlined, size: 56, color: Colors.green.shade300),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'No groups pending approval.',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _pendingGroups.length,
-                        separatorBuilder: (_, i) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final group = _pendingGroups[index];
-                          return Card(
-                            elevation: 1,
-                            margin: const EdgeInsets.symmetric(horizontal: 12),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.amber.shade100,
-                                child: Text(
-                                  group.name.isNotEmpty ? group.name[0].toUpperCase() : 'G',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.amber.shade900,
-                                  ),
-                                ),
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      group.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const AdminStatusBadge(status: 'PENDING_APPROVAL'),
-                                ],
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '@${group.slug ?? group.handle ?? group.id} • ${group.memberCount} members'
-                                    '${group.creatorUsername != null ? ' • by @${group.creatorUsername}' : ''}',
-                                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.check_circle_outline, color: Colors.green, size: 26),
-                                    tooltip: 'Approve Group',
-                                    onPressed: () => _handleApproveGroup(group),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.cancel_outlined, color: Colors.red, size: 26),
-                                    tooltip: 'Reject Group',
-                                    onPressed: () => _handleRejectGroup(group),
-                                  ),
-                                  PopupMenuButton<String>(
-                                    onSelected: (val) {
-                                      if (val == 'DETAILS') {
-                                        _showGroupDetails(group);
-                                      } else if (val == 'DELETE') {
-                                        _handleDeleteGroup(group);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      const PopupMenuItem(
-                                        value: 'DETAILS',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.info_outline, size: 18),
-                                            SizedBox(width: 8),
-                                            Text('View Details'),
-                                          ],
-                                        ),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'DELETE',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                            SizedBox(width: 8),
-                                            Text('Delete Group', style: TextStyle(color: Colors.red)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                  );
+                },
+              ),
       ),
     );
   }
@@ -472,159 +571,206 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
               child: _isLoadingAll && _allGroups.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : _allGroupsError != null && _allGroups.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                const SizedBox(height: 12),
-                                Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.error'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                                const SizedBox(height: 8),
-                                Text(_allGroupsError!,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                const SizedBox(height: 16),
-                                FilledButton.icon(
-                                  onPressed: _fetchAllGroups,
-                                  icon: const Icon(Icons.refresh),
-                                  label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 12),
+                            Consumer(
+                              builder: (context, ref, child) => Text(
+                                ref.watch(trProvider)('common.error'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
-                              ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _allGroupsError!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: _fetchAllGroups,
+                              icon: const Icon(Icons.refresh),
+                              label: Consumer(
+                                builder: (context, ref, child) =>
+                                    Text(ref.watch(trProvider)('common.retry')),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _allGroups.isEmpty
+                  ? Center(child: Text(tr('admin.no_records')))
+                  : ListView.separated(
+                      itemCount: _allGroups.length,
+                      separatorBuilder: (_, i) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final g = _allGroups[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: g.status == 'ACTIVE'
+                                ? Colors.teal.shade100
+                                : g.status == 'PENDING_APPROVAL'
+                                ? Colors.amber.shade100
+                                : Colors.grey.shade200,
+                            child: Text(
+                              g.name.isNotEmpty ? g.name[0].toUpperCase() : 'G',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: g.status == 'ACTIVE'
+                                    ? Colors.teal.shade800
+                                    : g.status == 'PENDING_APPROVAL'
+                                    ? Colors.amber.shade900
+                                    : Colors.grey.shade800,
+                              ),
                             ),
                           ),
-                        )
-                      : _allGroups.isEmpty
-                          ? Center(child: Text(tr('admin.no_records')))
-                          : ListView.separated(
-                              itemCount: _allGroups.length,
-                              separatorBuilder: (_, i) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final g = _allGroups[index];
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: g.status == 'ACTIVE'
-                                        ? Colors.teal.shade100
-                                        : g.status == 'PENDING_APPROVAL'
-                                            ? Colors.amber.shade100
-                                            : Colors.grey.shade200,
-                                    child: Text(
-                                      g.name.isNotEmpty ? g.name[0].toUpperCase() : 'G',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: g.status == 'ACTIVE'
-                                            ? Colors.teal.shade800
-                                            : g.status == 'PENDING_APPROVAL'
-                                                ? Colors.amber.shade900
-                                                : Colors.grey.shade800,
-                                      ),
-                                    ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  g.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  title: Row(
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              AdminStatusBadge(status: g.status),
+                            ],
+                          ),
+                          subtitle: Text(
+                            '${g.slug != null || g.handle != null ? '@${g.slug ?? g.handle} • ' : ''}'
+                            '${g.memberCount} members'
+                            '${g.creatorUsername != null ? ' • by @${g.creatorUsername}' : ''}',
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (val) {
+                              if (val == 'APPROVE') {
+                                _handleApproveGroup(g);
+                              } else if (val == 'REJECT') {
+                                _handleRejectGroup(g);
+                              } else if (val == 'SUSPEND') {
+                                _handleSuspendGroup(g);
+                              } else if (val == 'RESTORE') {
+                                _handleRestoreGroup(g);
+                              } else if (val == 'DELETE') {
+                                _handleDeleteGroup(g);
+                              } else if (val == 'DETAILS') {
+                                _showGroupDetails(g);
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              if (g.status == 'PENDING_APPROVAL') ...[
+                                const PopupMenuItem(
+                                  value: 'APPROVE',
+                                  child: Row(
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          g.name,
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        color: Colors.green,
+                                        size: 18,
                                       ),
-                                      const SizedBox(width: 8),
-                                      AdminStatusBadge(status: g.status),
+                                      SizedBox(width: 8),
+                                      Text('Approve Group'),
                                     ],
                                   ),
-                                  subtitle: Text(
-                                    '${g.slug != null || g.handle != null ? '@${g.slug ?? g.handle} • ' : ''}'
-                                    '${g.memberCount} members'
-                                    '${g.creatorUsername != null ? ' • by @${g.creatorUsername}' : ''}',
-                                  ),
-                                  trailing: PopupMenuButton<String>(
-                                    onSelected: (val) {
-                                      if (val == 'APPROVE') {
-                                        _handleApproveGroup(g);
-                                      } else if (val == 'REJECT') {
-                                        _handleRejectGroup(g);
-                                      } else if (val == 'SUSPEND') {
-                                        _handleSuspendGroup(g);
-                                      } else if (val == 'RESTORE') {
-                                        _handleRestoreGroup(g);
-                                      } else if (val == 'DELETE') {
-                                        _handleDeleteGroup(g);
-                                      } else if (val == 'DETAILS') {
-                                        _showGroupDetails(g);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      if (g.status == 'PENDING_APPROVAL') ...[
-                                        const PopupMenuItem(
-                                          value: 'APPROVE',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Approve Group'),
-                                            ],
-                                          ),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'REJECT',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.cancel_outlined, color: Colors.red, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Reject Group'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      if (g.status == 'ACTIVE')
-                                        const PopupMenuItem(
-                                          value: 'SUSPEND',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.pause_circle_outline, color: Colors.orange, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Suspend Group'),
-                                            ],
-                                          ),
-                                        ),
-                                      if (g.status != 'ACTIVE' && g.status != 'PENDING_APPROVAL')
-                                        const PopupMenuItem(
-                                          value: 'RESTORE',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.restore_rounded, color: Colors.blue, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Restore to Active'),
-                                            ],
-                                          ),
-                                        ),
-                                      const PopupMenuItem(
-                                        value: 'DETAILS',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.info_outline, size: 18),
-                                            SizedBox(width: 8),
-                                            Text('View Details'),
-                                          ],
-                                        ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'REJECT',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.cancel_outlined,
+                                        color: Colors.red,
+                                        size: 18,
                                       ),
-                                      const PopupMenuItem(
-                                        value: 'DELETE',
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                            SizedBox(width: 8),
-                                            Text('Delete Group', style: TextStyle(color: Colors.red)),
-                                          ],
-                                        ),
-                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Reject Group'),
                                     ],
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              ],
+                              if (g.status == 'ACTIVE')
+                                const PopupMenuItem(
+                                  value: 'SUSPEND',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.pause_circle_outline,
+                                        color: Colors.orange,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Suspend Group'),
+                                    ],
+                                  ),
+                                ),
+                              if (g.status != 'ACTIVE' &&
+                                  g.status != 'PENDING_APPROVAL')
+                                const PopupMenuItem(
+                                  value: 'RESTORE',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.restore_rounded,
+                                        color: Colors.blue,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Restore to Active'),
+                                    ],
+                                  ),
+                                ),
+                              const PopupMenuItem(
+                                value: 'DETAILS',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('View Details'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'DELETE',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Delete Group',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ),
         ],
@@ -632,6 +778,3 @@ class _GroupManagementScreenState extends ConsumerState<GroupManagementScreen>
     );
   }
 }
-
-
-

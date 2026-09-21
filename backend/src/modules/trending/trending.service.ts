@@ -28,7 +28,12 @@ export class TrendingService {
               author: {
                 select: {
                   username: true,
-                  profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+                  profile: {
+                    select: {
+                      displayName: true,
+                      avatar: { select: { url: true } },
+                    },
+                  },
                 },
               },
             },
@@ -55,7 +60,10 @@ export class TrendingService {
         }
         case 'STREAMS': {
           const streams = await this.prisma.liveStream.findMany({
-            where: { visibility: 'PUBLIC', status: { in: ['LIVE', 'SCHEDULED'] } },
+            where: {
+              visibility: 'PUBLIC',
+              status: { in: ['LIVE', 'SCHEDULED'] },
+            },
             orderBy: [{ status: 'asc' }, { currentViewerCount: 'desc' }],
             take: limit,
             skip,

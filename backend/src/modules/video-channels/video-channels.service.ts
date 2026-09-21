@@ -112,15 +112,20 @@ export class VideoChannelsService {
           where: { id: groupId, deletedAt: null },
         });
         if (group && group.status === 'ACTIVE') {
-          const baseHandle = group.slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-          const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 24) : `channel_${groupId.substring(0, 8)}`;
+          const baseHandle = group.slug
+            .replace(/[^a-zA-Z0-9_]/g, '_')
+            .toLowerCase();
+          const channelHandle =
+            baseHandle.length > 0
+              ? baseHandle.substring(0, 24)
+              : `channel_${groupId.substring(0, 8)}`;
           const autoChan = await this.repo.create(groupId, {
             name: `${group.name} Channel`,
             slug: `${group.slug}-${Date.now().toString().slice(-4)}`,
             handle: `@${channelHandle}_${Date.now().toString().slice(-4)}`,
             description: `Official video channel for ${group.name}`,
             uploadPermission: 'MEMBER' as any,
-            downloadPermission: 'PUBLIC' as any,
+            downloadPermission: 'PUBLIC',
           });
           data = [autoChan];
           total = 1;
@@ -263,7 +268,11 @@ export class VideoChannelsService {
     const channel = await this.repo.findById(channelId);
     if (!channel) throw new NotFoundException('Video channel not found');
 
-    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    await this.verifyGroupAccess(
+      channel.groupId,
+      userId,
+      GroupRole.GROUP_ADMIN,
+    );
     return this.uploadsService.uploadChannelAvatar(channelId, userId, file);
   }
 
@@ -275,7 +284,11 @@ export class VideoChannelsService {
     const channel = await this.repo.findById(channelId);
     if (!channel) throw new NotFoundException('Video channel not found');
 
-    await this.verifyGroupAccess(channel.groupId, userId, GroupRole.GROUP_ADMIN);
+    await this.verifyGroupAccess(
+      channel.groupId,
+      userId,
+      GroupRole.GROUP_ADMIN,
+    );
     return this.uploadsService.uploadChannelBanner(channelId, userId, file);
   }
 }

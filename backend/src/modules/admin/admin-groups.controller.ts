@@ -8,7 +8,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -29,7 +34,18 @@ export class AdminGroupsController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['ALL', 'ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'ARCHIVED', 'REJECTED'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: [
+      'ALL',
+      'ACTIVE',
+      'PENDING_APPROVAL',
+      'SUSPENDED',
+      'ARCHIVED',
+      'REJECTED',
+    ],
+  })
   async getGroups(
     @Query('page') page = 1,
     @Query('limit') limit = 20,

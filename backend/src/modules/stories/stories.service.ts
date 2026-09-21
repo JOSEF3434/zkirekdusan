@@ -10,7 +10,12 @@ import {
 } from '@nestjs/common';
 import path from 'path';
 import crypto from 'crypto';
-import { FileProvider, FileType, ReactionType, StoryType } from '@prisma/client';
+import {
+  FileProvider,
+  FileType,
+  ReactionType,
+  StoryType,
+} from '@prisma/client';
 import { StoriesRepository } from './stories.repository.js';
 import { UploadsRepository } from '../uploads/uploads.repository.js';
 import { UploadsService } from '../uploads/uploads.service.js';
@@ -70,11 +75,9 @@ export class StoriesService {
 
     // For Cloudinary video stories: use optimized streaming URL so videos play on all devices
     let mediaUrl = result.url;
-    if (
-      isVideo &&
-      this.storageProvider.providerType === 'CLOUDINARY'
-    ) {
-      const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+    if (isVideo && this.storageProvider.providerType === 'CLOUDINARY') {
+      const cloudinaryProvider = this
+        .storageProvider as CloudinaryStorageProvider;
       // Use direct optimized MP4 URL for story videos (stories are short, no need for HLS)
       mediaUrl = cloudinaryProvider.getVideoDirectUrl(result.storageKey);
       this.logger.log(
@@ -89,7 +92,7 @@ export class StoriesService {
       extension: ext,
       size: file.size,
       fileType,
-      provider: result.provider as FileProvider,
+      provider: result.provider,
       storageKey: result.storageKey,
       url: mediaUrl, // Store optimized URL
       uploadedById: authorId,
@@ -205,7 +208,8 @@ export class StoriesService {
     const myOwnerDto: StoryAuthorDto = {
       id: viewerId,
       username: myProfile?.username ?? null,
-      displayName: myProfile?.profile?.displayName ?? myProfile?.username ?? 'You',
+      displayName:
+        myProfile?.profile?.displayName ?? myProfile?.username ?? 'You',
       avatarUrl: myProfile?.profile?.avatar?.url ?? null,
     };
 
@@ -313,7 +317,9 @@ export class StoriesService {
     }
 
     if (story.authorId !== requesterId) {
-      throw new ForbiddenException('Only the story author can view viewer analytics');
+      throw new ForbiddenException(
+        'Only the story author can view viewer analytics',
+      );
     }
 
     const viewers = await this.storiesRepository.findViewers(storyId);
@@ -420,7 +426,10 @@ export class StoriesService {
     if (story.fileId) {
       const file = await this.uploadsRepository.findById(story.fileId);
       if (file?.storageKey) {
-        await this.uploadsService.safeDeleteAsset(file.storageKey, story.fileId);
+        await this.uploadsService.safeDeleteAsset(
+          file.storageKey,
+          story.fileId,
+        );
       }
     }
 

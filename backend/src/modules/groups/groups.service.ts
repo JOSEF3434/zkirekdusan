@@ -15,7 +15,10 @@ import {
   GroupMemberResponseDto,
   VideoChannelSummaryDto,
 } from './dto/group-response.dto.js';
-import { GroupRole, GROUP_ROLE_HIERARCHY } from '../../common/constants/group-roles.js';
+import {
+  GroupRole,
+  GROUP_ROLE_HIERARCHY,
+} from '../../common/constants/group-roles.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
@@ -37,10 +40,7 @@ export class GroupsService {
    *  - USER with 'groups.approve' permission → ACTIVE immediately
    *  - All others → PENDING_APPROVAL
    */
-  async createGroup(
-    dto: CreateGroupDto,
-    user: any,
-  ): Promise<GroupResponseDto> {
+  async createGroup(dto: CreateGroupDto, user: any): Promise<GroupResponseDto> {
     const slugExists = await this.groupsRepository.findBySlug(dto.slug);
     if (slugExists) {
       throw new BadRequestException(
@@ -305,10 +305,17 @@ export class GroupsService {
   async repairGroup(groupId: string) {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) throw new NotFoundException('Group not found');
-    await this.groupsRepository.ensureCreatorMembership(group.id, group.createdById);
+    await this.groupsRepository.ensureCreatorMembership(
+      group.id,
+      group.createdById,
+    );
     const withChan = await this.groupsRepository.findWithChannels(group.id);
     if (!withChan?.videoChannels || withChan.videoChannels.length === 0) {
-      await this.groupsRepository.createDefaultChannel(group.id, group.name, group.slug);
+      await this.groupsRepository.createDefaultChannel(
+        group.id,
+        group.name,
+        group.slug,
+      );
     }
     return { success: true, message: `Group ${groupId} repaired successfully` };
   }
@@ -462,7 +469,9 @@ export class GroupsService {
     }
     const member = await this.groupsRepository.getMember(groupId, userId);
     if (!member) {
-      throw new ForbiddenException('You must be a member to share an invite link');
+      throw new ForbiddenException(
+        'You must be a member to share an invite link',
+      );
     }
 
     const invite = await this.groupsRepository.createInvite(
@@ -492,7 +501,10 @@ export class GroupsService {
     }
 
     // Support both direct invites and shareable links (where recipientId == senderId)
-    if (invite.recipientId !== userId && invite.recipientId !== invite.senderId) {
+    if (
+      invite.recipientId !== userId &&
+      invite.recipientId !== invite.senderId
+    ) {
       throw new ForbiddenException('This invite token was not issued to you');
     }
 
@@ -572,7 +584,11 @@ export class GroupsService {
           'This group is pending approval and is only visible to the owner.',
         );
       }
-    } else if (group.status !== 'ACTIVE' && !isGlobalAdmin && !callerGroupRole) {
+    } else if (
+      group.status !== 'ACTIVE' &&
+      !isGlobalAdmin &&
+      !callerGroupRole
+    ) {
       throw new ForbiddenException(
         'This group is not available. It may be suspended or archived.',
       );
@@ -592,7 +608,7 @@ export class GroupsService {
     const caps = this.computeCapabilities(callerGroupRole, isGlobalAdmin);
 
     // ─── Video channel resolution ──────────────────────────────────────────────────
-    let channels: VideoChannelSummaryDto[] = (group.videoChannels ?? []).map(
+    const channels: VideoChannelSummaryDto[] = (group.videoChannels ?? []).map(
       (ch: any) => ({
         id: ch.id,
         name: ch.name,
@@ -717,11 +733,7 @@ export class GroupsService {
 
   // ─── Member Management ───────────────────────────────────────────────────
 
-  async listMembers(
-    groupId: string,
-    page = 1,
-    limit = 30,
-  ) {
+  async listMembers(groupId: string, page = 1, limit = 30) {
     const skip = (page - 1) * limit;
     const group = await this.groupsRepository.findById(groupId);
     if (!group) throw new NotFoundException('Group not found');
@@ -785,17 +797,27 @@ export class GroupsService {
     ) {
       actorGroupRole = GroupRole.GROUP_ADMIN; // platform admins act as group admin
     } else {
-      const actorMember = await this.groupsRepository.getMember(groupId, actorId);
-      if (!actorMember) throw new ForbiddenException('You are not a member of this group');
+      const actorMember = await this.groupsRepository.getMember(
+        groupId,
+        actorId,
+      );
+      if (!actorMember)
+        throw new ForbiddenException('You are not a member of this group');
       actorGroupRole = actorMember.role as GroupRole;
       if (actorGroupRole !== GroupRole.GROUP_ADMIN) {
-        throw new ForbiddenException('Only GROUP_ADMIN can update member roles');
+        throw new ForbiddenException(
+          'Only GROUP_ADMIN can update member roles',
+        );
       }
     }
 
     // Resolve target's current role
-    const targetMember = await this.groupsRepository.getMember(groupId, targetUserId);
-    if (!targetMember) throw new NotFoundException('Target user is not a member of this group');
+    const targetMember = await this.groupsRepository.getMember(
+      groupId,
+      targetUserId,
+    );
+    if (!targetMember)
+      throw new NotFoundException('Target user is not a member of this group');
 
     const targetCurrentRole = targetMember.role as GroupRole;
 
@@ -817,7 +839,11 @@ export class GroupsService {
       newRole !== GroupRole.GROUP_ADMIN
     ) {
       // Check if there is at least one other GROUP_ADMIN
-      const { items: allMembers } = await this.groupsRepository.findMembers(groupId, 0, 1000);
+      const { items: allMembers } = await this.groupsRepository.findMembers(
+        groupId,
+        0,
+        1000,
+      );
       const adminCount = allMembers.filter(
         (m: any) => m.role === GroupRole.GROUP_ADMIN,
       ).length;
@@ -828,8 +854,16 @@ export class GroupsService {
       }
     }
 
-    await this.groupsRepository.updateMemberRole(groupId, targetUserId, newRole);
-    return { message: 'Member role updated successfully', userId: targetUserId, newRole };
+    await this.groupsRepository.updateMemberRole(
+      groupId,
+      targetUserId,
+      newRole,
+    );
+    return {
+      message: 'Member role updated successfully',
+      userId: targetUserId,
+      newRole,
+    };
   }
 
   /**
@@ -861,22 +895,34 @@ export class GroupsService {
     ) {
       actorGroupRole = GroupRole.GROUP_ADMIN;
     } else {
-      const actorMember = await this.groupsRepository.getMember(groupId, actorId);
-      if (!actorMember) throw new ForbiddenException('You are not a member of this group');
+      const actorMember = await this.groupsRepository.getMember(
+        groupId,
+        actorId,
+      );
+      if (!actorMember)
+        throw new ForbiddenException('You are not a member of this group');
       actorGroupRole = actorMember.role as GroupRole;
       if (actorGroupRole !== GroupRole.GROUP_ADMIN) {
         throw new ForbiddenException('Only GROUP_ADMIN can remove members');
       }
     }
 
-    const targetMember = await this.groupsRepository.getMember(groupId, targetUserId);
-    if (!targetMember) throw new NotFoundException('Target user is not a member of this group');
+    const targetMember = await this.groupsRepository.getMember(
+      groupId,
+      targetUserId,
+    );
+    if (!targetMember)
+      throw new NotFoundException('Target user is not a member of this group');
 
     const targetCurrentRole = targetMember.role as GroupRole;
 
     // Protect the last GROUP_ADMIN
     if (targetCurrentRole === GroupRole.GROUP_ADMIN) {
-      const { items: allMembers } = await this.groupsRepository.findMembers(groupId, 0, 1000);
+      const { items: allMembers } = await this.groupsRepository.findMembers(
+        groupId,
+        0,
+        1000,
+      );
       const adminCount = allMembers.filter(
         (m: any) => m.role === GroupRole.GROUP_ADMIN,
       ).length;
@@ -900,7 +946,10 @@ export class GroupsService {
     if (!group) throw new NotFoundException('Group not found');
 
     const member = await this.groupsRepository.getMember(groupId, userId);
-    if (member?.role !== GroupRole.GROUP_ADMIN && group.createdById !== userId) {
+    if (
+      member?.role !== GroupRole.GROUP_ADMIN &&
+      group.createdById !== userId
+    ) {
       throw new ForbiddenException('Only group admins can update group avatar');
     }
 
@@ -916,11 +965,13 @@ export class GroupsService {
     if (!group) throw new NotFoundException('Group not found');
 
     const member = await this.groupsRepository.getMember(groupId, userId);
-    if (member?.role !== GroupRole.GROUP_ADMIN && group.createdById !== userId) {
+    if (
+      member?.role !== GroupRole.GROUP_ADMIN &&
+      group.createdById !== userId
+    ) {
       throw new ForbiddenException('Only group admins can update group cover');
     }
 
     return this.uploadsService.uploadGroupCover(groupId, userId, file);
   }
 }
-

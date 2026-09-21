@@ -24,7 +24,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('library.playlists'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('library.playlists'))),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -112,7 +112,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   onPressed: () => ref
                       .read(playlistDetailProvider(playlistId).notifier)
                       .refresh(),
-                  child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                  child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
                 ),
               ],
             ),
@@ -185,7 +185,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                         '/video/${playlist.items.first.videoId}',
                       ),
                       icon: const Icon(Icons.play_arrow),
-                      label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.play'))),
+                      label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('video.play'))),
                     ),
                 ],
               ),
@@ -302,7 +302,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('playlist.edit_title'))),
+          title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('playlist.edit_title'))),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -345,7 +345,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
             ),
             FilledButton(
               onPressed: () async {
@@ -374,7 +374,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   }
                 }
               },
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.save'))),
             ),
           ],
         ),
@@ -390,14 +390,14 @@ class PlaylistDetailScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('playlist.delete_title'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('playlist.delete_title'))),
         content: Text(
           'Are you sure you want to delete "${playlist.title}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -422,7 +422,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 }
               }
             },
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),

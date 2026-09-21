@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -16,7 +26,13 @@ export class StreamHighlightsController {
   async createHighlight(
     @CurrentUser('sub') userId: string,
     @Param('streamId') streamId: string,
-    @Body() body: { title: string; description?: string; startTimeSec: number; endTimeSec: number }
+    @Body()
+    body: {
+      title: string;
+      description?: string;
+      startTimeSec: number;
+      endTimeSec: number;
+    },
   ) {
     return this.highlightsService.createHighlight(userId, streamId, body);
   }
@@ -34,7 +50,7 @@ export class StreamHighlightsController {
   @ApiOperation({ summary: 'Delete a stream highlight' })
   async deleteHighlight(
     @CurrentUser('sub') userId: string,
-    @Param('highlightId') highlightId: string
+    @Param('highlightId') highlightId: string,
   ) {
     await this.highlightsService.deleteHighlight(userId, highlightId);
   }

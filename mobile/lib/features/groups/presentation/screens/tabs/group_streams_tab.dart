@@ -126,7 +126,7 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
               onPressed: () =>
                   context.push('/live/studio?channelId=${channel.id}'),
               icon: const Icon(Icons.videocam_outlined),
-              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('shell.go_live'))),
+              label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('shell.go_live'))),
               backgroundColor: const Color(0xFFE53935),
               foregroundColor: Colors.white,
             )
@@ -262,7 +262,7 @@ class _GroupStreamsTabState extends ConsumerState<GroupStreamsTab> {
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: _loadStreams,
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -410,7 +410,7 @@ class _StreamCard extends ConsumerWidget {
                         onPressed: () =>
                             context.push('/live/room/${stream.id}'),
                         icon: const Icon(Icons.play_arrow, size: 16),
-                        label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('live.tab_now'))),
+                        label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('live.tab_now'))),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFFE53935),
                           padding: const EdgeInsets.symmetric(
@@ -423,7 +423,7 @@ class _StreamCard extends ConsumerWidget {
                       OutlinedButton.icon(
                         onPressed: () => _publishVod(context, ref),
                         icon: const Icon(Icons.video_library, size: 16),
-                        label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.publish_vod'))),
+                        label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('profile.publish_vod'))),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -473,19 +473,19 @@ class _StreamCard extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.delete_stream_title'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('profile.delete_stream_title'))),
         content: const Text(
           'This will permanently delete this stream. This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),

@@ -172,7 +172,10 @@ export class StoriesRepository {
                 id: true,
                 username: true,
                 profile: {
-                  select: { displayName: true, avatar: { select: { url: true } } },
+                  select: {
+                    displayName: true,
+                    avatar: { select: { url: true } },
+                  },
                 },
               },
             },
@@ -187,7 +190,10 @@ export class StoriesRepository {
                 id: true,
                 username: true,
                 profile: {
-                  select: { displayName: true, avatar: { select: { url: true } } },
+                  select: {
+                    displayName: true,
+                    avatar: { select: { url: true } },
+                  },
                 },
               },
             },
@@ -270,7 +276,10 @@ export class StoriesRepository {
               id: true,
               username: true,
               profile: {
-                select: { displayName: true, avatar: { select: { url: true } } },
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
               },
             },
           },

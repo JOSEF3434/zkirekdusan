@@ -10,7 +10,12 @@ import { VideoChannelStatus } from '@prisma/client';
 export class GroupsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createGroup(data: CreateGroupDto & { createdById: string; status?: import('@prisma/client').GroupStatus }) {
+  async createGroup(
+    data: CreateGroupDto & {
+      createdById: string;
+      status?: import('@prisma/client').GroupStatus;
+    },
+  ) {
     // Create group with provided status (or PENDING_APPROVAL) and add creator as GROUP_ADMIN
     return this.prisma.$transaction(async (tx) => {
       const group = await tx.group.create({
@@ -34,7 +39,10 @@ export class GroupsRepository {
 
       // Automatically provision the primary video channel for the group
       const baseHandle = data.slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-      const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 30) : `channel_${group.id.substring(0, 8)}`;
+      const channelHandle =
+        baseHandle.length > 0
+          ? baseHandle.substring(0, 30)
+          : `channel_${group.id.substring(0, 8)}`;
       await tx.videoChannel.create({
         data: {
           groupId: group.id,
@@ -54,13 +62,19 @@ export class GroupsRepository {
 
   async createDefaultChannel(groupId: string, name: string, slug: string) {
     const baseHandle = slug.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-    const channelHandle = baseHandle.length > 0 ? baseHandle.substring(0, 30) : `channel_${groupId.substring(0, 8)}`;
+    const channelHandle =
+      baseHandle.length > 0
+        ? baseHandle.substring(0, 30)
+        : `channel_${groupId.substring(0, 8)}`;
     return this.prisma.videoChannel.create({
       data: {
         groupId,
         name: `${name} Channel`,
         slug: `${slug}-${Date.now().toString().slice(-4)}`,
-        handle: `${channelHandle}_${Date.now().toString().slice(-4)}`.substring(0, 30),
+        handle: `${channelHandle}_${Date.now().toString().slice(-4)}`.substring(
+          0,
+          30,
+        ),
         description: `Official video channel for ${name}`,
         status: 'ACTIVE',
         uploadPermission: 'MEMBER',
@@ -109,7 +123,6 @@ export class GroupsRepository {
       },
     });
   }
-
 
   async findBySlug(slug: string) {
     return this.prisma.group.findFirst({
@@ -264,11 +277,7 @@ export class GroupsRepository {
 
   // ─── Member Management ─────────────────────────────────────────────────────
 
-  async findMembers(
-    groupId: string,
-    skip = 0,
-    take = 30,
-  ) {
+  async findMembers(groupId: string, skip = 0, take = 30) {
     const where = { groupId, removedAt: null };
     const [items, total] = await Promise.all([
       this.prisma.groupMember.findMany({
@@ -320,4 +329,3 @@ export class GroupsRepository {
     }
   }
 }
-

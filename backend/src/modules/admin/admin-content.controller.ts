@@ -8,7 +8,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -40,7 +45,14 @@ export class AdminContentController {
     @Query('groupId') groupId?: string,
     @Query('authorId') authorId?: string,
   ) {
-    return this.contentService.listPosts({ page, limit, search, status, groupId, authorId });
+    return this.contentService.listPosts({
+      page,
+      limit,
+      search,
+      status,
+      groupId,
+      authorId,
+    });
   }
 
   @Get('posts/:id')
@@ -56,7 +68,12 @@ export class AdminContentController {
     @CurrentUser('sub') actorId: string,
     @Body() body: { status: string; reason?: string },
   ) {
-    return this.contentService.updatePostStatus(id, body.status, actorId, body.reason);
+    return this.contentService.updatePostStatus(
+      id,
+      body.status,
+      actorId,
+      body.reason,
+    );
   }
 
   @Delete('posts/:id')
@@ -83,7 +100,13 @@ export class AdminContentController {
     @Query('status') status?: string,
     @Query('channelId') channelId?: string,
   ) {
-    return this.contentService.listVideos({ page, limit, search, status, channelId });
+    return this.contentService.listVideos({
+      page,
+      limit,
+      search,
+      status,
+      channelId,
+    });
   }
 
   @Patch('videos/:id/status')
@@ -93,7 +116,12 @@ export class AdminContentController {
     @CurrentUser('sub') actorId: string,
     @Body() body: { status: string; reason?: string },
   ) {
-    return this.contentService.updateVideoStatus(id, body.status, actorId, body.reason);
+    return this.contentService.updateVideoStatus(
+      id,
+      body.status,
+      actorId,
+      body.reason,
+    );
   }
 
   @Delete('videos/:id')

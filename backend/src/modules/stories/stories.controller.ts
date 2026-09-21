@@ -101,8 +101,7 @@ export class StoriesController {
   @UseGuards(OptionalJwtAuthGuard)
   @Get()
   @ApiOperation({
-    summary:
-      'Get sorted stories feed (Alias for /stories/feed)',
+    summary: 'Get sorted stories feed (Alias for /stories/feed)',
   })
   @ApiResponse({ status: 200, type: [StoryFeedGroupDto] })
   async getStories(
@@ -163,7 +162,9 @@ export class StoriesController {
   }
 
   @Get(':id/views')
-  @ApiOperation({ summary: 'Get viewer list sorted by newest first (author only)' })
+  @ApiOperation({
+    summary: 'Get viewer list sorted by newest first (author only)',
+  })
   @ApiResponse({ status: 200, type: [StoryViewerResponseDto] })
   async getViewers(
     @Param('id') storyId: string,
@@ -173,7 +174,9 @@ export class StoriesController {
   }
 
   @Get(':id/reactions')
-  @ApiOperation({ summary: 'Get reaction list sorted by newest first (author only)' })
+  @ApiOperation({
+    summary: 'Get reaction list sorted by newest first (author only)',
+  })
   @ApiResponse({ status: 200, type: [StoryReactionResponseDto] })
   async getReactions(
     @Param('id') storyId: string,

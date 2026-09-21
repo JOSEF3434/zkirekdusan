@@ -1,14 +1,24 @@
 // src/modules/admin/services/admin-storage.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { AdminAuditService } from './admin-audit.service.js';
+import { STORAGE_PROVIDER_TOKEN } from '../../uploads/providers/storage.factory.js';
+import type { IStorageProvider } from '../../uploads/providers/storage.interface.js';
+import { LocalStorageProvider } from '../../uploads/providers/local.provider.js';
+import { CloudinaryStorageProvider } from '../../uploads/providers/cloudinary.provider.js';
+import { MinioStorageProvider } from '../../uploads/providers/minio.provider.js';
 
 @Injectable()
 export class AdminStorageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AdminAuditService,
-  ) {}
+    @Inject(STORAGE_PROVIDER_TOKEN)
+    private readonly storageProvider: IStorageProvider,
+    private readonly localStorageProvider: LocalStorageProvider,
+    private readonly cloudinaryStorageProvider: CloudinaryStorageProvider,
+    private readonly minioStorageProvider: MinioStorageProvider,
+  ) { }
 
   async getStorageStats() {
     const [totalFiles, typeGroups, providerGroups] = await Promise.all([
@@ -106,6 +116,8 @@ export class AdminStorageService {
       throw new NotFoundException(`File ${id} not found`);
     }
 
+    const provider = this.providerFor(file.provider);
+    await provider.delete(file.storageKey);
     await this.prisma.file.delete({ where: { id } });
 
     await this.auditService.log({
@@ -122,5 +134,18 @@ export class AdminStorageService {
     });
 
     return { success: true, message: 'File deleted successfully' };
+  }
+
+  private providerFor(provider: string): IStorageProvider {
+    switch (provider) {
+      case 'LOCAL':
+        return this.localStorageProvider;
+      case 'CLOUDINARY':
+        return this.cloudinaryStorageProvider;
+      case 'MINIO':
+        return this.minioStorageProvider;
+      default:
+        return this.storageProvider;
+    }
   }
 }

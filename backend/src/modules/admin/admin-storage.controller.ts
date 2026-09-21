@@ -7,7 +7,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -30,7 +35,9 @@ export class AdminStorageController {
   }
 
   @Get('files')
-  @ApiOperation({ summary: 'List platform storage files with pagination and filters' })
+  @ApiOperation({
+    summary: 'List platform storage files with pagination and filters',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'search', required: false })
@@ -43,7 +50,13 @@ export class AdminStorageController {
     @Query('fileType') fileType?: string,
     @Query('provider') provider?: string,
   ) {
-    return this.storageService.listFiles({ page, limit, search, fileType, provider });
+    return this.storageService.listFiles({
+      page,
+      limit,
+      search,
+      fileType,
+      provider,
+    });
   }
 
   @Delete('files/:id')

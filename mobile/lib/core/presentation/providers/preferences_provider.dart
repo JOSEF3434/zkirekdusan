@@ -39,6 +39,11 @@ class PreferencesState {
 class PreferencesNotifier extends StateNotifier<PreferencesState> {
   final SharedPreferences _prefs;
 
+  /// Optional callback invoked after the language code changes.
+  /// Used to notify external services (e.g., FCM) of the locale update
+  /// without creating a circular dependency.
+  static Future<void> Function(String languageCode)? onLanguageChanged;
+
   PreferencesNotifier(this._prefs)
     : super(
         PreferencesState(
@@ -66,6 +71,14 @@ class PreferencesNotifier extends StateNotifier<PreferencesState> {
   Future<void> setLanguageCode(String code) async {
     state = state.copyWith(languageCode: code);
     await _prefs.setString('languageCode', code);
+
+    // Notify the FCM backend of the new locale so it generates future
+    // push notifications in the user's selected language.
+    try {
+      await onLanguageChanged?.call(code);
+    } catch (_) {
+      // FCM not available (e.g. web, desktop) — ignore silently.
+    }
   }
 
   Future<void> completeFirstLaunch() async {

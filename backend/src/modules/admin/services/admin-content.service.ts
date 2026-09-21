@@ -150,7 +150,12 @@ export class AdminContentService {
     return post;
   }
 
-  async updatePostStatus(id: string, status: any, actorId: string, reason?: string) {
+  async updatePostStatus(
+    id: string,
+    status: any,
+    actorId: string,
+    reason?: string,
+  ) {
     const post = await this.prisma.post.findUnique({ where: { id } });
     if (!post) {
       throw new NotFoundException(`Post ${id} not found`);
@@ -268,7 +273,12 @@ export class AdminContentService {
     };
   }
 
-  async updateVideoStatus(id: string, status: any, actorId: string, reason?: string) {
+  async updateVideoStatus(
+    id: string,
+    status: any,
+    actorId: string,
+    reason?: string,
+  ) {
     const video = await this.prisma.video.findUnique({ where: { id } });
     if (!video) {
       throw new NotFoundException(`Video ${id} not found`);

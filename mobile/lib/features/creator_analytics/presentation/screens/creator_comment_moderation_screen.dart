@@ -101,7 +101,7 @@ class _CreatorCommentModerationScreenState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.moderate_comments')))),
+      appBar: AppBar(title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('video.moderate_comments')))),
       body: _buildBody(state, theme),
     );
   }
@@ -126,7 +126,7 @@ class _CreatorCommentModerationScreenState
                     creatorCommentModerationProvider(widget.videoId).notifier,
                   )
                   .refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),

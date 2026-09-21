@@ -119,7 +119,7 @@ class _CreatorVideoManagementScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.content'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.content'))),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Padding(
@@ -150,7 +150,7 @@ class _CreatorVideoManagementScreenState
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
-                          label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.all'))),
+                          label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.all'))),
                           selected: _statusFilter == null,
                           onSelected: (val) =>
                               setState(() => _statusFilter = null),
@@ -194,7 +194,7 @@ class _CreatorVideoManagementScreenState
             ElevatedButton(
               onPressed: () =>
                   ref.read(creatorVideoListProvider(_args).notifier).refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),

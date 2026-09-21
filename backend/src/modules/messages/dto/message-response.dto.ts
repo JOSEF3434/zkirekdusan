@@ -64,7 +64,8 @@ export class MessageResponseDto {
   reactions!: MessageReactionResponseDto[];
   @ApiProperty({ type: [String] }) readBy!: string[];
   @ApiProperty({ type: [String] }) deliveredTo!: string[];
-  @ApiPropertyOptional({ type: VoiceMessageResponseDto }) voiceNote?: VoiceMessageResponseDto;
+  @ApiPropertyOptional({ type: VoiceMessageResponseDto })
+  voiceNote?: VoiceMessageResponseDto;
   @ApiPropertyOptional({ type: ForwardInfoDto }) forwardInfo?: ForwardInfoDto;
   @ApiPropertyOptional({ type: [String] }) mentionedUserIds?: string[];
   @ApiProperty() createdAt!: Date;

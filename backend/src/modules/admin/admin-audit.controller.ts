@@ -1,5 +1,10 @@
 import { Controller, Get, UseGuards, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -15,7 +20,9 @@ export class AdminAuditController {
   constructor(private readonly auditService: AdminAuditService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get system audit logs with pagination and filters' })
+  @ApiOperation({
+    summary: 'Get system audit logs with pagination and filters',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 30 })
   @ApiQuery({ name: 'actorId', required: false })

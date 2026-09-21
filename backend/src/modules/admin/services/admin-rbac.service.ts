@@ -82,7 +82,9 @@ export class AdminRbacService {
     });
 
     if (!role) {
-      throw new NotFoundException(`Role '${normalizedRole}' not found in database`);
+      throw new NotFoundException(
+        `Role '${normalizedRole}' not found in database`,
+      );
     }
 
     const beforePerms: Record<string, boolean> = {};

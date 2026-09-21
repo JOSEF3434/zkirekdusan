@@ -177,7 +177,12 @@ export class MessagesController {
     @CurrentUser('role') role?: string,
   ): Promise<{ success: boolean }> {
     const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-    return this.messagesService.pinMessage(conversationId, messageId, userId, isAdmin);
+    return this.messagesService.pinMessage(
+      conversationId,
+      messageId,
+      userId,
+      isAdmin,
+    );
   }
 
   @Delete('conversations/:conversationId/messages/:messageId/pin')
@@ -190,7 +195,12 @@ export class MessagesController {
     @CurrentUser('role') role?: string,
   ): Promise<{ success: boolean }> {
     const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-    return this.messagesService.unpinMessage(conversationId, messageId, userId, isAdmin);
+    return this.messagesService.unpinMessage(
+      conversationId,
+      messageId,
+      userId,
+      isAdmin,
+    );
   }
 
   // ── Star / Unstar ──────────────────────────────────────────────────────────

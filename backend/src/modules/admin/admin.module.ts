@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
+import { UploadsModule } from '../uploads/uploads.module.js';
 
 // Controllers
 import { AdminDashboardController } from './admin-dashboard.controller.js';
@@ -31,7 +33,7 @@ import { AdminStorageService } from './services/admin-storage.service.js';
 import { AdminRbacService } from './services/admin-rbac.service.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationsModule, UploadsModule],
   controllers: [
     AdminDashboardController,
     AdminUsersController,
@@ -75,4 +77,4 @@ import { AdminRbacService } from './services/admin-rbac.service.js';
     AdminRbacService,
   ],
 })
-export class AdminModule {}
+export class AdminModule { }

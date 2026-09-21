@@ -249,7 +249,8 @@ export class StreamsController {
   @Post('rtmp/webhook/on_publish')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'RTMP webhook: Triggered when a stream starts publishing (SRS / Nginx-RTMP)',
+    summary:
+      'RTMP webhook: Triggered when a stream starts publishing (SRS / Nginx-RTMP)',
   })
   async onPublish(@Body() body: any) {
     // SRS sends 'stream', Nginx-RTMP sends 'name'
@@ -264,7 +265,8 @@ export class StreamsController {
   @Post('rtmp/webhook/on_done')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'RTMP webhook: Triggered when a stream ends (SRS / Nginx-RTMP / Cloudinary)',
+    summary:
+      'RTMP webhook: Triggered when a stream ends (SRS / Nginx-RTMP / Cloudinary)',
   })
   async onDone(@Body() body: any) {
     if (body.public_id || body.notification_type) {

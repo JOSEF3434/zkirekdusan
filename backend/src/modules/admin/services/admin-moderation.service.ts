@@ -60,7 +60,9 @@ export class AdminModerationService {
     const enriched = await Promise.all(
       items.map(async (report: any) => {
         let targetDetail: any = null;
-        const targetUserId = report.targetUserId || (report.targetType === 'USER' ? report.targetId : null);
+        const targetUserId =
+          report.targetUserId ||
+          (report.targetType === 'USER' ? report.targetId : null);
 
         if (targetUserId) {
           targetDetail = await this.prisma.user.findUnique({
@@ -104,7 +106,9 @@ export class AdminModerationService {
           select: {
             id: true,
             username: true,
-            profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
           },
         },
       },
@@ -142,7 +146,13 @@ export class AdminModerationService {
     id: string,
     actorId: string,
     dto: {
-      action: 'BAN_USER' | 'DEACTIVATE_USER' | 'SUSPEND_USER' | 'DISMISS' | 'RESOLVE' | 'DELETE_CONTENT';
+      action:
+        | 'BAN_USER'
+        | 'DEACTIVATE_USER'
+        | 'SUSPEND_USER'
+        | 'DISMISS'
+        | 'RESOLVE'
+        | 'DELETE_CONTENT';
       note?: string;
     },
   ) {
@@ -152,7 +162,8 @@ export class AdminModerationService {
     }
 
     const targetUserId =
-      report.targetUserId || (report.targetType === 'USER' ? report.targetId : null);
+      report.targetUserId ||
+      (report.targetType === 'USER' ? report.targetId : null);
 
     if (targetUserId) {
       if (dto.action === 'BAN_USER') {
@@ -175,7 +186,9 @@ export class AdminModerationService {
 
     if (dto.action === 'DELETE_CONTENT') {
       if (report.targetType === 'POST') {
-        await this.prisma.post.delete({ where: { id: report.targetId } }).catch(() => null);
+        await this.prisma.post
+          .delete({ where: { id: report.targetId } })
+          .catch(() => null);
       }
     }
 

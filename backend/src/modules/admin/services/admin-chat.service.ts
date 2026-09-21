@@ -41,7 +41,12 @@ export class AdminChatService {
                 select: {
                   id: true,
                   username: true,
-                  profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+                  profile: {
+                    select: {
+                      displayName: true,
+                      avatar: { select: { url: true } },
+                    },
+                  },
                 },
               },
             },
@@ -112,7 +117,9 @@ export class AdminChatService {
   }
 
   async deleteMessage(messageId: string, actorId: string, reason?: string) {
-    const message = await this.prisma.message.findUnique({ where: { id: messageId } });
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
     if (!message) {
       throw new NotFoundException(`Message ${messageId} not found`);
     }
@@ -124,14 +131,21 @@ export class AdminChatService {
       action: 'CHAT_MESSAGE_DELETED',
       targetType: 'MESSAGE',
       targetId: messageId,
-      before: { senderId: message.senderId, content: message.content?.slice(0, 100) },
+      before: {
+        senderId: message.senderId,
+        content: message.content?.slice(0, 100),
+      },
       reason,
     });
 
     return { success: true, message: 'Message deleted successfully' };
   }
 
-  async purgeConversation(conversationId: string, actorId: string, reason?: string) {
+  async purgeConversation(
+    conversationId: string,
+    actorId: string,
+    reason?: string,
+  ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
     });

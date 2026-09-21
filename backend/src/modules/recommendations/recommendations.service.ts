@@ -43,7 +43,12 @@ export class RecommendationsService {
               select: {
                 id: true,
                 username: true,
-                profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatar: { select: { url: true } },
+                  },
+                },
               },
             },
             media: { include: { file: true } },
@@ -127,7 +132,9 @@ export class RecommendationsService {
           select: {
             id: true,
             username: true,
-            profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
           },
         },
         media: { include: { file: true } },

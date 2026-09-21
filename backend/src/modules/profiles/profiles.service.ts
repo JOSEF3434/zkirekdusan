@@ -88,12 +88,18 @@ export class ProfilesService {
     return this.getMyProfile(userId);
   }
 
-  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<ProfileResponseDto> {
+  async uploadAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<ProfileResponseDto> {
     await this.uploadsService.uploadUserAvatar(userId, file);
     return this.getMyProfile(userId);
   }
 
-  async uploadCover(userId: string, file: Express.Multer.File): Promise<ProfileResponseDto> {
+  async uploadCover(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<ProfileResponseDto> {
     await this.uploadsService.uploadUserCover(userId, file);
     return this.getMyProfile(userId);
   }

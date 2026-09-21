@@ -67,7 +67,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.moderation')))),
+      appBar: AppBar(title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.admin.moderation')))),
       body: _buildBody(state, theme),
     );
   }
@@ -89,7 +89,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
             ElevatedButton(
               onPressed: () =>
                   ref.read(adminModerationProvider.notifier).refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -163,7 +163,7 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> {
             trailing: report.status == 'PENDING'
                 ? FilledButton.tonal(
                     onPressed: () => _handleResolve(report),
-                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.actions.restore'))),
+                    child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.actions.restore'))),
                   )
                 : null,
           );

@@ -542,7 +542,7 @@ export class ConversationsRepository {
           // Re-fetch with member included
           const updated = await this.findById(conv.id);
           if (updated) {
-            conv = updated as any;
+            conv = updated;
           }
         }
       }
@@ -554,4 +554,3 @@ export class ConversationsRepository {
     }
   }
 }
-

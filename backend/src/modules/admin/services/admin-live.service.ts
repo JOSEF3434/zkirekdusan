@@ -174,7 +174,10 @@ export class AdminLiveService {
     return { success: true, message: 'Stream deleted successfully' };
   }
 
-  async listStreamChat(streamId: string, query: { page?: number; limit?: number }) {
+  async listStreamChat(
+    streamId: string,
+    query: { page?: number; limit?: number },
+  ) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 50));
     const skip = (page - 1) * limit;
@@ -185,7 +188,14 @@ export class AdminLiveService {
     });
 
     if (!stream || !stream.chatRoom) {
-      return { items: [], total: 0, page, limit, totalPages: 0, hasNext: false };
+      return {
+        items: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasNext: false,
+      };
     }
 
     const [items, total] = await Promise.all([
@@ -225,7 +235,9 @@ export class AdminLiveService {
   }
 
   async deleteChatMessage(messageId: string, actorId: string, reason?: string) {
-    const msg = await this.prisma.streamChatMessage.findUnique({ where: { id: messageId } });
+    const msg = await this.prisma.streamChatMessage.findUnique({
+      where: { id: messageId },
+    });
     if (!msg) {
       throw new NotFoundException(`Stream chat message ${messageId} not found`);
     }

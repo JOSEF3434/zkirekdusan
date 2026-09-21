@@ -53,8 +53,12 @@ export class UploadsService {
 
     // For video files on Cloudinary, derive the universal direct playback MP4 URL
     let mediaUrl = result.url;
-    if (fileType === FileType.VIDEO && this.storageProvider.providerType === 'CLOUDINARY') {
-      const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+    if (
+      fileType === FileType.VIDEO &&
+      this.storageProvider.providerType === 'CLOUDINARY'
+    ) {
+      const cloudinaryProvider = this
+        .storageProvider as CloudinaryStorageProvider;
       mediaUrl = cloudinaryProvider.getVideoDirectUrl(result.storageKey);
     }
 
@@ -65,7 +69,7 @@ export class UploadsService {
       extension: ext,
       size: file.size,
       fileType,
-      provider: result.provider as FileProvider,
+      provider: result.provider,
       storageKey: result.storageKey,
       url: mediaUrl,
       uploadedById: userId,
@@ -113,7 +117,11 @@ export class UploadsService {
       include: { avatar: true },
     });
 
-    const uploaded = await this.uploadMediaFile(userId, file, `users/${userId}/avatar`);
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `users/${userId}/avatar`,
+    );
 
     // 2. Link to profile
     await this.prisma.profile.upsert({
@@ -123,7 +131,10 @@ export class UploadsService {
     });
 
     // 3. Clean up previous avatar if it exists
-    if (profile?.avatar?.storageKey && profile.avatar.storageKey !== uploaded.id) {
+    if (
+      profile?.avatar?.storageKey &&
+      profile.avatar.storageKey !== uploaded.id
+    ) {
       await this.safeDeleteAsset(profile.avatar.storageKey, profile.avatar.id);
     }
 
@@ -142,7 +153,11 @@ export class UploadsService {
       include: { cover: true },
     });
 
-    const uploaded = await this.uploadMediaFile(userId, file, `users/${userId}/cover`);
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `users/${userId}/cover`,
+    );
 
     await this.prisma.profile.upsert({
       where: { userId },
@@ -150,7 +165,10 @@ export class UploadsService {
       update: { coverFileId: uploaded.id },
     });
 
-    if (profile?.cover?.storageKey && profile.cover.storageKey !== uploaded.id) {
+    if (
+      profile?.cover?.storageKey &&
+      profile.cover.storageKey !== uploaded.id
+    ) {
       await this.safeDeleteAsset(profile.cover.storageKey, profile.cover.id);
     }
 
@@ -203,8 +221,13 @@ export class UploadsService {
     userId: string,
     file: Express.Multer.File,
   ): Promise<{ avatarUrl: string; fileId: string }> {
-    const uploaded = await this.uploadMediaFile(userId, file, `groups/${groupId}/avatar`, groupId);
-    
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `groups/${groupId}/avatar`,
+      groupId,
+    );
+
     // Update group avatarUrl
     await this.prisma.group.update({
       where: { id: groupId },
@@ -222,7 +245,12 @@ export class UploadsService {
     userId: string,
     file: Express.Multer.File,
   ): Promise<{ coverUrl: string; fileId: string }> {
-    const uploaded = await this.uploadMediaFile(userId, file, `groups/${groupId}/cover`, groupId);
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `groups/${groupId}/cover`,
+      groupId,
+    );
 
     await this.prisma.group.update({
       where: { id: groupId },
@@ -246,7 +274,12 @@ export class UploadsService {
     });
     if (!channel) throw new NotFoundException('Channel not found');
 
-    const uploaded = await this.uploadMediaFile(userId, file, `channels/${channelId}/avatar`, channel.groupId);
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `channels/${channelId}/avatar`,
+      channel.groupId,
+    );
 
     await this.prisma.videoChannel.update({
       where: { id: channelId },
@@ -254,7 +287,10 @@ export class UploadsService {
     });
 
     if (channel.avatarFile?.storageKey) {
-      await this.safeDeleteAsset(channel.avatarFile.storageKey, channel.avatarFile.id);
+      await this.safeDeleteAsset(
+        channel.avatarFile.storageKey,
+        channel.avatarFile.id,
+      );
     }
 
     return { avatarUrl: uploaded.url, fileId: uploaded.id };
@@ -274,7 +310,12 @@ export class UploadsService {
     });
     if (!channel) throw new NotFoundException('Channel not found');
 
-    const uploaded = await this.uploadMediaFile(userId, file, `channels/${channelId}/banner`, channel.groupId);
+    const uploaded = await this.uploadMediaFile(
+      userId,
+      file,
+      `channels/${channelId}/banner`,
+      channel.groupId,
+    );
 
     await this.prisma.videoChannel.update({
       where: { id: channelId },
@@ -282,7 +323,10 @@ export class UploadsService {
     });
 
     if (channel.bannerFile?.storageKey) {
-      await this.safeDeleteAsset(channel.bannerFile.storageKey, channel.bannerFile.id);
+      await this.safeDeleteAsset(
+        channel.bannerFile.storageKey,
+        channel.bannerFile.id,
+      );
     }
 
     return { bannerUrl: uploaded.url, fileId: uploaded.id };
@@ -336,7 +380,13 @@ export class UploadsService {
     try {
       if (fileId) {
         // Check if any other entity is actively using this fileId
-        const [postCount, storyCount, reelCount, profileAvatarCount, profileCoverCount] = await Promise.all([
+        const [
+          postCount,
+          storyCount,
+          reelCount,
+          profileAvatarCount,
+          profileCoverCount,
+        ] = await Promise.all([
           this.prisma.postMedia.count({ where: { fileId } }),
           this.prisma.story.count({ where: { fileId, deletedAt: null } }),
           this.prisma.reel.count({ where: { fileId, deletedAt: null } }),
@@ -344,8 +394,17 @@ export class UploadsService {
           this.prisma.profile.count({ where: { coverFileId: fileId } }),
         ]);
 
-        if (postCount + storyCount + reelCount + profileAvatarCount + profileCoverCount > 1) {
-          this.logger.warn(`Storage asset [${storageKey}] is still referenced by other records — skipping remote deletion`);
+        if (
+          postCount +
+            storyCount +
+            reelCount +
+            profileAvatarCount +
+            profileCoverCount >
+          1
+        ) {
+          this.logger.warn(
+            `Storage asset [${storageKey}] is still referenced by other records — skipping remote deletion`,
+          );
           return;
         }
       }
@@ -353,7 +412,9 @@ export class UploadsService {
       await this.storageProvider.delete(storageKey);
       this.logger.log(`Deleted storage asset: ${storageKey}`);
     } catch (err: any) {
-      this.logger.warn(`Could not delete storage asset [${storageKey}]: ${err?.message}`);
+      this.logger.warn(
+        `Could not delete storage asset [${storageKey}]: ${err?.message}`,
+      );
     }
   }
 

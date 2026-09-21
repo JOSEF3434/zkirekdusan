@@ -33,7 +33,9 @@ export class UploadsController {
   @Post('chat')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload chat media attachment (image, video, audio, document)' })
+  @ApiOperation({
+    summary: 'Upload chat media attachment (image, video, audio, document)',
+  })
   @ApiBody({
     schema: {
       type: 'object',

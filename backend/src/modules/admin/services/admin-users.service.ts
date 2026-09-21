@@ -53,7 +53,13 @@ export class AdminUsersService {
     if (role && role !== 'ALL') where.role = { name: role };
 
     const orderBy: any = {};
-    const allowedSortFields = ['createdAt', 'username', 'email', 'status', 'lastLoginAt'];
+    const allowedSortFields = [
+      'createdAt',
+      'username',
+      'email',
+      'status',
+      'lastLoginAt',
+    ];
     const safeSort = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     orderBy[safeSort] = sortDir;
 
@@ -113,20 +119,37 @@ export class AdminUsersService {
       include: {
         role: {
           include: {
-            permissions: { include: { permission: { select: { name: true } } } },
+            permissions: {
+              include: { permission: { select: { name: true } } },
+            },
           },
         },
-        profile: { include: { avatar: { select: { url: true } }, cover: { select: { url: true } } } },
+        profile: {
+          include: {
+            avatar: { select: { url: true } },
+            cover: { select: { url: true } },
+          },
+        },
         groupMemberships: {
           where: { removedAt: null },
-          include: { group: { select: { id: true, name: true, slug: true, status: true } } },
+          include: {
+            group: {
+              select: { id: true, name: true, slug: true, status: true },
+            },
+          },
           take: 20,
         },
         sessions: {
           where: { status: 'ACTIVE' },
           orderBy: { createdAt: 'desc' },
           take: 5,
-          select: { id: true, device: true, ipAddress: true, lastSeenAt: true, createdAt: true },
+          select: {
+            id: true,
+            device: true,
+            ipAddress: true,
+            lastSeenAt: true,
+            createdAt: true,
+          },
         },
         _count: {
           select: {
@@ -235,7 +258,9 @@ export class AdminUsersService {
       targetRoleName === AppRole.SUPER_ADMIN &&
       (actor.role as any).name !== AppRole.SUPER_ADMIN
     ) {
-      throw new ForbiddenException('Only SUPER_ADMIN can assign the SUPER_ADMIN role');
+      throw new ForbiddenException(
+        'Only SUPER_ADMIN can assign the SUPER_ADMIN role',
+      );
     }
 
     // Prevent demoting the last super_admin
@@ -243,8 +268,11 @@ export class AdminUsersService {
       await this.assertNotLastSuperAdmin(userId, 'role assignment');
     }
 
-    const targetRole = await this.prisma.role.findUnique({ where: { name: targetRoleName } });
-    if (!targetRole) throw new NotFoundException(`Role ${targetRoleName} not found`);
+    const targetRole = await this.prisma.role.findUnique({
+      where: { name: targetRoleName },
+    });
+    if (!targetRole)
+      throw new NotFoundException(`Role ${targetRoleName} not found`);
 
     const before = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -270,7 +298,8 @@ export class AdminUsersService {
   }
 
   async deleteUser(actorId: string, userId: string, reason?: string) {
-    if (!reason) throw new BadRequestException('A reason is required to delete a user');
+    if (!reason)
+      throw new BadRequestException('A reason is required to delete a user');
     await this.assertNotLastSuperAdmin(userId, 'delete');
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });

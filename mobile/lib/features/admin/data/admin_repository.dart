@@ -31,7 +31,8 @@ class AdminReportTargetUser {
     return AdminReportTargetUser(
       id: json['id'] as String? ?? '',
       username: json['username'] as String?,
-      displayName: profile?['displayName'] as String? ?? json['username'] as String?,
+      displayName:
+          profile?['displayName'] as String? ?? json['username'] as String?,
       avatarUrl: profile?['avatarUrl'] as String?,
       status: json['status'] as String? ?? 'ACTIVE',
     );
@@ -78,11 +79,15 @@ class AdminReportItemDto {
       id: json['id'] as String? ?? '',
       reporterId: json['reporterId'] as String? ?? '',
       reporterUsername: reporter?['username'] as String?,
-      reporterDisplayName: reporterProfile?['displayName'] as String? ?? reporter?['username'] as String?,
+      reporterDisplayName:
+          reporterProfile?['displayName'] as String? ??
+          reporter?['username'] as String?,
       targetType: json['targetType'] as String? ?? 'USER',
       targetId: json['targetId'] as String? ?? '',
       targetUserId: json['targetUserId'] as String?,
-      targetUser: targetUserJson != null ? AdminReportTargetUser.fromJson(targetUserJson) : null,
+      targetUser: targetUserJson != null
+          ? AdminReportTargetUser.fromJson(targetUserJson)
+          : null,
       reason: json['reason'] as String? ?? 'OTHER',
       comment: json['comment'] as String?,
       status: json['status'] as String? ?? 'PENDING',
@@ -125,10 +130,14 @@ class AdminUserItemDto {
       id: json['id'] as String? ?? '',
       username: json['username'] as String?,
       email: json['email'] as String?,
-      displayName: profile?['displayName'] as String? ?? json['username'] as String?,
+      displayName:
+          profile?['displayName'] as String? ?? json['username'] as String?,
       avatarUrl: avatar?['url'] as String?,
       status: json['status'] as String? ?? 'ACTIVE',
-      role: roleObj?['name'] as String? ?? (roleRaw is String ? roleRaw : null) ?? 'USER',
+      role:
+          roleObj?['name'] as String? ??
+          (roleRaw is String ? roleRaw : null) ??
+          'USER',
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -312,7 +321,11 @@ class AdminRepository {
     return parseEnvelope(res.data);
   }
 
-  Future<bool> updateUserStatus(String id, String status, {String? reason}) async {
+  Future<bool> updateUserStatus(
+    String id,
+    String status, {
+    String? reason,
+  }) async {
     try {
       final res = await _dio.patch(
         '/admin/users/$id/status',
@@ -324,7 +337,11 @@ class AdminRepository {
     }
   }
 
-  Future<bool> assignUserRole(String id, String roleName, {String? reason}) async {
+  Future<bool> assignUserRole(
+    String id,
+    String roleName, {
+    String? reason,
+  }) async {
     try {
       final res = await _dio.post(
         '/admin/users/$id/role',
@@ -450,7 +467,9 @@ class AdminRepository {
       final meta = safeMap(parsed['meta']) ?? {};
       final items = list
           .whereType<Map>()
-          .map((e) => AdminChannelItemDto.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => AdminChannelItemDto.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList();
       return {
         'items': items,
@@ -513,7 +532,10 @@ class AdminRepository {
 
   Future<bool> suspendGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/groups/$groupId/suspend', data: {'reason': ?reason});
+      final res = await _dio.post(
+        '/admin/groups/$groupId/suspend',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -522,7 +544,10 @@ class AdminRepository {
 
   Future<bool> restoreGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/groups/$groupId/restore', data: {'reason': ?reason});
+      final res = await _dio.post(
+        '/admin/groups/$groupId/restore',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -531,7 +556,10 @@ class AdminRepository {
 
   Future<bool> deleteGroup(String groupId, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/groups/$groupId', data: {'reason': ?reason});
+      final res = await _dio.delete(
+        '/admin/groups/$groupId',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -561,7 +589,9 @@ class AdminRepository {
       if (list.isNotEmpty) {
         return list
             .whereType<Map>()
-            .map((e) => AdminReportItemDto.fromJson(Map<String, dynamic>.from(e)))
+            .map(
+              (e) => AdminReportItemDto.fromJson(Map<String, dynamic>.from(e)),
+            )
             .toList();
       }
       return _getDemoReports();
@@ -570,7 +600,11 @@ class AdminRepository {
     }
   }
 
-  Future<bool> performReportAction(String reportId, String action, {String? note}) async {
+  Future<bool> performReportAction(
+    String reportId,
+    String action, {
+    String? note,
+  }) async {
     try {
       final res = await _dio.post(
         '/admin/reports/$reportId/action',
@@ -586,7 +620,12 @@ class AdminRepository {
   // Content Moderation (Posts, Videos)
   // ─────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getPosts({int page = 1, int limit = 20, String? search, String? status}) async {
+  Future<Map<String, dynamic>> getPosts({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? status,
+  }) async {
     try {
       final res = await _dio.get(
         '/admin/content/posts',
@@ -615,14 +654,22 @@ class AdminRepository {
 
   Future<bool> deletePost(String id, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/content/posts/$id', data: {'reason': ?reason});
+      final res = await _dio.delete(
+        '/admin/content/posts/$id',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;
     }
   }
 
-  Future<Map<String, dynamic>> getVideos({int page = 1, int limit = 20, String? search, String? status}) async {
+  Future<Map<String, dynamic>> getVideos({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? status,
+  }) async {
     try {
       final res = await _dio.get(
         '/admin/content/videos',
@@ -651,7 +698,10 @@ class AdminRepository {
 
   Future<bool> deleteVideo(String id, {String? reason}) async {
     try {
-      final res = await _dio.delete('/admin/content/videos/$id', data: {'reason': ?reason});
+      final res = await _dio.delete(
+        '/admin/content/videos/$id',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -662,7 +712,12 @@ class AdminRepository {
   // Live Streams
   // ─────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getLiveStreams({int page = 1, int limit = 20, String? search, String? status}) async {
+  Future<Map<String, dynamic>> getLiveStreams({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? status,
+  }) async {
     try {
       final res = await _dio.get(
         '/admin/live',
@@ -691,7 +746,10 @@ class AdminRepository {
 
   Future<bool> terminateLiveStream(String id, {String? reason}) async {
     try {
-      final res = await _dio.post('/admin/live/$id/terminate', data: {'reason': ?reason});
+      final res = await _dio.post(
+        '/admin/live/$id/terminate',
+        data: {'reason': ?reason},
+      );
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (_) {
       return false;
@@ -777,7 +835,10 @@ class AdminRepository {
     }
   }
 
-  Future<bool> purgeConversation(String conversationId, {String? reason}) async {
+  Future<bool> purgeConversation(
+    String conversationId, {
+    String? reason,
+  }) async {
     try {
       final res = await _dio.delete(
         '/admin/chat/conversations/$conversationId/purge',
@@ -798,8 +859,42 @@ class AdminRepository {
       final res = await _dio.get('/admin/storage/stats');
       return parseEnvelope(res.data);
     } catch (_) {
-      return {'totalFiles': 0, 'totalSizeBytes': 0, 'byType': [], 'byProvider': []};
+      return {
+        'totalFiles': 0,
+        'totalSizeBytes': 0,
+        'byType': [],
+        'byProvider': [],
+      };
     }
+  }
+
+  Future<Map<String, dynamic>> getStorageFiles({
+    int page = 1,
+    int limit = 20,
+    String? search,
+    String? fileType,
+    String? provider,
+  }) async {
+    final response = await _dio.get(
+      '/admin/storage/files',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (fileType != null && fileType != 'ALL') 'fileType': fileType,
+        if (provider != null && provider != 'ALL') 'provider': provider,
+      },
+    );
+    return parseEnvelope(response.data);
+  }
+
+  Future<void> deleteStorageFile(String id, {String? reason}) async {
+    await _dio.delete(
+      '/admin/storage/files/$id',
+      data: {
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -817,7 +912,8 @@ class AdminRepository {
         data: {
           'title': title,
           'body': body,
-          if (targetRole != null && targetRole != 'ALL') 'targetRole': targetRole,
+          if (targetRole != null && targetRole != 'ALL')
+            'targetRole': targetRole,
         },
       );
       return res.statusCode == 200 || res.statusCode == 201;
@@ -853,7 +949,9 @@ class AdminRepository {
       final meta = safeMap(parsed['meta']) ?? {};
       final items = list
           .whereType<Map>()
-          .map((e) => AdminAuditLogItemDto.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => AdminAuditLogItemDto.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList();
       return {
         'items': items,
@@ -864,7 +962,12 @@ class AdminRepository {
         'hasNext': meta['hasNext'] ?? false,
       };
     } catch (_) {}
-    return {'items': <AdminAuditLogItemDto>[], 'total': 0, 'totalPages': 0, 'hasNext': false};
+    return {
+      'items': <AdminAuditLogItemDto>[],
+      'total': 0,
+      'totalPages': 0,
+      'hasNext': false,
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -885,8 +988,9 @@ class AdminRepository {
         final permsRaw = item['permissions'];
         if (roleName == null) continue;
         if (permsRaw is Map) {
-          result[roleName] = permsRaw
-              .map((k, v) => MapEntry(k.toString(), v == true));
+          result[roleName] = permsRaw.map(
+            (k, v) => MapEntry(k.toString(), v == true),
+          );
         } else if (permsRaw is List) {
           // Some backends return permissions as a list of granted keys
           result[roleName] = {for (final k in permsRaw) k.toString(): true};
@@ -931,7 +1035,8 @@ class AdminRepository {
           status: 'ACTIVE',
         ),
         reason: 'SPAM',
-        comment: 'This user is sending unsolicited crypto scam messages in group chats.',
+        comment:
+            'This user is sending unsolicited crypto scam messages in group chats.',
         status: 'PENDING',
         createdAt: DateTime.now().subtract(const Duration(minutes: 25)),
       ),
@@ -950,7 +1055,8 @@ class AdminRepository {
           status: 'ACTIVE',
         ),
         reason: 'IMPERSONATION',
-        comment: 'Copying my profile picture and sending fake donation links to my followers.',
+        comment:
+            'Copying my profile picture and sending fake donation links to my followers.',
         status: 'PENDING',
         createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       ),

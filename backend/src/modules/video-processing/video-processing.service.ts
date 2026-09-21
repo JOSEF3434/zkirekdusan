@@ -74,7 +74,8 @@ export class VideoProcessingService {
       `[Cloudinary] Processing video [${videoId}] with public_id: ${storageKey}`,
     );
 
-    const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+    const cloudinaryProvider = this
+      .storageProvider as CloudinaryStorageProvider;
 
     try {
       await this.prisma.video.update({
@@ -105,8 +106,18 @@ export class VideoProcessingService {
         { res: VideoResolution.R_240P, height: 240, width: 426, bitrate: 400 },
         { res: VideoResolution.R_360P, height: 360, width: 640, bitrate: 800 },
         { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200 },
-        { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500 },
-        { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000 },
+        {
+          res: VideoResolution.R_720P,
+          height: 720,
+          width: 1280,
+          bitrate: 2500,
+        },
+        {
+          res: VideoResolution.R_1080P,
+          height: 1080,
+          width: 1920,
+          bitrate: 5000,
+        },
       ];
 
       // Upsert rendition records pointing to Cloudinary on-demand URLs
@@ -190,7 +201,9 @@ export class VideoProcessingService {
           );
         }
       } catch (fallbackErr) {
-        this.logger.error(`Failed to set fallback READY status: ${fallbackErr}`);
+        this.logger.error(
+          `Failed to set fallback READY status: ${fallbackErr}`,
+        );
       }
     }
   }
@@ -199,7 +212,10 @@ export class VideoProcessingService {
    * Local/FFmpeg video processing pipeline.
    * Only used when STORAGE_PROVIDER is LOCAL or MINIO.
    */
-  private async _processLocalVideo(data: TranscodeJobData, video: any): Promise<void> {
+  private async _processLocalVideo(
+    data: TranscodeJobData,
+    video: any,
+  ): Promise<void> {
     const { videoId, sourceFilePath } = data;
 
     await this.prisma.video.update({
@@ -232,23 +248,33 @@ export class VideoProcessingService {
       const outputFolder = path.join(this.uploadsDir, 'videos', videoId);
       await fs.mkdir(outputFolder, { recursive: true });
 
-      const thumbnails = await this.generateThumbnailSprite(absoluteSourcePath, outputFolder, videoId);
+      const thumbnails = await this.generateThumbnailSprite(
+        absoluteSourcePath,
+        outputFolder,
+        videoId,
+      );
       const thumbnailUrlPaths: string[] = [];
       for (const thumb of thumbnails) {
         let thumbUrl = '';
         if (this.storageProvider.constructor.name !== 'LocalStorageProvider') {
           const buffer = await fs.readFile(thumb);
-          const res = await this.storageProvider.upload({
-            buffer,
-            originalname: path.basename(thumb),
-            mimetype: 'image/jpeg',
-            size: buffer.length,
-          }, `videos/${videoId}`);
+          const res = await this.storageProvider.upload(
+            {
+              buffer,
+              originalname: path.basename(thumb),
+              mimetype: 'image/jpeg',
+              size: buffer.length,
+            },
+            `videos/${videoId}`,
+          );
           thumbUrl = res.url;
           await fs.unlink(thumb).catch(() => {});
         } else {
-          const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
-          const relThumbPath = `videos/${videoId}/${path.basename(thumb)}`.replace(/\\/g, '/');
+          const appUrl =
+            this.configService.get<string>('APP_URL') ??
+            'http://localhost:3000';
+          const relThumbPath =
+            `videos/${videoId}/${path.basename(thumb)}`.replace(/\\/g, '/');
           thumbUrl = `${appUrl}/uploads/${relThumbPath}`;
         }
         thumbnailUrlPaths.push(thumbUrl);
@@ -262,12 +288,48 @@ export class VideoProcessingService {
         bitrate: number;
         audioBitrate: number;
       }[] = [
-        { res: VideoResolution.R_240P, height: 240, width: 426, bitrate: 400, audioBitrate: 64 },
-        { res: VideoResolution.R_360P, height: 360, width: 640, bitrate: 800, audioBitrate: 96 },
-        { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200, audioBitrate: 128 },
-        { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500, audioBitrate: 128 },
-        { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000, audioBitrate: 192 },
-        { res: VideoResolution.R_4K, height: 2160, width: 3840, bitrate: 15000, audioBitrate: 192 },
+        {
+          res: VideoResolution.R_240P,
+          height: 240,
+          width: 426,
+          bitrate: 400,
+          audioBitrate: 64,
+        },
+        {
+          res: VideoResolution.R_360P,
+          height: 360,
+          width: 640,
+          bitrate: 800,
+          audioBitrate: 96,
+        },
+        {
+          res: VideoResolution.R_480P,
+          height: 480,
+          width: 854,
+          bitrate: 1200,
+          audioBitrate: 128,
+        },
+        {
+          res: VideoResolution.R_720P,
+          height: 720,
+          width: 1280,
+          bitrate: 2500,
+          audioBitrate: 128,
+        },
+        {
+          res: VideoResolution.R_1080P,
+          height: 1080,
+          width: 1920,
+          bitrate: 5000,
+          audioBitrate: 192,
+        },
+        {
+          res: VideoResolution.R_4K,
+          height: 2160,
+          width: 3840,
+          bitrate: 15000,
+          audioBitrate: 192,
+        },
       ].filter((t) => t.height <= videoHeight || t.height === 240);
 
       const hlsMasterPlaylistPath = path.join(outputFolder, 'master.m3u8');
@@ -275,8 +337,13 @@ export class VideoProcessingService {
         const resFileName = `${target.height}p.m3u8`;
         const resPath = path.join(outputFolder, resFileName);
         await this.transcodeToHLS(
-          absoluteSourcePath, resPath, target.width, target.height,
-          target.bitrate, target.audioBitrate, fps,
+          absoluteSourcePath,
+          resPath,
+          target.width,
+          target.height,
+          target.bitrate,
+          target.audioBitrate,
+          fps,
         );
       }
 
@@ -292,17 +359,29 @@ export class VideoProcessingService {
           if (file.endsWith('.m3u8') || file.endsWith('.ts')) {
             const filePath = path.join(outputFolder, file);
             const buffer = await fs.readFile(filePath);
-            const mimeType = file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/MP2T';
-            const res = await this.storageProvider.upload({
-              buffer, originalname: file, mimetype: mimeType, size: buffer.length,
-            }, `videos/${videoId}`);
+            const mimeType = file.endsWith('.m3u8')
+              ? 'application/vnd.apple.mpegurl'
+              : 'video/MP2T';
+            const res = await this.storageProvider.upload(
+              {
+                buffer,
+                originalname: file,
+                mimetype: mimeType,
+                size: buffer.length,
+              },
+              `videos/${videoId}`,
+            );
             if (file === 'master.m3u8') masterUrl = res.url;
             await fs.unlink(filePath).catch(() => {});
           }
         }
       } else {
-        const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
-        const masterRelPath = `videos/${videoId}/master.m3u8`.replace(/\\/g, '/');
+        const appUrl =
+          this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
+        const masterRelPath = `videos/${videoId}/master.m3u8`.replace(
+          /\\/g,
+          '/',
+        );
         masterUrl = `${appUrl}/uploads/${masterRelPath}`;
       }
 
@@ -313,17 +392,27 @@ export class VideoProcessingService {
           const urlBase = masterUrl.substring(0, masterUrl.lastIndexOf('/'));
           renditionUrl = `${urlBase}/${resFileName}`;
         } else {
-          const appUrl = this.configService.get<string>('APP_URL') ?? 'http://localhost:3000';
-          const relResPath = `videos/${videoId}/${resFileName}`.replace(/\\/g, '/');
+          const appUrl =
+            this.configService.get<string>('APP_URL') ??
+            'http://localhost:3000';
+          const relResPath = `videos/${videoId}/${resFileName}`.replace(
+            /\\/g,
+            '/',
+          );
           renditionUrl = `${appUrl}/uploads/${relResPath}`;
         }
 
         await this.prisma.videoRendition.upsert({
           where: { videoId_resolution: { videoId, resolution: target.res } },
           create: {
-            videoId, resolution: target.res, height: target.height,
-            width: target.width, bitrate: target.bitrate, fileSize: BigInt(0),
-            storageKey: `videos/${videoId}/${resFileName}`, url: renditionUrl,
+            videoId,
+            resolution: target.res,
+            height: target.height,
+            width: target.width,
+            bitrate: target.bitrate,
+            fileSize: BigInt(0),
+            storageKey: `videos/${videoId}/${resFileName}`,
+            url: renditionUrl,
             provider: isRemoteStorage ? FileProvider.S3 : FileProvider.LOCAL,
             isReady: true,
           },
@@ -334,15 +423,25 @@ export class VideoProcessingService {
       await this.prisma.video.update({
         where: { id: videoId },
         data: {
-          status: VideoStatus.READY, duration, width: videoWidth, height: videoHeight,
-          bitrate: meta.bitrate || 2000, thumbnailUrl, hlsUrl: masterUrl,
+          status: VideoStatus.READY,
+          duration,
+          width: videoWidth,
+          height: videoHeight,
+          bitrate: meta.bitrate || 2000,
+          thumbnailUrl,
+          hlsUrl: masterUrl,
           publishedAt: new Date(),
         },
       });
 
-      this.logger.log(`Video [${videoId}] processed successfully. HLS URL: ${masterUrl}`);
+      this.logger.log(
+        `Video [${videoId}] processed successfully. HLS URL: ${masterUrl}`,
+      );
     } catch (err: any) {
-      this.logger.error(`Error processing video [${videoId}]: ${err.message}`, err.stack);
+      this.logger.error(
+        `Error processing video [${videoId}]: ${err.message}`,
+        err.stack,
+      );
       throw err;
     }
   }
@@ -357,9 +456,17 @@ export class VideoProcessingService {
     return new Promise((resolve) => {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err || !metadata) {
-          return resolve({ duration: 0, width: 1280, height: 720, bitrate: 2000, fps: 30 });
+          return resolve({
+            duration: 0,
+            width: 1280,
+            height: 720,
+            bitrate: 2000,
+            fps: 30,
+          });
         }
-        const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
+        const videoStream = metadata.streams.find(
+          (s) => s.codec_type === 'video',
+        );
         let fps = 30;
         if (videoStream?.r_frame_rate) {
           const parts = videoStream.r_frame_rate.split('/');
@@ -371,7 +478,9 @@ export class VideoProcessingService {
           duration: metadata.format.duration || 0,
           width: videoStream?.width || 1280,
           height: videoStream?.height || 720,
-          bitrate: metadata.format.bit_rate ? Math.round(metadata.format.bit_rate / 1000) : 2000,
+          bitrate: metadata.format.bit_rate
+            ? Math.round(metadata.format.bit_rate / 1000)
+            : 2000,
           fps: isNaN(fps) ? 30 : fps,
         });
       });
@@ -384,11 +493,23 @@ export class VideoProcessingService {
     videoId: string,
   ): Promise<string[]> {
     return new Promise((resolve, _reject) => {
-      const timestamps = ['10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%'];
+      const timestamps = [
+        '10%',
+        '20%',
+        '30%',
+        '40%',
+        '50%',
+        '60%',
+        '70%',
+        '80%',
+        '90%',
+      ];
       ffmpeg(sourcePath)
         .screenshots({
-          timestamps, filename: `thumb_${videoId}_%i.jpg`,
-          folder: outputFolder, size: '640x360',
+          timestamps,
+          filename: `thumb_${videoId}_%i.jpg`,
+          folder: outputFolder,
+          size: '640x360',
         })
         .on('end', async () => {
           const files: string[] = [];
@@ -406,8 +527,13 @@ export class VideoProcessingService {
   }
 
   private transcodeToHLS(
-    sourcePath: string, outputPath: string, width: number, height: number,
-    bitrateKbps: number, audioBitrateKbps: number, fps: number,
+    sourcePath: string,
+    outputPath: string,
+    width: number,
+    height: number,
+    bitrateKbps: number,
+    audioBitrateKbps: number,
+    fps: number,
   ): Promise<void> {
     const gop = fps * 2;
     return new Promise((resolve, reject) => {
@@ -417,16 +543,24 @@ export class VideoProcessingService {
           `-b:v ${bitrateKbps}k`,
           '-maxrate ' + Math.round(bitrateKbps * 1.07) + 'k',
           '-bufsize ' + Math.round(bitrateKbps * 1.5) + 'k',
-          '-c:v libx264', '-preset faster', '-crf 23',
-          `-g ${gop}`, `-keyint_min ${gop}`, '-sc_threshold 0',
-          '-c:a aac', `-b:a ${audioBitrateKbps}k`,
-          '-hls_time 6', '-hls_playlist_type vod',
+          '-c:v libx264',
+          '-preset faster',
+          '-crf 23',
+          `-g ${gop}`,
+          `-keyint_min ${gop}`,
+          '-sc_threshold 0',
+          '-c:a aac',
+          `-b:a ${audioBitrateKbps}k`,
+          '-hls_time 6',
+          '-hls_playlist_type vod',
           `-hls_segment_filename ${path.dirname(outputPath)}/${height}p_%06d.ts`,
         ])
         .output(outputPath)
         .on('end', () => resolve())
         .on('error', (err) => {
-          this.logger.warn(`HLS Transcoding for ${height}p failed: ${err.message}`);
+          this.logger.warn(
+            `HLS Transcoding for ${height}p failed: ${err.message}`,
+          );
           reject(err);
         })
         .run();
@@ -435,7 +569,12 @@ export class VideoProcessingService {
 
   private async buildMasterPlaylist(
     masterPath: string,
-    targets: { height: number; width: number; bitrate: number; audioBitrate: number }[],
+    targets: {
+      height: number;
+      width: number;
+      bitrate: number;
+      audioBitrate: number;
+    }[],
     fps: number,
   ): Promise<void> {
     let content = '#EXTM3U\n#EXT-X-VERSION:6\n';

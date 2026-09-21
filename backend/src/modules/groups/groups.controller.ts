@@ -29,7 +29,10 @@ import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto.js';
-import { GroupResponseDto, GroupContextResponseDto } from './dto/group-response.dto.js';
+import {
+  GroupResponseDto,
+  GroupContextResponseDto,
+} from './dto/group-response.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -38,7 +41,6 @@ import { GroupMembershipGuard } from '../../common/guards/group-membership.guard
 import { AppRole } from '../../common/constants/roles.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
-
 
 @ApiTags('Groups')
 @ApiBearerAuth()
@@ -61,7 +63,9 @@ export class GroupsController {
   }
 
   @Get('my-groups')
-  @ApiOperation({ summary: "List authenticated user's own groups (all statuses)" })
+  @ApiOperation({
+    summary: "List authenticated user's own groups (all statuses)",
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   async listMyGroups(
@@ -135,7 +139,9 @@ export class GroupsController {
   @Patch(':groupId')
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.GROUP_ADMIN)
-  @ApiOperation({ summary: 'Update group settings (GROUP_ADMIN or Creator only)' })
+  @ApiOperation({
+    summary: 'Update group settings (GROUP_ADMIN or Creator only)',
+  })
   async updateGroup(
     @Param('groupId') groupId: string,
     @CurrentUser() actor: JwtPayload,
@@ -152,7 +158,9 @@ export class GroupsController {
   @Delete(':groupId')
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.GROUP_ADMIN)
-  @ApiOperation({ summary: 'Delete group (GROUP_ADMIN, Creator, or Admin only)' })
+  @ApiOperation({
+    summary: 'Delete group (GROUP_ADMIN, Creator, or Admin only)',
+  })
   async deleteGroup(
     @Param('groupId') groupId: string,
     @CurrentUser() actor: JwtPayload,
@@ -166,9 +174,7 @@ export class GroupsController {
 
   @Post(':groupId/repair')
   @ApiOperation({ summary: 'Repair group creator membership and channels' })
-  async repairGroup(
-    @Param('groupId') groupId: string,
-  ) {
+  async repairGroup(@Param('groupId') groupId: string) {
     return this.groupsService.repairGroup(groupId);
   }
 
@@ -251,7 +257,8 @@ export class GroupsController {
 
   @Patch(':groupId/members/:userId/role')
   @ApiOperation({
-    summary: 'Update a member role (GROUP_ADMIN only). Prevents privilege escalation.',
+    summary:
+      'Update a member role (GROUP_ADMIN only). Prevents privilege escalation.',
   })
   async updateMemberRole(
     @Param('groupId') groupId: string,
@@ -325,4 +332,3 @@ export class GroupsController {
     return this.groupsService.uploadCover(groupId, userId, file);
   }
 }
-

@@ -64,7 +64,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
               onPressed: () => ref
                   .read(channelVideosProvider(channel.id).notifier)
                   .refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -103,7 +103,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
                     FilledButton.icon(
                       onPressed: () => _startUpload(context, ref, channel),
                       icon: const Icon(Icons.upload),
-                      label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.upload_tooltip'))),
+                      label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('creator.upload_tooltip'))),
                     ),
                   ],
                 ],
@@ -159,7 +159,7 @@ class GroupVideoFeedTab extends ConsumerWidget {
               heroTag: null,
               onPressed: () => _startUpload(context, ref, channel),
               icon: const Icon(Icons.add),
-              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.upload'))),
+              label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.upload'))),
             )
           : null,
     );

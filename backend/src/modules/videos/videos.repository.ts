@@ -470,7 +470,12 @@ export class VideosRepository {
       }),
       this.prisma.videoBookmark.count({ where: { userId } }),
     ]);
-    return { data: data.map((b) => b.video).filter(Boolean), total, page, limit };
+    return {
+      data: data.map((b) => b.video).filter(Boolean),
+      total,
+      page,
+      limit,
+    };
   }
 
   async getTrending(limit = 20) {
@@ -514,7 +519,6 @@ export class VideosRepository {
 
     return { data, total, nextCursor, hasMore, page, limit };
   }
-
 
   async getRecommended(userId: string, videoId: string, limit = 10) {
     // Get the video's categories and tags for recommendation

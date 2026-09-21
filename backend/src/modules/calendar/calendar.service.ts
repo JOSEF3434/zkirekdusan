@@ -9,7 +9,9 @@ import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
-function validateReminderRule(dto: CreateCalendarNoteDto | UpdateCalendarNoteDto) {
+function validateReminderRule(
+  dto: CreateCalendarNoteDto | UpdateCalendarNoteDto,
+) {
   const repeat = dto.reminderRepeat;
   if (repeat === undefined || repeat === 'NONE') return;
   if (dto.reminderHour === undefined || dto.reminderMinute === undefined) {
@@ -34,7 +36,7 @@ export class CalendarService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
   async create(userId: string, dto: CreateCalendarNoteDto) {
     validateReminderRule(dto);
@@ -201,8 +203,10 @@ export class CalendarService {
     if (dto.reminderEthiopianDay !== undefined) {
       updateData.reminderEthiopianDay = dto.reminderEthiopianDay;
     }
-    if (dto.reminderHour !== undefined) updateData.reminderHour = dto.reminderHour;
-    if (dto.reminderMinute !== undefined) updateData.reminderMinute = dto.reminderMinute;
+    if (dto.reminderHour !== undefined)
+      updateData.reminderHour = dto.reminderHour;
+    if (dto.reminderMinute !== undefined)
+      updateData.reminderMinute = dto.reminderMinute;
     if (dto.reminderTimezone !== undefined) {
       updateData.reminderTimezone = dto.reminderTimezone;
     }

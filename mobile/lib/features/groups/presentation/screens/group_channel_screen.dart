@@ -969,17 +969,17 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.leave'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.leave'))),
         content: Text('Are you sure you want to leave "${group.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.leave_action'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.leave_action'))),
           ),
         ],
       ),
@@ -1001,7 +1001,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.channel'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.channel'))),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -1035,7 +1035,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                     .read(groupDetailProvider(widget.groupId).notifier)
                     .refresh(),
                 icon: const Icon(Icons.refresh),
-                label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
               ),
             ],
           ),

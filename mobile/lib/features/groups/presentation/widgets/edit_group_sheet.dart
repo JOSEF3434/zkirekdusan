@@ -287,7 +287,7 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                       onPressed: _isLoading
                           ? null
                           : () => Navigator.of(context).pop(),
-                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+                      child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -303,7 +303,7 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                                 color: Colors.white,
                               ),
                             )
-                          : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.settings.save'))),
+                          : Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.settings.save'))),
                     ),
                   ),
                 ],

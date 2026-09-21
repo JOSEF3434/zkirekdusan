@@ -73,7 +73,9 @@ const MESSAGE_INCLUDE = {
         select: {
           id: true,
           username: true,
-          profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+          profile: {
+            select: { displayName: true, avatar: { select: { url: true } } },
+          },
         },
       },
     },
@@ -139,17 +141,19 @@ export class MessagesRepository {
               create: {
                 originalMessageId: dto.forwardFromMessageId,
                 originalSenderId: senderId,
-                originalConversationId: dto.forwardFromConversationId ?? conversationId,
+                originalConversationId:
+                  dto.forwardFromConversationId ?? conversationId,
               },
             }
           : undefined,
-        mentions: dto.mentionedUserIds && dto.mentionedUserIds.length > 0
-          ? {
-              create: dto.mentionedUserIds.map((userId) => ({
-                mentionedUserId: userId,
-              })),
-            }
-          : undefined,
+        mentions:
+          dto.mentionedUserIds && dto.mentionedUserIds.length > 0
+            ? {
+                create: dto.mentionedUserIds.map((userId) => ({
+                  mentionedUserId: userId,
+                })),
+              }
+            : undefined,
       },
       include: MESSAGE_INCLUDE,
     });
@@ -255,7 +259,11 @@ export class MessagesRepository {
     });
   }
 
-  async pinMessage(conversationId: string, messageId: string, pinnedById: string) {
+  async pinMessage(
+    conversationId: string,
+    messageId: string,
+    pinnedById: string,
+  ) {
     return this.prisma.$transaction([
       this.prisma.pinnedMessage.upsert({
         where: { conversationId_messageId: { conversationId, messageId } },
@@ -324,7 +332,10 @@ export class MessagesRepository {
     });
   }
 
-  async updateConversationLastMessage(conversationId: string, messageId: string) {
+  async updateConversationLastMessage(
+    conversationId: string,
+    messageId: string,
+  ) {
     return this.prisma.conversation.update({
       where: { id: conversationId },
       data: { lastMessageId: messageId, lastMessageAt: new Date() },
@@ -338,21 +349,32 @@ export class MessagesRepository {
     });
   }
 
-  async incrementUnreadCountForOthers(conversationId: string, excludeUserId: string) {
+  async incrementUnreadCountForOthers(
+    conversationId: string,
+    excludeUserId: string,
+  ) {
     return this.prisma.conversationMember.updateMany({
       where: { conversationId, userId: { not: excludeUserId } },
       data: { unreadCount: { increment: 1 } },
     });
   }
 
-  async muteConversation(conversationId: string, userId: string, muted: boolean) {
+  async muteConversation(
+    conversationId: string,
+    userId: string,
+    muted: boolean,
+  ) {
     return this.prisma.conversationMember.updateMany({
       where: { conversationId, userId },
       data: { isMuted: muted },
     });
   }
 
-  async pinConversation(conversationId: string, userId: string, pinned: boolean) {
+  async pinConversation(
+    conversationId: string,
+    userId: string,
+    pinned: boolean,
+  ) {
     return this.prisma.conversationMember.updateMany({
       where: { conversationId, userId },
       data: { isPinned: pinned },
@@ -388,11 +410,7 @@ export class MessagesRepository {
     return result._sum.unreadCount ?? 0;
   }
 
-  async getUpdatesSince(
-    conversationId: string,
-    since: Date,
-    limit = 100,
-  ) {
+  async getUpdatesSince(conversationId: string, since: Date, limit = 100) {
     const activeMessages = await this.prisma.message.findMany({
       where: {
         conversationId,

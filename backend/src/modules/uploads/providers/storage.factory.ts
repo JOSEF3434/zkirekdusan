@@ -24,12 +24,16 @@ export const storageProviderFactory = {
 
     // Explicit LOCAL opt-in for isolated offline tests
     if (providerType === 'LOCAL') {
-      logger.log('STORAGE_PROVIDER=LOCAL explicitly configured — using LocalStorageProvider');
+      logger.log(
+        'STORAGE_PROVIDER=LOCAL explicitly configured — using LocalStorageProvider',
+      );
       return localProvider;
     }
 
     if (providerType === 'MINIO') {
-      logger.log('STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider');
+      logger.log(
+        'STORAGE_PROVIDER=MINIO configured — using MinioStorageProvider',
+      );
       return minioProvider;
     }
 
@@ -38,18 +42,22 @@ export const storageProviderFactory = {
     const apiSecret = configService.get<string>('CLOUDINARY_API_SECRET');
 
     if (cloudName && apiKey && apiSecret) {
-      logger.log(`Cloudinary credentials configured (cloud: ${cloudName}) — using CloudinaryStorageProvider`);
+      logger.log(
+        `Cloudinary credentials configured (cloud: ${cloudName}) — using CloudinaryStorageProvider`,
+      );
       return cloudinaryProvider;
     }
 
     const isProduction = configService.get<string>('NODE_ENV') === 'production';
     if (isProduction || providerType === 'CLOUDINARY') {
       throw new Error(
-        'FATAL: STORAGE_PROVIDER=CLOUDINARY is required in production, but CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET is missing from environment variables.'
+        'FATAL: STORAGE_PROVIDER=CLOUDINARY is required in production, but CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, or CLOUDINARY_API_SECRET is missing from environment variables.',
       );
     }
 
-    logger.warn('No Cloudinary credentials found — falling back to LocalStorageProvider (Development only)');
+    logger.warn(
+      'No Cloudinary credentials found — falling back to LocalStorageProvider (Development only)',
+    );
     return localProvider;
   },
   inject: [

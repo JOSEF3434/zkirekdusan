@@ -94,7 +94,8 @@ export class GroupMembershipGuard implements CanActivate {
     }
 
     // If creator is not yet in groupMember table, treat as GROUP_ADMIN
-    const effectiveRole = (membership?.role ?? (isCreator ? GroupRole.GROUP_ADMIN : null)) as GroupRole;
+    const effectiveRole = (membership?.role ??
+      (isCreator ? GroupRole.GROUP_ADMIN : null)) as GroupRole;
 
     // Attach membership to request for downstream use
     request.groupMember = { role: effectiveRole };

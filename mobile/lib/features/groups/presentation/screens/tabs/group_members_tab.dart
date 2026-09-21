@@ -36,7 +36,7 @@ class GroupMembersTab extends ConsumerWidget {
               onPressed: () => ref
                   .read(groupMembersProvider(groupContext.id).notifier)
                   .refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -124,21 +124,21 @@ class GroupMembersTab extends ConsumerWidget {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.remove_member_title'))),
+                    title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.remove_member_title'))),
                     content: Text(
                       'Are you sure you want to remove ${member.displayName ?? member.username ?? "this member"} from the group?',
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+                        child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.red,
                         ),
-                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.remove'))),
+                        child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.remove'))),
                       ),
                     ],
                   ),

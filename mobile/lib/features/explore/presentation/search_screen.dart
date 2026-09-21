@@ -164,7 +164,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   TextButton(
                     onPressed: () =>
                         ref.read(recentSearchesProvider.notifier).clear(),
-                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('search.clear'))),
+                    child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('search.clear'))),
                   ),
                 ],
               ),

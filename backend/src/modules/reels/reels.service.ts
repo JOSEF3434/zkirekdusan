@@ -67,7 +67,10 @@ export class ReelsService {
     }
 
     if (reel.file?.storageKey) {
-      await this.uploadsService.safeDeleteAsset(reel.file.storageKey, reel.fileId);
+      await this.uploadsService.safeDeleteAsset(
+        reel.file.storageKey,
+        reel.fileId,
+      );
     }
 
     await this.reelsRepository.softDelete(reelId);

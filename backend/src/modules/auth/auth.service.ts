@@ -106,7 +106,8 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    let user: Awaited<ReturnType<typeof this.usersService.findByEmail>> | null = null;
+    let user: Awaited<ReturnType<typeof this.usersService.findByEmail>> | null =
+      null;
 
     if (dto.email) {
       user = await this.usersService.findByEmail(dto.email);

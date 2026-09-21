@@ -36,7 +36,8 @@ export class VideoWebController {
       "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
     );
 
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const protocol =
+      req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.get('host') || 'zikrekidusan.onrender.com';
     const fullUrl = `${protocol}://${host}${req.originalUrl}`;
 
@@ -67,23 +68,23 @@ export class VideoWebController {
       if (video) {
         const title = video.title || 'ዝክረ ቅዱሳን ቪዲዮ';
         const description =
-          video.description ||
-          'ዝክረ ቅዱሳን - ኦርቶዶክሳዊ ትምህርቶች፣ መዝሙራት እና ስብከቶች';
+          video.description || 'ዝክረ ቅዱሳን - ኦርቶዶክሳዊ ትምህርቶች፣ መዝሙራት እና ስብከቶች';
         const thumbnailUrl =
           video.thumbnailUrl ||
           video.thumbnailFile?.url ||
           'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=1200&q=80';
-        
+
         let videoUrl = video.hlsUrl || video.sourceFile?.url || '';
         // If it's a Cloudinary video URL, ensure it can be played directly
-        if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/raw/upload/')) {
+        if (
+          videoUrl.includes('cloudinary.com') &&
+          videoUrl.includes('/raw/upload/')
+        ) {
           videoUrl = videoUrl.replace('/raw/upload/', '/video/upload/');
         }
 
         const channelName =
-          video.videoChannel?.name ||
-          video.uploadedBy?.username ||
-          'ዝክረ ቅዱሳን';
+          video.videoChannel?.name || video.uploadedBy?.username || 'ዝክረ ቅዱሳን';
         const channelAvatar =
           video.videoChannel?.avatarFile?.url ||
           video.uploadedBy?.profile?.avatar?.url ||
@@ -135,8 +136,7 @@ export class VideoWebController {
             ? post.content.substring(0, 80) + '...'
             : post.content
           : 'ዝክረ ቅዱሳን መልእክት';
-        const description =
-          post.content || 'ዝክረ ቅዱሳን - ማኅበራዊ እና መንፈሳዊ መድረክ';
+        const description = post.content || 'ዝክረ ቅዱሳን - ማኅበራዊ እና መንፈሳዊ መድረክ';
 
         const firstMedia = post.media?.[0]?.file;
         const isVideoMedia = firstMedia?.mimeType?.startsWith('video/');
@@ -482,8 +482,8 @@ export class VideoWebController {
                ይቅርታ፣ አሳሽዎ ቪዲዮውን መጫወት አልቻለም።
              </video>`
           : data.imageUrl
-          ? `<img src="${data.imageUrl}" alt="${escapedTitle}" class="image-preview" />`
-          : `<img src="${data.thumbnailUrl}" alt="${escapedTitle}" class="image-preview" />`
+            ? `<img src="${data.imageUrl}" alt="${escapedTitle}" class="image-preview" />`
+            : `<img src="${data.thumbnailUrl}" alt="${escapedTitle}" class="image-preview" />`
       }
     </div>
 

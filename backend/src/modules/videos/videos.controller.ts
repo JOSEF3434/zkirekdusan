@@ -158,7 +158,11 @@ export class VideosController {
     );
 
     // Attach the file to the video and queue transcoding
-    return this.videosService.attachSourceFile(videoId, uploadedFile.id, userId);
+    return this.videosService.attachSourceFile(
+      videoId,
+      uploadedFile.id,
+      userId,
+    );
   }
 
   @Post(':videoId/thumbnail')
@@ -191,7 +195,8 @@ export class VideosController {
     if (!video) throw new NotFoundException(`Video ${videoId} not found`);
 
     const groupId = video.videoChannel?.groupId;
-    if (!groupId) throw new BadRequestException('Video has no associated group');
+    if (!groupId)
+      throw new BadRequestException('Video has no associated group');
 
     const uploadedFile = await this.uploadsService.uploadGroupFile(
       groupId,

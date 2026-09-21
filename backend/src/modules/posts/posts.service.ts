@@ -71,7 +71,10 @@ export class PostsService {
     if (post.media && Array.isArray(post.media)) {
       for (const m of post.media) {
         if (m.file?.storageKey) {
-          await this.uploadsService.safeDeleteAsset(m.file.storageKey, m.file.id);
+          await this.uploadsService.safeDeleteAsset(
+            m.file.storageKey,
+            m.file.id,
+          );
         }
       }
     }

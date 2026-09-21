@@ -63,7 +63,7 @@ class CreatorChannelDashboardScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () =>
                   ref.read(channelAnalyticsProvider(args).notifier).refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -125,7 +125,7 @@ class CreatorChannelDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           FilledButton.icon(
             icon: const Icon(Icons.manage_history),
-            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.content'))),
+            label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.content'))),
             onPressed: () =>
                 context.push('/creator/dashboard/channel/$channelId/videos'),
           ),

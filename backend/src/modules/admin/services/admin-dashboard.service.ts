@@ -53,9 +53,17 @@ export class AdminDashboardService {
         banned: bannedUsers,
         inactive: totalUsers - activeUsers - bannedUsers,
       },
-      groups: { total: totalGroups, pending: pendingGroups, active: activeGroups },
+      groups: {
+        total: totalGroups,
+        pending: pendingGroups,
+        active: activeGroups,
+      },
       channels: { total: totalChannels },
-      content: { total: totalVideos + totalPosts, videos: totalVideos, posts: totalPosts },
+      content: {
+        total: totalVideos + totalPosts,
+        videos: totalVideos,
+        posts: totalPosts,
+      },
       reports: { total: totalReports, pending: pendingReports },
       live: { total: totalStreams, activeStreams },
       storage: {

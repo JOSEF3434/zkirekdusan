@@ -9,7 +9,10 @@ export class StoryFeedGroupDto {
   @ApiProperty({ type: [StoryResponseDto] })
   stories!: StoryResponseDto[];
 
-  @ApiProperty({ example: true, description: 'True if there are stories not yet viewed by current user' })
+  @ApiProperty({
+    example: true,
+    description: 'True if there are stories not yet viewed by current user',
+  })
   hasUnseen!: boolean;
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })

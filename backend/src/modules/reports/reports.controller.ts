@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -24,7 +18,9 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Submit a report against a user, group, post, comment or video' })
+  @ApiOperation({
+    summary: 'Submit a report against a user, group, post, comment or video',
+  })
   @ApiResponse({ status: 201, description: 'Report submitted successfully' })
   async createReport(
     @CurrentUser('sub') userId: string,

@@ -78,7 +78,12 @@ export class CloudinaryStorageProvider implements IStorageProvider {
    * proper folder namespacing, and optimized transformations.
    */
   async upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult> {
     if (!this.isConfigured) {
@@ -96,7 +101,8 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     const isImage = file.mimetype.startsWith('image/');
     const isAudio = file.mimetype.startsWith('audio/');
     // In Cloudinary, audio is treated under the 'video' resource type
-    const resourceType: 'image' | 'video' | 'raw' = isVideo || isAudio ? 'video' : isImage ? 'image' : 'raw';
+    const resourceType: 'image' | 'video' | 'raw' =
+      isVideo || isAudio ? 'video' : isImage ? 'image' : 'raw';
 
     return new Promise((resolve, reject) => {
       const uploadOptions: Record<string, any> = {
@@ -108,9 +114,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
 
       if (isVideo) {
         // Video options: eager HLS transcoding & optimized MP4
-        uploadOptions.eager = [
-          { streaming_profile: 'hd', format: 'm3u8' },
-        ];
+        uploadOptions.eager = [{ streaming_profile: 'hd', format: 'm3u8' }];
         uploadOptions.eager_async = true;
         uploadOptions.format = 'mp4';
         uploadOptions.transformation = [
@@ -123,11 +127,23 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       const uploaderMethod = isLarge
         ? cloudinary.uploader.upload_large_stream(
             { ...uploadOptions, chunk_size: 10 * 1024 * 1024 },
-            (error, result) => this.handleUploadResponse(error, result, resourceType, resolve, reject),
+            (error, result) =>
+              this.handleUploadResponse(
+                error,
+                result,
+                resourceType,
+                resolve,
+                reject,
+              ),
           )
-        : cloudinary.uploader.upload_stream(
-            uploadOptions,
-            (error, result) => this.handleUploadResponse(error, result, resourceType, resolve, reject),
+        : cloudinary.uploader.upload_stream(uploadOptions, (error, result) =>
+            this.handleUploadResponse(
+              error,
+              result,
+              resourceType,
+              resolve,
+              reject,
+            ),
           );
 
       const readStream = Readable.from(file.buffer);
@@ -148,11 +164,18 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    const isVideo = mimetype?.startsWith('video/') || ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(ext);
-    const isAudio = mimetype?.startsWith('audio/') || ['.mp3', '.aac', '.wav', '.m4a', '.ogg', '.webm'].includes(ext);
-    const isImage = mimetype?.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext);
+    const isVideo =
+      mimetype?.startsWith('video/') ||
+      ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(ext);
+    const isAudio =
+      mimetype?.startsWith('audio/') ||
+      ['.mp3', '.aac', '.wav', '.m4a', '.ogg', '.webm'].includes(ext);
+    const isImage =
+      mimetype?.startsWith('image/') ||
+      ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext);
 
-    const resourceType: 'image' | 'video' | 'raw' = (isVideo || isAudio) ? 'video' : isImage ? 'image' : 'raw';
+    const resourceType: 'image' | 'video' | 'raw' =
+      isVideo || isAudio ? 'video' : isImage ? 'image' : 'raw';
 
     const uploadOptions: Record<string, any> = {
       folder: subfolder,
@@ -195,7 +218,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       return reject(new Error('Cloudinary upload returned empty result'));
     }
 
-    this.logger.log(`Cloudinary uploaded [${resourceType}]: ${result.public_id} -> ${result.secure_url}`);
+    this.logger.log(
+      `Cloudinary uploaded [${resourceType}]: ${result.public_id} -> ${result.secure_url}`,
+    );
 
     resolve({
       storageKey: result.public_id,
@@ -213,7 +238,10 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   /**
    * Deletes an asset safely from Cloudinary.
    */
-  async delete(storageKey: string, resourceType?: 'image' | 'video' | 'raw'): Promise<void> {
+  async delete(
+    storageKey: string,
+    resourceType?: 'image' | 'video' | 'raw',
+  ): Promise<void> {
     if (!this.isConfigured || !storageKey) return;
 
     const typesToTry: ('video' | 'image' | 'raw')[] = resourceType
@@ -222,13 +250,17 @@ export class CloudinaryStorageProvider implements IStorageProvider {
 
     for (const rt of typesToTry) {
       try {
-        const r = await cloudinary.uploader.destroy(storageKey, { resource_type: rt });
+        const r = await cloudinary.uploader.destroy(storageKey, {
+          resource_type: rt,
+        });
         if (r && r.result !== 'not found') {
           this.logger.log(`Deleted from Cloudinary [${rt}]: ${storageKey}`);
           return;
         }
       } catch (err: any) {
-        this.logger.debug(`Could not delete key '${storageKey}' as ${rt}: ${err?.message}`);
+        this.logger.debug(
+          `Could not delete key '${storageKey}' as ${rt}: ${err?.message}`,
+        );
       }
     }
   }
@@ -318,7 +350,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   /**
    * Extracts the public_id from a Cloudinary secure_url.
    */
-  static extractPublicId(cloudinaryUrl: string | null | undefined): string | null {
+  static extractPublicId(
+    cloudinaryUrl: string | null | undefined,
+  ): string | null {
     if (!cloudinaryUrl) return null;
     try {
       const url = new URL(cloudinaryUrl);
@@ -329,7 +363,10 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       const segments = withoutExt.split('/');
       let startIdx = 0;
       for (let i = 0; i < segments.length - 1; i++) {
-        if (segments[i].startsWith('v') && /^\d+$/.test(segments[i].substring(1))) {
+        if (
+          segments[i].startsWith('v') &&
+          /^\d+$/.test(segments[i].substring(1))
+        ) {
           startIdx = i + 1;
           break;
         } else if (
@@ -382,18 +419,22 @@ export class CloudinaryStorageProvider implements IStorageProvider {
 
     if (!res.ok) {
       const errBody = await res.text();
-      this.logger.error(`Cloudinary createLiveStream failed (${res.status}): ${errBody}`);
+      this.logger.error(
+        `Cloudinary createLiveStream failed (${res.status}): ${errBody}`,
+      );
       throw new Error(`Failed to create Cloudinary live stream: ${errBody}`);
     }
 
-    const json = (await res.json()) as any;
+    const json = await res.json();
     const stream = json.data;
     if (!stream) {
       throw new Error('Cloudinary live stream creation returned empty data');
     }
 
     const hlsOutput = stream.outputs?.find((o: any) => o.type === 'hls');
-    const archiveOutput = stream.outputs?.find((o: any) => o.type === 'archive');
+    const archiveOutput = stream.outputs?.find(
+      (o: any) => o.type === 'archive',
+    );
 
     return {
       id: stream.id,
@@ -424,10 +465,14 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       );
       if (!res.ok) {
         const body = await res.text();
-        this.logger.warn(`Cloudinary activateLiveStream warning (${res.status}): ${body}`);
+        this.logger.warn(
+          `Cloudinary activateLiveStream warning (${res.status}): ${body}`,
+        );
       }
     } catch (err: any) {
-      this.logger.error(`Error activating Cloudinary live stream ${streamId}: ${err.message}`);
+      this.logger.error(
+        `Error activating Cloudinary live stream ${streamId}: ${err.message}`,
+      );
     }
   }
 
@@ -446,10 +491,14 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       );
       if (!res.ok) {
         const body = await res.text();
-        this.logger.warn(`Cloudinary idleLiveStream warning (${res.status}): ${body}`);
+        this.logger.warn(
+          `Cloudinary idleLiveStream warning (${res.status}): ${body}`,
+        );
       }
     } catch (err: any) {
-      this.logger.error(`Error idling Cloudinary live stream ${streamId}: ${err.message}`);
+      this.logger.error(
+        `Error idling Cloudinary live stream ${streamId}: ${err.message}`,
+      );
     }
   }
 
@@ -466,7 +515,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
         },
       );
       if (!res.ok) return null;
-      const json = (await res.json()) as any;
+      const json = await res.json();
       return json.data;
     } catch {
       return null;

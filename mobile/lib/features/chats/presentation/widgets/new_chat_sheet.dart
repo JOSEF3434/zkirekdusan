@@ -139,7 +139,7 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -180,7 +180,7 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
                 }
               }
             },
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.join_group_btn'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('chat.join_group_btn'))),
           ),
         ],
       ),

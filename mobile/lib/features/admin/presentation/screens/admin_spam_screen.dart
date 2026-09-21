@@ -30,6 +30,7 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
   }
 
   void _addKeyword() {
+    final tr = ref.read(trProvider);
     final text = _controller.text.trim();
     if (text.isNotEmpty && !_blockedKeywords.contains(text.toLowerCase())) {
       setState(() {
@@ -37,7 +38,7 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
         _controller.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added "$text" to spam blacklist')),
+        SnackBar(content: Text(tr('admin.spam.added', {'keyword': text}))),
       );
     }
   }
@@ -53,24 +54,22 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
     final tr = ref.watch(trProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('admin.spam')),
-      ),
+      appBar: AppBar(title: Text(tr('admin.spam'))),
       body: SingleChildScrollView(
         child: AdminResponsiveLayout(
           child: Column(
             children: [
               AdminSectionCard(
-                title: 'Add Blocked Keyword / Pattern',
-                subtitle: 'Messages or posts containing these phrases will be automatically flagged',
+                title: tr('admin.spam.add_title'),
+                subtitle: tr('admin.spam.add_subtitle'),
                 child: Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _controller,
-                        decoration: const InputDecoration(
-                          hintText: 'Enter word or phrase...',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: tr('admin.spam.hint'),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         onSubmitted: (_) => _addKeyword(),
@@ -79,7 +78,7 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _addKeyword,
-                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.add'))),
+                      child: Text(tr('admin.spam.add_btn')),
                     ),
                   ],
                 ),
@@ -88,19 +87,33 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
               const SizedBox(height: 16),
 
               AdminSectionCard(
-                title: 'Active Blacklist (${_blockedKeywords.length} rules)',
-                subtitle: 'Monitored across comments, posts, and chats',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _blockedKeywords.map((k) {
-                    return Chip(
-                      label: Text(k),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () => _removeKeyword(k),
-                    );
-                  }).toList(),
-                ),
+                title: tr('admin.spam.blacklist_title', {
+                  'count': _blockedKeywords.length,
+                }),
+                subtitle: tr('admin.spam.blacklist_subtitle'),
+                child: _blockedKeywords.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          tr('admin.no_records'),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _blockedKeywords.map((k) {
+                          return Chip(
+                            label: Text(k),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () => _removeKeyword(k),
+                          );
+                        }).toList(),
+                      ),
               ),
             ],
           ),
@@ -109,4 +122,3 @@ class _AdminSpamScreenState extends ConsumerState<AdminSpamScreen> {
     );
   }
 }
-

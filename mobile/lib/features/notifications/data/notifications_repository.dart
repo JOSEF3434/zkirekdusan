@@ -55,14 +55,15 @@ class NotificationsRepository {
     required String token,
     required String platform,
     String? deviceId,
+    String? locale,
   }) async {
     try {
-      final body = <String, dynamic>{
-        'token': token,
-        'platform': platform,
-      };
+      final body = <String, dynamic>{'token': token, 'platform': platform};
       if (deviceId != null) {
         body['deviceId'] = deviceId;
+      }
+      if (locale != null) {
+        body['locale'] = locale;
       }
       final response = await _dio.post('/device-tokens', data: body);
       parseEnvelope(response.data);

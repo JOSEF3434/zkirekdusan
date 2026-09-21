@@ -47,8 +47,7 @@ class LargeScreenChatLayout extends ConsumerStatefulWidget {
       _LargeScreenChatLayoutState();
 }
 
-class _LargeScreenChatLayoutState
-    extends ConsumerState<LargeScreenChatLayout> {
+class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
   /// Currently selected conversation id (null → show placeholder).
   String? _selectedConversationId;
   String? _selectedTargetUserId;
@@ -90,11 +89,11 @@ class _LargeScreenChatLayoutState
     if (item.conversationId != null &&
         item.type == UnifiedChatType.conversation) {
       convId = item.conversationId;
-    } else if (item.type == UnifiedChatType.user &&
-        item.targetUserId != null) {
+    } else if (item.type == UnifiedChatType.user && item.targetUserId != null) {
       try {
-        final conv = await notifier
-            .createOrGetDirectConversation(item.targetUserId!);
+        final conv = await notifier.createOrGetDirectConversation(
+          item.targetUserId!,
+        );
         convId = conv.id;
       } catch (e) {
         if (mounted) {
@@ -111,8 +110,9 @@ class _LargeScreenChatLayoutState
             item.type == UnifiedChatType.privateGroup) &&
         item.targetGroupId != null) {
       try {
-        final conv = await notifier
-            .createOrGetGroupConversation(item.targetGroupId!);
+        final conv = await notifier.createOrGetGroupConversation(
+          item.targetGroupId!,
+        );
         convId = conv.id;
       } catch (e) {
         if (mounted) {
@@ -156,8 +156,9 @@ class _LargeScreenChatLayoutState
         : Colors.black.withValues(alpha: 0.04);
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
+      backgroundColor: isDark
+          ? const Color(0xFF0B0E14)
+          : const Color(0xFFF0F2F5),
       body: Row(
         children: [
           // ── LEFT: Chat list panel (resizable) ────────────────────────────
@@ -180,8 +181,10 @@ class _LargeScreenChatLayoutState
             color: dragHandleColor,
             onDelta: (dx) {
               setState(() {
-                _listPanelWidth = (_listPanelWidth + dx)
-                    .clamp(_kListPanelMinWidth, _kListPanelMaxWidth);
+                _listPanelWidth = (_listPanelWidth + dx).clamp(
+                  _kListPanelMinWidth,
+                  _kListPanelMaxWidth,
+                );
               });
             },
           ),
@@ -213,8 +216,10 @@ class _LargeScreenChatLayoutState
                           setState(() {
                             // Dragging right shrinks the panel, left grows it
                             _detailsPanelWidth = (_detailsPanelWidth - dx)
-                                .clamp(_kDetailsPanelMinWidth,
-                                    _kDetailsPanelMaxWidth);
+                                .clamp(
+                                  _kDetailsPanelMinWidth,
+                                  _kDetailsPanelMaxWidth,
+                                );
                           });
                         },
                       ),
@@ -225,7 +230,9 @@ class _LargeScreenChatLayoutState
                           onClose: () =>
                               setState(() => _isDetailsPanelOpen = false),
                           onJumpToMessage: (messageId) {
-                            _inlineConvKey.currentState?.scrollToMessage(messageId);
+                            _inlineConvKey.currentState?.scrollToMessage(
+                              messageId,
+                            );
                           },
                         ),
                       ),
@@ -274,11 +281,13 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDark;
+    final tr = ref.watch(trProvider);
     final chatItemsAsync = ref.watch(unifiedChatListProvider);
     final filter = ref.watch(conversationFilterProvider);
-    final unreadCount =
-        ref.watch(chatDiscoveryProvider.notifier).getTotalUnreadCount();
+    final unreadCount = ref
+        .watch(chatDiscoveryProvider.notifier)
+        .getTotalUnreadCount();
+    final isDark = widget.isDark;
     final storyFeedAsync = ref.watch(storyFeedProvider);
     final allGroups = storyFeedAsync.value ?? <StoryFeedGroupModel>[];
     final currentUserId = ref.watch(authProvider).user?.id;
@@ -298,8 +307,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
         otherGroups.add(g);
       }
     }
-    final bool hasMyStories =
-        myGroup != null && myGroup.stories.isNotEmpty;
+    final bool hasMyStories = myGroup != null && myGroup.stories.isNotEmpty;
     final bool hasAnyStories = hasMyStories || otherGroups.isNotEmpty;
 
     return Scaffold(
@@ -318,17 +326,13 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor:
-                    const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                backgroundImage: userAvatar != null &&
-                        userAvatar.isNotEmpty
+                backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                backgroundImage: userAvatar != null && userAvatar.isNotEmpty
                     ? CachedNetworkImageProvider(userAvatar)
                     : null,
                 child: userAvatar == null || userAvatar.isEmpty
                     ? Text(
-                        userName.isNotEmpty
-                            ? userName[0].toUpperCase()
-                            : 'Y',
+                        userName.isNotEmpty ? userName[0].toUpperCase() : 'Y',
                         style: const TextStyle(
                           color: Color(0xFF00C6FF),
                           fontWeight: FontWeight.bold,
@@ -376,8 +380,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-              height: 0.5, color: widget.dividerColor),
+          child: Container(height: 0.5, color: widget.dividerColor),
         ),
       ),
       body: RefreshIndicator(
@@ -389,7 +392,8 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
         },
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics()),
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             // ── Search bar with compact story cluster (Screenshot 1) ─────────
             SliverToBoxAdapter(
@@ -425,7 +429,10 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
             if (_isStoriesExpanded)
               SliverToBoxAdapter(
                 child: Divider(
-                    height: 1, thickness: 0.5, color: widget.dividerColor),
+                  height: 1,
+                  thickness: 0.5,
+                  color: widget.dividerColor,
+                ),
               ),
             // Filter chips
             SliverToBoxAdapter(
@@ -437,52 +444,50 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
                     _FilterChip(
-                      label: 'All',
+                      label: tr('chat.filter.all'),
                       isSelected: filter == 'all',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'all',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'all',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Unread',
+                      label: tr('chat.filter.unread'),
                       badgeCount: unreadCount > 0 ? unreadCount : null,
                       isSelected: filter == 'unread',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'unread',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'unread',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Personal',
+                      label: tr('chat.filter.personal'),
                       isSelected: filter == 'personal',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'personal',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'personal',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Groups',
+                      label: tr('chat.filter.groups'),
                       isSelected: filter == 'groups',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'groups',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'groups',
                     ),
                     const SizedBox(width: 8),
                     _FilterChip(
-                      label: 'Channels',
+                      label: tr('chat.filter.channels'),
                       isSelected: filter == 'channels',
-                      onTap: () => ref
-                          .read(conversationFilterProvider.notifier)
-                          .state = 'channels',
+                      onTap: () =>
+                          ref.read(conversationFilterProvider.notifier).state =
+                              'channels',
                     ),
                   ],
                 ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: SizedBox(height: 6),
-            ),
+            SliverToBoxAdapter(child: SizedBox(height: 6)),
             SliverToBoxAdapter(
               child: Divider(
                 height: 1,
@@ -497,11 +502,12 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 final displayItems = query.isEmpty
                     ? items
                     : items.where((item) {
-                        final titleMatch =
-                            item.title.toLowerCase().contains(query);
+                        final titleMatch = item.title.toLowerCase().contains(
+                          query,
+                        );
                         final subtitleMatch =
                             item.subtitle?.toLowerCase().contains(query) ??
-                                false;
+                            false;
                         return titleMatch || subtitleMatch;
                       }).toList();
 
@@ -516,8 +522,9 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             height: 70,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF00C6FF)
-                                  .withValues(alpha: 0.1),
+                              color: const Color(
+                                0xFF00C6FF,
+                              ).withValues(alpha: 0.1),
                             ),
                             child: Icon(
                               query.isNotEmpty
@@ -532,31 +539,32 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             query.isNotEmpty
                                 ? 'No chats found for "$query"'
                                 : (filter == 'all'
-                                    ? 'No chats found'
-                                    : 'No $filter chats'),
+                                      ? 'No chats found'
+                                      : 'No $filter chats'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : Colors.black87,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 12),
                           if (query.isEmpty)
                             ElevatedButton.icon(
-                              onPressed: () =>
-                                  NewChatSheet.show(context),
+                              onPressed: () => NewChatSheet.show(context),
                               icon: const Icon(Icons.add, size: 18),
-                              label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('search.start_new_chat'))),
+                              label: Consumer(
+                                builder: (context, ref, child) => Text(
+                                  ref.watch(trProvider)(
+                                    'search.start_new_chat',
+                                  ),
+                                ),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color(0xFF00C6FF),
+                                backgroundColor: const Color(0xFF00C6FF),
                                 foregroundColor: Colors.black,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
                               ),
                             ),
@@ -566,50 +574,57 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                   );
                 }
                 final discovery = ref.watch(chatDiscoveryProvider).valueOrNull;
-                final selectedConv = widget.selectedConversationId != null && discovery != null
-                    ? discovery.conversations.where((c) => c.id == widget.selectedConversationId).firstOrNull
+                final selectedConv =
+                    widget.selectedConversationId != null && discovery != null
+                    ? discovery.conversations
+                          .where((c) => c.id == widget.selectedConversationId)
+                          .firstOrNull
                     : null;
 
                 return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, index) {
-                      final item = displayItems[index];
-                      final isSelected = (item.conversationId != null &&
-                              item.conversationId == widget.selectedConversationId) ||
-                          (item.id == widget.selectedConversationId) ||
-                          (widget.selectedTargetUserId != null &&
-                              item.targetUserId == widget.selectedTargetUserId) ||
-                          (widget.selectedTargetGroupId != null &&
-                              item.targetGroupId == widget.selectedTargetGroupId) ||
-                          (selectedConv != null &&
-                              item.targetUserId != null &&
-                              selectedConv.members.any((m) => m.userId == item.targetUserId)) ||
-                          (selectedConv != null &&
-                              selectedConv.groupId != null &&
-                              selectedConv.groupId == item.targetGroupId);
-                      return _SelectableListTileWrapper(
-                        isSelected: isSelected,
-                        isDark: isDark,
-                        child: UnifiedChatListTile(
-                          item: item,
-                          onTap: () => widget.onItemTap(item),
-                          onLongPress: item.conversationId != null
-                              ? () => _showConversationOptions(
-                                  context,
-                                  item.conversationId!)
-                              : null,
-                        ),
-                      );
-                    },
-                    childCount: displayItems.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((ctx, index) {
+                    final item = displayItems[index];
+                    final isSelected =
+                        (item.conversationId != null &&
+                            item.conversationId ==
+                                widget.selectedConversationId) ||
+                        (item.id == widget.selectedConversationId) ||
+                        (widget.selectedTargetUserId != null &&
+                            item.targetUserId == widget.selectedTargetUserId) ||
+                        (widget.selectedTargetGroupId != null &&
+                            item.targetGroupId ==
+                                widget.selectedTargetGroupId) ||
+                        (selectedConv != null &&
+                            item.targetUserId != null &&
+                            selectedConv.members.any(
+                              (m) => m.userId == item.targetUserId,
+                            )) ||
+                        (selectedConv != null &&
+                            selectedConv.groupId != null &&
+                            selectedConv.groupId == item.targetGroupId);
+                    return _SelectableListTileWrapper(
+                      isSelected: isSelected,
+                      isDark: isDark,
+                      child: UnifiedChatListTile(
+                        item: item,
+                        onTap: () => widget.onItemTap(item),
+                        onLongPress: item.conversationId != null
+                            ? () => _showConversationOptions(
+                                context,
+                                item.conversationId!,
+                              )
+                            : null,
+                      ),
+                    );
+                  }, childCount: displayItems.length),
                 );
               },
               loading: () => const SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFF00C6FF)),
+                      Color(0xFF00C6FF),
+                    ),
                   ),
                 ),
               ),
@@ -618,15 +633,16 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline_rounded,
-                          size: 48, color: Colors.redAccent),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 48,
+                        color: Colors.redAccent,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'Failed to load chats',
                         style: TextStyle(
-                          color: isDark
-                              ? Colors.white
-                              : Colors.black87,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -635,9 +651,13 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             .read(chatDiscoveryProvider.notifier)
                             .loadDiscovery(),
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00C6FF),
-                            foregroundColor: Colors.black),
-                        child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                          backgroundColor: const Color(0xFF00C6FF),
+                          foregroundColor: Colors.black,
+                        ),
+                        child: Consumer(
+                          builder: (context, ref, child) =>
+                              Text(ref.watch(trProvider)('common.retry')),
+                        ),
                       ),
                     ],
                   ),
@@ -671,7 +691,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
     required List<StoryFeedGroupModel> otherGroups,
     required List<StoryFeedGroupModel> allGroups,
   }) {
-
+    final tr = ref.watch(trProvider);
     final hintColor = isDark ? Colors.grey[500] : Colors.grey[600];
     final fillColor = isDark ? const Color(0xFF1A2433) : Colors.grey[100];
 
@@ -693,12 +713,13 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 fontSize: 14,
               ),
               decoration: InputDecoration(
-                hintText: 'Search chats and messages...',
-                hintStyle: TextStyle(
+                hintText: tr('chat.hint'),
+                hintStyle: TextStyle(color: hintColor, fontSize: 13),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 18,
                   color: hintColor,
-                  fontSize: 13,
                 ),
-                prefixIcon: Icon(Icons.search_rounded, size: 18, color: hintColor),
                 suffixIcon: widget.searchController.text.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
@@ -706,7 +727,11 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             widget.searchController.clear();
                           });
                         },
-                        child: Icon(Icons.clear_rounded, size: 16, color: hintColor),
+                        child: Icon(
+                          Icons.clear_rounded,
+                          size: 16,
+                          color: hintColor,
+                        ),
                       )
                     : null,
                 border: InputBorder.none,
@@ -804,8 +829,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                   '/story-viewer',
                   extra: StoryViewerArgs(
                     groups: allGroups,
-                    initialGroupIndex:
-                        groupIdxInAll >= 0 ? groupIdxInAll : 0,
+                    initialGroupIndex: groupIdxInAll >= 0 ? groupIdxInAll : 0,
                   ),
                 );
               },
@@ -820,7 +844,10 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                       shape: BoxShape.circle,
                       gradient: g.hasUnseen
                           ? LinearGradient(
-                              colors: [ringColor, ringColor.withValues(alpha: 0.6)],
+                              colors: [
+                                ringColor,
+                                ringColor.withValues(alpha: 0.6),
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
@@ -829,15 +856,14 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                           ? null
                           : Border.all(
                               color: Colors.grey.withValues(alpha: 0.4),
-                              width: 2),
+                              width: 2,
+                            ),
                     ),
                     padding: const EdgeInsets.all(2.5),
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isDark
-                            ? const Color(0xFF0E1621)
-                            : Colors.white,
+                        color: isDark ? const Color(0xFF0E1621) : Colors.white,
                       ),
                       padding: const EdgeInsets.all(1.5),
                       child: ClipOval(
@@ -845,7 +871,8 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             ? CachedNetworkImage(
                                 imageUrl: resolvedUrl,
                                 fit: BoxFit.cover,
-                                errorWidget: (context, error, _) => _buildInitialAvatar(name, ringColor),
+                                errorWidget: (context, error, _) =>
+                                    _buildInitialAvatar(name, ringColor),
                               )
                             : _buildInitialAvatar(name, ringColor),
                       ),
@@ -884,13 +911,15 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : 'U',
         style: TextStyle(
-            color: color, fontWeight: FontWeight.bold, fontSize: 16),
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
       ),
     );
   }
 
-  void _showConversationOptions(
-      BuildContext context, String conversationId) {
+  void _showConversationOptions(BuildContext context, String conversationId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
@@ -913,9 +942,14 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.push_pin_outlined,
-                  color: Color(0xFF00C6FF)),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.pin'))),
+              leading: const Icon(
+                Icons.push_pin_outlined,
+                color: Color(0xFF00C6FF),
+              ),
+              title: Consumer(
+                builder: (context, ref, child) =>
+                    Text(ref.watch(trProvider)('chat.pin')),
+              ),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -924,9 +958,14 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.volume_off_outlined,
-                  color: Colors.orangeAccent),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.mute_notifications'))),
+              leading: const Icon(
+                Icons.volume_off_outlined,
+                color: Colors.orangeAccent,
+              ),
+              title: Consumer(
+                builder: (context, ref, child) =>
+                    Text(ref.watch(trProvider)('chat.mute_notifications')),
+              ),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -935,9 +974,14 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.mark_chat_read_outlined,
-                  color: Color(0xFF10B981)),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.mark_read'))),
+              leading: const Icon(
+                Icons.mark_chat_read_outlined,
+                color: Color(0xFF10B981),
+              ),
+              title: Consumer(
+                builder: (context, ref, child) =>
+                    Text(ref.watch(trProvider)('chat.mark_read')),
+              ),
               onTap: () {
                 ref
                     .read(chatDiscoveryProvider.notifier)
@@ -959,8 +1003,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
   ) {
     final auth = ref.read(authProvider);
     final username = auth.user?.username ?? '';
-    final bgColor =
-        isDark ? const Color(0xFF17212B) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF17212B) : Colors.white;
 
     showModalBottomSheet(
       context: context,
@@ -969,8 +1012,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
       builder: (ctx) => Container(
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
           child: Column(
@@ -987,22 +1029,22 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 8),
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 32,
-                      backgroundColor: const Color(0xFF00C6FF)
-                          .withValues(alpha: 0.15),
-                      backgroundImage: avatarUrl != null &&
-                              avatarUrl.isNotEmpty
+                      backgroundColor: const Color(
+                        0xFF00C6FF,
+                      ).withValues(alpha: 0.15),
+                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                           ? CachedNetworkImageProvider(avatarUrl)
                           : null,
                       child: avatarUrl == null || avatarUrl.isEmpty
                           ? Text(
-                              name.isNotEmpty
-                                  ? name[0].toUpperCase()
-                                  : 'Y',
+                              name.isNotEmpty ? name[0].toUpperCase() : 'Y',
                               style: const TextStyle(
                                 color: Color(0xFF00C6FF),
                                 fontWeight: FontWeight.bold,
@@ -1021,9 +1063,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : Colors.black87,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           if (username.isNotEmpty)
@@ -1044,27 +1084,42 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.person_outline_rounded,
-                    color: Color(0xFF00C6FF)),
-                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.my_profile'))),
+                leading: const Icon(
+                  Icons.person_outline_rounded,
+                  color: Color(0xFF00C6FF),
+                ),
+                title: Consumer(
+                  builder: (context, ref, child) =>
+                      Text(ref.watch(trProvider)('chat.my_profile')),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/profile');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.auto_stories_outlined,
-                    color: Color(0xFF10B981)),
-                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.my_stories'))),
+                leading: const Icon(
+                  Icons.auto_stories_outlined,
+                  color: Color(0xFF10B981),
+                ),
+                title: Consumer(
+                  builder: (context, ref, child) =>
+                      Text(ref.watch(trProvider)('chat.my_stories')),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/story/create');
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.settings_outlined,
-                    color: Colors.orangeAccent),
-                title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.settings'))),
+                leading: const Icon(
+                  Icons.settings_outlined,
+                  color: Colors.orangeAccent,
+                ),
+                title: Consumer(
+                  builder: (context, ref, child) =>
+                      Text(ref.watch(trProvider)('chat.settings')),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/settings');
@@ -1083,17 +1138,16 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
 // Center placeholder (shown when no conversation is selected)
 // ──────────────────────────────────────────────────────────────────────────────
 
-class _PlaceholderPanel extends StatelessWidget {
+class _PlaceholderPanel extends ConsumerWidget {
   final bool isDark;
 
   const _PlaceholderPanel({required this.isDark});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.watch(trProvider);
     return Container(
-      color: isDark
-          ? const Color(0xFF0B0E14)
-          : const Color(0xFFF0F2F5),
+      color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1120,7 +1174,7 @@ class _PlaceholderPanel extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Select a chat to start messaging',
+              tr('chat.no_messages'),
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -1132,7 +1186,7 @@ class _PlaceholderPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Choose from your conversations on the left',
+              tr('chat.no_messages_hint'),
               style: TextStyle(
                 fontSize: 13,
                 color: isDark
@@ -1216,7 +1270,9 @@ class _CompactStoryCluster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayGroups = groups.isNotEmpty ? groups : allGroups.where((g) => g.stories.isNotEmpty).toList();
+    final displayGroups = groups.isNotEmpty
+        ? groups
+        : allGroups.where((g) => g.stories.isNotEmpty).toList();
     final bool hasStories = displayGroups.isNotEmpty;
     final displayCount = hasStories ? displayGroups.length.clamp(1, 3) : 1;
     // Width = first avatar (26px) + (n-1) * 14px overlap
@@ -1244,7 +1300,10 @@ class _CompactStoryCluster extends StatelessWidget {
                           for (int i = 0; i < displayCount; i++)
                             Positioned(
                               left: i * 14.0,
-                              child: _buildAvatar(displayGroups[i], _ringColors[i % _ringColors.length]),
+                              child: _buildAvatar(
+                                displayGroups[i],
+                                _ringColors[i % _ringColors.length],
+                              ),
                             ),
                         ],
                       )
@@ -1269,7 +1328,9 @@ class _CompactStoryCluster extends StatelessWidget {
 
   Widget _buildDefaultStoryAvatar() {
     final avatarUrl = MediaUrlResolver.resolve(userAvatar);
-    final ring = hasMyStories ? const Color(0xFF00C6FF) : const Color(0xFF10B981);
+    final ring = hasMyStories
+        ? const Color(0xFF00C6FF)
+        : const Color(0xFF10B981);
 
     return Container(
       width: 28,
@@ -1318,14 +1379,13 @@ class _CompactStoryCluster extends StatelessWidget {
   }
 
   Widget _initial(String name, Color color) => Container(
-        color: color.withValues(alpha: 0.15),
-        alignment: Alignment.center,
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : 'U',
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.bold, fontSize: 10),
-        ),
-      );
+    color: color.withValues(alpha: 0.15),
+    alignment: Alignment.center,
+    child: Text(
+      name.isNotEmpty ? name[0].toUpperCase() : 'U',
+      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
+    ),
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1411,18 +1471,16 @@ class _MyStoryStripItem extends ConsumerWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isDark
-                          ? const Color(0xFF0E1621)
-                          : Colors.white,
+                      color: isDark ? const Color(0xFF0E1621) : Colors.white,
                     ),
                     padding: const EdgeInsets.all(1.5),
                     child: ClipOval(
-                      child: resolvedAvatar != null &&
-                              resolvedAvatar.isNotEmpty
+                      child: resolvedAvatar != null && resolvedAvatar.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: resolvedAvatar,
                               fit: BoxFit.cover,
-                              errorWidget: (context, error, _) => _buildInitials(),
+                              errorWidget: (context, error, _) =>
+                                  _buildInitials(),
                             )
                           : _buildInitials(),
                     ),
@@ -1455,7 +1513,10 @@ class _MyStoryStripItem extends ConsumerWidget {
                           ),
                         ),
                         child: const Icon(
-                            Icons.add, size: 12, color: Colors.white),
+                          Icons.add,
+                          size: 12,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -1469,9 +1530,7 @@ class _MyStoryStripItem extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.grey[300] : Colors.grey[800],
-                  fontWeight: hasStories
-                      ? FontWeight.w600
-                      : FontWeight.normal,
+                  fontWeight: hasStories ? FontWeight.w600 : FontWeight.normal,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
@@ -1524,10 +1583,7 @@ class _SelectableListTileWrapper extends StatelessWidget {
             ? const Color(0xFF1E3A5F).withValues(alpha: 0.85)
             : const Color(0xFF00C6FF).withValues(alpha: 0.22),
         border: const Border(
-          left: BorderSide(
-            color: Color(0xFF00C6FF),
-            width: 4.0,
-          ),
+          left: BorderSide(color: Color(0xFF00C6FF), width: 4.0),
         ),
       ),
       child: child,
@@ -1559,23 +1615,18 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark
-                  ? const Color(0xFF00C6FF)
-                  : const Color(0xFF0072FF))
-              : (isDark
-                  ? const Color(0xFF17212B)
-                  : Colors.grey[100]),
+              ? (isDark ? const Color(0xFF00C6FF) : const Color(0xFF0072FF))
+              : (isDark ? const Color(0xFF17212B) : Colors.grey[100]),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.05)),
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.05)),
           ),
         ),
         child: Row(
@@ -1586,24 +1637,17 @@ class _FilterChip extends StatelessWidget {
               style: TextStyle(
                 color: isSelected
                     ? Colors.black
-                    : (isDark
-                        ? Colors.grey[300]
-                        : Colors.grey[800]),
-                fontWeight: isSelected
-                    ? FontWeight.w700
-                    : FontWeight.w500,
+                    : (isDark ? Colors.grey[300] : Colors.grey[800]),
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 fontSize: 12,
               ),
             ),
             if (badgeCount != null) ...[
               const SizedBox(width: 5),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? Colors.black
-                      : const Color(0xFF00C6FF),
+                  color: isSelected ? Colors.black : const Color(0xFF00C6FF),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -1622,6 +1666,3 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
-
-
-

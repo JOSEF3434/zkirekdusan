@@ -4,7 +4,10 @@ import { TrendingService } from './trending.service.js';
 import { PrismaModule } from '../../prisma/prisma.module.js';
 
 import { BullModule } from '@nestjs/bullmq';
-import { TrendingComputeProcessor, TRENDING_COMPUTE_QUEUE } from './trending.processor.js';
+import {
+  TrendingComputeProcessor,
+  TRENDING_COMPUTE_QUEUE,
+} from './trending.processor.js';
 
 @Module({
   imports: [

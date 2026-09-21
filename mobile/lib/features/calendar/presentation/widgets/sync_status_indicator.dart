@@ -167,14 +167,14 @@ class SyncStatusIndicator extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.refresh'))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.sync),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
-              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('offline.synced'))),
+              title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.refresh'))),
+              subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('offline.synced'))),
               onTap: () async {
                 Navigator.pop(context);
                 final manualSync = ref.read(manualSyncProvider);
@@ -190,8 +190,8 @@ class SyncStatusIndicator extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.flash_on),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
-              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.cache.duration_1_month'))),
+              title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.refresh'))),
+              subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.cache.duration_1_month'))),
               onTap: () async {
                 Navigator.pop(context);
                 final quickSync = ref.read(quickSyncProvider);
@@ -212,7 +212,7 @@ class SyncStatusIndicator extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.close'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.close'))),
           ),
         ],
       ),

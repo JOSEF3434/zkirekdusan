@@ -9,7 +9,10 @@ import { GroupUploadsController } from './group-uploads.controller.js';
 import { LocalStorageProvider } from './providers/local.provider.js';
 import { CloudinaryStorageProvider } from './providers/cloudinary.provider.js';
 import { MinioStorageProvider } from './providers/minio.provider.js';
-import { storageProviderFactory, STORAGE_PROVIDER_TOKEN } from './providers/storage.factory.js';
+import {
+  storageProviderFactory,
+  STORAGE_PROVIDER_TOKEN,
+} from './providers/storage.factory.js';
 
 @Module({
   imports: [
@@ -33,6 +36,13 @@ import { storageProviderFactory, STORAGE_PROVIDER_TOKEN } from './providers/stor
     MinioStorageProvider,
     storageProviderFactory,
   ],
-  exports: [UploadsService, UploadsRepository, STORAGE_PROVIDER_TOKEN, CloudinaryStorageProvider],
+  exports: [
+    UploadsService,
+    UploadsRepository,
+    STORAGE_PROVIDER_TOKEN,
+    LocalStorageProvider,
+    CloudinaryStorageProvider,
+    MinioStorageProvider,
+  ],
 })
-export class UploadsModule {}
+export class UploadsModule { }

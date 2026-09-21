@@ -3,7 +3,11 @@ import { Logger, Inject } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ProcessRecordingJobData } from './stream-processing.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { StreamRecordingStatus, VideoResolution, FileProvider } from '@prisma/client';
+import {
+  StreamRecordingStatus,
+  VideoResolution,
+  FileProvider,
+} from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import type { IStorageProvider } from '../uploads/providers/storage.interface.js';
 import { STORAGE_PROVIDER_TOKEN } from '../uploads/providers/storage.factory.js';
@@ -79,16 +83,52 @@ export class StreamProcessingProcessor extends WorkerHost {
         bitrate: number;
         audioBitrate: number;
       }[] = [
-        { res: VideoResolution.R_240P, height: 240, width: 426, bitrate: 400, audioBitrate: 64 },
-        { res: VideoResolution.R_360P, height: 360, width: 640, bitrate: 800, audioBitrate: 96 },
-        { res: VideoResolution.R_480P, height: 480, width: 854, bitrate: 1200, audioBitrate: 128 },
-        { res: VideoResolution.R_720P, height: 720, width: 1280, bitrate: 2500, audioBitrate: 128 },
-        { res: VideoResolution.R_1080P, height: 1080, width: 1920, bitrate: 5000, audioBitrate: 192 },
-        { res: VideoResolution.R_4K, height: 2160, width: 3840, bitrate: 15000, audioBitrate: 192 },
+        {
+          res: VideoResolution.R_240P,
+          height: 240,
+          width: 426,
+          bitrate: 400,
+          audioBitrate: 64,
+        },
+        {
+          res: VideoResolution.R_360P,
+          height: 360,
+          width: 640,
+          bitrate: 800,
+          audioBitrate: 96,
+        },
+        {
+          res: VideoResolution.R_480P,
+          height: 480,
+          width: 854,
+          bitrate: 1200,
+          audioBitrate: 128,
+        },
+        {
+          res: VideoResolution.R_720P,
+          height: 720,
+          width: 1280,
+          bitrate: 2500,
+          audioBitrate: 128,
+        },
+        {
+          res: VideoResolution.R_1080P,
+          height: 1080,
+          width: 1920,
+          bitrate: 5000,
+          audioBitrate: 192,
+        },
+        {
+          res: VideoResolution.R_4K,
+          height: 2160,
+          width: 3840,
+          bitrate: 15000,
+          audioBitrate: 192,
+        },
       ].filter((t) => t.height <= videoHeight || t.height === 240);
 
       const hlsMasterPlaylistPath = path.join(outputFolder, 'master.m3u8');
-      
+
       for (const target of targets) {
         const resFileName = `${target.height}p.m3u8`;
         const resPath = path.join(outputFolder, resFileName);
@@ -100,7 +140,7 @@ export class StreamProcessingProcessor extends WorkerHost {
           target.height,
           target.bitrate,
           target.audioBitrate,
-          fps
+          fps,
         );
       }
 
@@ -110,7 +150,7 @@ export class StreamProcessingProcessor extends WorkerHost {
       // Upload to storage provider
       let masterUrl = '';
       const isRemoteStorage = this.storageProvider.providerType !== 'LOCAL';
-      
+
       if (isRemoteStorage) {
         this.logger.log(`Uploading Live VOD HLS files to remote storage...`);
         const files: string[] = await fs.readdir(outputFolder);
@@ -118,15 +158,20 @@ export class StreamProcessingProcessor extends WorkerHost {
           if (file.endsWith('.m3u8') || file.endsWith('.ts')) {
             const filePath = path.join(outputFolder, file);
             const buffer = await fs.readFile(filePath);
-            const mimeType = file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/MP2T';
-            
-            const res = await this.storageProvider.upload({
-              buffer,
-              originalname: file,
-              mimetype: mimeType,
-              size: buffer.length,
-            }, `live-recordings/${recordingId}`);
-            
+            const mimeType = file.endsWith('.m3u8')
+              ? 'application/vnd.apple.mpegurl'
+              : 'video/MP2T';
+
+            const res = await this.storageProvider.upload(
+              {
+                buffer,
+                originalname: file,
+                mimetype: mimeType,
+                size: buffer.length,
+              },
+              `live-recordings/${recordingId}`,
+            );
+
             if (file === 'master.m3u8') {
               masterUrl = res.url;
             }
@@ -138,7 +183,10 @@ export class StreamProcessingProcessor extends WorkerHost {
           this.configService.get<string>('APP_URL') ??
           this.configService.get<string>('RENDER_EXTERNAL_URL') ??
           'https://zikrekidusan.onrender.com';
-        const masterRelPath = `hls_${recordingId}/master.m3u8`.replace(/\\/g, '/');
+        const masterRelPath = `hls_${recordingId}/master.m3u8`.replace(
+          /\\/g,
+          '/',
+        );
         masterUrl = `${appUrl}/uploads/${masterRelPath}`;
       }
 
@@ -155,27 +203,28 @@ export class StreamProcessingProcessor extends WorkerHost {
 
       // 4. Auto-publish VOD
       const stream = await this.prisma.liveStream.findUnique({
-        where: { id: liveStreamId }
+        where: { id: liveStreamId },
       });
-      
+
       if (stream) {
         const existingVideo = await this.prisma.video.findFirst({
-          where: { hlsUrl: masterUrl }
+          where: { hlsUrl: masterUrl },
         });
-        
+
         if (!existingVideo) {
           await this.prisma.video.create({
             data: {
               videoChannelId: stream.videoChannelId,
               uploadedById: stream.createdById,
               title: stream.title,
-              description: stream.description ?? `VOD for stream ${stream.title}`,
+              description:
+                stream.description ?? `VOD for stream ${stream.title}`,
               slug: `vod-${stream.id}-${nanoid(8)}`,
               status: 'READY',
               visibility: 'PUBLIC',
               duration: duration,
               hlsUrl: masterUrl,
-            }
+            },
           });
           this.logger.log(`Auto-published VOD for stream ${liveStreamId}`);
         } else {
@@ -205,9 +254,17 @@ export class StreamProcessingProcessor extends WorkerHost {
     return new Promise((resolve) => {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err || !metadata) {
-          return resolve({ duration: 0, width: 1280, height: 720, bitrate: 2000, fps: 30 });
+          return resolve({
+            duration: 0,
+            width: 1280,
+            height: 720,
+            bitrate: 2000,
+            fps: 30,
+          });
         }
-        const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
+        const videoStream = metadata.streams.find(
+          (s) => s.codec_type === 'video',
+        );
         let fps = 30;
         if (videoStream?.r_frame_rate) {
           const parts = videoStream.r_frame_rate.split('/');
@@ -219,7 +276,9 @@ export class StreamProcessingProcessor extends WorkerHost {
           duration: metadata.format.duration || 0,
           width: videoStream?.width || 1280,
           height: videoStream?.height || 720,
-          bitrate: metadata.format.bit_rate ? Math.round(metadata.format.bit_rate / 1000) : 2000,
+          bitrate: metadata.format.bit_rate
+            ? Math.round(metadata.format.bit_rate / 1000)
+            : 2000,
           fps: isNaN(fps) ? 30 : fps,
         });
       });
@@ -233,7 +292,7 @@ export class StreamProcessingProcessor extends WorkerHost {
     height: number,
     bitrateKbps: number,
     audioBitrateKbps: number,
-    fps: number
+    fps: number,
   ): Promise<void> {
     const gop = fps * 2;
     return new Promise((resolve, reject) => {
@@ -261,7 +320,9 @@ export class StreamProcessingProcessor extends WorkerHost {
         .output(outputPath)
         .on('end', () => resolve())
         .on('error', (err) => {
-          this.logger.warn(`HLS Transcoding for ${height}p failed: ${err.message}`);
+          this.logger.warn(
+            `HLS Transcoding for ${height}p failed: ${err.message}`,
+          );
           reject(err);
         })
         .run();
@@ -270,8 +331,13 @@ export class StreamProcessingProcessor extends WorkerHost {
 
   private async buildMasterPlaylist(
     masterPath: string,
-    targets: { height: number; width: number; bitrate: number; audioBitrate: number }[],
-    fps: number
+    targets: {
+      height: number;
+      width: number;
+      bitrate: number;
+      audioBitrate: number;
+    }[],
+    fps: number,
   ): Promise<void> {
     let content = '#EXTM3U\n#EXT-X-VERSION:6\n';
     for (const t of targets) {

@@ -62,8 +62,14 @@ export class AdminGroupsService {
         include: {
           createdBy: {
             select: {
-              id: true, username: true,
-              profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+              id: true,
+              username: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
+              },
             },
           },
           _count: { select: { members: true, posts: true, channels: true } },
@@ -86,7 +92,13 @@ export class AdminGroupsService {
     const group = await this.prisma.group.findUnique({
       where: { id },
       include: {
-        createdBy: { select: { id: true, username: true, profile: { select: { displayName: true } } } },
+        createdBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true } },
+          },
+        },
         approvedBy: { select: { id: true, username: true } },
         members: {
           where: { removedAt: null },
@@ -95,14 +107,27 @@ export class AdminGroupsService {
           include: {
             user: {
               select: {
-                id: true, username: true,
-                profile: { select: { displayName: true, avatar: { select: { url: true } } } },
+                id: true,
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatar: { select: { url: true } },
+                  },
+                },
               },
             },
           },
         },
         channels: { take: 20 },
-        _count: { select: { members: true, posts: true, channels: true, liveStreams: true } },
+        _count: {
+          select: {
+            members: true,
+            posts: true,
+            channels: true,
+            liveStreams: true,
+          },
+        },
       },
     });
     if (!group) throw new NotFoundException(`Group ${id} not found`);
@@ -152,7 +177,8 @@ export class AdminGroupsService {
   }
 
   async rejectGroup(actorId: string, id: string, reason?: string) {
-    if (!reason) throw new BadRequestException('A reason is required to reject a group');
+    if (!reason)
+      throw new BadRequestException('A reason is required to reject a group');
     const group = await this.findGroupOrThrow(id);
 
     const updated = await this.prisma.group.update({
@@ -174,7 +200,8 @@ export class AdminGroupsService {
   }
 
   async suspendGroup(actorId: string, id: string, reason?: string) {
-    if (!reason) throw new BadRequestException('A reason is required to suspend a group');
+    if (!reason)
+      throw new BadRequestException('A reason is required to suspend a group');
     const group = await this.findGroupOrThrow(id);
 
     const updated = await this.prisma.group.update({
@@ -196,7 +223,8 @@ export class AdminGroupsService {
   }
 
   async archiveGroup(actorId: string, id: string, reason?: string) {
-    if (!reason) throw new BadRequestException('A reason is required to archive a group');
+    if (!reason)
+      throw new BadRequestException('A reason is required to archive a group');
     const group = await this.findGroupOrThrow(id);
 
     const updated = await this.prisma.group.update({
@@ -218,7 +246,8 @@ export class AdminGroupsService {
   }
 
   async deleteGroup(actorId: string, id: string, reason?: string) {
-    if (!reason) throw new BadRequestException('A reason is required to delete a group');
+    if (!reason)
+      throw new BadRequestException('A reason is required to delete a group');
     const group = await this.findGroupOrThrow(id);
 
     await this.prisma.group.update({
@@ -239,7 +268,12 @@ export class AdminGroupsService {
     return { success: true };
   }
 
-  async removeMember(actorId: string, groupId: string, userId: string, reason?: string) {
+  async removeMember(
+    actorId: string,
+    groupId: string,
+    userId: string,
+    reason?: string,
+  ) {
     const member = await this.prisma.groupMember.findFirst({
       where: { groupId, userId, removedAt: null },
     });

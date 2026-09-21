@@ -355,8 +355,12 @@ export class MessagingGateway
       );
       if (conversation?.members) {
         for (const m of conversation.members) {
-          this.server.to(`user:${(m as any).userId}`).emit(WS_EVENTS.READ_RECEIPT, payload);
-          this.server.to(`user:${(m as any).userId}`).emit('message:read', payload);
+          this.server
+            .to(`user:${(m as any).userId}`)
+            .emit(WS_EVENTS.READ_RECEIPT, payload);
+          this.server
+            .to(`user:${(m as any).userId}`)
+            .emit('message:read', payload);
         }
       }
     } catch (err: any) {
@@ -521,7 +525,11 @@ export class MessagingGateway
   }
 
   /** Broadcast a new message to conversation room and to members directly */
-  emitNewMessage(conversationId: string, message: any, memberUserIds?: string[]) {
+  emitNewMessage(
+    conversationId: string,
+    message: any,
+    memberUserIds?: string[],
+  ) {
     this.server
       .to(`conversation:${conversationId}`)
       .emit(WS_EVENTS.MESSAGE_NEW, message);
@@ -534,7 +542,11 @@ export class MessagingGateway
   }
 
   /** Broadcast a read receipt to conversation room and to members */
-  emitReadReceipt(conversationId: string, payload: any, memberUserIds?: string[]) {
+  emitReadReceipt(
+    conversationId: string,
+    payload: any,
+    memberUserIds?: string[],
+  ) {
     this.server
       .to(`conversation:${conversationId}`)
       .emit(WS_EVENTS.READ_RECEIPT, payload);
@@ -551,19 +563,29 @@ export class MessagingGateway
   }
 
   /** Broadcast a message update to a conversation room (used by MessagesService internally) */
-  emitMessageUpdated(conversationId: string, message: any, memberUserIds?: string[]) {
+  emitMessageUpdated(
+    conversationId: string,
+    message: any,
+    memberUserIds?: string[],
+  ) {
     this.server
       .to(`conversation:${conversationId}`)
       .emit(WS_EVENTS.MESSAGE_UPDATED, message);
 
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_UPDATED, message);
+        this.server
+          .to(`user:${userId}`)
+          .emit(WS_EVENTS.MESSAGE_UPDATED, message);
       }
     }
   }
 
-  emitMessageDeleted(conversationId: string, messageId: string, memberUserIds?: string[]) {
+  emitMessageDeleted(
+    conversationId: string,
+    messageId: string,
+    memberUserIds?: string[],
+  ) {
     const payload = { conversationId, messageId };
     this.server
       .to(`conversation:${conversationId}`)
@@ -571,16 +593,24 @@ export class MessagingGateway
 
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_DELETED, payload);
+        this.server
+          .to(`user:${userId}`)
+          .emit(WS_EVENTS.MESSAGE_DELETED, payload);
       }
     }
   }
 
   /** Broadcast reaction added to conversation room and to members directly */
   emitReaction(conversationId: string, payload: any, memberUserIds?: string[]) {
-    this.server.to(`conversation:${conversationId}`).emit(WS_EVENTS.REACTION_NEW, payload);
-    this.server.to(`conversation:${conversationId}`).emit('reaction:added', payload);
-    this.server.to(`conversation:${conversationId}`).emit('reaction:updated', payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit(WS_EVENTS.REACTION_NEW, payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('reaction:added', payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('reaction:updated', payload);
 
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
@@ -592,14 +622,26 @@ export class MessagingGateway
   }
 
   /** Broadcast reaction removed to conversation room and to members directly */
-  emitReactionRemoved(conversationId: string, payload: any, memberUserIds?: string[]) {
-    this.server.to(`conversation:${conversationId}`).emit(WS_EVENTS.REACTION_REMOVED, payload);
-    this.server.to(`conversation:${conversationId}`).emit('reaction:removed', payload);
-    this.server.to(`conversation:${conversationId}`).emit('reaction:updated', payload);
+  emitReactionRemoved(
+    conversationId: string,
+    payload: any,
+    memberUserIds?: string[],
+  ) {
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit(WS_EVENTS.REACTION_REMOVED, payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('reaction:removed', payload);
+    this.server
+      .to(`conversation:${conversationId}`)
+      .emit('reaction:updated', payload);
 
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.REACTION_REMOVED, payload);
+        this.server
+          .to(`user:${userId}`)
+          .emit(WS_EVENTS.REACTION_REMOVED, payload);
         this.server.to(`user:${userId}`).emit('reaction:removed', payload);
         this.server.to(`user:${userId}`).emit('reaction:updated', payload);
       }

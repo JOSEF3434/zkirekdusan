@@ -211,16 +211,30 @@ export class DownloadsService {
       filename = `${record.video.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${targetRes.toLowerCase()}.mp4`;
 
       if (rendition?.url) {
-        if (rendition.url.startsWith('http://') || rendition.url.startsWith('https://')) {
+        if (
+          rendition.url.startsWith('http://') ||
+          rendition.url.startsWith('https://')
+        ) {
           remoteUrl = rendition.url;
         } else {
-          filePath = path.resolve(process.cwd(), 'uploads', rendition.storageKey);
+          filePath = path.resolve(
+            process.cwd(),
+            'uploads',
+            rendition.storageKey,
+          );
         }
       } else if (record.video.sourceFile?.url) {
-        if (record.video.sourceFile.url.startsWith('http://') || record.video.sourceFile.url.startsWith('https://')) {
+        if (
+          record.video.sourceFile.url.startsWith('http://') ||
+          record.video.sourceFile.url.startsWith('https://')
+        ) {
           remoteUrl = record.video.sourceFile.url;
         } else {
-          filePath = path.resolve(process.cwd(), 'uploads', record.video.sourceFile.storageKey);
+          filePath = path.resolve(
+            process.cwd(),
+            'uploads',
+            record.video.sourceFile.storageKey,
+          );
         }
       } else if (record.video.hlsUrl) {
         remoteUrl = record.video.hlsUrl;
@@ -229,10 +243,18 @@ export class DownloadsService {
       filename = record.file.originalName;
       mimeType = record.file.mimeType;
 
-      if (record.file.url && (record.file.url.startsWith('http://') || record.file.url.startsWith('https://'))) {
+      if (
+        record.file.url &&
+        (record.file.url.startsWith('http://') ||
+          record.file.url.startsWith('https://'))
+      ) {
         remoteUrl = record.file.url;
       } else {
-        filePath = path.resolve(process.cwd(), 'uploads', record.file.storageKey);
+        filePath = path.resolve(
+          process.cwd(),
+          'uploads',
+          record.file.storageKey,
+        );
       }
     }
 

@@ -135,7 +135,7 @@ class ChatDetailsPanel extends ConsumerWidget {
                         backgroundColor: const Color(0xFF00C6FF),
                         foregroundColor: Colors.black,
                       ),
-                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                      child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
                     ),
                   ],
                 ),

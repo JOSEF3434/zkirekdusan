@@ -440,7 +440,7 @@ class InlineConversationViewState
                     const Icon(Icons.error_outline_rounded,
                         size: 48, color: Colors.redAccent),
                     const SizedBox(height: 12),
-                    Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('chat.load_messages_failed'))),
+                    Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('chat.load_messages_failed'))),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () {
@@ -454,7 +454,7 @@ class InlineConversationViewState
                         backgroundColor: const Color(0xFF00C6FF),
                         foregroundColor: Colors.black,
                       ),
-                      child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+                      child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
                     ),
                   ],
                 ),
@@ -612,7 +612,7 @@ class InlineConversationViewState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.done'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.done'))),
             ),
           ],
         ),

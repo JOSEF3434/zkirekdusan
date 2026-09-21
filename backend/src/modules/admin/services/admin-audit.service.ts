@@ -63,19 +63,27 @@ export class AdminAuditService {
     queryOrFilters: AuditLogFilters,
     pagination?: { page: number; limit: number },
   ) {
-    const page = Math.max(1, Number(pagination?.page ?? queryOrFilters.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(pagination?.limit ?? queryOrFilters.limit) || 30));
+    const page = Math.max(
+      1,
+      Number(pagination?.page ?? queryOrFilters.page) || 1,
+    );
+    const limit = Math.min(
+      100,
+      Math.max(1, Number(pagination?.limit ?? queryOrFilters.limit) || 30),
+    );
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
     if (queryOrFilters.actorId) where.userId = queryOrFilters.actorId;
-    if (queryOrFilters.action) where.action = { contains: queryOrFilters.action, mode: 'insensitive' };
+    if (queryOrFilters.action)
+      where.action = { contains: queryOrFilters.action, mode: 'insensitive' };
     if (queryOrFilters.targetType) where.targetType = queryOrFilters.targetType;
     if (queryOrFilters.targetId) where.targetId = queryOrFilters.targetId;
     if (queryOrFilters.dateFrom || queryOrFilters.dateTo) {
       where.createdAt = {};
-      if (queryOrFilters.dateFrom) where.createdAt.gte = queryOrFilters.dateFrom;
+      if (queryOrFilters.dateFrom)
+        where.createdAt.gte = queryOrFilters.dateFrom;
       if (queryOrFilters.dateTo) where.createdAt.lte = queryOrFilters.dateTo;
     }
 

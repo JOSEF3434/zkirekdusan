@@ -94,7 +94,7 @@ class _CreatorVideoEditScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('video.edit_details'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('video.edit_details'))),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,
@@ -104,7 +104,7 @@ class _CreatorVideoEditScreenState
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.save'))),
+                : Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.save'))),
           ),
         ],
       ),

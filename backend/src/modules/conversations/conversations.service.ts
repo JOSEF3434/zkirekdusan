@@ -78,35 +78,39 @@ export class ConversationsService {
         };
       });
 
-      const formattedPublicGroups: ChatGroupItemDto[] = publicGroups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        slug: g.slug,
-        description: g.description,
-        avatarUrl: g.avatarUrl,
-        coverUrl: g.coverUrl,
-        visibility: g.visibility,
-        status: g.status,
-        membersCount: g._count?.members ?? 0,
-        conversationId: g.conversations?.[0]?.id ?? null,
-        isMember: true,
-        createdAt: g.createdAt,
-      }));
+      const formattedPublicGroups: ChatGroupItemDto[] = publicGroups.map(
+        (g) => ({
+          id: g.id,
+          name: g.name,
+          slug: g.slug,
+          description: g.description,
+          avatarUrl: g.avatarUrl,
+          coverUrl: g.coverUrl,
+          visibility: g.visibility,
+          status: g.status,
+          membersCount: g._count?.members ?? 0,
+          conversationId: g.conversations?.[0]?.id ?? null,
+          isMember: true,
+          createdAt: g.createdAt,
+        }),
+      );
 
-      const formattedPrivateGroups: ChatGroupItemDto[] = myPrivateGroups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        slug: g.slug,
-        description: g.description,
-        avatarUrl: g.avatarUrl,
-        coverUrl: g.coverUrl,
-        visibility: g.visibility,
-        status: g.status,
-        membersCount: g._count?.members ?? 0,
-        conversationId: g.conversations?.[0]?.id ?? null,
-        isMember: true,
-        createdAt: g.createdAt,
-      }));
+      const formattedPrivateGroups: ChatGroupItemDto[] = myPrivateGroups.map(
+        (g) => ({
+          id: g.id,
+          name: g.name,
+          slug: g.slug,
+          description: g.description,
+          avatarUrl: g.avatarUrl,
+          coverUrl: g.coverUrl,
+          visibility: g.visibility,
+          status: g.status,
+          membersCount: g._count?.members ?? 0,
+          conversationId: g.conversations?.[0]?.id ?? null,
+          isMember: true,
+          createdAt: g.createdAt,
+        }),
+      );
 
       return {
         conversations,
@@ -134,10 +138,7 @@ export class ConversationsService {
     return conversations.map((conv) => this.mapToDto(conv, userId));
   }
 
-  async getConversationUpdates(
-    userId: string,
-    since?: string,
-  ) {
+  async getConversationUpdates(userId: string, since?: string) {
     const sinceDate = since ? new Date(since) : new Date(0);
     const conversations =
       await this.conversationsRepository.getUserConversations(userId);
@@ -189,10 +190,7 @@ export class ConversationsService {
     );
   }
 
-  async pinConversation(
-    conversationId: string,
-    userId: string,
-  ): Promise<void> {
+  async pinConversation(conversationId: string, userId: string): Promise<void> {
     await this.conversationsRepository.updateMemberSetting(
       conversationId,
       userId,
@@ -232,17 +230,27 @@ export class ConversationsService {
       title = conv.group.name;
     }
 
-    const latestMsg = conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
+    const latestMsg =
+      conv.messages && conv.messages.length > 0 ? conv.messages[0] : null;
     let lastMessage: any = undefined;
     if (latestMsg) {
       const isMe = latestMsg.senderId === currentUserId;
-      const isSeen = isMe && (latestMsg.reads ?? []).some((r: any) => r.userId !== currentUserId);
-      const isDelivered = isMe && (latestMsg.deliveries ?? []).some((d: any) => d.userId !== currentUserId);
+      const isSeen =
+        isMe &&
+        (latestMsg.reads ?? []).some((r: any) => r.userId !== currentUserId);
+      const isDelivered =
+        isMe &&
+        (latestMsg.deliveries ?? []).some(
+          (d: any) => d.userId !== currentUserId,
+        );
       lastMessage = {
         id: latestMsg.id,
         content: latestMsg.content,
         type: latestMsg.type,
-        senderName: latestMsg.sender?.profile?.displayName ?? latestMsg.sender?.username ?? 'User',
+        senderName:
+          latestMsg.sender?.profile?.displayName ??
+          latestMsg.sender?.username ??
+          'User',
         isMe,
         isSeen,
         isDelivered,
@@ -278,4 +286,3 @@ export class ConversationsService {
     };
   }
 }
-

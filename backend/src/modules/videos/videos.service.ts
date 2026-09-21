@@ -68,10 +68,7 @@ export class VideosService {
 
     const channel = await this.prisma.videoChannel.findFirst({
       where: {
-        OR: [
-          { id: videoChannelId },
-          { groupId: videoChannelId },
-        ],
+        OR: [{ id: videoChannelId }, { groupId: videoChannelId }],
         deletedAt: null,
       },
       select: {
@@ -137,7 +134,10 @@ export class VideosService {
     userId: string,
     dto: UploadVideoDto,
   ) {
-    const permission = await this.verifyChannelUploadPermission(videoChannelId, userId);
+    const permission = await this.verifyChannelUploadPermission(
+      videoChannelId,
+      userId,
+    );
     const resolvedChannelId = permission.channelId;
 
     const slug = this.generateSlug(dto.title);
@@ -197,7 +197,8 @@ export class VideosService {
       where: { id: fileId },
       select: { storageKey: true, url: true },
     });
-    const sourceFilePath = fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
+    const sourceFilePath =
+      fileRecord?.storageKey ?? `videos/${videoId}/raw.mp4`;
 
     // 3. Build the best playback URL immediately so Flutter can play the video
     //    without waiting for background processing to complete.
@@ -206,7 +207,8 @@ export class VideosService {
 
       // ── Cloudinary: build native streaming URL right away ─────────────
       if (this.storageProvider.providerType === 'CLOUDINARY') {
-        const cloudinaryProvider = this.storageProvider as CloudinaryStorageProvider;
+        const cloudinaryProvider = this
+          .storageProvider as CloudinaryStorageProvider;
         const publicId = fileRecord.storageKey;
 
         if (publicId) {

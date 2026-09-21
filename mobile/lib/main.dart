@@ -96,6 +96,18 @@ void main() async {
   final lifecycleObserver = AppLifecycleObserver(container);
   WidgetsBinding.instance.addObserver(lifecycleObserver);
 
+  // 7. Wire FCM locale sync: when the user changes language, re-register the
+  //    device token with the new locale so the backend generates notifications
+  //    in the correct language.
+  PreferencesNotifier.onLanguageChanged = (String languageCode) async {
+    try {
+      final fcm = container.read(fcmServiceProvider);
+      await fcm.syncLocale(languageCode);
+    } catch (e) {
+      debugPrint('[Main] FCM locale sync failed: $e');
+    }
+  };
+
   runApp(
     UncontrolledProviderScope(
       container: container,

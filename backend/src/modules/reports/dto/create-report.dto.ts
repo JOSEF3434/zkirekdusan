@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum ReportReasonEnum {
@@ -41,7 +47,8 @@ export class CreateReportDto {
   targetId!: string;
 
   @ApiPropertyOptional({
-    description: 'Associated target user ID (e.g. author or user being reported)',
+    description:
+      'Associated target user ID (e.g. author or user being reported)',
   })
   @IsString()
   @IsOptional()

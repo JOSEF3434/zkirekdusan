@@ -68,7 +68,17 @@ class AuthRemoteDatasource {
         body['username'] = username;
       }
 
-      final response = await _dio.post('/auth/login', data: body);
+      // Login can be the first request after the production service wakes up.
+      // Use a longer timeout for this request only so a cold start is not shown
+      // as an internet failure.
+      final response = await _dio.post(
+        '/auth/login',
+        data: body,
+        options: Options(
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
+        ),
+      );
       return AuthResponseModel.fromJson(_parseEnvelope(response.data));
     } on DioException catch (e) {
       throw AppException(

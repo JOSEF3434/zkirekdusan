@@ -49,8 +49,8 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                 child: Column(
                   children: [
                     SwitchListTile(
-                      title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.system'))),
-                      subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.system_sub'))),
+                      title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.system'))),
+                      subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.system_sub'))),
                       value: _maintenanceMode,
                       activeThumbColor: Colors.red,
                       onChanged: (val) {
@@ -62,8 +62,8 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                     ),
                     const Divider(),
                     SwitchListTile(
-                      title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.users'))),
-                      subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.users_sub'))),
+                      title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.admin.users'))),
+                      subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.users_sub'))),
                       value: _registrationsOpen,
                       onChanged: (val) {
                         setState(() => _registrationsOpen = val);
@@ -71,8 +71,8 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                     ),
                     const Divider(),
                     SwitchListTile(
-                      title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.security.authentication'))),
-                      subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.security.biometric_desc'))),
+                      title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.security.authentication'))),
+                      subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.security.biometric_desc'))),
                       value: _requireEmailVerification,
                       onChanged: (val) {
                         setState(() => _requireEmailVerification = val);
@@ -80,8 +80,8 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                     ),
                     const Divider(),
                     SwitchListTile(
-                      title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.content.sensitive_filter'))),
-                      subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.content.auto_captions_desc'))),
+                      title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.content.sensitive_filter'))),
+                      subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.content.auto_captions_desc'))),
                       value: _aiModerationEnabled,
                       onChanged: (val) {
                         setState(() => _aiModerationEnabled = val);

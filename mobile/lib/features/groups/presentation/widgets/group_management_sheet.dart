@@ -44,7 +44,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.confirm.delete_title'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.confirm.delete_title'))),
         content: Text(
           'Are you sure you want to delete "${widget.group.name}"? '
           'This will remove all associated channels and content.',
@@ -52,14 +52,14 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogCtx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.delete'))),
+            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.delete'))),
           ),
         ],
       ),
@@ -257,8 +257,8 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
               Icons.edit_outlined,
               color: theme.colorScheme.onSurfaceVariant,
             ),
-            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.edit.title'))),
-            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.edit.desc_label'))),
+            title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.edit.title'))),
+            subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.edit.desc_label'))),
             onTap: _handleEdit,
           ),
 
@@ -269,8 +269,8 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 Icons.video_call_outlined,
                 color: theme.colorScheme.primary,
               ),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('shell.upload_video'))),
-              subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('upload.description_hint'))),
+              title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('shell.upload_video'))),
+              subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('upload.description_hint'))),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/creator/upload?groupId=${group.id}');
@@ -284,7 +284,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                 Icons.people_outline,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('groups.add_members'))),
+              title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.add_members'))),
               subtitle: Text('${group.membersCount} members'),
               onTap: () {
                 Navigator.of(context).pop();
@@ -301,7 +301,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(Icons.sync, color: theme.colorScheme.secondary),
-            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.refresh'))),
+            title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.refresh'))),
             subtitle: const Text(
               'Ensure creator permissions and channel setup',
             ),

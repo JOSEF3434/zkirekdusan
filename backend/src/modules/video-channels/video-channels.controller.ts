@@ -73,7 +73,7 @@ export class VideoChannelsController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ): Promise<VideoChannelListResponseDto> {
-    return this.service.findByGroup(groupId, +page, +limit) as any;
+    return this.service.findByGroup(groupId, +page, +limit);
   }
 
   @Get(':channelId')

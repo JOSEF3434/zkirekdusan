@@ -86,7 +86,8 @@ export class AppController {
     });
 
     const appSchemeUrl = `zikrekidusan://profile/user/${encodeURIComponent(username)}`;
-    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.zikrekidusan.mobile';
+    const playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.zikrekidusan.mobile';
     const appStoreUrl = 'https://apps.apple.com/app/zikre-kidusan/id123456789';
 
     if (!user) {
@@ -116,9 +117,11 @@ export class AppController {
       `);
     }
 
-    const displayName = user.profile?.displayName || user.username || 'Zikre Kidusan User';
+    const displayName =
+      user.profile?.displayName || user.username || 'Zikre Kidusan User';
     const bio = user.profile?.bio || 'Check out this profile on Zikre Kidusan.';
-    const avatarUrl = user.profile?.avatar?.url || 'https://via.placeholder.com/150';
+    const avatarUrl =
+      user.profile?.avatar?.url || 'https://via.placeholder.com/150';
 
     return res.status(HttpStatus.OK).send(`
       <!DOCTYPE html>

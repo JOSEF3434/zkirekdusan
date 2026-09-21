@@ -151,7 +151,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'A database error occurred',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+          details:
+            process.env.NODE_ENV === 'development' ? error.message : undefined,
         };
     }
   }

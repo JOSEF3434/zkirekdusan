@@ -11,7 +11,9 @@ export class SearchRepository {
         status: 'ACTIVE',
         OR: [
           { username: { contains: query, mode: 'insensitive' } },
-          { profile: { displayName: { contains: query, mode: 'insensitive' } } },
+          {
+            profile: { displayName: { contains: query, mode: 'insensitive' } },
+          },
           { profile: { firstName: { contains: query, mode: 'insensitive' } } },
           { profile: { lastName: { contains: query, mode: 'insensitive' } } },
         ],
@@ -38,7 +40,9 @@ export class SearchRepository {
       profile: {
         displayName:
           u.profile?.displayName ||
-          [u.profile?.firstName, u.profile?.lastName].filter(Boolean).join(' ') ||
+          [u.profile?.firstName, u.profile?.lastName]
+            .filter(Boolean)
+            .join(' ') ||
           u.username,
         avatar: u.profile?.avatar,
       },
@@ -141,10 +145,7 @@ export class SearchRepository {
           },
         },
       },
-      orderBy: [
-        { viewsCount: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ viewsCount: 'desc' }, { createdAt: 'desc' }],
       take: limit,
       skip,
     });

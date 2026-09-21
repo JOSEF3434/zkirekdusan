@@ -8,7 +8,12 @@ import {
   UseGuards,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -25,11 +30,17 @@ export class AdminUsersController {
   constructor(private readonly usersService: AdminUsersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List platform users with server pagination and filtering' })
+  @ApiOperation({
+    summary: 'List platform users with server pagination and filtering',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['ALL', 'ACTIVE', 'INACTIVE', 'SUSPENDED', 'BANNED'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['ALL', 'ACTIVE', 'INACTIVE', 'SUSPENDED', 'BANNED'],
+  })
   @ApiQuery({ name: 'role', required: false })
   async getUsers(
     @Query('page') page = 1,
@@ -54,18 +65,31 @@ export class AdminUsersController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Update user status with audit logging and protection' })
+  @ApiOperation({
+    summary: 'Update user status with audit logging and protection',
+  })
   async updateUserStatus(
     @Param('id') id: string,
     @CurrentUser('sub') actorId: string,
-    @Body() dto: { status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'BANNED'; reason?: string },
+    @Body()
+    dto: {
+      status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'BANNED';
+      reason?: string;
+    },
   ) {
-    return this.usersService.updateUserStatus(actorId, id, dto.status, dto.reason);
+    return this.usersService.updateUserStatus(
+      actorId,
+      id,
+      dto.status,
+      dto.reason,
+    );
   }
 
   @Post(':id/role')
   @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
-  @ApiOperation({ summary: 'Assign platform role with escalation guard and audit log' })
+  @ApiOperation({
+    summary: 'Assign platform role with escalation guard and audit log',
+  })
   async assignRole(
     @Param('id') id: string,
     @CurrentUser('sub') actorId: string,
@@ -81,8 +105,16 @@ export class AdminUsersController {
     @CurrentUser('sub') actorId: string,
     @Body() body?: { reason?: string },
   ) {
-    const user = await this.usersService.updateUserStatus(actorId, id, 'BANNED', body?.reason);
-    return { success: true, message: `User ${user.username ?? id} has been banned.` };
+    const user = await this.usersService.updateUserStatus(
+      actorId,
+      id,
+      'BANNED',
+      body?.reason,
+    );
+    return {
+      success: true,
+      message: `User ${user.username ?? id} has been banned.`,
+    };
   }
 
   @Post(':id/deactivate')
@@ -92,8 +124,16 @@ export class AdminUsersController {
     @CurrentUser('sub') actorId: string,
     @Body() body?: { reason?: string },
   ) {
-    const user = await this.usersService.updateUserStatus(actorId, id, 'INACTIVE', body?.reason);
-    return { success: true, message: `User ${user.username ?? id} has been deactivated.` };
+    const user = await this.usersService.updateUserStatus(
+      actorId,
+      id,
+      'INACTIVE',
+      body?.reason,
+    );
+    return {
+      success: true,
+      message: `User ${user.username ?? id} has been deactivated.`,
+    };
   }
 
   @Post(':id/activate')
@@ -102,7 +142,14 @@ export class AdminUsersController {
     @Param('id') id: string,
     @CurrentUser('sub') actorId: string,
   ) {
-    const user = await this.usersService.updateUserStatus(actorId, id, 'ACTIVE');
-    return { success: true, message: `User ${user.username ?? id} has been reactivated.` };
+    const user = await this.usersService.updateUserStatus(
+      actorId,
+      id,
+      'ACTIVE',
+    );
+    return {
+      success: true,
+      message: `User ${user.username ?? id} has been reactivated.`,
+    };
   }
 }

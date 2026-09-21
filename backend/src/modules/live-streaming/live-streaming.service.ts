@@ -416,14 +416,22 @@ export class LiveStreamingService {
 
           // Fetch active stream key from Cloudinary to pass to the broadcaster
           try {
-            const cldData = await this.cloudinaryProvider.getLiveStream(cldStreamId);
+            const cldData =
+              await this.cloudinaryProvider.getLiveStream(cldStreamId);
             if (cldData?.input?.stream_key) {
               activeStreamKey = cldData.input.stream_key;
             }
           } catch (_) {}
-        } else if (!cldStreamId || !hlsUrl || !streamKey?.keyPrefix?.startsWith('cld_')) {
+        } else if (
+          !cldStreamId ||
+          !hlsUrl ||
+          !streamKey?.keyPrefix?.startsWith('cld_')
+        ) {
           // If not already provisioned on Cloudinary, create it now
-          const safeSlug = (stream.slug || stream.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+          const safeSlug = (stream.slug || stream.id).replace(
+            /[^a-zA-Z0-9_-]/g,
+            '_',
+          );
           const cld = await this.cloudinaryProvider.createLiveStream(
             `stream_${safeSlug}`,
           );
@@ -435,7 +443,9 @@ export class LiveStreamingService {
           activeStreamKey = cld.streamKey;
 
           // Upsert channel's stream key to match Cloudinary
-          const keyHash = createHash('sha256').update(cld.streamKey).digest('hex');
+          const keyHash = createHash('sha256')
+            .update(cld.streamKey)
+            .digest('hex');
           const keyPrefix = `cld_${cld.id}`;
           streamKey = await this.repository.upsertStreamKey(
             stream.videoChannelId,
@@ -463,7 +473,10 @@ export class LiveStreamingService {
           },
         });
       } catch (err: any) {
-        this.logger.error(`Error provisioning Cloudinary live stream: ${err.message}`, err.stack);
+        this.logger.error(
+          `Error provisioning Cloudinary live stream: ${err.message}`,
+          err.stack,
+        );
       }
     }
 
@@ -553,7 +566,8 @@ export class LiveStreamingService {
       const vodHlsUrl =
         this.cloudinaryProvider?.configured && stream.dashUrl
           ? `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${stream.dashUrl}.m3u8`
-          : (stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`);
+          : (stream.hlsUrl ??
+            `${appUrl}/uploads/streams/${streamId}/index.m3u8`);
 
       // Mark recording ready so user can immediately view/publish VOD
       await this.prisma.streamRecording.update({
@@ -573,7 +587,9 @@ export class LiveStreamingService {
           recordingPath: `streams/${streamId}/recording.mp4`,
         });
       } catch (err) {
-        this.logger.warn(`Could not enqueue recording job for stream ${streamId}: ${err}`);
+        this.logger.warn(
+          `Could not enqueue recording job for stream ${streamId}: ${err}`,
+        );
       }
     }
 
@@ -620,7 +636,8 @@ export class LiveStreamingService {
         this.configService.get<string>('APP_URL') ??
         this.configService.get<string>('RENDER_EXTERNAL_URL') ??
         'https://zikrekidusan.onrender.com';
-      const fallbackHlsUrl = stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
+      const fallbackHlsUrl =
+        stream.hlsUrl ?? `${appUrl}/uploads/streams/${streamId}/index.m3u8`;
       recording = await this.prisma.streamRecording.update({
         where: { id: recording.id },
         data: {
@@ -633,7 +650,11 @@ export class LiveStreamingService {
 
     const cldArchivePublicId = stream.dashUrl;
     let playbackUrl = recording.hlsUrl;
-    if ((!playbackUrl || playbackUrl.includes('/uploads/')) && cldArchivePublicId && this.cloudinaryProvider?.configured) {
+    if (
+      (!playbackUrl || playbackUrl.includes('/uploads/')) &&
+      cldArchivePublicId &&
+      this.cloudinaryProvider?.configured
+    ) {
       playbackUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${cldArchivePublicId}.m3u8`;
     }
     if (!playbackUrl) {
@@ -665,7 +686,8 @@ export class LiveStreamingService {
         videoChannelId: stream.videoChannelId,
         uploadedById: userId,
         title: stream.title,
-        description: stream.description ?? `Recorded live stream: ${stream.title}`,
+        description:
+          stream.description ?? `Recorded live stream: ${stream.title}`,
         slug: `vod-${stream.id}-${nanoid(8)}`,
         status: 'READY',
         visibility: stream.visibility as any,
@@ -678,7 +700,9 @@ export class LiveStreamingService {
       },
     });
 
-    this.logger.log(`VOD published for stream ${streamId} by user ${userId}. Video ID: ${video.id}`);
+    this.logger.log(
+      `VOD published for stream ${streamId} by user ${userId}. Video ID: ${video.id}`,
+    );
     return {
       message: 'VOD published successfully',
       recordingId: recording.id,
@@ -709,7 +733,10 @@ export class LiveStreamingService {
     }
 
     let rawKey: string | undefined;
-    if (key.keyPrefix?.startsWith('cld_') && this.cloudinaryProvider?.configured) {
+    if (
+      key.keyPrefix?.startsWith('cld_') &&
+      this.cloudinaryProvider?.configured
+    ) {
       const cldId = key.keyPrefix.replace('cld_', '');
       try {
         const cld = await this.cloudinaryProvider.getLiveStream(cldId);
@@ -790,7 +817,9 @@ export class LiveStreamingService {
     const streamKey = await this.repository.getStreamKeyByHash(keyHash);
 
     if (!streamKey || !streamKey.isActive) {
-      this.logger.warn(`Invalid or inactive stream key used: ${streamKeyName.substring(0, 8)}...`);
+      this.logger.warn(
+        `Invalid or inactive stream key used: ${streamKeyName.substring(0, 8)}...`,
+      );
       throw new ForbiddenException('Invalid stream key');
     }
 
@@ -800,22 +829,36 @@ export class LiveStreamingService {
     if (activeLiveStream) {
       try {
         // Start the stream
-        await this.startStream(activeLiveStream.createdById, activeLiveStream.id);
-        
-        this.logger.log(`Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`);
+        await this.startStream(
+          activeLiveStream.createdById,
+          activeLiveStream.id,
+        );
+
+        this.logger.log(
+          `Nginx-RTMP on_publish authorized for stream ${activeLiveStream.id}`,
+        );
       } catch (err: any) {
         if (err instanceof ConflictException) {
-          this.logger.log(`Stream ${activeLiveStream.id} is already LIVE (Reconnect detected)`);
+          this.logger.log(
+            `Stream ${activeLiveStream.id} is already LIVE (Reconnect detected)`,
+          );
           // Record a new session for the reconnect
-          await this.repository.createStreamSession(activeLiveStream.id, streamKey.id);
+          await this.repository.createStreamSession(
+            activeLiveStream.id,
+            streamKey.id,
+          );
         } else {
           throw err;
         }
       }
     } else {
-      this.logger.warn(`Valid stream key but no active LIVE stream configured for channel ${streamKey.videoChannelId}`);
+      this.logger.warn(
+        `Valid stream key but no active LIVE stream configured for channel ${streamKey.videoChannelId}`,
+      );
       // In a real system you might auto-create a stream, but here we require one to be created first
-      throw new ForbiddenException('No active stream configured for this channel');
+      throw new ForbiddenException(
+        'No active stream configured for this channel',
+      );
     }
   }
 
@@ -830,7 +873,9 @@ export class LiveStreamingService {
     if (activeLiveStream) {
       // End the stream securely
       await this.endStream(activeLiveStream.createdById, activeLiveStream.id);
-      this.logger.log(`Nginx-RTMP on_done handled for stream ${activeLiveStream.id}`);
+      this.logger.log(
+        `Nginx-RTMP on_done handled for stream ${activeLiveStream.id}`,
+      );
     }
   }
 
@@ -848,7 +893,13 @@ export class LiveStreamingService {
       where: {
         OR: [
           { dashUrl: publicId },
-          { webrtcUrl: { contains: publicId.replace('live_stream_', '').replace('_archive', '') } },
+          {
+            webrtcUrl: {
+              contains: publicId
+                .replace('live_stream_', '')
+                .replace('_archive', ''),
+            },
+          },
         ],
       },
     });
@@ -866,7 +917,9 @@ export class LiveStreamingService {
     }
 
     if (!stream) {
-      this.logger.warn(`No matching live stream found for Cloudinary asset: ${publicId}`);
+      this.logger.warn(
+        `No matching live stream found for Cloudinary asset: ${publicId}`,
+      );
       return;
     }
 
@@ -891,7 +944,9 @@ export class LiveStreamingService {
         where: { id: recording.id },
         data: {
           status: 'READY',
-          duration: payload.duration ? Math.round(Number(payload.duration)) : recording.duration,
+          duration: payload.duration
+            ? Math.round(Number(payload.duration))
+            : recording.duration,
           hlsUrl: vodHlsUrl,
           fileSize: payload.bytes ? BigInt(payload.bytes) : recording.fileSize,
         },
@@ -909,6 +964,8 @@ export class LiveStreamingService {
       });
     }
 
-    this.logger.log(`Cloudinary live stream ${stream.id} archive recorded as VOD: ${vodHlsUrl}`);
+    this.logger.log(
+      `Cloudinary live stream ${stream.id} archive recorded as VOD: ${vodHlsUrl}`,
+    );
   }
 }

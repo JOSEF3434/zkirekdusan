@@ -16,7 +16,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
+        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('creator.workspace_title'))),
         actions: [
           if (permissions.isGlobalAdmin)
             IconButton(
@@ -61,7 +61,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () =>
                   ref.read(adminMetricsProvider.notifier).refresh(),
-              child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('common.retry'))),
+              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.retry'))),
             ),
           ],
         ),
@@ -114,8 +114,8 @@ class CreatorDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
           ListTile(
-            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('settings.admin.reports_moderation'))),
-            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.reports_sub'))),
+            title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('settings.admin.reports_moderation'))),
+            subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.reports_sub'))),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             leading: const Icon(Icons.gavel),
             tileColor: theme.colorScheme.surfaceContainerHighest,
@@ -126,8 +126,8 @@ class CreatorDashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           ListTile(
-            title: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
-            subtitle: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('admin.groups_sub'))),
+            title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('creator.workspace_title'))),
+            subtitle: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.groups_sub'))),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             leading: const Icon(Icons.dashboard),
             tileColor: theme.colorScheme.surfaceContainerHighest,
@@ -168,7 +168,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           FilledButton.icon(
             icon: const Icon(Icons.arrow_back),
-            label: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('creator.workspace_title'))),
+            label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('creator.workspace_title'))),
             onPressed: () => context.go('/creator'),
           ),
         ],

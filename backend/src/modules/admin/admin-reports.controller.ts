@@ -10,7 +10,12 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -27,8 +32,14 @@ export class AdminReportsController {
   constructor(private readonly moderationService: AdminModerationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get reports with optional status filter and pagination' })
-  @ApiQuery({ name: 'status', required: false, enum: ['ALL', 'PENDING', 'REVIEWING', 'RESOLVED', 'DISMISSED'] })
+  @ApiOperation({
+    summary: 'Get reports with optional status filter and pagination',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['ALL', 'PENDING', 'REVIEWING', 'RESOLVED', 'DISMISSED'],
+  })
   @ApiQuery({ name: 'targetType', required: false })
   @ApiQuery({ name: 'reason', required: false })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -56,11 +67,23 @@ export class AdminReportsController {
   }
 
   @Post(':id/action')
-  @ApiOperation({ summary: 'Perform admin action on report (BAN, DEACTIVATE, DISMISS, WARN)' })
+  @ApiOperation({
+    summary: 'Perform admin action on report (BAN, DEACTIVATE, DISMISS, WARN)',
+  })
   async performAction(
     @Param('id') id: string,
     @CurrentUser('sub') adminId: string,
-    @Body() dto: { action: 'BAN_USER' | 'DEACTIVATE_USER' | 'DISMISS' | 'RESOLVE' | 'SUSPEND_USER' | 'DELETE_CONTENT'; note?: string },
+    @Body()
+    dto: {
+      action:
+        | 'BAN_USER'
+        | 'DEACTIVATE_USER'
+        | 'DISMISS'
+        | 'RESOLVE'
+        | 'SUSPEND_USER'
+        | 'DELETE_CONTENT';
+      note?: string;
+    },
   ) {
     return this.moderationService.performAction(id, adminId, dto);
   }

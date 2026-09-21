@@ -8,7 +8,12 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger, UsePipes, ValidationPipe, OnModuleDestroy } from '@nestjs/common';
+import {
+  Logger,
+  UsePipes,
+  ValidationPipe,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -74,7 +79,11 @@ const REACTION_RATE_LIMIT = { max: 20, windowMs: 5_000 }; // 20 reactions per 5 
   namespace: '/live',
 })
 export class LiveGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleDestroy
 {
   @WebSocketServer() declare server: Server;
   private readonly logger = new Logger(LiveGateway.name);
@@ -83,7 +92,7 @@ export class LiveGateway
   private readonly viewerSessions = new Map<string, ViewerSession>();
   // Rate limiting: userId:type → RateLimit
   private readonly rateLimits = new Map<string, RateLimit>();
-  
+
   // Quality reports aggregation: streamId -> bandwidth array
   private readonly qualityReports = new Map<string, number[]>();
   private healthBroadcastInterval: NodeJS.Timeout | null = null;
@@ -99,7 +108,7 @@ export class LiveGateway
 
   afterInit(_server: Server) {
     this.logger.log('📡 LiveGateway initialized on /live namespace');
-    
+
     // Broadcast stream health every 30 seconds
     this.healthBroadcastInterval = setInterval(() => {
       this.broadcastStreamHealth();
@@ -115,12 +124,13 @@ export class LiveGateway
   private broadcastStreamHealth() {
     for (const [streamId, bandwidths] of this.qualityReports.entries()) {
       if (bandwidths.length === 0) continue;
-      
-      const avgBandwidth = bandwidths.reduce((a, b) => a + b, 0) / bandwidths.length;
+
+      const avgBandwidth =
+        bandwidths.reduce((a, b) => a + b, 0) / bandwidths.length;
       const sorted = [...bandwidths].sort((a, b) => a - b);
       const p50 = sorted[Math.floor(sorted.length * 0.5)];
       const p95 = sorted[Math.floor(sorted.length * 0.95)];
-      
+
       let health = 'GOOD';
       if (p50 < 1000) health = 'POOR';
       else if (p50 < 2500) health = 'FAIR';
@@ -135,7 +145,7 @@ export class LiveGateway
         reportsCount: bandwidths.length,
         timestamp: Date.now(),
       });
-      
+
       // Clear reports for next window
       this.qualityReports.set(streamId, []);
     }
@@ -196,7 +206,6 @@ export class LiveGateway
       return null;
     }
   }
-
 
   private extractToken(client: Socket): string | null {
     const authHeader = client.handshake.headers.authorization;
@@ -587,7 +596,7 @@ export class LiveGateway
     } else if (payload.bandwidth > 4000) {
       client.emit(LIVE_EVENTS.QUALITY_RECOMMEND, { quality: '1080p' });
     }
-    
+
     // Aggregate for health dashboard
     if (!this.qualityReports.has(payload.streamId)) {
       this.qualityReports.set(payload.streamId, []);

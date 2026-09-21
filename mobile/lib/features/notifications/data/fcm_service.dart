@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/notifications/core/notification_navigation_resolver.dart';
 import 'package:mobile/features/notifications/data/notifications_repository.dart';
 import 'package:mobile/features/notifications/domain/notification_model.dart';
@@ -86,9 +87,7 @@ class FcmService {
         sound: true,
       );
 
-      debugPrint(
-        '[FCM] Permission status: ${settings.authorizationStatus}',
-      );
+      debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
 
       // 2. Set presentation options for foreground notifications (iOS)
       await messaging.setForegroundNotificationPresentationOptions(
@@ -119,25 +118,27 @@ class FcmService {
       });
 
       // 5. Handle foreground messages
-      _foregroundSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _foregroundSub = FirebaseMessaging.onMessage.listen((
+        RemoteMessage message,
+      ) {
         debugPrint(
           '[FCM Foreground] Received message: ${message.notification?.title}',
         );
         try {
           final data = Map<String, dynamic>.from(message.data);
-          final id = data['notificationId'] as String? ??
+          final id =
+              data['notificationId'] as String? ??
               message.messageId ??
               DateTime.now().millisecondsSinceEpoch.toString();
 
           final notification = NotificationResponseDto(
             id: id,
             type: (data['type'] as String?) ?? 'SYSTEM',
-            title: message.notification?.title ??
+            title:
+                message.notification?.title ??
                 (data['title'] as String?) ??
                 'Notification',
-            body: message.notification?.body ??
-                (data['body'] as String?) ??
-                '',
+            body: message.notification?.body ?? (data['body'] as String?) ?? '',
             data: data,
             isRead: false,
             createdAt: message.sentTime ?? DateTime.now(),
@@ -160,7 +161,9 @@ class FcmService {
       // 7. Check if app was opened from a terminated state via notification click
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) {
-        debugPrint('[FCM Initial] App launched from terminated state via notification');
+        debugPrint(
+          '[FCM Initial] App launched from terminated state via notification',
+        );
         // Delay slightly to let router and widget tree mount
         Future.delayed(const Duration(milliseconds: 500), () {
           _handleMessageNavigation(initialMessage);
@@ -190,7 +193,8 @@ class FcmService {
 
   /// Called when user logs out.
   Future<void> onUserLoggedOut() async {
-    final token = _currentToken ?? await _storage.read(key: _kFcmDeviceTokenKey);
+    final token =
+        _currentToken ?? await _storage.read(key: _kFcmDeviceTokenKey);
     if (token != null) {
       await _repository.removeDeviceToken(token);
     }
@@ -201,13 +205,46 @@ class FcmService {
     final platform = kIsWeb
         ? 'WEB'
         : defaultTargetPlatform == TargetPlatform.iOS
-            ? 'IOS'
-            : 'ANDROID';
+        ? 'IOS'
+        : 'ANDROID';
 
-    debugPrint('[FCM] Syncing device token ($platform) to backend...');
+    // Read the current language preference so the backend generates
+    // notifications in the user's chosen language.
+    String? locale;
+    try {
+      locale = _ref.read(preferencesProvider).languageCode;
+    } catch (_) {
+      // preferences not yet available — backend will default to 'en'
+    }
+
+    debugPrint(
+      '[FCM] Syncing device token ($platform, locale=$locale) to backend...',
+    );
     await _repository.registerDeviceToken(
       token: token,
       platform: platform,
+      locale: locale,
+    );
+  }
+
+  /// Call this whenever the user changes the app language so the backend
+  /// starts generating future notifications in the newly selected language.
+  Future<void> syncLocale(String languageCode) async {
+    final token =
+        _currentToken ?? await _storage.read(key: _kFcmDeviceTokenKey);
+    if (token == null) return;
+
+    final platform = kIsWeb
+        ? 'WEB'
+        : defaultTargetPlatform == TargetPlatform.iOS
+        ? 'IOS'
+        : 'ANDROID';
+
+    debugPrint('[FCM] Re-syncing locale ($languageCode) to backend...');
+    await _repository.registerDeviceToken(
+      token: token,
+      platform: platform,
+      locale: languageCode,
     );
   }
 
@@ -221,16 +258,16 @@ class FcmService {
 
       final data = Map<String, dynamic>.from(message.data);
       final notificationDto = NotificationResponseDto(
-        id: data['notificationId'] as String? ??
+        id:
+            data['notificationId'] as String? ??
             message.messageId ??
             DateTime.now().millisecondsSinceEpoch.toString(),
         type: (data['type'] as String?) ?? 'SYSTEM',
-        title: message.notification?.title ??
+        title:
+            message.notification?.title ??
             (data['title'] as String?) ??
             'Notification',
-        body: message.notification?.body ??
-            (data['body'] as String?) ??
-            '',
+        body: message.notification?.body ?? (data['body'] as String?) ?? '',
         data: data,
         isRead: false,
         createdAt: message.sentTime ?? DateTime.now(),

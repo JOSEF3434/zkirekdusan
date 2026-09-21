@@ -15,17 +15,24 @@ export class MinioStorageProvider implements IStorageProvider, OnModuleInit {
   private readonly useSSL: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    this.endpoint = this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
-    this.port = parseInt(this.configService.get<string>('MINIO_PORT') ?? '9000', 10);
+    this.endpoint =
+      this.configService.get<string>('MINIO_ENDPOINT') ?? 'localhost';
+    this.port = parseInt(
+      this.configService.get<string>('MINIO_PORT') ?? '9000',
+      10,
+    );
     this.useSSL = this.configService.get<string>('MINIO_USE_SSL') === 'true';
-    this.bucketName = this.configService.get<string>('MINIO_BUCKET') ?? 'streamhub';
-    
+    this.bucketName =
+      this.configService.get<string>('MINIO_BUCKET') ?? 'streamhub';
+
     this.minioClient = new Minio.Client({
       endPoint: this.endpoint,
       port: this.port,
       useSSL: this.useSSL,
-      accessKey: this.configService.get<string>('MINIO_ACCESS_KEY') ?? 'minioadmin',
-      secretKey: this.configService.get<string>('MINIO_SECRET_KEY') ?? 'minioadmin',
+      accessKey:
+        this.configService.get<string>('MINIO_ACCESS_KEY') ?? 'minioadmin',
+      secretKey:
+        this.configService.get<string>('MINIO_SECRET_KEY') ?? 'minioadmin',
     });
   }
 
@@ -34,7 +41,7 @@ export class MinioStorageProvider implements IStorageProvider, OnModuleInit {
       const exists = await this.minioClient.bucketExists(this.bucketName);
       if (!exists) {
         await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
-        
+
         // Make bucket public for public URLs
         const policy = {
           Version: '2012-10-17',
@@ -47,30 +54,45 @@ export class MinioStorageProvider implements IStorageProvider, OnModuleInit {
             },
           ],
         };
-        await this.minioClient.setBucketPolicy(this.bucketName, JSON.stringify(policy));
-        this.logger.log(`Created bucket '${this.bucketName}' and set public policy`);
+        await this.minioClient.setBucketPolicy(
+          this.bucketName,
+          JSON.stringify(policy),
+        );
+        this.logger.log(
+          `Created bucket '${this.bucketName}' and set public policy`,
+        );
       }
     } catch (error) {
-      this.logger.warn(`Could not verify/create MinIO bucket: ${(error as Error).message}`);
+      this.logger.warn(
+        `Could not verify/create MinIO bucket: ${(error as Error).message}`,
+      );
     }
   }
 
   async upload(
-    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     subfolder: string,
   ): Promise<StorageUploadResult> {
-    const key = `${subfolder}/${Date.now()}-${file.originalname}`.replace(/\\/g, '/');
-    
+    const key = `${subfolder}/${Date.now()}-${file.originalname}`.replace(
+      /\\/g,
+      '/',
+    );
+
     await this.minioClient.putObject(
       this.bucketName,
       key,
       file.buffer,
       file.size,
-      { 'Content-Type': file.mimetype }
+      { 'Content-Type': file.mimetype },
     );
-    
+
     this.logger.log(`Uploaded file to MinIO: ${key}`);
-    
+
     return {
       storageKey: key,
       url: this.getUrl(key),
@@ -87,8 +109,12 @@ export class MinioStorageProvider implements IStorageProvider, OnModuleInit {
     const protocol = this.useSSL ? 'https' : 'http';
     return `${protocol}://${this.endpoint}:${this.port}/${this.bucketName}/${storageKey}`;
   }
-  
+
   async getSignedUrl(storageKey: string, expiresIn = 3600): Promise<string> {
-    return this.minioClient.presignedGetObject(this.bucketName, storageKey, expiresIn);
+    return this.minioClient.presignedGetObject(
+      this.bucketName,
+      storageKey,
+      expiresIn,
+    );
   }
 }

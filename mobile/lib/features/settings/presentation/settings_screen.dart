@@ -160,7 +160,7 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   // ── Logout ──────────────────────────────────────────────────
                   _LogoutButton(
-                    label: tr('settings.logout'),
+                    label: tr('dialog.logout_btn_settings'),
                     onTap: () => _confirmLogout(context, ref, tr),
                   ),
                   const SizedBox(height: 12),

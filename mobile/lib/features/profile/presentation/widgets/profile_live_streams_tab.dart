@@ -1623,7 +1623,7 @@ class _StreamCard extends ConsumerWidget {
                         }
                       }
                     },
-                    child: Consumer(builder: (_, ref, _) => Text(ref.watch(trProvider)('profile.save_changes'))),
+                    child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('profile.save_changes'))),
                   ),
                 ),
               ],

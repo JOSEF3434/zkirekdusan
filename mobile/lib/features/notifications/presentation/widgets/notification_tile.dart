@@ -3,10 +3,12 @@
 // timestamp, and dismiss/swipe actions.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/notifications/domain/notification_model.dart';
 
-class NotificationTile extends StatelessWidget {
+class NotificationTile extends ConsumerWidget {
   final NotificationResponseDto notification;
   final VoidCallback onTap;
   final VoidCallback onDismiss;
@@ -19,9 +21,12 @@ class NotificationTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final languageCode = ref.watch(
+      preferencesProvider.select((state) => state.languageCode),
+    );
 
     final icon = _getIconForType(notification.type);
     final iconColor = _getColorForType(notification.type, cs);
@@ -67,7 +72,7 @@ class NotificationTile extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              notification.title,
+                              notification.localizedTitle(languageCode),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: notification.isRead
                                     ? FontWeight.normal
@@ -91,7 +96,7 @@ class NotificationTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        notification.body,
+                        notification.localizedBody(languageCode),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurface.withValues(alpha: 0.7),
                         ),

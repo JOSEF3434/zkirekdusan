@@ -100,12 +100,18 @@ export class MessagesService {
     );
 
     // Mark all unread messages from other users in this conversation as read
-    await this.messagesRepository.markBulkAsRead(conversationId, userId).catch(() => {});
-    await this.messagesRepository.resetUnreadCount(conversationId, userId).catch(() => {});
+    await this.messagesRepository
+      .markBulkAsRead(conversationId, userId)
+      .catch(() => {});
+    await this.messagesRepository
+      .resetUnreadCount(conversationId, userId)
+      .catch(() => {});
 
     // Broadcast read receipts to conversation and members for newly read messages
     const newlyReadMessages = result.data.filter(
-      (m: any) => m.senderId !== userId && !(m.reads ?? []).some((r: any) => r.userId === userId),
+      (m: any) =>
+        m.senderId !== userId &&
+        !(m.reads ?? []).some((r: any) => r.userId === userId),
     );
     if (newlyReadMessages.length > 0) {
       const memberIds = conversation.members?.map((m: any) => m.userId) ?? [];
@@ -116,7 +122,11 @@ export class MessagesService {
           userId,
           readAt: new Date(),
         };
-        this.messagingGateway.emitReadReceipt(conversationId, payload, memberIds);
+        this.messagingGateway.emitReadReceipt(
+          conversationId,
+          payload,
+          memberIds,
+        );
       }
     }
 
@@ -152,7 +162,10 @@ export class MessagesService {
       dto.content,
     );
     const updatedDto = this.mapToDto(updated);
-    this.messagingGateway.emitMessageUpdated(message.conversationId, updatedDto);
+    this.messagingGateway.emitMessageUpdated(
+      message.conversationId,
+      updatedDto,
+    );
     return updatedDto;
   }
 
@@ -216,8 +229,13 @@ export class MessagesService {
       emoji: dto.emoji,
       action: 'add',
     };
-    const memberIds = (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
-    this.messagingGateway.emitReaction(message.conversationId, payload, memberIds);
+    const memberIds =
+      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitReaction(
+      message.conversationId,
+      payload,
+      memberIds,
+    );
 
     return { success: true };
   }
@@ -241,8 +259,13 @@ export class MessagesService {
       emoji,
       action: 'remove',
     };
-    const memberIds = (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
-    this.messagingGateway.emitReactionRemoved(message.conversationId, payload, memberIds);
+    const memberIds =
+      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitReactionRemoved(
+      message.conversationId,
+      payload,
+      memberIds,
+    );
 
     return { success: true };
   }
@@ -462,9 +485,7 @@ export class MessagesService {
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
-    const isMember = conversation.members.some(
-      (m: any) => m.userId === userId,
-    );
+    const isMember = conversation.members.some((m: any) => m.userId === userId);
     if (!isMember) {
       throw new ForbiddenException('You are not a member of this conversation');
     }

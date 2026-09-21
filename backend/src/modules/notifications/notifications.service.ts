@@ -15,7 +15,7 @@ export class NotificationsService {
     private readonly notificationsGateway: NotificationsGateway,
     private readonly firebaseService: FirebaseService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   // ── Create (used internally by other services) ─────────────────────────────
   async create(payload: {
@@ -163,23 +163,36 @@ export class NotificationsService {
     ethiopianMonth: number;
     ethiopianYear: number;
   }): Promise<void> {
-    const title =
+    const amharicTitle =
       note.title && note.title.trim().length > 0
         ? `አዲስ የዝክረ ቅዱሳን ማስታወሻ: ${note.title}`
         : 'አዲስ የዝክረ ቅዱሳን ማስታወሻ ተለጥፏል';
-    const body =
+    const amharicBody =
       note.content && note.content.trim().length > 0
         ? (note.content.length > 120 ? `${note.content.substring(0, 117)}...` : note.content)
         : `ለዕለት ${note.ethiopianDay}/${note.ethiopianMonth}/${note.ethiopianYear} የተለጠፈ ማስታወሻ ለመመልከት ይጫኑ`;
 
+    const englishTitle =
+      note.title && note.title.trim().length > 0
+        ? `New Zikre Kidusan note: ${note.title}`
+        : 'A new Zikre Kidusan note was published';
+    const englishBody =
+      note.content && note.content.trim().length > 0
+        ? (note.content.length > 120 ? `${note.content.substring(0, 117)}...` : note.content)
+        : `A note for ${note.ethiopianDay}/${note.ethiopianMonth}/${note.ethiopianYear} was published. Tap to view it.`;
+
     return this.notifyAllUsers({
-      title,
-      body,
+      title: englishTitle,
+      body: englishBody,
       type: NotificationType.SYSTEM,
       data: {
         noteId: note.id,
         calendarNoteId: note.id,
         type: 'CALENDAR_NOTE',
+        localized: {
+          en: { title: englishTitle, body: englishBody },
+          am: { title: amharicTitle, body: amharicBody },
+        },
       },
     });
   }

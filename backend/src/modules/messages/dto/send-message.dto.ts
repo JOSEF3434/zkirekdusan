@@ -37,7 +37,9 @@ export class SendMessageDto {
   @IsUUID()
   forwardFromMessageId?: string;
 
-  @ApiPropertyOptional({ description: 'Original conversation ID (for forward)' })
+  @ApiPropertyOptional({
+    description: 'Original conversation ID (for forward)',
+  })
   @IsOptional()
   @IsUUID()
   forwardFromConversationId?: string;
@@ -48,7 +50,10 @@ export class SendMessageDto {
   @IsUUID(undefined, { each: true })
   mentionedUserIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Client-generated UUID for idempotency and offline sync reconciliation' })
+  @ApiPropertyOptional({
+    description:
+      'Client-generated UUID for idempotency and offline sync reconciliation',
+  })
   @IsOptional()
   @IsString()
   clientId?: string;
