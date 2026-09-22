@@ -142,25 +142,54 @@ class LiveCardWidget extends StatelessWidget {
                 )
               : _fallbackThumb(height),
         ),
-        // LIVE badge + viewer count overlay
-        Positioned(top: 8, left: 8, child: const LiveBadgeWidget(small: true)),
+        // Badge: LIVE vs SCHEDULED
         Positioned(
-          bottom: 8,
-          right: 8,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: ViewerCountWidget(
-              count: stream.currentViewerCount,
-              light: true,
+          top: 8,
+          left: 8,
+          child: stream.status == LiveStreamStatus.scheduled
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today, size: 10, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'SCHEDULED',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const LiveBadgeWidget(small: true),
+        ),
+        if (stream.status == LiveStreamStatus.live)
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ViewerCountWidget(
+                count: stream.currentViewerCount,
+                light: true,
+              ),
             ),
           ),
-        ),
       ],
     );
+
   }
 
   Widget _fallbackThumb(double height) {

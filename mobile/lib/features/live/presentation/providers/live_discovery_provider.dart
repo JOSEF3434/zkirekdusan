@@ -1,10 +1,44 @@
 // lib/features/live/presentation/providers/live_discovery_provider.dart
-// Paginated live & scheduled stream lists.
+// Paginated live, scheduled, and user-scheduled stream lists with category filtering.
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
+
+// ─── Categories Provider ──────────────────────────────────────────────────────
+
+const List<String> kDefaultLiveCategories = [
+  'All',
+  'Church & Spiritual',
+  'Education & Teaching',
+  'Music & Chants',
+  'Gospel & Preaching',
+  'Youth & Culture',
+  'Discussion & Q&A',
+  'Technology',
+  'News & Events',
+  'General',
+];
+
+class LiveCategoriesNotifier extends StateNotifier<List<String>> {
+  LiveCategoriesNotifier() : super(kDefaultLiveCategories);
+
+  void addCategory(String category) {
+    final trimmed = category.trim();
+    if (trimmed.isNotEmpty && !state.contains(trimmed)) {
+      state = [...state, trimmed];
+    }
+  }
+}
+
+final liveCategoriesProvider =
+    StateNotifierProvider<LiveCategoriesNotifier, List<String>>((ref) {
+      return LiveCategoriesNotifier();
+    });
+
+final selectedLiveCategoryProvider = StateProvider<String>((ref) => 'All');
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -47,10 +81,19 @@ class LiveDiscoveryState {
 
 class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
   final LiveStreamingRepository _repo;
+  String? _category;
   bool _isFetching = false;
 
-  LiveStreamsNotifier(this._repo) : super(const LiveDiscoveryState()) {
+  LiveStreamsNotifier(this._repo, {String? category})
+      : _category = category,
+        super(const LiveDiscoveryState()) {
     load();
+  }
+
+  void updateCategory(String? category) {
+    if (_category == category) return;
+    _category = category;
+    refresh();
   }
 
   Future<void> load() async {
@@ -58,8 +101,8 @@ class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     _isFetching = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final result = await _repo.getLiveStreams(page: 1, limit: 20);
-      // Deduplicate by id
+      final effectiveCat = (_category == null || _category == 'All') ? null : _category;
+      final result = await _repo.getLiveStreams(page: 1, limit: 20, category: effectiveCat);
       final seen = <String>{};
       final unique = result.items.where((s) => seen.add(s.id)).toList();
       state = state.copyWith(
@@ -81,7 +124,8 @@ class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     state = state.copyWith(isLoadingMore: true);
     try {
       final next = state.currentPage + 1;
-      final result = await _repo.getLiveStreams(page: next, limit: 20);
+      final effectiveCat = (_category == null || _category == 'All') ? null : _category;
+      final result = await _repo.getLiveStreams(page: next, limit: 20, category: effectiveCat);
       final existing = {for (final s in state.streams) s.id};
       final newItems = result.items
           .where((s) => !existing.contains(s.id))
@@ -107,17 +151,28 @@ class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
 
 final liveStreamsProvider =
     StateNotifierProvider<LiveStreamsNotifier, LiveDiscoveryState>((ref) {
-      return LiveStreamsNotifier(ref.read(liveStreamingRepositoryProvider));
+      final repo = ref.read(liveStreamingRepositoryProvider);
+      final selectedCategory = ref.watch(selectedLiveCategoryProvider);
+      return LiveStreamsNotifier(repo, category: selectedCategory);
     });
 
 // ─── Scheduled Streams Notifier ───────────────────────────────────────────────
 
 class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
   final LiveStreamingRepository _repo;
+  String? _category;
   bool _isFetching = false;
 
-  ScheduledStreamsNotifier(this._repo) : super(const LiveDiscoveryState()) {
+  ScheduledStreamsNotifier(this._repo, {String? category})
+      : _category = category,
+        super(const LiveDiscoveryState()) {
     load();
+  }
+
+  void updateCategory(String? category) {
+    if (_category == category) return;
+    _category = category;
+    refresh();
   }
 
   Future<void> load() async {
@@ -125,7 +180,8 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     _isFetching = true;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final result = await _repo.getScheduledStreams(page: 1, limit: 20);
+      final effectiveCat = (_category == null || _category == 'All') ? null : _category;
+      final result = await _repo.getScheduledStreams(page: 1, limit: 20, category: effectiveCat);
       final seen = <String>{};
       final unique = result.items.where((s) => seen.add(s.id)).toList();
       state = state.copyWith(
@@ -147,7 +203,8 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
     state = state.copyWith(isLoadingMore: true);
     try {
       final next = state.currentPage + 1;
-      final result = await _repo.getScheduledStreams(page: next, limit: 20);
+      final effectiveCat = (_category == null || _category == 'All') ? null : _category;
+      final result = await _repo.getScheduledStreams(page: next, limit: 20, category: effectiveCat);
       final existing = {for (final s in state.streams) s.id};
       final newItems = result.items
           .where((s) => !existing.contains(s.id))
@@ -173,7 +230,54 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
 
 final scheduledStreamsProvider =
     StateNotifierProvider<ScheduledStreamsNotifier, LiveDiscoveryState>((ref) {
-      return ScheduledStreamsNotifier(
-        ref.read(liveStreamingRepositoryProvider),
+      final repo = ref.read(liveStreamingRepositoryProvider);
+      final selectedCategory = ref.watch(selectedLiveCategoryProvider);
+      return ScheduledStreamsNotifier(repo, category: selectedCategory);
+    });
+
+// ─── My Scheduled Streams Notifier ────────────────────────────────────────────
+
+class MyScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
+  final LiveStreamingRepository _repo;
+  final String? _currentUserId;
+  bool _isFetching = false;
+
+  MyScheduledStreamsNotifier(this._repo, this._currentUserId)
+      : super(const LiveDiscoveryState()) {
+    load();
+  }
+
+  Future<void> load() async {
+    if (_isFetching || _currentUserId == null) return;
+    _isFetching = true;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final result = await _repo.getUserStreams(_currentUserId, page: 1, limit: 50);
+      final filtered = result.items
+          .where((s) => s.status == LiveStreamStatus.scheduled || s.scheduledAt != null)
+          .toList();
+      state = state.copyWith(
+        streams: filtered,
+        isLoading: false,
+        hasMore: false,
+        currentPage: 1,
       );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    } finally {
+      _isFetching = false;
+    }
+  }
+
+  Future<void> refresh() async {
+    state = const LiveDiscoveryState();
+    await load();
+  }
+}
+
+final myScheduledStreamsProvider =
+    StateNotifierProvider<MyScheduledStreamsNotifier, LiveDiscoveryState>((ref) {
+      final repo = ref.read(liveStreamingRepositoryProvider);
+      final user = ref.watch(authProvider).user;
+      return MyScheduledStreamsNotifier(repo, user?.id);
     });

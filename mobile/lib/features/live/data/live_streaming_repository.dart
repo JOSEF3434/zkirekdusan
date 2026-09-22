@@ -25,12 +25,17 @@ class LiveStreamingRepository {
   Future<PaginatedStreams> getLiveStreams({
     int page = 1,
     int limit = 20,
+    String? category,
     CancelToken? cancelToken,
   }) async {
     try {
+      final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+      if (category != null && category.trim().isNotEmpty && category.trim().toLowerCase() != 'all') {
+        queryParams['category'] = category.trim();
+      }
       final response = await _dio.get(
         '/streams/live',
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: queryParams,
         cancelToken: cancelToken,
       );
       return _parsePaginatedStreams(response.data);
@@ -43,12 +48,17 @@ class LiveStreamingRepository {
   Future<PaginatedStreams> getScheduledStreams({
     int page = 1,
     int limit = 20,
+    String? category,
     CancelToken? cancelToken,
   }) async {
     try {
+      final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+      if (category != null && category.trim().isNotEmpty && category.trim().toLowerCase() != 'all') {
+        queryParams['category'] = category.trim();
+      }
       final response = await _dio.get(
         '/streams/scheduled',
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: queryParams,
         cancelToken: cancelToken,
       );
       return _parsePaginatedStreams(response.data);
@@ -56,6 +66,7 @@ class LiveStreamingRepository {
       throw AppException(_parseDioError(e));
     }
   }
+
 
   // ─── Stream Details ────────────────────────────────────────────────────────
 

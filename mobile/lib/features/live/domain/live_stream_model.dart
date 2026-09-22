@@ -179,6 +179,7 @@ class CreateLiveStreamRequest {
   final bool? isChatEnabled;
   final bool? isChatSlowMode;
   final int? chatSlowModeSeconds;
+  final bool? notifyAllUsers;
 
   const CreateLiveStreamRequest({
     required this.title,
@@ -192,6 +193,7 @@ class CreateLiveStreamRequest {
     this.isChatEnabled,
     this.isChatSlowMode,
     this.chatSlowModeSeconds,
+    this.notifyAllUsers,
   });
 
   Map<String, dynamic> toJson() => {
@@ -206,5 +208,7 @@ class CreateLiveStreamRequest {
     if (isChatEnabled != null) 'isChatEnabled': isChatEnabled,
     if (isChatSlowMode != null) 'isChatSlowMode': isChatSlowMode,
     if (chatSlowModeSeconds != null) 'chatSlowModeSeconds': chatSlowModeSeconds,
+    if (notifyAllUsers != null) 'notifyAllUsers': notifyAllUsers,
   };
 }
+

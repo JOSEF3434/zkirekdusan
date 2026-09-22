@@ -19,9 +19,14 @@ import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.da
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
-import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/group_channel_model.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:intl/intl.dart';
+import 'package:mobile/features/live/presentation/providers/live_discovery_provider.dart';
+import 'package:mobile/features/live/presentation/services/live_notification_service.dart';
+import 'package:mobile/features/upload/data/upload_repository.dart';
+import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart';
+
 
 // ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
 
@@ -61,6 +66,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   String? _createError;
   bool _keyVisible = false;
 
+  // Scheduling & Category state
+  bool _isScheduled = false;
+  DateTime _scheduledDate = DateTime.now().add(const Duration(days: 1));
+  TimeOfDay _scheduledTime = const TimeOfDay(hour: 18, minute: 0);
+  String? _selectedCategory;
+  bool _notifyAllUsers = false; // Default false per user requirement
+
   // Camera & Streaming hardware state (apivideo_live_stream)
   ApiVideoLiveStreamController? _liveStreamController;
   bool _isCameraInitialized = false;
@@ -89,6 +101,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     }
     _setupCamera(front: true);
   }
+
 
   @override
   void dispose() {
@@ -266,6 +279,42 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               maxLines: 3,
               maxLength: 500,
             ),
+            const SizedBox(height: 16),
+
+            // ── Broadcast Timing: Go Live Now vs Schedule for Later ──
+            Text(
+              'Broadcast Timing',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.sensors_rounded),
+                  label: Text('Go Live Now'),
+                ),
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.calendar_month_outlined),
+                  label: Text('Schedule for Later'),
+                ),
+              ],
+              selected: {_isScheduled},
+              onSelectionChanged: (set) {
+                setState(() => _isScheduled = set.first);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // If scheduled, show interactive date & time picker section
+            if (_isScheduled) ...[
+              _buildSchedulingSection(theme),
+            ],
+
+            // ── One-level Category Dropdown with inline Add Category ──
+            _buildCategoryDropdown(theme),
+
             // Stream Type Selector (Video with Camera vs Audio-Only)
             Text(
               tr('live.stream_mode'),
@@ -291,6 +340,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               },
             ),
             const SizedBox(height: 16),
+
+            // ── Checkbox: Notify All Users in Database ──
+            _buildNotificationScopeSection(theme),
 
             // Options
             SwitchListTile(
@@ -333,8 +385,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.live_tv),
-                label: Text(tr('live.create_stream')),
+                    : Icon(_isScheduled ? Icons.schedule_send_rounded : Icons.live_tv),
+                label: Text(
+                  _isScheduled ? 'Post Scheduled Live Stream' : tr('live.create_stream'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
@@ -343,7 +398,323 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     );
   }
 
+  Widget _buildSchedulingSection(ThemeData theme) {
+    final dateStr = DateFormat('EEE, MMM d, yyyy').format(_scheduledDate);
+    final timeStr = _scheduledTime.format(context);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Stream Schedule Time',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Date picker chip
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickScheduledDate,
+                  icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                  label: Text(dateStr, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Time picker chip
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickScheduledTime,
+                  icon: const Icon(Icons.access_time_rounded, size: 16),
+                  label: Text(timeStr, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blueAccent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.notifications_active_outlined,
+                  size: 14,
+                  color: Colors.blueAccent,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Multi-interval reminders active: 1 day, 5h, 1h, 30m before & at start time',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickScheduledDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _scheduledDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _scheduledDate = picked);
+    }
+  }
+
+  Future<void> _pickScheduledTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _scheduledTime,
+    );
+    if (picked != null) {
+      setState(() => _scheduledTime = picked);
+    }
+  }
+
+  Widget _buildCategoryDropdown(ThemeData theme) {
+    final allCategories = ref.watch(liveCategoriesProvider);
+    final displayCategories = allCategories.where((c) => c != 'All').toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Category',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            TextButton.icon(
+              onPressed: () => LiveCategoryBar.showAddCategoryDialog(context, ref),
+              icon: const Icon(Icons.add_circle_outline, size: 14),
+              label: const Text('Add New Category', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedCategory,
+          decoration: InputDecoration(
+            hintText: 'Select Stream Category',
+            prefixIcon: const Icon(Icons.label_outline),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          items: [
+            ...displayCategories.map(
+              (cat) => DropdownMenuItem<String>(
+                value: cat,
+                child: Text(cat, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+            const DropdownMenuItem<String>(
+              value: '__add_new__',
+              child: Row(
+                children: [
+                  Icon(Icons.add, size: 16, color: Colors.blueAccent),
+                  SizedBox(width: 6),
+                  Text(
+                    '+ Add New Category',
+                    style: TextStyle(
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            if (val == '__add_new__') {
+              LiveCategoryBar.showAddCategoryDialog(context, ref);
+            } else {
+              setState(() => _selectedCategory = val);
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildNotificationScopeSection(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        border: Border.all(
+          color: _notifyAllUsers
+              ? theme.colorScheme.primary.withValues(alpha: 0.6)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: CheckboxListTile(
+        value: _notifyAllUsers,
+        onChanged: (v) => setState(() => _notifyAllUsers = v ?? false),
+        title: const Text(
+          'Notify all users in database',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        subtitle: Text(
+          _notifyAllUsers
+              ? '✅ An immediate broadcast notification will be sent to ALL users in the database, with reminders at 1d, 5h, 1h, 30m before and when you start live.'
+              : 'Notifications will be sent only to your channel followers and group members.',
+          style: TextStyle(
+            fontSize: 11,
+            color: _notifyAllUsers
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        controlAffinity: ListTileControlAffinity.leading,
+      ),
+    );
+  }
+
+  void _showScheduledSuccessDialog(LiveStreamDto stream) {
+    final theme = Theme.of(context);
+    final scheduledDate = stream.scheduledAt != null
+        ? DateTime.tryParse(stream.scheduledAt!)
+        : null;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          icon: const Icon(
+            Icons.check_circle_outline,
+            color: Colors.green,
+            size: 54,
+          ),
+          title: const Text(
+            'Stream Scheduled!',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                stream.title,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+              const SizedBox(height: 8),
+              if (scheduledDate != null) ...[
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Colors.blueAccent,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('EEEE, MMM d, yyyy • h:mm a').format(scheduledDate),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _notifyAllUsers
+                          ? '📢 Notification dispatched to ALL users in database'
+                          : '🔔 Notification dispatched to channel followers',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Reminders active: 1 day, 5h, 1h, 30m before and at stream start time.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                context.pop(); // return to live discovery
+              },
+              child: const Text('Go to Scheduled Streams'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                setState(() => _streamId = stream.id);
+              },
+              child: const Text('Open Studio Now'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildChannelPicker(ThemeData theme) {
+
     final tr = ref.read(trProvider);
     if (_loadingChannels && _availableChannels.isEmpty) {
       return Container(
@@ -1172,6 +1543,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       return;
     }
 
+    DateTime? scheduledDateTime;
+    if (_isScheduled) {
+      scheduledDateTime = DateTime(
+        _scheduledDate.year,
+        _scheduledDate.month,
+        _scheduledDate.day,
+        _scheduledTime.hour,
+        _scheduledTime.minute,
+      );
+      if (scheduledDateTime.isBefore(DateTime.now())) {
+        setState(() => _createError = 'Scheduled time must be in the future.');
+        return;
+      }
+    }
+
     setState(() {
       _isCreating = true;
       _createError = null;
@@ -1186,14 +1572,34 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           description: _descCtrl.text.trim().isEmpty
               ? null
               : _descCtrl.text.trim(),
+          scheduledAt: scheduledDateTime?.toIso8601String(),
+          categories: _selectedCategory != null && _selectedCategory != 'All'
+              ? [_selectedCategory!]
+              : null,
+          notifyAllUsers: _notifyAllUsers,
           isChatEnabled: _isChatEnabled,
           isRecordingEnabled: _isRecordingEnabled,
         ),
       );
-      setState(() {
-        _streamId = stream.id;
-        _isCreating = false;
-      });
+
+      if (_isScheduled) {
+        // Schedule multi-interval reminders on local device as well
+        await ref
+            .read(liveNotificationServiceProvider)
+            .scheduleStreamReminders(stream);
+
+        if (mounted) {
+          setState(() {
+            _isCreating = false;
+          });
+          _showScheduledSuccessDialog(stream);
+        }
+      } else {
+        setState(() {
+          _streamId = stream.id;
+          _isCreating = false;
+        });
+      }
     } catch (e) {
       String msg;
       if (e is AppException) {
@@ -1207,6 +1613,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       });
     }
   }
+
 
   // ─── Studio page (after stream created) ───────────────────────────────────
 

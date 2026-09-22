@@ -12,7 +12,7 @@ import { AuthorizationService } from '../authorization/authorization.service.js'
 import { CreateStreamDto } from './dto/create-stream.dto.js';
 import { UpdateStreamDto } from './dto/update-stream.dto.js';
 import { GroupRole } from '../../common/constants/group-roles.js';
-import { LiveStreamStatus, GlobalRole } from '@prisma/client';
+import { LiveStreamStatus, GlobalRole, NotificationType } from '@prisma/client';
 import { randomBytes, createHash } from 'crypto';
 import slugify from 'slugify';
 import { nanoid } from 'nanoid';
@@ -21,6 +21,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { StreamProcessingService } from '../stream-processing/stream-processing.service.js';
 import { LiveGateway } from '../live-gateway/live.gateway.js';
 import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { forwardRef, Inject } from '@nestjs/common';
 
 @Injectable()
@@ -37,7 +38,9 @@ export class LiveStreamingService {
     @Inject(forwardRef(() => LiveGateway))
     private readonly liveGateway: LiveGateway,
     private readonly cloudinaryProvider: CloudinaryStorageProvider,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
 
   private generateSlug(title: string): string {
     return `${slugify(title, { lower: true, strict: true })}-${nanoid(6)}`;
@@ -119,6 +122,11 @@ export class LiveStreamingService {
       ? LiveStreamStatus.SCHEDULED
       : LiveStreamStatus.DRAFT;
 
+    const initialTags = [...(dto.tags ?? [])];
+    if (dto.notifyAllUsers && !initialTags.includes('notify_all')) {
+      initialTags.push('notify_all');
+    }
+
     const stream = await this.repository.createStream({
       videoChannelId: channel.id,
       groupId: channel.groupId,
@@ -131,7 +139,7 @@ export class LiveStreamingService {
       protocol: dto.protocol,
       scheduledAt: dto.scheduledAt,
       categories: dto.categories ?? [],
-      tags: dto.tags ?? [],
+      tags: initialTags,
       hashtags: dto.hashtags ?? [],
       isRecordingEnabled: dto.isRecordingEnabled,
       isDvrEnabled: dto.isDvrEnabled,
@@ -146,8 +154,20 @@ export class LiveStreamingService {
 
     // Re-fetch with full relations so Flutter can parse the response correctly
     const fullStream = await this.repository.getStreamById(stream.id);
+
+    // Dispatch notification immediately upon schedule / stream creation
+    this.sendStreamNotification({
+      stream: fullStream ?? stream,
+      channel,
+      isScheduled: !!dto.scheduledAt,
+      notifyAll: !!dto.notifyAllUsers,
+    }).catch((err) =>
+      this.logger.error('Failed to dispatch stream notification', err),
+    );
+
     return fullStream ?? stream;
   }
+
 
   async getStreamById(userId: string | undefined, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
@@ -303,12 +323,21 @@ export class LiveStreamingService {
     return { data: streams, total, page, limit };
   }
 
-  async getLiveStreams(userId: string | undefined, page = 1, limit = 20) {
+  async getLiveStreams(
+    userId: string | undefined,
+    page = 1,
+    limit = 20,
+    category?: string,
+  ) {
     const skip = (page - 1) * limit;
     const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
       status: LiveStreamStatus.LIVE,
       deletedAt: null,
       visibility: 'PUBLIC',
+      ...(category && category.trim().toLowerCase() !== 'all' && category.trim() !== ''
+        ? { categories: { has: category.trim() } }
+        : {}),
+
     };
 
     const [streams, total] = await Promise.all([
@@ -324,13 +353,21 @@ export class LiveStreamingService {
     return { data: streams, total, page, limit };
   }
 
-  async getScheduledStreams(userId: string | undefined, page = 1, limit = 20) {
+  async getScheduledStreams(
+    userId: string | undefined,
+    page = 1,
+    limit = 20,
+    category?: string,
+  ) {
     const skip = (page - 1) * limit;
     const where: import('@prisma/client').Prisma.LiveStreamWhereInput = {
       status: LiveStreamStatus.SCHEDULED,
       deletedAt: null,
       visibility: 'PUBLIC',
       scheduledAt: { gt: new Date() },
+      ...(category && category.trim().toLowerCase() !== 'all' && category.trim() !== ''
+        ? { categories: { has: category.trim() } }
+        : {}),
     };
 
     const [streams, total] = await Promise.all([
@@ -345,6 +382,7 @@ export class LiveStreamingService {
 
     return { data: streams, total, page, limit };
   }
+
 
   // ─── Stream Lifecycle ──────────────────────────────────────────────
 
@@ -508,18 +546,18 @@ export class LiveStreamingService {
       webrtcUrl: updatedStream.webrtcUrl,
     });
 
+    // Dispatch notification to users / followers
+    const isNotifyAll = stream.tags?.includes('notify_all');
+    this.sendStreamStartedNotification(updatedStream, isNotifyAll).catch((err) =>
+      this.logger.error('Failed to dispatch stream started notification', err),
+    );
+
     return {
       ...updatedStream,
       streamKey: activeStreamKey || undefined,
     };
-
-    this.logger.log(`Stream ${streamId} started by user ${userId}`);
-
-    // Broadcast stream started to LiveGateway
-    this.liveGateway.broadcastStreamStarted(streamId, updatedStream);
-
-    return updatedStream;
   }
+
 
   async endStream(userId: string, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
@@ -968,4 +1006,129 @@ export class LiveStreamingService {
       `Cloudinary live stream ${stream.id} archive recorded as VOD: ${vodHlsUrl}`,
     );
   }
+
+  private async sendStreamNotification(params: {
+    stream: any;
+    channel: any;
+    isScheduled: boolean;
+    notifyAll: boolean;
+  }) {
+    const channelName = params.channel?.name ?? 'Live Creator';
+    const title = params.isScheduled
+      ? `📅 New Scheduled Live: ${params.stream.title}`
+      : `🔴 New Live Stream: ${params.stream.title}`;
+    const body = params.isScheduled
+      ? `${channelName} scheduled a live stream for ${params.stream.scheduledAt ? new Date(params.stream.scheduledAt).toLocaleString() : 'soon'}. Tap to set reminder!`
+      : `${channelName} has started a new live broadcast. Tap to watch!`;
+
+    if (params.notifyAll) {
+      await this.notificationsService.notifyAllUsers({
+        title,
+        body,
+        type: NotificationType.SYSTEM,
+        data: {
+          streamId: params.stream.id,
+          action: params.isScheduled ? 'LIVE_STREAM_SCHEDULED' : 'LIVE_STREAM_CREATED',
+          scheduledAt: params.stream.scheduledAt
+            ? new Date(params.stream.scheduledAt).toISOString()
+            : undefined,
+        },
+      });
+      this.logger.log(
+        `Broadcasted stream notification to ALL users for stream ${params.stream.id}`,
+      );
+    } else {
+      // Scoped only to channel followers & group members
+      const subscribers = await this.prisma.videoSubscription.findMany({
+        where: { videoChannelId: params.channel.id },
+        select: { userId: true },
+      });
+      const members = await this.prisma.groupMember.findMany({
+        where: { groupId: params.channel.groupId },
+        select: { userId: true },
+      });
+      const targetUserIds = Array.from(
+        new Set([
+          ...subscribers.map((s) => s.userId),
+          ...members.map((m) => m.userId),
+        ]),
+      );
+
+      for (const uid of targetUserIds) {
+        await this.notificationsService
+          .create({
+            userId: uid,
+            type: NotificationType.SYSTEM,
+            title,
+            body,
+            data: {
+              streamId: params.stream.id,
+              action: params.isScheduled ? 'LIVE_STREAM_SCHEDULED' : 'LIVE_STREAM_CREATED',
+              scheduledAt: params.stream.scheduledAt
+                ? new Date(params.stream.scheduledAt).toISOString()
+                : undefined,
+            },
+          })
+          .catch(() => null);
+      }
+      this.logger.log(
+        `Dispatched stream notification to ${targetUserIds.length} followers/members for stream ${params.stream.id}`,
+      );
+    }
+  }
+
+  private async sendStreamStartedNotification(stream: any, isNotifyAll: boolean) {
+    const channelName = stream.videoChannel?.name ?? 'Creator';
+    const title = `🔴 ${channelName} is LIVE NOW!`;
+    const body = `"${stream.title}" is streaming live. Tap to join now!`;
+
+    if (isNotifyAll) {
+      await this.notificationsService.notifyAllUsers({
+        title,
+        body,
+        type: NotificationType.SYSTEM,
+        data: {
+          streamId: stream.id,
+          action: 'LIVE_STREAM_STARTED',
+        },
+      });
+      this.logger.log(
+        `Dispatched stream started broadcast to ALL users for stream ${stream.id}`,
+      );
+    } else {
+      const subscribers = await this.prisma.videoSubscription.findMany({
+        where: { videoChannelId: stream.videoChannelId },
+        select: { userId: true },
+      });
+      const members = await this.prisma.groupMember.findMany({
+        where: { groupId: stream.groupId },
+        select: { userId: true },
+      });
+      const targetUserIds = Array.from(
+        new Set([
+          ...subscribers.map((s) => s.userId),
+          ...members.map((m) => m.userId),
+        ]),
+      );
+
+      for (const uid of targetUserIds) {
+        await this.notificationsService
+          .create({
+            userId: uid,
+            type: NotificationType.SYSTEM,
+            title,
+            body,
+            data: {
+              streamId: stream.id,
+              action: 'LIVE_STREAM_STARTED',
+            },
+          })
+          .catch(() => null);
+      }
+      this.logger.log(
+        `Dispatched stream started notification to ${targetUserIds.length} followers/members for stream ${stream.id}`,
+      );
+    }
+  }
 }
+

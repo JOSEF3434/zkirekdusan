@@ -11,6 +11,8 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
 import { StreamProcessingModule } from '../stream-processing/stream-processing.module.js';
 import { LiveGatewayModule } from '../live-gateway/live-gateway.module.js';
 import { UploadsModule } from '../uploads/uploads.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
+import { StreamReminderService } from './stream-reminder.service.js';
 
 @Module({
   imports: [
@@ -20,9 +22,11 @@ import { UploadsModule } from '../uploads/uploads.module.js';
     StreamProcessingModule,
     forwardRef(() => LiveGatewayModule),
     UploadsModule,
+    NotificationsModule,
   ],
   controllers: [LiveStreamingController, StreamsController],
-  providers: [LiveStreamingService, LiveStreamingRepository],
-  exports: [LiveStreamingService, LiveStreamingRepository],
+  providers: [LiveStreamingService, LiveStreamingRepository, StreamReminderService],
+  exports: [LiveStreamingService, LiveStreamingRepository, StreamReminderService],
 })
 export class LiveStreamingModule {}
+

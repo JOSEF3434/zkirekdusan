@@ -135,4 +135,14 @@ export class CreateStreamDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   isSubscribersOnlyChat?: boolean;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Send broadcast notification to all database users (if false, only followers)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  notifyAllUsers?: boolean;
 }
+

@@ -127,12 +127,14 @@ export class StreamsController {
   @ApiOperation({ summary: 'List all currently live public streams' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'category', required: false, type: String })
   async getLiveStreams(
     @CurrentUser('sub') userId: string | undefined,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('category') category?: string,
   ) {
-    return this.liveStreamingService.getLiveStreams(userId, page, limit);
+    return this.liveStreamingService.getLiveStreams(userId, page, limit, category);
   }
 
   @Get('scheduled')
@@ -140,13 +142,16 @@ export class StreamsController {
   @ApiOperation({ summary: 'List all upcoming scheduled public streams' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'category', required: false, type: String })
   async getScheduledStreams(
     @CurrentUser('sub') userId: string | undefined,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('category') category?: string,
   ) {
-    return this.liveStreamingService.getScheduledStreams(userId, page, limit);
+    return this.liveStreamingService.getScheduledStreams(userId, page, limit, category);
   }
+
 
   @Get('user/:userId')
   @UseGuards(OptionalJwtAuthGuard)
