@@ -9,6 +9,21 @@ import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// The type of biometric hardware available on the device.
+enum BiometricHardwareType {
+  /// Face unlock (Face ID on iOS, Face Unlock on Android).
+  face,
+
+  /// Fingerprint sensor.
+  fingerprint,
+
+  /// Both face and fingerprint are enrolled; fingerprint takes visual priority.
+  both,
+
+  /// No biometric hardware / enrollment found.
+  none,
+}
+
 class BiometricService {
   final LocalAuthentication _auth;
 
@@ -45,6 +60,33 @@ class BiometricService {
     }
   }
 
+  /// Returns the dominant biometric hardware type enrolled on this device.
+  ///
+  /// Priority: if the device has BOTH face and fingerprint enrolled, returns
+  /// [BiometricHardwareType.both]. Otherwise returns the singular type, or
+  /// [BiometricHardwareType.none] when nothing is enrolled.
+  Future<BiometricHardwareType> getBiometricHardwareType() async {
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows) {
+      return BiometricHardwareType.none;
+    }
+    try {
+      final biometrics = await _auth.getAvailableBiometrics();
+      if (biometrics.isEmpty) return BiometricHardwareType.none;
+
+      final hasFace = biometrics.contains(BiometricType.face) ||
+          biometrics.contains(BiometricType.iris);
+      final hasFingerprint = biometrics.contains(BiometricType.fingerprint) ||
+          biometrics.contains(BiometricType.strong) ||
+          biometrics.contains(BiometricType.weak);
+
+      if (hasFace && hasFingerprint) return BiometricHardwareType.both;
+      if (hasFace) return BiometricHardwareType.face;
+      return BiometricHardwareType.fingerprint;
+    } catch (_) {
+      return BiometricHardwareType.none;
+    }
+  }
+
   /// Triggers the OS biometric prompt with [reason] shown to the user.
   /// Returns true on successful authentication.
   Future<bool> authenticate({required String reason}) async {
@@ -56,7 +98,7 @@ class BiometricService {
         localizedReason: reason,
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false, // allow device PIN as OS-level fallback
+          biometricOnly: false, // allow device PIN/pattern as OS-level fallback
           sensitiveTransaction: true,
           useErrorDialogs: true,
         ),
@@ -80,4 +122,18 @@ class BiometricService {
 
 final biometricServiceProvider = Provider<BiometricService>((ref) {
   return BiometricService(LocalAuthentication());
+});
+
+/// Convenience provider: true if biometrics are available on this device.
+final biometricAvailableProvider = FutureProvider<bool>((ref) async {
+  if (kIsWeb) return false;
+  final service = ref.watch(biometricServiceProvider);
+  return service.isAvailable();
+});
+
+/// Provides the type of biometric hardware enrolled (face / fingerprint / both / none).
+final biometricHardwareTypeProvider =
+    FutureProvider<BiometricHardwareType>((ref) async {
+  final service = ref.watch(biometricServiceProvider);
+  return service.getBiometricHardwareType();
 });

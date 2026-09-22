@@ -1,6 +1,7 @@
 // lib/features/security/presentation/pin_setup_screen.dart
 //
-// Two-step PIN setup: enter a new 6-digit PIN, then confirm it.
+// Two-step PIN setup: enter a new PIN, then confirm it.
+// Supports 4-digit PIN, 6-digit PIN, and alphanumeric password.
 // Called when enabling App Lock for the first time, or when changing PIN.
 
 import 'package:flutter/material.dart';
@@ -14,28 +15,58 @@ class PinSetupScreen extends ConsumerStatefulWidget {
   /// If true, the screen is shown for changing an existing PIN.
   final bool isChange;
 
-  const PinSetupScreen({super.key, this.isChange = false});
+  /// Override the initial PinType. Defaults to [PinType.pin6].
+  final PinType? initialPinType;
+
+  const PinSetupScreen({
+    super.key,
+    this.isChange = false,
+    this.initialPinType,
+  });
 
   @override
   ConsumerState<PinSetupScreen> createState() => _PinSetupScreenState();
 }
 
 class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
-  static const _pinLength = 6;
+  late PinType _pinType;
 
   String _firstPin = '';
   String _confirmPin = '';
   bool _confirming = false;
   String? _errorMessage;
+  bool _passwordVisible = false;
+
+  final TextEditingController _firstCtrl = TextEditingController();
+  final TextEditingController _confirmCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _pinType = widget.initialPinType ??
+        ref.read(appLockSettingsProvider).pinType;
+  }
+
+  @override
+  void dispose() {
+    _firstCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  int get _pinLength => _pinType.length ?? 0;
+  bool get _isPassword => _pinType == PinType.password;
+
+  // ── Digit pad handlers (numeric modes) ──────────────────────────────────
 
   void _onDigitTap(String digit) {
+    if (_isPassword) return;
     setState(() {
       _errorMessage = null;
       if (!_confirming) {
         if (_firstPin.length < _pinLength) {
           _firstPin += digit;
           if (_firstPin.length == _pinLength) {
-            // Auto-advance to confirm step
             Future.delayed(const Duration(milliseconds: 200), () {
               if (mounted) setState(() => _confirming = true);
             });
@@ -53,13 +84,13 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   }
 
   void _onBackspace() {
+    if (_isPassword) return;
     setState(() {
       _errorMessage = null;
       if (_confirming) {
         if (_confirmPin.isNotEmpty) {
           _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1);
         } else {
-          // Go back to first PIN entry
           _confirming = false;
           _firstPin = '';
         }
@@ -71,24 +102,57 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     });
   }
 
+  // ── Password mode next step ─────────────────────────────────────────────
+
+  void _onPasswordNext() {
+    final value = _firstCtrl.text.trim();
+    if (value.isEmpty) {
+      setState(() => _errorMessage = 'Please enter a password.');
+      return;
+    }
+    setState(() {
+      _firstPin = value;
+      _confirming = true;
+      _errorMessage = null;
+    });
+  }
+
+  void _onPasswordConfirm() {
+    final value = _confirmCtrl.text.trim();
+    if (value.isEmpty) {
+      setState(() => _errorMessage = 'Please confirm your password.');
+      return;
+    }
+    _confirmPin = value;
+    _submit();
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────────────
+
   Future<void> _submit() async {
-    if (_firstPin != _confirmPin) {
+    final first = _isPassword ? _firstPin : _firstPin;
+    final confirm = _isPassword ? _confirmCtrl.text.trim() : _confirmPin;
+
+    if (first != confirm) {
       setState(() {
-        _errorMessage = 'PINs do not match. Please try again.';
+        _errorMessage = '${_isPassword ? "Passwords" : "PINs"} do not match. Please try again.';
         _confirming = false;
         _firstPin = '';
         _confirmPin = '';
+        _firstCtrl.clear();
+        _confirmCtrl.clear();
       });
       return;
     }
 
     final pinService = ref.read(pinServiceProvider);
-    await pinService.setPin(_firstPin);
+    await pinService.setPin(first, type: _pinType);
 
-    // Enable App Lock in settings
+    // Persist selected PinType in settings
+    await ref.read(appLockSettingsProvider.notifier).setPinType(_pinType);
     await ref.read(appLockSettingsProvider.notifier).setEnabled(true);
 
-    // If setting up for the first time and device supports biometrics, enable biometricWithPin
+    // If not a change and biometrics available → use biometricWithPin
     if (!widget.isChange) {
       final biometricService = ref.read(biometricServiceProvider);
       final hasBiometrics = await biometricService.isAvailable();
@@ -96,21 +160,38 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         await ref
             .read(appLockSettingsProvider.notifier)
             .setMethod(AppLockMethod.biometricWithPin);
+      } else {
+        await ref
+            .read(appLockSettingsProvider.notifier)
+            .setMethod(AppLockMethod.pin);
       }
     }
 
-    // Notify lock provider that PIN was set
     ref.read(appLockProvider.notifier).onPinSet();
-
     if (mounted) Navigator.of(context).pop(true);
   }
+
+  // ── Reset on type change ───────────────────────────────────────────────
+
+  void _changePinType(PinType type) {
+    setState(() {
+      _pinType = type;
+      _firstPin = '';
+      _confirmPin = '';
+      _confirming = false;
+      _errorMessage = null;
+      _firstCtrl.clear();
+      _confirmCtrl.clear();
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF0A0E1A) : const Color(0xFFF0F4FF);
-
     final currentPin = _confirming ? _confirmPin : _firstPin;
 
     return Scaffold(
@@ -124,6 +205,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
               setState(() {
                 _confirming = false;
                 _confirmPin = '';
+                _confirmCtrl.clear();
               });
             } else {
               Navigator.of(context).pop(false);
@@ -131,7 +213,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
           },
         ),
         title: Text(
-          widget.isChange ? 'Change PIN' : 'Set Up PIN',
+          widget.isChange ? 'Change Passcode' : 'Set Up Passcode',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
@@ -148,7 +230,16 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                 children: [
                   const SizedBox(height: 16),
 
-                  // Icon
+                  // ── Passcode type selector (chips) ──────────────────
+                  if (!_confirming) ...[
+                    _PinTypeSelector(
+                      selected: _pinType,
+                      onChanged: _changePinType,
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // ── Lock icon ───────────────────────────────────────
                   Container(
                     width: 72,
                     height: 72,
@@ -162,64 +253,122 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.3)),
                     ),
-                    child:
-                        Icon(Icons.lock_rounded, color: cs.primary, size: 34),
+                    child: Icon(
+                      _isPassword
+                          ? Icons.password_rounded
+                          : Icons.lock_rounded,
+                      color: cs.primary,
+                      size: 34,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
-                  // Title
-                  Text(
-                    _confirming ? 'Confirm your PIN' : 'Choose a 6-digit PIN',
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold),
+                  // ── Title ───────────────────────────────────────────
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _confirming
+                          ? 'Confirm your ${_pinType.label}'
+                          : 'Choose a ${_pinType.label}',
+                      key: ValueKey('$_confirming-$_pinType'),
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _confirming
-                        ? 'Re-enter the same PIN to confirm'
-                        : 'This PIN will lock the app when you\'re away',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white54 : Colors.black45,
+
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      _confirming
+                          ? 'Re-enter the same ${_pinType.label} to confirm'
+                          : 'This will lock the app when you\'re away',
+                      key: ValueKey('sub-$_confirming-$_pinType'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
 
-                  // PIN dots
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(_pinLength, (i) {
-                      final filled = i < currentPin.length;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        width: filled ? 16 : 12,
-                        height: filled ? 16 : 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: filled ? cs.primary : Colors.transparent,
-                          border: Border.all(
+                  // ── Password mode ────────────────────────────────────
+                  if (_isPassword) ...[
+                    _PasswordField(
+                      controller: _confirming ? _confirmCtrl : _firstCtrl,
+                      visible: _passwordVisible,
+                      label: _confirming ? 'Confirm password' : 'Enter password',
+                      onToggle: () =>
+                          setState(() => _passwordVisible = !_passwordVisible),
+                      onSubmit: _confirming
+                          ? _onPasswordConfirm
+                          : _onPasswordNext,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: cs.primary,
+                          foregroundColor: Colors.white,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _confirming
+                            ? _onPasswordConfirm
+                            : _onPasswordNext,
+                        child: Text(
+                          _confirming ? 'Confirm' : 'Next',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // ── PIN dot indicators ──────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_pinLength, (i) {
+                        final filled = i < currentPin.length;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: filled ? 16 : 12,
+                          height: filled ? 16 : 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
                             color: filled
                                 ? cs.primary
-                                : (isDark ? Colors.white38 : Colors.black26),
-                            width: 2,
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: filled
+                                  ? cs.primary
+                                  : (isDark
+                                      ? Colors.white38
+                                      : Colors.black26),
+                              width: 2,
+                            ),
                           ),
-                        ),
-                      );
-                    }),
-                  ),
+                        );
+                      }),
+                    ),
+                  ],
 
-                  // Error message
+                  // ── Error message ────────────────────────────────────
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      margin:
+                          const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.red.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
@@ -242,15 +391,105 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 28),
-
-                  // Number Pad
-                  _NumPad(onDigit: _onDigitTap, onBackspace: _onBackspace),
+                  if (!_isPassword) ...[
+                    const SizedBox(height: 28),
+                    _NumPad(
+                        onDigit: _onDigitTap, onBackspace: _onBackspace),
+                  ],
                   const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── PIN type selector chips ───────────────────────────────────────────────
+
+class _PinTypeSelector extends StatelessWidget {
+  final PinType selected;
+  final void Function(PinType) onChanged;
+
+  const _PinTypeSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: PinType.values.map((type) {
+        final isSelected = type == selected;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: ChoiceChip(
+            label: Text(
+              type == PinType.pin4
+                  ? '4-Digit'
+                  : type == PinType.pin6
+                      ? '6-Digit'
+                      : 'Password',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : cs.onSurface,
+              ),
+            ),
+            selected: isSelected,
+            selectedColor: cs.primary,
+            backgroundColor: cs.surfaceContainerHigh,
+            onSelected: (_) => onChanged(type),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ── Password field ────────────────────────────────────────────────────────
+
+class _PasswordField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool visible;
+  final String label;
+  final VoidCallback onToggle;
+  final VoidCallback onSubmit;
+
+  const _PasswordField({
+    required this.controller,
+    required this.visible,
+    required this.label,
+    required this.onToggle,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextField(
+      controller: controller,
+      obscureText: !visible,
+      autofocus: true,
+      onSubmitted: (_) => onSubmit(),
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        prefixIcon: const Icon(Icons.lock_outlined),
+        suffixIcon: IconButton(
+          icon: Icon(
+              visible ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+          onPressed: onToggle,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: cs.primary, width: 2),
         ),
       ),
     );
@@ -356,7 +595,8 @@ class _BackspaceButton extends StatelessWidget {
         child: SizedBox(
           width: 64,
           height: 64,
-          child: Icon(Icons.backspace_outlined, color: cs.onSurface, size: 24),
+          child: Icon(Icons.backspace_outlined,
+              color: cs.onSurface, size: 24),
         ),
       ),
     );
