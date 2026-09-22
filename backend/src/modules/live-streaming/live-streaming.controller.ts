@@ -60,14 +60,14 @@ export class LiveStreamingController {
   async getChannelStreams(
     @CurrentUser('sub') userId: string | undefined,
     @Param('channelId') channelId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), new ParseIntPipe({ optional: true })) page: number,
+    @Query('limit', new DefaultValuePipe(20), new ParseIntPipe({ optional: true })) limit: number,
   ) {
     return this.liveStreamingService.getChannelStreams(
       userId,
       channelId,
-      page,
-      limit,
+      page ?? 1,
+      limit ?? 20,
     );
   }
 
@@ -130,11 +130,11 @@ export class StreamsController {
   @ApiQuery({ name: 'category', required: false, type: String })
   async getLiveStreams(
     @CurrentUser('sub') userId: string | undefined,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), new ParseIntPipe({ optional: true })) page: number,
+    @Query('limit', new DefaultValuePipe(20), new ParseIntPipe({ optional: true })) limit: number,
     @Query('category') category?: string,
   ) {
-    return this.liveStreamingService.getLiveStreams(userId, page, limit, category);
+    return this.liveStreamingService.getLiveStreams(userId, page ?? 1, limit ?? 20, category);
   }
 
   @Get('scheduled')
@@ -145,11 +145,11 @@ export class StreamsController {
   @ApiQuery({ name: 'category', required: false, type: String })
   async getScheduledStreams(
     @CurrentUser('sub') userId: string | undefined,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), new ParseIntPipe({ optional: true })) page: number,
+    @Query('limit', new DefaultValuePipe(20), new ParseIntPipe({ optional: true })) limit: number,
     @Query('category') category?: string,
   ) {
-    return this.liveStreamingService.getScheduledStreams(userId, page, limit, category);
+    return this.liveStreamingService.getScheduledStreams(userId, page ?? 1, limit ?? 20, category);
   }
 
 
@@ -163,14 +163,14 @@ export class StreamsController {
   async getUserStreams(
     @CurrentUser('sub') currentUserId: string | undefined,
     @Param('userId') targetUserId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), new ParseIntPipe({ optional: true })) page: number,
+    @Query('limit', new DefaultValuePipe(50), new ParseIntPipe({ optional: true })) limit: number,
   ) {
     return this.liveStreamingService.getUserStreams(
       currentUserId,
       targetUserId,
-      page,
-      limit,
+      page ?? 1,
+      limit ?? 50,
     );
   }
 

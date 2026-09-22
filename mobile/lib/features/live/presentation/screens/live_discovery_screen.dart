@@ -45,6 +45,13 @@ class LiveDiscoveryScreen extends ConsumerWidget {
               tooltip: 'Go Live / Schedule',
               onPressed: () => _showLiveActionsSheet(context),
             ),
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                tooltip: 'Navigation',
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
+            ),
           ],
           bottom: TabBar(
             isScrollable: false,
@@ -67,6 +74,7 @@ class LiveDiscoveryScreen extends ConsumerWidget {
             ],
           ),
         ),
+        endDrawer: _buildSideDrawer(context, theme),
         body: Column(
           children: [
             // Modern horizontal category bar with Add Category button
@@ -89,7 +97,8 @@ class LiveDiscoveryScreen extends ConsumerWidget {
           onPressed: () => _showLiveActionsSheet(context),
           backgroundColor: theme.colorScheme.primary,
           foregroundColor: Colors.white,
-          icon: const Icon(Icons.videocam_rounded),
+          elevation: 4,
+          icon: const Icon(Icons.sensors_rounded),
           label: const Text(
             'Go Live',
             style: TextStyle(fontWeight: FontWeight.w700),
@@ -99,81 +108,227 @@ class LiveDiscoveryScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildSideDrawer(BuildContext context, ThemeData theme) {
+    return Drawer(
+      width: 280,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.live_tv_rounded,
+                      color: Colors.redAccent,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Live Hub',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    'Discover & broadcast live',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.home_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
+              title: const Text('Home', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              horizontalTitleGap: 8,
+              onTap: () { Navigator.of(context).pop(); context.go('/home'); },
+            ),
+            ListTile(
+              leading: Icon(Icons.sensors_rounded, size: 22, color: Colors.redAccent),
+              title: const Text('Go Live', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.redAccent)),
+              horizontalTitleGap: 8,
+              onTap: () { Navigator.of(context).pop(); context.push('/live/studio'); },
+            ),
+            ListTile(
+              leading: Icon(Icons.event_available_rounded, size: 22, color: theme.colorScheme.onSurfaceVariant),
+              title: const Text('Schedule Stream', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              horizontalTitleGap: 8,
+              onTap: () { Navigator.of(context).pop(); context.push('/live/studio?schedule=true'); },
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.analytics_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
+              title: const Text('Creator Studio', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              horizontalTitleGap: 8,
+              onTap: () { Navigator.of(context).pop(); context.push('/creator'); },
+            ),
+            ListTile(
+              leading: Icon(Icons.settings_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
+              title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              horizontalTitleGap: 8,
+              onTap: () { Navigator.of(context).pop(); context.push('/settings'); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showLiveActionsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         final theme = Theme.of(ctx);
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
+                // Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 Text(
                   'Live Stream Studio',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 16),
+                Text(
+                  'Choose how you want to broadcast',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-                // Go Live Immediately
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.live_tv_rounded, color: Colors.redAccent),
-                  ),
-                  title: const Text(
-                    'Go Live Now',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: const Text('Start broadcasting immediately from your camera'),
-                  trailing: const Icon(Icons.chevron_right),
+                // Go Live Now card
+                InkWell(
                   onTap: () {
                     Navigator.of(ctx).pop();
                     context.push('/live/studio');
                   },
-                ),
-                const Divider(),
-
-                // Schedule Stream for Later
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+                      color: Colors.redAccent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.3),
+                      ),
                     ),
-                    child: const Icon(Icons.event_available_rounded, color: Colors.blueAccent),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.sensors_rounded, color: Colors.redAccent, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Go Live Now',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Start broadcasting immediately from your camera',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.redAccent),
+                      ],
+                    ),
                   ),
-                  title: const Text(
-                    'Schedule Live for Later',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: const Text('Post schedule and notify users or followers in advance'),
-                  trailing: const Icon(Icons.chevron_right),
+                ),
+                const SizedBox(height: 12),
+
+                // Schedule card
+                InkWell(
                   onTap: () {
                     Navigator.of(ctx).pop();
                     context.push('/live/studio?schedule=true');
                   },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.blueAccent.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.event_available_rounded, color: Colors.blueAccent, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Schedule for Later',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Post schedule and notify users or followers in advance',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.blueAccent),
+                      ],
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 8),
               ],
             ),
           ),
@@ -221,7 +376,7 @@ class _LiveStreamsList extends ConsumerWidget {
       child: RefreshIndicator(
         onRefresh: () => ref.read(liveStreamsProvider.notifier).refresh(),
         child: ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
           itemBuilder: (_, i) {
             if (i == state.streams.length) {
@@ -278,7 +433,7 @@ class _ScheduledStreamsList extends ConsumerWidget {
       child: RefreshIndicator(
         onRefresh: () => ref.read(scheduledStreamsProvider.notifier).refresh(),
         child: ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
           itemBuilder: (_, i) {
             if (i == state.streams.length) {
@@ -349,7 +504,7 @@ class _MyScheduledStreamsList extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () => ref.read(myScheduledStreamsProvider.notifier).refresh(),
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         itemCount: state.streams.length,
         itemBuilder: (_, i) {
           return ScheduledLiveCardWidget(stream: state.streams[i]);
@@ -365,7 +520,7 @@ class _Skeletons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       itemCount: 4,
       itemBuilder: (context, index) => _SkeletonCard(),
     );

@@ -238,15 +238,42 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: 'Quick navigation',
+              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+            ),
+          ),
+        ],
       ),
+      endDrawer: _buildSideDrawer(context),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              tr('live.stream_details'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            // ── Section header ──
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  tr('live.stream_details'),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
 
@@ -370,31 +397,199 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               ),
 
             // Create button
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
+              height: 52,
               child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 onPressed: _isCreating || _loadingChannels
                     ? null
                     : _createStream,
                 icon: _isCreating
                     ? const SizedBox(
-                        width: 16,
-                        height: 16,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: 2.5,
                           color: Colors.white,
                         ),
                       )
-                    : Icon(_isScheduled ? Icons.schedule_send_rounded : Icons.live_tv),
+                    : Icon(_isScheduled ? Icons.schedule_send_rounded : Icons.sensors_rounded, size: 20),
                 label: Text(
                   _isScheduled ? 'Post Scheduled Live Stream' : tr('live.create_stream'),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Side Drawer ─────────────────────────────────────────────────────────────
+
+  Widget _buildSideDrawer(BuildContext context) {
+    final theme = Theme.of(context);
+    final tr = ref.read(trProvider);
+    return Drawer(
+      width: 280,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.sensors_rounded,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Live Studio',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    'Manage your broadcasts',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            // Navigation items
+            _drawerItem(
+              context,
+              icon: Icons.live_tv_outlined,
+              label: tr('live.title'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/live/discover');
+              },
+            ),
+            _drawerItem(
+              context,
+              icon: Icons.video_library_outlined,
+              label: 'Library',
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/library');
+              },
+            ),
+            _drawerItem(
+              context,
+              icon: Icons.analytics_outlined,
+              label: 'Creator Studio',
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/creator');
+              },
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            const SizedBox(height: 8),
+            _drawerItem(
+              context,
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/settings');
+              },
+            ),
+            const Spacer(),
+            // Tips card
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primaryContainer,
+                    theme.colorScheme.secondaryContainer,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.tips_and_updates_outlined,
+                        size: 16,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Broadcast Tips',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Use a stable Wi-Fi connection for the best stream quality and minimal drops.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _drawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return ListTile(
+      leading: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+      horizontalTitleGap: 8,
+      onTap: onTap,
     );
   }
 

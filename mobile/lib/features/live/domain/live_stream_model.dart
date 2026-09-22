@@ -201,7 +201,10 @@ class CreateLiveStreamRequest {
     if (description != null) 'description': description,
     if (visibility != null) 'visibility': visibility!.name.toUpperCase(),
     if (protocol != null) 'protocol': protocol!.name.toUpperCase(),
-    if (scheduledAt != null) 'scheduledAt': scheduledAt,
+    // Always send UTC ISO-8601 string so NestJS @IsDateString() accepts it.
+    // Flutter's toIso8601String() produces local time without TZ info (e.g.
+    // "2026-09-22T16:00:00.000000") which class-validator rejects with a 400.
+    if (scheduledAt != null) 'scheduledAt': _toUtcIso(scheduledAt!),
     if (categories != null) 'categories': categories,
     if (tags != null) 'tags': tags,
     if (isRecordingEnabled != null) 'isRecordingEnabled': isRecordingEnabled,
@@ -210,5 +213,12 @@ class CreateLiveStreamRequest {
     if (chatSlowModeSeconds != null) 'chatSlowModeSeconds': chatSlowModeSeconds,
     if (notifyAllUsers != null) 'notifyAllUsers': notifyAllUsers,
   };
+
+  /// Ensures the ISO string has a UTC 'Z' suffix that @IsDateString() requires.
+  static String _toUtcIso(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    return dt.toUtc().toIso8601String(); // e.g. "2026-09-22T13:00:00.000Z"
+  }
 }
 
