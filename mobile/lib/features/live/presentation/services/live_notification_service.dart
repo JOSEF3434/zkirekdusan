@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:mobile/features/live/domain/live_stream_model.dart';
+import 'package:mobile/core/utils/ethiopian_calendar.dart';
 
 final liveNotificationServiceProvider = Provider<LiveNotificationService>((ref) {
   return LiveNotificationService();
@@ -138,13 +139,18 @@ class LiveNotificationService {
       iOS: iosDetails,
     );
 
+    // Build Ethiopian date/time string for notification body
+    final ethDate = EthiopianCalendar.formatDateAm(scheduledDate);
+    final ethTime = EthiopianCalendar.formatTimeAm(scheduledDate);
+    final ethDateLine = '$ethDate · $ethTime';
+
     // List of reminder intervals: (Duration before start, label, unique sub-id)
     final intervals = [
-      (const Duration(hours: 24), 'Starting tomorrow (in 24 hours)', 1),
-      (const Duration(hours: 5), 'Starting in 5 hours', 2),
-      (const Duration(hours: 1), 'Starting in 1 hour', 3),
-      (const Duration(minutes: 30), 'Starting in 30 minutes', 4),
-      (Duration.zero, 'Is LIVE NOW! Tap to join', 5),
+      (const Duration(hours: 24), 'ነገ ይጀምራሉ (in 24h) — $ethDateLine', 1),
+      (const Duration(hours: 5),  'በ5 ሰዓት ውስጥ (in 5 hours) — $ethTime', 2),
+      (const Duration(hours: 1),  'በ1 ሰዓት ውስጥ (in 1 hour) — $ethTime', 3),
+      (const Duration(minutes: 30), 'በ30 ደቂቃ ውስጥ (in 30 min) — $ethTime', 4),
+      (Duration.zero, 'አሁን LIVE ነው! (ወደ ዘፔ ለመቀላቀል ጠቅ ያድርጉ) — $ethTime', 5),
     ];
 
     for (final (offset, label, subId) in intervals) {

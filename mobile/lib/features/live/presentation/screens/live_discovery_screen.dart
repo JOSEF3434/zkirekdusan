@@ -9,6 +9,7 @@ import 'package:mobile/features/live/presentation/providers/live_discovery_provi
 import 'package:mobile/features/live/presentation/widgets/live_card_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart';
 import 'package:mobile/features/live/presentation/widgets/scheduled_live_card_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
 
 class LiveDiscoveryScreen extends ConsumerWidget {
   const LiveDiscoveryScreen({super.key});
@@ -45,14 +46,9 @@ class LiveDiscoveryScreen extends ConsumerWidget {
               tooltip: 'Go Live / Schedule',
               onPressed: () => _showLiveActionsSheet(context),
             ),
-            Builder(
-              builder: (ctx) => IconButton(
-                icon: const Icon(Icons.menu_rounded),
-                tooltip: 'Navigation',
-                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-              ),
-            ),
           ],
+          leading: null,
+          automaticallyImplyLeading: false,
           bottom: TabBar(
             isScrollable: false,
             indicatorWeight: 3,
@@ -74,20 +70,25 @@ class LiveDiscoveryScreen extends ConsumerWidget {
             ],
           ),
         ),
-        endDrawer: _buildSideDrawer(context, theme),
-        body: Column(
+        body: Row(
           children: [
-            // Modern horizontal category bar with Add Category button
-            const LiveCategoryBar(),
-            const Divider(height: 1, thickness: 0.5),
-
-            // Tab Views
-            const Expanded(
-              child: TabBarView(
+            // ── Persistent left circular-icon rail ───────────────────────
+            const LiveSideRail(activeItem: LiveRailItem.live),
+            // ── Main content area ────────────────────────────────
+            Expanded(
+              child: Column(
                 children: [
-                  _LiveStreamsList(),
-                  _ScheduledStreamsList(),
-                  _MyScheduledStreamsList(),
+                  const LiveCategoryBar(),
+                  const Divider(height: 1, thickness: 0.5),
+                  const Expanded(
+                    child: TabBarView(
+                      children: [
+                        _LiveStreamsList(),
+                        _ScheduledStreamsList(),
+                        _MyScheduledStreamsList(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -103,87 +104,6 @@ class LiveDiscoveryScreen extends ConsumerWidget {
             'Go Live',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSideDrawer(BuildContext context, ThemeData theme) {
-    return Drawer(
-      width: 280,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.live_tv_rounded,
-                      color: Colors.redAccent,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Live Hub',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'Discover & broadcast live',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Icon(Icons.home_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
-              title: const Text('Home', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              horizontalTitleGap: 8,
-              onTap: () { Navigator.of(context).pop(); context.go('/home'); },
-            ),
-            ListTile(
-              leading: Icon(Icons.sensors_rounded, size: 22, color: Colors.redAccent),
-              title: const Text('Go Live', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.redAccent)),
-              horizontalTitleGap: 8,
-              onTap: () { Navigator.of(context).pop(); context.push('/live/studio'); },
-            ),
-            ListTile(
-              leading: Icon(Icons.event_available_rounded, size: 22, color: theme.colorScheme.onSurfaceVariant),
-              title: const Text('Schedule Stream', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              horizontalTitleGap: 8,
-              onTap: () { Navigator.of(context).pop(); context.push('/live/studio?schedule=true'); },
-            ),
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Icon(Icons.analytics_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
-              title: const Text('Creator Studio', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              horizontalTitleGap: 8,
-              onTap: () { Navigator.of(context).pop(); context.push('/creator'); },
-            ),
-            ListTile(
-              leading: Icon(Icons.settings_outlined, size: 22, color: theme.colorScheme.onSurfaceVariant),
-              title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              horizontalTitleGap: 8,
-              onTap: () { Navigator.of(context).pop(); context.push('/settings'); },
-            ),
-          ],
         ),
       ),
     );

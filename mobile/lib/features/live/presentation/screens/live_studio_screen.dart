@@ -26,7 +26,8 @@ import 'package:mobile/features/live/presentation/providers/live_discovery_provi
 import 'package:mobile/features/live/presentation/services/live_notification_service.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart';
-
+import 'package:mobile/core/utils/ethiopian_calendar.dart';
+import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
 
 // ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
 
@@ -233,30 +234,40 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr('live.setup_title')),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+        title: Text(
+          tr('live.setup_title'),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            tooltip: 'Navigation menu',
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
         ),
         actions: [
-          Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Quick navigation',
-              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Close',
+            onPressed: () => context.pop(),
           ),
         ],
       ),
-      endDrawer: _buildSideDrawer(context),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section header ──
-            Row(
-              children: [
+      drawer: _buildSideDrawer(context),
+      body: Row(
+        children: [
+          // ── Left circular-icon rail ────────────────────────────────
+          const LiveSideRail(activeItem: LiveRailItem.studio),
+          // ── Main setup content ────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Section header ──
+                  Row(
+                    children: [
                 Container(
                   width: 4,
                   height: 20,
@@ -426,9 +437,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -594,8 +608,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   }
 
   Widget _buildSchedulingSection(ThemeData theme) {
+    // Gregorian format for buttons
     final dateStr = DateFormat('EEE, MMM d, yyyy').format(_scheduledDate);
     final timeStr = _scheduledTime.format(context);
+
+    // Ethiopian calendar equivalents
+    final ethDateStr = EthiopianCalendar.formatDateAm(_scheduledDate);
+    final ethDayName = EthiopianCalendar.dayNameAm(_scheduledDate);
+    final ethTimeStr = EthiopianCalendar.formatTimeOfDayAm(
+      _scheduledTime.hour,
+      _scheduledTime.minute,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -645,24 +668,99 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
             ],
           ),
           const SizedBox(height: 10),
+
+          // ── Ethiopian Calendar Display ──────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: theme.colorScheme.primaryContainer,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text('🇪🇹', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Ethiopian Calendar (ኢትዮጵያ ቀን)',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.primary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$ethDayName, $ethDateStr',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'ሰዓት: $ethTimeStr',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          EthiopianCalendar.formatDateEn(_scheduledDate),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Notification reminder info
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.blueAccent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.notifications_active_outlined,
                   size: 14,
                   color: Colors.blueAccent,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Multi-interval reminders active: 1 day, 5h, 1h, 30m before & at start time',
-                    style: TextStyle(
+                    'Reminders will fire at: 1 day, 5h, 1h, 30min before & at $ethTimeStr ($timeStr) on $ethDayName',
+                    style: const TextStyle(
                       fontSize: 11,
                       color: Colors.blueAccent,
                       fontWeight: FontWeight.w600,

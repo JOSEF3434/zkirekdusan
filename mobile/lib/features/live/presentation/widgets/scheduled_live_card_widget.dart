@@ -10,6 +10,7 @@ import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/services/live_notification_service.dart';
+import 'package:mobile/core/utils/ethiopian_calendar.dart';
 
 class ScheduledLiveCardWidget extends ConsumerWidget {
   final LiveStreamDto stream;
@@ -177,18 +178,33 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                   bottom: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
+                      color: Colors.black.withValues(alpha: 0.72),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      DateFormat('MMM d, h:mm a').format(scheduledDate),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Ethiopian date (primary)
+                        Text(
+                          EthiopianCalendar.formatDateAm(scheduledDate),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          EthiopianCalendar.formatTimeAm(scheduledDate),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -243,6 +259,49 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                 ],
 
                 const SizedBox(height: 14),
+
+                // ── Ethiopian date display ─────────────────────────────────────
+                if (scheduledDate != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.blueAccent.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🇪🇹', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${EthiopianCalendar.dayNameAm(scheduledDate)}, ${EthiopianCalendar.formatDateAm(scheduledDate)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                'ሰዓት: ${EthiopianCalendar.formatTimeAm(scheduledDate)}  ·  ${DateFormat('MMM d, h:mm a').format(scheduledDate)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
