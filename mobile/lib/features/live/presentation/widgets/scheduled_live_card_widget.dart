@@ -11,6 +11,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/services/live_notification_service.dart';
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
+import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
 
 class ScheduledLiveCardWidget extends ConsumerWidget {
   final LiveStreamDto stream;
@@ -22,7 +23,7 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
     final diff = scheduledTime.difference(now);
 
     if (diff.isNegative) {
-      return 'Starting soon';
+      return 'Live Now';
     }
     if (diff.inDays > 1) {
       return 'Starts in ${diff.inDays} days';
@@ -35,7 +36,7 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
     } else if (diff.inMinutes > 0) {
       return 'Starts in ${diff.inMinutes} minutes';
     } else {
-      return 'Starting any moment';
+      return 'Starts in ${diff.inSeconds}s';
     }
   }
 
@@ -43,9 +44,24 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    // Real-time ticker triggers rebuilds every second for countdown and transition
+    ref.watch(scheduledCountdownTickerProvider);
+    final syncMap = ref.watch(scheduledLiveSyncProvider);
+    final effectiveStatus = syncMap[stream.id] ?? stream.status;
+
     final scheduledDate = stream.scheduledAt != null
         ? DateTime.tryParse(stream.scheduledAt!)
         : null;
+
+    final isPastStart = scheduledDate != null && DateTime.now().isAfter(scheduledDate);
+    final isLive = effectiveStatus == LiveStreamStatus.live || isPastStart;
+
+    if (isPastStart && effectiveStatus != LiveStreamStatus.live) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(stream.id);
+      });
+    }
 
     final reminders = ref.watch(liveRemindersStateProvider);
     final hasReminder = reminders.contains(stream.id);
@@ -82,7 +98,7 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                         width: double.infinity,
                         height: 180,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _fallbackBanner(),
+                        errorWidget: (c, u, e) => _fallbackBanner(),
                       )
                     : _fallbackBanner(),
               ),
@@ -112,23 +128,30 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent.withValues(alpha: 0.9),
+                    color: isLive
+                        ? Colors.redAccent.withValues(alpha: 0.95)
+                        : Colors.blueAccent.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withValues(alpha: 0.4),
+                        color: (isLive ? Colors.redAccent : Colors.blueAccent)
+                            .withValues(alpha: 0.4),
                         blurRadius: 6,
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white),
-                      SizedBox(width: 5),
+                      Icon(
+                        isLive ? Icons.sensors_rounded : Icons.calendar_today_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
                       Text(
-                        'SCHEDULED',
-                        style: TextStyle(
+                        isLive ? 'LIVE NOW' : 'SCHEDULED',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,

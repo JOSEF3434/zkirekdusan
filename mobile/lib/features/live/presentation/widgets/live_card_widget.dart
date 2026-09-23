@@ -1,14 +1,13 @@
-// lib/features/live/presentation/widgets/live_card_widget.dart
-// Card displayed in discovery lists / home "LIVE NOW" section.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
+import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
 
-class LiveCardWidget extends StatelessWidget {
+class LiveCardWidget extends ConsumerWidget {
   final LiveStreamDto stream;
   final bool horizontal; // true for home row, false for full-width discover
 
@@ -19,18 +18,35 @@ class LiveCardWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
+    // Watch ticker and sync state for real-time live transition
+    ref.watch(scheduledCountdownTickerProvider);
+    final syncMap = ref.watch(scheduledLiveSyncProvider);
+    final effectiveStatus = syncMap[stream.id] ?? stream.status;
+
+    final scheduledDate = stream.scheduledAt != null
+        ? DateTime.tryParse(stream.scheduledAt!)
+        : null;
+    final isPastStart = scheduledDate != null && DateTime.now().isAfter(scheduledDate);
+    final isLive = effectiveStatus == LiveStreamStatus.live || isPastStart;
+
+    if (isPastStart && effectiveStatus != LiveStreamStatus.live) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(stream.id);
+      });
+    }
 
     return GestureDetector(
       onTap: () => context.push('/live/${stream.id}'),
       child: horizontal
-          ? _buildHorizontalCard(theme)
-          : _buildVerticalCard(theme),
+          ? _buildHorizontalCard(theme, isLive: isLive)
+          : _buildVerticalCard(theme, isLive: isLive),
     );
   }
 
-  Widget _buildHorizontalCard(ThemeData theme) {
+  Widget _buildHorizontalCard(ThemeData theme, {required bool isLive}) {
     return Container(
       width: 220,
       margin: const EdgeInsets.only(right: 12),
@@ -41,7 +57,7 @@ class LiveCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _thumbnail(height: 124, radius: 12, onlyTop: true),
+          _thumbnail(height: 124, radius: 12, onlyTop: true, isLive: isLive),
           Padding(
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -66,7 +82,7 @@ class LiveCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildVerticalCard(ThemeData theme) {
+  Widget _buildVerticalCard(ThemeData theme, {required bool isLive}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -76,7 +92,7 @@ class LiveCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _thumbnail(height: 190, radius: 14, onlyTop: true),
+          _thumbnail(height: 190, radius: 14, onlyTop: true, isLive: isLive),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -123,6 +139,7 @@ class LiveCardWidget extends StatelessWidget {
     required double height,
     required double radius,
     required bool onlyTop,
+    required bool isLive,
   }) {
     final borderRadius = onlyTop
         ? BorderRadius.vertical(top: Radius.circular(radius))
@@ -146,7 +163,7 @@ class LiveCardWidget extends StatelessWidget {
         Positioned(
           top: 8,
           left: 8,
-          child: stream.status == LiveStreamStatus.scheduled
+          child: !isLive
               ? Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -171,7 +188,7 @@ class LiveCardWidget extends StatelessWidget {
                 )
               : const LiveBadgeWidget(small: true),
         ),
-        if (stream.status == LiveStreamStatus.live)
+        if (isLive)
           Positioned(
             bottom: 8,
             right: 8,

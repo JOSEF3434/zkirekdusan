@@ -37,6 +37,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   bool _isDragging = false;
   static const _kMiniDragThreshold = 120.0;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final mini = ref.read(miniPlayerProvider);
+      if (mini.contentId == widget.videoId && mini.controller != null) {
+        // PlayerNotifier already adopted this exact controller. Remove the
+        // MiniPlayer listener without pausing or disposing the session.
+        final reclaimed = ref
+            .read(miniPlayerProvider.notifier)
+            .reclaimController(widget.videoId);
+        if (reclaimed != null) {
+          debugPrint(
+            '[VideoPlayerScreen] Fullscreen player mounted; controller '
+            'reclaimed for ${widget.videoId} position=${reclaimed.value.position} '
+            'playing=${reclaimed.value.isPlaying}',
+          );
+        }
+      }
+    });
+  }
+
   void _triggerSeek(bool isForward) {
     setState(() {
       _isSeekingForward = isForward;
@@ -236,6 +259,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     notifier: ref.read(playerProvider(widget.videoId).notifier),
                     videoId: widget.videoId,
                     isFullscreen: state.isFullscreen,
+                    onMinimizeToMiniPlayer: () => _minimizeToMiniPlayer(state),
                     onDoubleTapSeek: (isForward) {
                       _triggerSeek(isForward);
                     },
@@ -313,326 +337,79 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
           child: Scaffold(
             body: SafeArea(
-              child: Column(
-                children: [
-                  playerWidget,
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text(video.title, style: theme.textTheme.titleLarge),
-                        const SizedBox(height: 8),
-                        Row(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 1100;
+
+                  final metaSection = _VideoMetaSection(
+                    theme: theme,
+                    video: video,
+                    state: state,
+                    tr: tr,
+                  );
+
+                  final contentColumn = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      playerWidget,
+                      const SizedBox(height: 16),
+                      metaSection,
+                    ],
+                  );
+
+                  if (isWide) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1400),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 3, child: contentColumn),
+                              const SizedBox(width: 24),
+                              SizedBox(
+                                width: 360,
+                                child: _VideoSidebar(
+                                  theme: theme,
+                                  video: video,
+                                  state: state,
+                                  tr: tr,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      playerWidget,
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.all(16),
                           children: [
+                            metaSection,
+                            const SizedBox(height: 24),
                             Text(
-                              '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey,
-                              ),
+                              tr('home.recommended'),
+                              style: theme.textTheme.titleMedium,
                             ),
-                            const Spacer(),
-                            // Offline Mode vs Online Stream indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 3.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: state.isOfflinePlayback
-                                    ? Colors.green.withValues(alpha: 0.15)
-                                    : const Color(
-                                        0xFF00C6FF,
-                                      ).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: state.isOfflinePlayback
-                                      ? Colors.green
-                                      : const Color(0xFF00C6FF),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    state.isOfflinePlayback
-                                        ? Icons.offline_pin_rounded
-                                        : Icons.cloud_done_rounded,
-                                    size: 14,
-                                    color: state.isOfflinePlayback
-                                        ? Colors.green
-                                        : const Color(0xFF00C6FF),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    state.isOfflinePlayback
-                                        ? 'Offline Mode'
-                                        : 'Online Stream',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: state.isOfflinePlayback
-                                          ? Colors.green
-                                          : const Color(0xFF00C6FF),
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(height: 16),
+                            ...state.recommendations.map(
+                              (rec) => Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: VideoCard(video: rec),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // ── Action Buttons Row ────────────────────────────────────
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Like button — uses existing LikeButton widget with animation
-                            _VideoActionLike(videoId: video.id, video: video),
-
-                            // Share button — uses share_plus via existing ShareButton
-                            ShareButton(
-                              postId: video.id,
-                              title: video.title,
-                              iconSize: 24,
-                            ),
-
-                            // Download button
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final downloadState = ref.watch(
-                                  downloadServiceProvider,
-                                );
-                                final isDownloading = downloadState.downloading
-                                    .contains(video.id);
-                                final isDownloaded = downloadState.downloads
-                                    .containsKey(video.id);
-                                final progress =
-                                    downloadState.progress[video.id] ?? 0.0;
-
-                                if (isDownloading) {
-                                  return Column(
-                                    children: [
-                                      SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          value: progress > 0 ? progress : null,
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              const AlwaysStoppedAnimation<
-                                                Color
-                                              >(Color(0xFF00C6FF)),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${(progress * 100).toInt()}%',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ],
-                                  );
-                                }
-
-                                if (isDownloaded) {
-                                  final tr = ref.read(trProvider);
-                                  return _ActionButton(
-                                    icon: Icons.offline_pin,
-                                    iconColor: Colors.green,
-                                    label: tr('video.downloaded'),
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (dlgCtx) => AlertDialog(
-                                          title: Text(
-                                            tr('video.delete_download_title'),
-                                          ),
-                                          content: Text(
-                                            tr('video.delete_download_msg'),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(dlgCtx),
-                                              child: Text(tr('common.cancel')),
-                                            ),
-                                            FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                              ),
-                                              onPressed: () {
-                                                Navigator.pop(dlgCtx);
-                                                ref
-                                                    .read(
-                                                      downloadServiceProvider
-                                                          .notifier,
-                                                    )
-                                                    .deleteDownload(video.id);
-                                              },
-                                              child: Text(tr('common.remove')),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
-                                }
-
-                                final tr = ref.read(trProvider);
-                                String? candidateDownloadUrl;
-                                for (final r in video.renditions) {
-                                  if (r.url.trim().isNotEmpty) {
-                                    candidateDownloadUrl = r.url;
-                                    break;
-                                  }
-                                }
-                                candidateDownloadUrl ??=
-                                    video.hlsUrl ?? video.dashUrl;
-                                final canDownload =
-                                    candidateDownloadUrl != null &&
-                                    candidateDownloadUrl.trim().isNotEmpty;
-
-                                return _ActionButton(
-                                  icon: Icons.download_outlined,
-                                  label: tr('video.download'),
-                                  onTap: canDownload
-                                      ? () {
-                                          ref
-                                              .read(
-                                                downloadServiceProvider
-                                                    .notifier,
-                                              )
-                                              .startDownload(
-                                                videoId: video.id,
-                                                url: candidateDownloadUrl!,
-                                                title: video.title,
-                                                thumbnailUrl:
-                                                    video.thumbnailUrl,
-                                              );
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                tr('video.added_to_downloads'),
-                                              ),
-                                              duration: const Duration(
-                                                seconds: 2,
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      : () {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                tr(
-                                                  'video.download_unavailable',
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                );
-                              },
-                            ),
-
-                            // Save / Bookmark button — uses existing SaveButton widget
-                            _VideoActionSave(videoId: video.id, video: video),
-                          ],
-                        ),
-
-                        const Divider(height: 32),
-
-                        // ── Channel row with Subscribe button ─────────────────────
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                if (video.author.username != null) {
-                                  context.push(
-                                    '/profile/user/${video.author.username}',
-                                  );
-                                }
-                              },
-                              child: CircleAvatar(
-                                radius: 20,
-                                backgroundColor:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                child: Text(
-                                  (video.author.displayName?.isNotEmpty == true
-                                          ? video.author.displayName![0]
-                                          : video.author.username?.isNotEmpty ==
-                                                true
-                                          ? video.author.username![0]
-                                          : '?')
-                                      .toUpperCase(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  if (video.author.username != null) {
-                                    context.push(
-                                      '/profile/user/${video.author.username}',
-                                    );
-                                  }
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      video.author.displayName ??
-                                          video.author.username ??
-                                          'Unknown',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.titleMedium,
-                                    ),
-                                    Text(
-                                      video.channelName ?? 'Channel',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Follow/Subscribe button using existing FollowButton widget
-                            FollowButton(
-                              targetUserId: video.author.id,
-                              isDense: false,
-                            ),
-                          ],
-                        ),
-
-                        const Divider(height: 32),
-                        if (video.description != null) ...[
-                          _ExpandableDescription(
-                            description: video.description!,
-                          ),
-                          const Divider(height: 32),
-                        ],
-                        Text(
-                          tr('home.recommended'),
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        ...state.recommendations.map(
-                          (rec) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: VideoCard(video: rec),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -643,6 +420,409 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 }
 
 // ── Like action that uses the existing LikeButton widget internally ──────────
+
+class _VideoMetaSection extends StatelessWidget {
+  final ThemeData theme;
+  final dynamic video;
+  final dynamic state;
+  final dynamic tr;
+
+  const _VideoMetaSection({
+    required this.theme,
+    required this.video,
+    required this.state,
+    required this.tr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          video.title,
+          style: theme.textTheme.titleLarge,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${video.viewsCount} views • ${video.createdAt.toString().split(' ')[0]}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+              decoration: BoxDecoration(
+                color: state.isOfflinePlayback
+                    ? Colors.green.withValues(alpha: 0.15)
+                    : const Color(0xFF00C6FF).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: state.isOfflinePlayback
+                      ? Colors.green
+                      : const Color(0xFF00C6FF),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    state.isOfflinePlayback
+                        ? Icons.offline_pin_rounded
+                        : Icons.cloud_done_rounded,
+                    size: 14,
+                    color: state.isOfflinePlayback
+                        ? Colors.green
+                        : const Color(0xFF00C6FF),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    state.isOfflinePlayback ? 'Offline Mode' : 'Online Stream',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: state.isOfflinePlayback
+                          ? Colors.green
+                          : const Color(0xFF00C6FF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _VideoActionLike(videoId: video.id, video: video),
+            ShareButton(postId: video.id, title: video.title, iconSize: 24),
+            Consumer(
+              builder: (context, ref, _) {
+                final downloadState = ref.watch(downloadServiceProvider);
+                final isDownloading = downloadState.downloading.contains(
+                  video.id,
+                );
+                final isDownloaded = downloadState.downloads.containsKey(
+                  video.id,
+                );
+                final progress = downloadState.progress[video.id] ?? 0.0;
+
+                if (isDownloading) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          value: progress > 0 ? progress : null,
+                          strokeWidth: 2,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF00C6FF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${(progress * 100).toInt()}%',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  );
+                }
+
+                if (isDownloaded) {
+                  final t = ref.read(trProvider);
+                  return _ActionButton(
+                    icon: Icons.offline_pin,
+                    iconColor: Colors.green,
+                    label: t('video.downloaded'),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (dlgCtx) => AlertDialog(
+                          title: Text(t('video.delete_download_title')),
+                          content: Text(t('video.delete_download_msg')),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(dlgCtx),
+                              child: Text(t('common.cancel')),
+                            ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(dlgCtx);
+                                ref
+                                    .read(downloadServiceProvider.notifier)
+                                    .deleteDownload(video.id);
+                              },
+                              child: Text(t('common.remove')),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }
+
+                final t = ref.read(trProvider);
+                String? candidateDownloadUrl;
+                for (final r in video.renditions) {
+                  if (r.url.trim().isNotEmpty) {
+                    candidateDownloadUrl = r.url;
+                    break;
+                  }
+                }
+                candidateDownloadUrl ??= video.hlsUrl ?? video.dashUrl;
+                final canDownload =
+                    candidateDownloadUrl != null &&
+                    candidateDownloadUrl.trim().isNotEmpty;
+
+                return _ActionButton(
+                  icon: Icons.download_outlined,
+                  label: t('video.download'),
+                  onTap: canDownload
+                      ? () {
+                          ref
+                              .read(downloadServiceProvider.notifier)
+                              .startDownload(
+                                videoId: video.id,
+                                url: candidateDownloadUrl!,
+                                title: video.title,
+                                thumbnailUrl: video.thumbnailUrl,
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(t('video.added_to_downloads')),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(t('video.download_unavailable')),
+                            ),
+                          );
+                        },
+                );
+              },
+            ),
+            _VideoActionSave(videoId: video.id, video: video),
+          ],
+        ),
+        const Divider(height: 32),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (video.author.username != null) {
+                  context.push('/profile/user/${video.author.username}');
+                }
+              },
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                child: Text(
+                  (video.author.displayName?.isNotEmpty == true
+                          ? video.author.displayName![0]
+                          : video.author.username?.isNotEmpty == true
+                          ? video.author.username![0]
+                          : '?')
+                      .toUpperCase(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (video.author.username != null) {
+                    context.push('/profile/user/${video.author.username}');
+                  }
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      video.author.displayName ??
+                          video.author.username ??
+                          'Unknown',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    Text(
+                      video.channelName ?? 'Channel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            FollowButton(targetUserId: video.author.id, isDense: false),
+          ],
+        ),
+        const Divider(height: 32),
+        if (video.description != null) ...[
+          _ExpandableDescription(description: video.description!),
+          const Divider(height: 32),
+        ],
+      ],
+    );
+  }
+}
+
+class _VideoSidebar extends StatelessWidget {
+  final ThemeData theme;
+  final dynamic video;
+  final dynamic state;
+  final dynamic tr;
+
+  const _VideoSidebar({
+    required this.theme,
+    required this.video,
+    required this.state,
+    required this.tr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (video.author.username != null) {
+                    context.push('/profile/user/${video.author.username}');
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  child: Text(
+                    (video.author.displayName?.isNotEmpty == true
+                            ? video.author.displayName![0]
+                            : video.author.username?.isNotEmpty == true
+                            ? video.author.username![0]
+                            : '?')
+                        .toUpperCase(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      video.author.displayName ??
+                          video.author.username ??
+                          'Unknown',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    Text(
+                      video.channelName ?? 'Channel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FollowButton(targetUserId: video.author.id, isDense: false),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatChip(
+                icon: Icons.thumb_up_outlined,
+                label: '${video.likesCount} likes',
+              ),
+              _StatChip(
+                icon: Icons.comment_outlined,
+                label: '${video.commentsCount} comments',
+              ),
+              _StatChip(
+                icon: Icons.visibility_outlined,
+                label: '${video.viewsCount} views',
+              ),
+              _StatChip(
+                icon: Icons.person_add_alt_1_outlined,
+                label: 'Followers',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (video.description != null) ...[
+            Text('About this video', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            _ExpandableDescription(description: video.description!),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _StatChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _VideoActionLike extends ConsumerWidget {
   final String videoId;
@@ -903,6 +1083,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final PlayerNotifier notifier;
   final String videoId;
   final bool isFullscreen;
+  final VoidCallback onMinimizeToMiniPlayer;
   final void Function(bool isForward) onDoubleTapSeek;
 
   const _PlayerControlsOverlay({
@@ -910,6 +1091,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.notifier,
     required this.videoId,
     required this.isFullscreen,
+    required this.onMinimizeToMiniPlayer,
     required this.onDoubleTapSeek,
   });
 
@@ -951,7 +1133,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
                       if (isFullscreen) {
                         notifier.toggleFullscreen();
                       } else {
-                        context.pop();
+                        onMinimizeToMiniPlayer();
                       }
                     },
                   ),

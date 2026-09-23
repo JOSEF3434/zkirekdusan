@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
+import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
 
 // ─── Categories Provider ──────────────────────────────────────────────────────
 
@@ -81,13 +82,21 @@ class LiveDiscoveryState {
 
 class LiveStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
   final LiveStreamingRepository _repo;
+  final Ref _ref;
   String? _category;
   bool _isFetching = false;
 
-  LiveStreamsNotifier(this._repo, {String? category})
+  LiveStreamsNotifier(this._repo, this._ref, {String? category})
       : _category = category,
         super(const LiveDiscoveryState()) {
     load();
+    // Listen to real-time status transitions
+    _ref.listen<Map<String, LiveStreamStatus>>(scheduledLiveSyncProvider, (prev, next) {
+      if (next.values.any((s) => s == LiveStreamStatus.live)) {
+        // Refresh live streams if any scheduled stream just transitioned to live
+        refresh();
+      }
+    });
   }
 
   void updateCategory(String? category) {
@@ -153,20 +162,33 @@ final liveStreamsProvider =
     StateNotifierProvider<LiveStreamsNotifier, LiveDiscoveryState>((ref) {
       final repo = ref.read(liveStreamingRepositoryProvider);
       final selectedCategory = ref.watch(selectedLiveCategoryProvider);
-      return LiveStreamsNotifier(repo, category: selectedCategory);
+      return LiveStreamsNotifier(repo, ref, category: selectedCategory);
     });
 
 // ─── Scheduled Streams Notifier ───────────────────────────────────────────────
 
 class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
   final LiveStreamingRepository _repo;
+  final Ref _ref;
   String? _category;
   bool _isFetching = false;
 
-  ScheduledStreamsNotifier(this._repo, {String? category})
+  ScheduledStreamsNotifier(this._repo, this._ref, {String? category})
       : _category = category,
         super(const LiveDiscoveryState()) {
     load();
+    // Listen to real-time status transitions to remove streams that went live
+    _ref.listen<Map<String, LiveStreamStatus>>(scheduledLiveSyncProvider, (prev, next) {
+      final liveIds = next.entries
+          .where((e) => e.value == LiveStreamStatus.live)
+          .map((e) => e.key)
+          .toSet();
+      if (liveIds.isNotEmpty && state.streams.any((s) => liveIds.contains(s.id))) {
+        state = state.copyWith(
+          streams: state.streams.where((s) => !liveIds.contains(s.id)).toList(),
+        );
+      }
+    });
   }
 
   void updateCategory(String? category) {
@@ -184,6 +206,17 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
       final result = await _repo.getScheduledStreams(page: 1, limit: 20, category: effectiveCat);
       final seen = <String>{};
       final unique = result.items.where((s) => seen.add(s.id)).toList();
+
+      // Check if any stream has arrived at its scheduled start time
+      for (final s in unique) {
+        if (s.scheduledAt != null) {
+          final dt = DateTime.tryParse(s.scheduledAt!);
+          if (dt != null && DateTime.now().isAfter(dt)) {
+            _ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(s.id);
+          }
+        }
+      }
+
       state = state.copyWith(
         streams: unique,
         isLoading: false,
@@ -232,7 +265,7 @@ final scheduledStreamsProvider =
     StateNotifierProvider<ScheduledStreamsNotifier, LiveDiscoveryState>((ref) {
       final repo = ref.read(liveStreamingRepositoryProvider);
       final selectedCategory = ref.watch(selectedLiveCategoryProvider);
-      return ScheduledStreamsNotifier(repo, category: selectedCategory);
+      return ScheduledStreamsNotifier(repo, ref, category: selectedCategory);
     });
 
 // ─── My Scheduled Streams Notifier ────────────────────────────────────────────

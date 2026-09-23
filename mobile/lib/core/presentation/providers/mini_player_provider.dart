@@ -1,36 +1,38 @@
 // lib/core/presentation/providers/mini_player_provider.dart
-// Global mini-player state — controls the floating mini player shown over the AppShell.
-// Supports two content types:
-//   • video  — a VOD played through VideoPlayerScreen / playerProvider
-//   • live   — an HLS live stream viewed in LiveRoomScreen
+// Global persistent mini-player state and controller lifecycle management.
+// Supports both live streams and VOD videos with seamless handoff,
+// draggable position persistence, play/pause controls, and clean resource release.
 
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
-// ─── Content type ─────────────────────────────────────────────────────────────
-
 enum MiniPlayerType { video, live }
 
-// ─── State ────────────────────────────────────────────────────────────────────
-
 class MiniPlayerState {
-  /// When true the overlay is visible at the bottom of the screen.
+  /// When true, the floating mini player is visible.
   final bool isVisible;
 
   final MiniPlayerType type;
 
-  // -- Shared fields --
-  final String? contentId;   // videoId or streamId
+  // -- Content metadata --
+  final String? contentId; // videoId or streamId
   final String? title;
   final String? channelName;
   final String? thumbnailUrl;
+  final String? avatarUrl;
 
-  // -- Video-specific fields --
-  /// The VideoPlayerController kept alive while the mini player is shown.
+  // -- Player controller --
   final VideoPlayerController? controller;
 
   // -- Live-specific fields --
   final String? hlsUrl;
+
+  // -- Playback & UI state --
+  final bool isPlaying;
+  final Offset? position; // Dragged position on screen
+  final bool isNavigatingToFull; // Controller handoff flag
 
   const MiniPlayerState({
     this.isVisible = false,
@@ -39,8 +41,12 @@ class MiniPlayerState {
     this.title,
     this.channelName,
     this.thumbnailUrl,
+    this.avatarUrl,
     this.controller,
     this.hlsUrl,
+    this.isPlaying = true,
+    this.position,
+    this.isNavigatingToFull = false,
   });
 
   MiniPlayerState copyWith({
@@ -50,9 +56,13 @@ class MiniPlayerState {
     String? title,
     String? channelName,
     String? thumbnailUrl,
+    String? avatarUrl,
     VideoPlayerController? controller,
     bool clearController = false,
     String? hlsUrl,
+    bool? isPlaying,
+    Offset? position,
+    bool? isNavigatingToFull,
   }) {
     return MiniPlayerState(
       isVisible: isVisible ?? this.isVisible,
@@ -61,30 +71,41 @@ class MiniPlayerState {
       title: title ?? this.title,
       channelName: channelName ?? this.channelName,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       controller: clearController ? null : (controller ?? this.controller),
       hlsUrl: hlsUrl ?? this.hlsUrl,
+      isPlaying: isPlaying ?? this.isPlaying,
+      position: position ?? this.position,
+      isNavigatingToFull: isNavigatingToFull ?? this.isNavigatingToFull,
     );
   }
 
-  bool get hasContent => contentId != null;
+  bool get hasContent => contentId != null && contentId!.isNotEmpty;
+  bool get isLive => type == MiniPlayerType.live;
 }
-
-// ─── Notifier ─────────────────────────────────────────────────────────────────
 
 class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   MiniPlayerNotifier() : super(const MiniPlayerState());
 
-  // ── Video mini-player ────────────────────────────────────────────────────
+  VoidCallback? _controllerListener;
 
-  /// Show a VOD mini player. The caller transfers ownership of [controller].
+  // ── Show Video MiniPlayer ──────────────────────────────────────────────────
+
   void showVideo({
     required String videoId,
     required String title,
     String? channelName,
     String? thumbnailUrl,
+    String? avatarUrl,
     required VideoPlayerController controller,
   }) {
-    _disposeCurrentController();
+    // If switching content or duplicate, clean previous
+    if (state.controller != null && state.controller != controller) {
+      _disposeCurrentController();
+    }
+
+    _bindController(controller);
+
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.video,
@@ -92,22 +113,35 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       title: title,
       channelName: channelName,
       thumbnailUrl: thumbnailUrl,
+      avatarUrl: avatarUrl,
       controller: controller,
+      isPlaying: controller.value.isPlaying,
+      position: state.position, // Retain previously positioned coordinates
+      isNavigatingToFull: false,
     );
   }
 
-  // ── Live mini-player ─────────────────────────────────────────────────────
+  // ── Show Live MiniPlayer ───────────────────────────────────────────────────
 
-  /// Show a live-stream mini player.
   void showLive({
     required String streamId,
     required String title,
     String? channelName,
     String? thumbnailUrl,
+    String? avatarUrl,
     required String hlsUrl,
     VideoPlayerController? controller,
   }) {
-    _disposeCurrentController();
+    if (state.controller != null &&
+        controller != null &&
+        state.controller != controller) {
+      _disposeCurrentController();
+    }
+
+    if (controller != null) {
+      _bindController(controller);
+    }
+
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.live,
@@ -115,51 +149,116 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       title: title,
       channelName: channelName,
       thumbnailUrl: thumbnailUrl,
+      avatarUrl: avatarUrl,
       hlsUrl: hlsUrl,
       controller: controller,
+      isPlaying: controller?.value.isPlaying ?? true,
+      position: state.position,
+      isNavigatingToFull: false,
     );
   }
 
-  /// Update the live mini-player controller once the video player is ready.
   void updateLiveController(VideoPlayerController ctrl) {
-    state = state.copyWith(controller: ctrl);
+    _bindController(ctrl);
+    state = state.copyWith(
+      controller: ctrl,
+      isPlaying: ctrl.value.isPlaying,
+    );
   }
 
-  // ── Common ───────────────────────────────────────────────────────────────
-
-  /// Dismiss the mini player and release the controller.
-  void dismiss() {
-    _disposeCurrentController();
-    state = const MiniPlayerState();
+  void syncPlaybackState(VideoPlayerController ctrl) {
+    if (!mounted || state.controller != ctrl) return;
+    final playing = ctrl.value.isPlaying;
+    if (playing != state.isPlaying) {
+      state = state.copyWith(isPlaying: playing);
+    }
   }
 
-  /// Hide the overlay without destroying the controller (caller will reclaim it).
+  void _bindController(VideoPlayerController ctrl) {
+    _unbindController();
+    _controllerListener = () {
+      if (mounted && state.controller == ctrl) {
+        syncPlaybackState(ctrl);
+      }
+    };
+    ctrl.addListener(_controllerListener!);
+  }
+
+  void _unbindController() {
+    if (_controllerListener != null && state.controller != null) {
+      try {
+        state.controller!.removeListener(_controllerListener!);
+      } catch (_) {}
+      _controllerListener = null;
+    }
+  }
+
+  // ── Controls & Actions ────────────────────────────────────────────────────
+
+  void togglePlayPause() {
+    final ctrl = state.controller;
+    if (ctrl != null && ctrl.value.isInitialized) {
+      if (ctrl.value.isPlaying) {
+        ctrl.pause();
+      } else {
+        ctrl.play();
+      }
+      state = state.copyWith(isPlaying: ctrl.value.isPlaying);
+    }
+  }
+
+  void updatePosition(Offset newPos) {
+    state = state.copyWith(position: newPos);
+  }
+
+  /// Prepare to navigate to full screen. Hides overlay without disposing controller.
+  void prepareExpand() {
+    state = state.copyWith(isVisible: false, isNavigatingToFull: true);
+  }
+
+  /// Reclaims the controller for full-screen player ownership.
+  /// Clears mini-player state without calling dispose() on the controller.
+  VideoPlayerController? reclaimController(String expectedId) {
+    if (state.contentId == expectedId) {
+      final ctrl = state.controller;
+      _unbindController();
+      state = const MiniPlayerState();
+      return ctrl;
+    }
+    return null;
+  }
+
+  /// Hide without disposing (used during handoff or modal overlays).
   void hide() {
     state = state.copyWith(isVisible: false);
   }
 
-  /// Called when the user taps the mini player to expand it again.
-  void expand() {
-    state = state.copyWith(isVisible: false);
-    // Navigation is handled by the caller that observes this change.
+  /// Completely close and terminate playback, releasing decoders and memory.
+  void dismiss() {
+    _unbindController();
+    _disposeCurrentController();
+    state = const MiniPlayerState();
   }
 
   void _disposeCurrentController() {
     final ctrl = state.controller;
     if (ctrl != null) {
-      ctrl.pause();
-      ctrl.dispose();
+      try {
+        ctrl.pause();
+        ctrl.dispose();
+      } catch (e) {
+        debugPrint('[MiniPlayer] Controller dispose error: $e');
+      }
     }
   }
 
   @override
   void dispose() {
+    _unbindController();
     _disposeCurrentController();
     super.dispose();
   }
 }
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
 
 final miniPlayerProvider =
     StateNotifierProvider<MiniPlayerNotifier, MiniPlayerState>(

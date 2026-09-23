@@ -18,13 +18,27 @@ class NavigationService {
   }
 
   /// Navigate to any named GoRouter path.
-  void navigateTo(String path, {Object? extra}) {
+  bool navigateTo(String path, {Object? extra}) {
     final router = _router;
     if (router == null) {
-      debugPrint('[NavigationService] Router not set — cannot navigate to $path');
-      return;
+      debugPrint(
+        '[NavigationService] Router not set — cannot navigate to $path',
+      );
+      return false;
     }
     router.push(path, extra: extra);
+    return true;
+  }
+
+  /// Replace the current location without depending on a widget context.
+  bool goTo(String path, {Object? extra}) {
+    final router = _router;
+    if (router == null) {
+      debugPrint('[NavigationService] Router not set — cannot go to $path');
+      return false;
+    }
+    router.go(path, extra: extra);
+    return true;
   }
 
   /// Navigate to the calendar note detail screen.

@@ -24,7 +24,7 @@ class LiveCategoryBar extends ConsumerWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: categories.length + 1, // +1 for "+ Add Category" button
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (ctx, i) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           if (index == categories.length) {
             return _buildAddCategoryButton(context, ref, theme, isDark);

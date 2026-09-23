@@ -94,16 +94,26 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
       // Reclaim controller from mini player if we're re-entering the same stream.
       final mini = ref.read(miniPlayerProvider);
-      if (mini.isVisible &&
-          mini.type == MiniPlayerType.live &&
-          mini.contentId == widget.streamId &&
+      if (mini.contentId == widget.streamId &&
           mini.controller != null &&
           mini.controller!.value.isInitialized) {
-        setState(() {
-          _playerCtrl = mini.controller;
-          _playerInitialized = true;
-        });
-        ref.read(miniPlayerProvider.notifier).hide();
+        final reclaimed = ref
+            .read(miniPlayerProvider.notifier)
+            .reclaimController(widget.streamId);
+        if (reclaimed != null) {
+          debugPrint(
+            '[LiveRoomScreen] Fullscreen player mounted; controller reclaimed '
+            'for ${widget.streamId} position=${reclaimed.value.position} '
+            'playing=${reclaimed.value.isPlaying}',
+          );
+          setState(() {
+            _playerCtrl = reclaimed;
+            _playerInitialized = true;
+          });
+        }
+      } else if (mini.hasContent && mini.contentId != widget.streamId) {
+        // Dismiss previous mini player if entering a different stream
+        ref.read(miniPlayerProvider.notifier).dismiss();
       }
     });
   }
@@ -162,11 +172,6 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   void _minimizeToMiniPlayer(LiveRoomState roomState) {
     final stream = roomState.stream;
     final hlsUrl = stream?.hlsUrl ?? '';
-    if (hlsUrl.isEmpty && _playerCtrl == null) {
-      // Nothing to show — just navigate back.
-      if (mounted) context.pop();
-      return;
-    }
 
     final ctrl = _playerCtrl;
     _playerCtrl =
@@ -178,8 +183,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         .showLive(
           streamId: widget.streamId,
           title: stream?.title ?? 'Live Stream',
-          channelName: stream?.videoChannel?.name,
+          channelName:
+              stream?.videoChannel?.name ?? stream?.createdBy?.username,
           thumbnailUrl: stream?.thumbnailUrl,
+          avatarUrl:
+              stream?.videoChannel?.avatarUrl ?? stream?.createdBy?.avatarUrl,
           hlsUrl: hlsUrl,
           controller: ctrl,
         );
@@ -350,34 +358,45 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     LiveSocketService socket,
     ThemeData theme,
   ) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: _buildPlayerSection(roomState, socket, dark: true),
-            ),
-            Expanded(
-              flex: 2,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: roomState.stream?.isChatEnabled != false
-                        ? LiveChatWidget(streamId: widget.streamId)
-                        : Center(
-                            child: Text(
-                              ref.read(trProvider)('live.chat_disabled_short'),
-                              style: const TextStyle(color: Colors.white54),
-                            ),
-                          ),
-                  ),
-                  _buildEmojiBar(dark: true),
-                ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          if (_isFullscreen) _toggleFullscreen();
+          _minimizeToMiniPlayer(roomState);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildPlayerSection(roomState, socket, dark: true),
               ),
-            ),
-          ],
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: roomState.stream?.isChatEnabled != false
+                          ? LiveChatWidget(streamId: widget.streamId)
+                          : Center(
+                              child: Text(
+                                ref.read(trProvider)(
+                                  'live.chat_disabled_short',
+                                ),
+                                style: const TextStyle(color: Colors.white54),
+                              ),
+                            ),
+                    ),
+                    _buildEmojiBar(dark: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

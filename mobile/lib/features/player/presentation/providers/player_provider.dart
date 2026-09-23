@@ -16,6 +16,7 @@ import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
+import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/features/player/data/player_repository.dart';
 
 class PlayerState {
@@ -88,12 +89,19 @@ class PlayerState {
 
 final playerProvider = StateNotifierProvider.autoDispose
     .family<PlayerNotifier, PlayerState, String>((ref, videoId) {
+      // Reuse the controller from the mini-player only if the current content matches.
+      // We intentionally avoid mutating the mini-player provider here because provider
+      // initialization must not trigger state updates on another provider.
+      final mini = ref.read(miniPlayerProvider);
+      final existingCtrl = mini.contentId == videoId ? mini.controller : null;
+
       return PlayerNotifier(
         ref.watch(playerRepositoryProvider),
         ref.watch(playbackProgressRepositoryProvider),
         ref.watch(storageServiceProvider),
         videoId,
         ref.read(playbackPreferencesProvider).defaultSpeed,
+        existingController: existingCtrl,
       );
     });
 
@@ -113,9 +121,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     this._progressRepo,
     this._storage,
     this._videoId,
-    double initialSpeed,
-  ) : super(PlayerState(playbackSpeed: initialSpeed)) {
-    _initialize();
+    double initialSpeed, {
+    VideoPlayerController? existingController,
+  }) : super(PlayerState(playbackSpeed: initialSpeed, controller: existingController)) {
+    _initialize(existingController: existingController);
   }
 
   // ── Cloudinary URL utilities ────────────────────────────────────────────
@@ -212,7 +221,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     state = state.copyWith(clearController: true);
   }
 
-  Future<void> _initialize() async {
+  Future<void> _initialize({VideoPlayerController? existingController}) async {
     try {
       // Load local progress first for restore decision
       final localProgress = _progressRepo.load(_videoId);
@@ -289,6 +298,35 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         } else {
           rethrow;
         }
+      }
+
+      // If we are adopting an existing controller from MiniPlayer, bind and return immediately
+      if (existingController != null && existingController.value.isInitialized) {
+        existingController.addListener(_onControllerUpdate);
+        _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+          if (video != null) {
+            _maybeSaveProgress(video);
+          }
+        });
+        _repository
+            .getRecommended(_videoId)
+            .then((res) {
+              if (mounted) {
+                state = state.copyWith(recommendations: res.data);
+              }
+            })
+            .catchError((_) {});
+
+        if (mounted) {
+          state = state.copyWith(
+            video: video,
+            controller: existingController,
+            isLoading: false,
+            currentRendition:
+                video.renditions.isNotEmpty ? video.renditions.first : null,
+          );
+        }
+        return;
       }
 
       final candidateUrls = <String>[];

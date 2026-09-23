@@ -15,6 +15,24 @@ class NotificationNavigationResolver {
     try {
       final data = notification.data ?? {};
       final type = notification.type.toUpperCase();
+      final action = data['action']?.toString().toUpperCase();
+      final streamId = _streamIdFrom(data);
+
+      // Live stream notifications are persisted as SYSTEM notifications by
+      // the backend, so their action is the reliable navigation discriminator.
+      if (streamId != null &&
+          (type == 'STREAM_LIVE' ||
+              action == 'LIVE_STREAM_CREATED' ||
+              action == 'LIVE_STREAM_STARTED' ||
+              action == 'LIVE_STREAM_SCHEDULED' ||
+              action == 'LIVE_STREAM_REMINDER')) {
+        debugPrint(
+          '[NotificationNavigationResolver] Opening live stream $streamId '
+          'from type=$type action=$action',
+        );
+        context.push('/live/$streamId');
+        return;
+      }
 
       switch (type) {
         case 'MESSAGE':
@@ -63,7 +81,6 @@ class NotificationNavigationResolver {
           break;
 
         case 'STREAM_LIVE':
-          final streamId = data['streamId'] as String?;
           if (streamId != null && streamId.isNotEmpty) {
             context.push('/live/$streamId');
           } else {
@@ -82,9 +99,9 @@ class NotificationNavigationResolver {
 
         case 'CALENDAR_NOTE':
         case 'CALENDAR_REMINDER':
-          final noteId = (data['noteId'] ??
-              data['calendarNoteId'] ??
-              data['id']) as String?;
+          final noteId =
+              (data['noteId'] ?? data['calendarNoteId'] ?? data['id'])
+                  as String?;
           if (noteId != null && noteId.isNotEmpty) {
             context.push('/calendar/note/$noteId');
           } else {
@@ -109,5 +126,15 @@ class NotificationNavigationResolver {
         context.push('/notifications');
       } catch (_) {}
     }
+  }
+
+  static String? _streamIdFrom(Map<String, dynamic> data) {
+    final value =
+        data['streamId'] ??
+        data['liveStreamId'] ??
+        data['stream_id'] ??
+        data['id'];
+    final streamId = value?.toString().trim();
+    return streamId == null || streamId.isEmpty ? null : streamId;
   }
 }

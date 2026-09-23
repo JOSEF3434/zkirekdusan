@@ -101,12 +101,21 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         _patternService = patternService,
         super(const AppLockState()) {
     _init();
-    _ref.listen<AppLockSettings>(appLockSettingsProvider, (prev, next) {
-      if (!next.isEnabled && state.status != AppLockStatus.disabled) {
-        state = const AppLockState(status: AppLockStatus.disabled);
-        _secureWindowService.setSecureMode(false);
-      }
-    });
+
+    // Avoid mutating this provider while it is still initializing.
+    // The initial value from appLockSettingsProvider should not trigger a
+    // state change here; only real later changes should disable the lock.
+    _ref.listen<AppLockSettings>(
+      appLockSettingsProvider,
+      (prev, next) {
+        if (prev == null) return;
+        if (!next.isEnabled && state.status != AppLockStatus.disabled) {
+          state = const AppLockState(status: AppLockStatus.disabled);
+          _secureWindowService.setSecureMode(false);
+        }
+      },
+      fireImmediately: false,
+    );
   }
 
   Future<void> _init() async {

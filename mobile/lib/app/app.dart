@@ -8,6 +8,8 @@ import 'package:mobile/features/calls/data/call_lifecycle_manager.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_socket_lifecycle_provider.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 
+import 'package:mobile/core/presentation/widgets/floating_mini_player.dart';
+
 class StreamHubApp extends ConsumerWidget {
   const StreamHubApp({super.key});
 
@@ -31,6 +33,14 @@ class StreamHubApp extends ConsumerWidget {
 
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child!,
+            const FloatingMiniPlayer(),
+          ],
+        );
+      },
     );
   }
 }

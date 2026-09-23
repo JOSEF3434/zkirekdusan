@@ -31,13 +31,18 @@ class ExploreChannelDto {
   }
 }
 
-/// Live stream summary for the Explore "Live Now" section.
+/// Live stream summary for the Explore "Live Now" & "Scheduled" sections.
 class ExploreStreamDto {
   final String id;
   final String? title;
   final String? status;
   final int viewerCount;
   final String? creatorUsername;
+  final String? scheduledAt;
+  final String? startedAt;
+  final String? thumbnailUrl;
+  final String? hlsUrl;
+  final String? channelName;
 
   const ExploreStreamDto({
     required this.id,
@@ -45,18 +50,66 @@ class ExploreStreamDto {
     this.status,
     this.viewerCount = 0,
     this.creatorUsername,
+    this.scheduledAt,
+    this.startedAt,
+    this.thumbnailUrl,
+    this.hlsUrl,
+    this.channelName,
   });
 
   bool get isLive => status?.toUpperCase() == 'LIVE';
+  bool get isScheduled => status?.toUpperCase() == 'SCHEDULED';
+
+  DateTime? get scheduledDateTime =>
+      scheduledAt != null ? DateTime.tryParse(scheduledAt!) : null;
+
+  bool get isDueToStart =>
+      isScheduled &&
+      scheduledDateTime != null &&
+      DateTime.now().isAfter(scheduledDateTime!);
+
+  bool get effectivelyLive => isLive || isDueToStart;
+
+  ExploreStreamDto copyWith({
+    String? id,
+    String? title,
+    String? status,
+    int? viewerCount,
+    String? creatorUsername,
+    String? scheduledAt,
+    String? startedAt,
+    String? thumbnailUrl,
+    String? hlsUrl,
+    String? channelName,
+  }) {
+    return ExploreStreamDto(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      viewerCount: viewerCount ?? this.viewerCount,
+      creatorUsername: creatorUsername ?? this.creatorUsername,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      startedAt: startedAt ?? this.startedAt,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      hlsUrl: hlsUrl ?? this.hlsUrl,
+      channelName: channelName ?? this.channelName,
+    );
+  }
 
   factory ExploreStreamDto.fromJson(Map<String, dynamic> json) {
     final createdBy = json['createdBy'] as Map<String, dynamic>?;
+    final videoChannel = json['videoChannel'] as Map<String, dynamic>?;
     return ExploreStreamDto(
       id: json['id'] as String? ?? '',
       title: json['title'] as String?,
       status: json['status'] as String?,
       viewerCount: json['currentViewerCount'] as int? ?? 0,
       creatorUsername: createdBy?['username'] as String?,
+      scheduledAt: json['scheduledAt'] as String?,
+      startedAt: json['startedAt'] as String?,
+      thumbnailUrl: json['thumbnailUrl'] as String?,
+      hlsUrl: json['hlsUrl'] as String?,
+      channelName: videoChannel?['name'] as String?,
     );
   }
 }
