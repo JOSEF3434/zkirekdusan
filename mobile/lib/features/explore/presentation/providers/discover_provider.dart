@@ -59,12 +59,6 @@ class DiscoverNotifier extends AsyncNotifier<DiscoverState> {
             return stream.copyWith(status: newStatusStr);
           }
         }
-        // Also auto-transition if scheduled start time has passed
-        if (stream.isDueToStart) {
-          changed = true;
-          ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(stream.id);
-          return stream.copyWith(status: 'LIVE');
-        }
         return stream;
       }).toList();
 

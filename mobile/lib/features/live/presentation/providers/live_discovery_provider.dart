@@ -206,17 +206,6 @@ class ScheduledStreamsNotifier extends StateNotifier<LiveDiscoveryState> {
       final result = await _repo.getScheduledStreams(page: 1, limit: 20, category: effectiveCat);
       final seen = <String>{};
       final unique = result.items.where((s) => seen.add(s.id)).toList();
-
-      // Check if any stream has arrived at its scheduled start time
-      for (final s in unique) {
-        if (s.scheduledAt != null) {
-          final dt = DateTime.tryParse(s.scheduledAt!);
-          if (dt != null && DateTime.now().isAfter(dt)) {
-            _ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(s.id);
-          }
-        }
-      }
-
       state = state.copyWith(
         streams: unique,
         isLoading: false,

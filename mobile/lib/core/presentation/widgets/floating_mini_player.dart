@@ -15,6 +15,8 @@ import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/navigation/navigation_service.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/features/live/domain/live_stream_model.dart';
+import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
 
 class FloatingMiniPlayer extends ConsumerStatefulWidget {
   const FloatingMiniPlayer({super.key});
@@ -70,7 +72,9 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
   // ── Live Stream Fallback Controller Init ─────────────────────────────────
 
   Future<void> _initLiveControllerIfNeeded(String hlsUrl) async {
-    if (_liveController != null ||
+    final mp = ref.read(miniPlayerProvider);
+    if (mp.isEnded ||
+        _liveController != null ||
         _isLiveCtrlInitializing ||
         hlsUrl.trim().isEmpty) {
       return;
@@ -103,6 +107,19 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     final contentId = mp.contentId?.trim();
     if (contentId == null || contentId.isEmpty) {
       debugPrint('[FloatingMiniPlayer] Fullscreen ignored: missing content id');
+      return;
+    }
+
+    // If stream has ended, navigate directly to live room to view the ended state
+    if (mp.isEnded) {
+      final target = '/live/$contentId';
+      _isExpanding = true;
+      final navigated = NavigationService.instance.navigateTo(target);
+      if (navigated) {
+        ref.read(miniPlayerProvider.notifier).prepareExpand();
+      } else {
+        _isExpanding = false;
+      }
       return;
     }
 
@@ -155,11 +172,21 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
   // ── Dismiss & Terminate ───────────────────────────────────────────────────
 
   void _dismissMiniPlayer() {
+    final mp = ref.read(miniPlayerProvider);
+    final wasEnded = mp.isEnded;
     _liveController?.pause();
     _liveController?.dispose();
     _liveController = null;
     _isLiveCtrlInitializing = false;
     ref.read(miniPlayerProvider.notifier).dismiss();
+    if (wasEnded && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Live stream ended'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _beginResize({
@@ -340,8 +367,18 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
       return const SizedBox.shrink();
     }
 
-    // Initialize live stream fallback if controller was null
-    if (mp.isLive && mp.controller == null && mp.hlsUrl != null) {
+    // Listen for real-time live stream transitions (such as stream ending)
+    ref.listen<Map<String, LiveStreamStatus>>(scheduledLiveSyncProvider, (prev, next) {
+      final currentMp = ref.read(miniPlayerProvider);
+      if (currentMp.isLive && currentMp.contentId != null && !currentMp.isEnded) {
+        if (next[currentMp.contentId] == LiveStreamStatus.ended) {
+          ref.read(miniPlayerProvider.notifier).markEnded();
+        }
+      }
+    });
+
+    // Initialize live stream fallback if controller was null (only if not ended)
+    if (mp.isLive && !mp.isEnded && mp.controller == null && mp.hlsUrl != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _initLiveControllerIfNeeded(mp.hlsUrl!);
       });
@@ -461,7 +498,15 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                             fit: StackFit.expand,
                             children: [
                               Container(color: Colors.black),
-                              if (isInitialized)
+                              if (mp.isEnded)
+                                Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    _buildThumbnail(mp),
+                                    Container(color: Colors.black54),
+                                  ],
+                                )
+                              else if (isInitialized)
                                 FittedBox(
                                   fit: BoxFit.cover,
                                   clipBehavior: Clip.hardEdge,
@@ -478,7 +523,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                               else
                                 _buildThumbnail(mp),
 
-                              // LIVE Tag overlay
+                              // LIVE or ENDED Tag overlay
                               if (mp.isLive)
                                 Positioned(
                                   top: 8,
@@ -489,29 +534,33 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.redAccent,
+                                      color: mp.isEnded
+                                          ? Colors.grey.shade800
+                                          : Colors.redAccent,
                                       borderRadius: BorderRadius.circular(4),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.red.withValues(
-                                            alpha: 0.4,
-                                          ),
+                                          color: mp.isEnded
+                                              ? Colors.black.withValues(alpha: 0.5)
+                                              : Colors.red.withValues(alpha: 0.4),
                                           blurRadius: 4,
                                         ),
                                       ],
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(
-                                          Icons.sensors_rounded,
+                                          mp.isEnded
+                                              ? Icons.stop_circle_outlined
+                                              : Icons.sensors_rounded,
                                           size: 10,
                                           color: Colors.white,
                                         ),
-                                        SizedBox(width: 3),
+                                        const SizedBox(width: 3),
                                         Text(
-                                          'LIVE',
-                                          style: TextStyle(
+                                          mp.isEnded ? 'ENDED' : 'LIVE',
+                                          style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 9,
                                             fontWeight: FontWeight.w800,
@@ -560,7 +609,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            mp.title ?? 'Video',
+                                            mp.title ?? (mp.isLive ? 'Live Stream' : 'Video'),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
@@ -569,7 +618,18 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                                               fontWeight: FontWeight.w700,
                                             ),
                                           ),
-                                          if (mp.channelName != null &&
+                                          if (mp.isEnded)
+                                            Text(
+                                              'Stream ended',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Colors.redAccent.shade100,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            )
+                                          else if (mp.channelName != null &&
                                               mp.channelName!.isNotEmpty)
                                             Text(
                                               mp.channelName!,
@@ -591,27 +651,43 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                               ),
                             ),
 
-                            // Play / Pause Button
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
+                            // Play / Pause or Expand Button
+                            if (!mp.isEnded)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                icon: Icon(
+                                  mp.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  ref
+                                      .read(miniPlayerProvider.notifier)
+                                      .togglePlayPause();
+                                },
+                              )
+                            else
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                icon: const Icon(
+                                  Icons.open_in_full_rounded,
+                                  color: Colors.white70,
+                                  size: 16,
+                                ),
+                                onPressed: () => _restoreToFullPlayer(mp),
                               ),
-                              icon: Icon(
-                                mp.isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                ref
-                                    .read(miniPlayerProvider.notifier)
-                                    .togglePlayPause();
-                              },
-                            ),
 
                             // Close Button
                             IconButton(

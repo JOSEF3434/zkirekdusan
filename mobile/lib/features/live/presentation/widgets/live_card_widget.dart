@@ -26,27 +26,15 @@ class LiveCardWidget extends ConsumerWidget {
     final syncMap = ref.watch(scheduledLiveSyncProvider);
     final effectiveStatus = syncMap[stream.id] ?? stream.status;
 
-    final scheduledDate = stream.scheduledAt != null
-        ? DateTime.tryParse(stream.scheduledAt!)
-        : null;
-    final isPastStart = scheduledDate != null && DateTime.now().isAfter(scheduledDate);
-    final isLive = effectiveStatus == LiveStreamStatus.live || isPastStart;
-
-    if (isPastStart && effectiveStatus != LiveStreamStatus.live) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(stream.id);
-      });
-    }
-
     return GestureDetector(
       onTap: () => context.push('/live/${stream.id}'),
       child: horizontal
-          ? _buildHorizontalCard(theme, isLive: isLive)
-          : _buildVerticalCard(theme, isLive: isLive),
+          ? _buildHorizontalCard(theme, effectiveStatus: effectiveStatus)
+          : _buildVerticalCard(theme, effectiveStatus: effectiveStatus),
     );
   }
 
-  Widget _buildHorizontalCard(ThemeData theme, {required bool isLive}) {
+  Widget _buildHorizontalCard(ThemeData theme, {required LiveStreamStatus effectiveStatus}) {
     return Container(
       width: 220,
       margin: const EdgeInsets.only(right: 12),
@@ -57,7 +45,7 @@ class LiveCardWidget extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _thumbnail(height: 124, radius: 12, onlyTop: true, isLive: isLive),
+          _thumbnail(height: 124, radius: 12, onlyTop: true, effectiveStatus: effectiveStatus),
           Padding(
             padding: const EdgeInsets.all(8),
             child: Column(
@@ -82,7 +70,7 @@ class LiveCardWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildVerticalCard(ThemeData theme, {required bool isLive}) {
+  Widget _buildVerticalCard(ThemeData theme, {required LiveStreamStatus effectiveStatus}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -92,7 +80,7 @@ class LiveCardWidget extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _thumbnail(height: 190, radius: 14, onlyTop: true, isLive: isLive),
+          _thumbnail(height: 190, radius: 14, onlyTop: true, effectiveStatus: effectiveStatus),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -139,11 +127,14 @@ class LiveCardWidget extends ConsumerWidget {
     required double height,
     required double radius,
     required bool onlyTop,
-    required bool isLive,
+    required LiveStreamStatus effectiveStatus,
   }) {
     final borderRadius = onlyTop
         ? BorderRadius.vertical(top: Radius.circular(radius))
         : BorderRadius.circular(radius);
+
+    final isLive = effectiveStatus == LiveStreamStatus.live;
+    final isEnded = effectiveStatus == LiveStreamStatus.ended;
 
     return Stack(
       children: [
@@ -159,34 +150,64 @@ class LiveCardWidget extends ConsumerWidget {
                 )
               : _fallbackThumb(height),
         ),
-        // Badge: LIVE vs SCHEDULED
+        if (isEnded)
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: borderRadius,
+              child: Container(color: Colors.black54),
+            ),
+          ),
+        // Badge: LIVE vs ENDED vs SCHEDULED
         Positioned(
           top: 8,
           left: 8,
-          child: !isLive
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.blueAccent,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.calendar_today, size: 10, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'SCHEDULED',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+          child: isLive
+              ? const LiveBadgeWidget(small: true)
+              : isEnded
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade800,
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ],
-                  ),
-                )
-              : const LiveBadgeWidget(small: true),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.stop_circle_outlined, size: 10, color: Colors.white70),
+                          SizedBox(width: 4),
+                          Text(
+                            'ENDED',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today, size: 10, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            'SCHEDULED',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
         ),
         if (isLive)
           Positioned(

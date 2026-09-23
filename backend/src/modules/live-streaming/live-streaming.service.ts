@@ -535,6 +535,9 @@ export class LiveStreamingService {
       });
     }
 
+    // Clear any pending broadcaster interruption timer (reconnect path)
+    this.liveGateway.clearBroadcasterSession(streamId);
+
     // Broadcast stream started event via WebSocket
     this.liveGateway.broadcastStreamStarted(streamId, {
       id: streamId,
@@ -635,7 +638,11 @@ export class LiveStreamingService {
       `Stream ${streamId} ended by user ${userId}, duration: ${duration?.toFixed(0)}s`,
     );
 
-    // Broadcast stream ended to LiveGateway
+    // Clear broadcaster session and any pending grace-period timer immediately.
+    // This must happen BEFORE broadcastStreamEnded so the timer doesn't race.
+    this.liveGateway.clearBroadcasterSession(streamId);
+
+    // Broadcast stream ended to LiveGateway (passes vodUrl once available)
     this.liveGateway.broadcastStreamEnded(streamId, undefined, duration);
 
     return updatedStream;

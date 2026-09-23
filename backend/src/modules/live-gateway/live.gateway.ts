@@ -35,11 +35,13 @@ export const LIVE_EVENTS = {
   SEND_REACTION: 'reaction:send',
   STREAM_REPORT: 'stream:report',
   QUALITY_REPORT: 'quality:report',
+  BROADCASTER_HEARTBEAT: 'broadcaster:heartbeat',
 
   // Server → Client
   STREAM_STARTED: 'stream:started',
   STREAM_ENDED: 'stream:ended',
   STREAM_UPDATED: 'stream:updated',
+  STREAM_INTERRUPTED: 'stream:interrupted',
   STREAM_ERROR: 'stream:error',
   CHAT_MESSAGE: 'chat:message',
   CHAT_DELETED: 'chat:deleted',
@@ -55,6 +57,9 @@ export const LIVE_EVENTS = {
   QUALITY_RECOMMEND: 'quality:recommend',
   ERROR: 'error',
 } as const;
+
+/** Grace period (ms) before an interrupted stream is auto-ended. */
+const BROADCASTER_GRACE_PERIOD_MS = 30_000;
 
 interface ViewerSession {
   userId: string;
@@ -96,6 +101,13 @@ export class LiveGateway
   // Quality reports aggregation: streamId -> bandwidth array
   private readonly qualityReports = new Map<string, number[]>();
   private healthBroadcastInterval: NodeJS.Timeout | null = null;
+
+  // Broadcaster session tracking: streamId → broadcaster socketId
+  // Used to distinguish broadcaster disconnect from viewer disconnect.
+  private readonly broadcasterSessions = new Map<string, string>();
+  // Grace-period timers: streamId → timer
+  // Started when broadcaster socket disconnects from a LIVE stream.
+  private readonly interruptionTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -188,6 +200,15 @@ export class LiveGateway
       this.viewerSessions.delete(client.id);
     }
 
+    // Check if this was a broadcaster socket — start interruption grace period
+    for (const [streamId, broadcasterSocketId] of this.broadcasterSessions.entries()) {
+      if (broadcasterSocketId === client.id) {
+        this.broadcasterSessions.delete(streamId);
+        this._startInterruptionGracePeriod(streamId);
+        break;
+      }
+    }
+
     // Clean up rate limits
     this.cleanupRateLimits(client.data.userId as string | null);
   }
@@ -245,6 +266,64 @@ export class LiveGateway
     return sockets.length;
   }
 
+  /** Register a broadcaster socket for a stream (called by LiveStreamingService after go-live). */
+  registerBroadcasterSocket(streamId: string, socketId: string) {
+    // Cancel any pending interruption timer — broadcaster is back
+    const existing = this.interruptionTimers.get(streamId);
+    if (existing) {
+      clearTimeout(existing);
+      this.interruptionTimers.delete(streamId);
+      this.logger.log(`[LiveGateway] Broadcaster reconnected for stream ${streamId}, cancelling interruption timer`);
+    }
+    this.broadcasterSessions.set(streamId, socketId);
+    this.logger.log(`[LiveGateway] Broadcaster socket registered: stream=${streamId} socket=${socketId}`);
+  }
+
+  /** Explicitly clear broadcaster session (called on intentional stream end). */
+  clearBroadcasterSession(streamId: string) {
+    const existing = this.interruptionTimers.get(streamId);
+    if (existing) {
+      clearTimeout(existing);
+      this.interruptionTimers.delete(streamId);
+    }
+    this.broadcasterSessions.delete(streamId);
+  }
+
+  private _startInterruptionGracePeriod(streamId: string) {
+    // Do not start a new timer if one is already running
+    if (this.interruptionTimers.has(streamId)) return;
+
+    this.logger.log(
+      `[LiveGateway] Broadcaster disconnected from stream ${streamId}. Starting ${BROADCASTER_GRACE_PERIOD_MS / 1000}s grace period.`,
+    );
+
+    // Notify viewers immediately that the stream is interrupted
+    this.server.to(`stream:${streamId}`).emit(LIVE_EVENTS.STREAM_INTERRUPTED, {
+      streamId,
+      gracePeriodMs: BROADCASTER_GRACE_PERIOD_MS,
+    });
+
+    const timer = setTimeout(async () => {
+      this.interruptionTimers.delete(streamId);
+      // Grace period expired — broadcaster did not reconnect; end stream
+      this.logger.warn(
+        `[LiveGateway] Grace period expired for stream ${streamId}. Auto-ending stream.`,
+      );
+      try {
+        // Update stream status in DB to ENDED
+        await this.prisma.liveStream.update({
+          where: { id: streamId },
+          data: { status: 'ENDED', endedAt: new Date() },
+        });
+      } catch (err) {
+        this.logger.error(`[LiveGateway] Failed to auto-end stream ${streamId}`, err);
+      }
+      this.broadcastStreamEnded(streamId);
+    }, BROADCASTER_GRACE_PERIOD_MS);
+
+    this.interruptionTimers.set(streamId, timer);
+  }
+
   /** Broadcast stream started event to all users */
   broadcastStreamStarted(streamId: string, stream: object) {
     this.server
@@ -252,8 +331,23 @@ export class LiveGateway
       .emit(LIVE_EVENTS.STREAM_STARTED, stream);
   }
 
+  /** Broadcast stream interrupted (temporary broadcaster disconnect). */
+  broadcastStreamInterrupted(streamId: string, gracePeriodMs = BROADCASTER_GRACE_PERIOD_MS) {
+    this.server.to(`stream:${streamId}`).emit(LIVE_EVENTS.STREAM_INTERRUPTED, {
+      streamId,
+      gracePeriodMs,
+    });
+  }
+
   /** Broadcast stream ended event to all users */
   broadcastStreamEnded(streamId: string, vodUrl?: string, duration?: number) {
+    // Cancel any pending grace-period timer — stream is explicitly ended
+    const existing = this.interruptionTimers.get(streamId);
+    if (existing) {
+      clearTimeout(existing);
+      this.interruptionTimers.delete(streamId);
+    }
+    this.broadcasterSessions.delete(streamId);
     this.server.to(`stream:${streamId}`).emit(LIVE_EVENTS.STREAM_ENDED, {
       streamId,
       vodUrl,
@@ -297,6 +391,19 @@ export class LiveGateway
           viewerId: viewer.id,
           joinedAt: Date.now(),
         });
+
+        // Check if user is the stream broadcaster/creator
+        this.prisma.liveStream
+          .findUnique({
+            where: { id: streamId },
+            select: { createdById: true },
+          })
+          .then((s) => {
+            if (s && s.createdById === client.data.userId) {
+              this.registerBroadcasterSocket(streamId, client.id);
+            }
+          })
+          .catch(() => null);
       } catch {
         this.logger.warn(
           `Failed to track viewer join for ${client.data.userId as string}`,
@@ -314,6 +421,15 @@ export class LiveGateway
     this.server
       .to(`stream:${streamId}`)
       .emit(LIVE_EVENTS.VIEWER_COUNT, { streamId, count });
+  }
+
+  @SubscribeMessage(LIVE_EVENTS.BROADCASTER_HEARTBEAT)
+  handleBroadcasterHeartbeat(
+    @ConnectedSocket() client: Socket,
+    @MessageBody('streamId') streamId: string,
+  ) {
+    if (!streamId) return;
+    this.registerBroadcasterSocket(streamId, client.id);
   }
 
   @SubscribeMessage(LIVE_EVENTS.LEAVE_STREAM)

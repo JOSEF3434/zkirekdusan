@@ -28,6 +28,7 @@ class LiveEvents {
   static const streamStarted = 'stream:started';
   static const streamEnded = 'stream:ended';
   static const streamUpdated = 'stream:updated';
+  static const streamInterrupted = 'stream:interrupted';
   static const streamError = 'stream:error';
   static const chatMessage = 'chat:message';
   static const chatDeleted = 'chat:deleted';
@@ -56,6 +57,25 @@ class StreamEndedEvent {
         streamId: json['streamId'] as String? ?? '',
         vodUrl: json['vodUrl'] as String?,
         duration: json['duration'] as int?,
+      );
+}
+
+// ─── Stream interrupted payload ─────────────────────────────────────────────
+
+class StreamInterruptedEvent {
+  final String streamId;
+  /// Grace period in milliseconds before backend auto-ends the stream.
+  final int gracePeriodMs;
+
+  const StreamInterruptedEvent({
+    required this.streamId,
+    this.gracePeriodMs = 30000,
+  });
+
+  factory StreamInterruptedEvent.fromJson(Map<String, dynamic> json) =>
+      StreamInterruptedEvent(
+        streamId: json['streamId'] as String? ?? '',
+        gracePeriodMs: json['gracePeriodMs'] as int? ?? 30000,
       );
 }
 
@@ -105,6 +125,11 @@ class LiveSocketService {
 
   final _streamUpdatedCtrl = StreamController<LiveStreamDto>.broadcast();
   Stream<LiveStreamDto> get onStreamUpdated => _streamUpdatedCtrl.stream;
+
+  final _streamInterruptedCtrl =
+      StreamController<StreamInterruptedEvent>.broadcast();
+  Stream<StreamInterruptedEvent> get onStreamInterrupted =>
+      _streamInterruptedCtrl.stream;
 
   final _streamHealthCtrl = StreamController<StreamHealthDto>.broadcast();
   Stream<StreamHealthDto> get onStreamHealth => _streamHealthCtrl.stream;
@@ -229,6 +254,12 @@ class LiveSocketService {
     s.on(LiveEvents.streamUpdated, (data) {
       try {
         _streamUpdatedCtrl.add(LiveStreamDto.fromJson(_toMap(data)));
+      } catch (_) {}
+    });
+
+    s.on(LiveEvents.streamInterrupted, (data) {
+      try {
+        _streamInterruptedCtrl.add(StreamInterruptedEvent.fromJson(_toMap(data)));
       } catch (_) {}
     });
 
@@ -358,6 +389,7 @@ class LiveSocketService {
     _streamStartedCtrl.close();
     _streamEndedCtrl.close();
     _streamUpdatedCtrl.close();
+    _streamInterruptedCtrl.close();
     _streamHealthCtrl.close();
     _reactionBroadcastCtrl.close();
     _errorCtrl.close();

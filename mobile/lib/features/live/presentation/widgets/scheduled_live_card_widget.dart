@@ -54,14 +54,8 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
         ? DateTime.tryParse(stream.scheduledAt!)
         : null;
 
-    final isPastStart = scheduledDate != null && DateTime.now().isAfter(scheduledDate);
-    final isLive = effectiveStatus == LiveStreamStatus.live || isPastStart;
-
-    if (isPastStart && effectiveStatus != LiveStreamStatus.live) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(scheduledLiveSyncProvider.notifier).markStreamLive(stream.id);
-      });
-    }
+    final isLive = effectiveStatus == LiveStreamStatus.live;
+    final isEnded = effectiveStatus == LiveStreamStatus.ended;
 
     final reminders = ref.watch(liveRemindersStateProvider);
     final hasReminder = reminders.contains(stream.id);
@@ -121,7 +115,7 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                 ),
               ),
 
-              // Scheduled Badge (Top Left)
+              // Scheduled / Live / Ended Badge (Top Left)
               Positioned(
                 top: 12,
                 left: 12,
@@ -130,11 +124,17 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: isLive
                         ? Colors.redAccent.withValues(alpha: 0.95)
-                        : Colors.blueAccent.withValues(alpha: 0.9),
+                        : isEnded
+                            ? Colors.grey.shade800
+                            : Colors.blueAccent.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: (isLive ? Colors.redAccent : Colors.blueAccent)
+                        color: (isLive
+                                ? Colors.redAccent
+                                : isEnded
+                                    ? Colors.grey
+                                    : Colors.blueAccent)
                             .withValues(alpha: 0.4),
                         blurRadius: 6,
                       ),
@@ -144,13 +144,21 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isLive ? Icons.sensors_rounded : Icons.calendar_today_rounded,
+                        isLive
+                            ? Icons.sensors_rounded
+                            : isEnded
+                                ? Icons.stop_circle_outlined
+                                : Icons.calendar_today_rounded,
                         size: 12,
                         color: Colors.white,
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        isLive ? 'LIVE NOW' : 'SCHEDULED',
+                        isLive
+                            ? 'LIVE NOW'
+                            : isEnded
+                                ? 'ENDED'
+                                : 'SCHEDULED',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,

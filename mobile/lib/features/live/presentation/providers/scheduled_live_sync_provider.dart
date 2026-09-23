@@ -57,22 +57,6 @@ class ScheduledLiveSyncNotifier extends StateNotifier<Map<String, LiveStreamStat
     }
   }
 
-  /// Checks if a stream with scheduled time has reached start time and transitions it.
-  void checkAndTransitionScheduled({
-    required String streamId,
-    required String? scheduledAt,
-    required LiveStreamStatus currentStatus,
-  }) {
-    if (currentStatus != LiveStreamStatus.scheduled &&
-        currentStatus != LiveStreamStatus.draft) {
-      return;
-    }
-    if (scheduledAt == null) return;
-    final scheduledDate = DateTime.tryParse(scheduledAt);
-    if (scheduledDate != null && DateTime.now().isAfter(scheduledDate)) {
-      markStreamLive(streamId);
-    }
-  }
 
   LiveStreamStatus getEffectiveStatus(String streamId, LiveStreamStatus fallback) {
     return state[streamId] ?? fallback;

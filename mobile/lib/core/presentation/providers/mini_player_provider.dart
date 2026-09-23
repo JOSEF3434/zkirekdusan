@@ -29,7 +29,15 @@ class MiniPlayerState {
   // -- Live-specific fields --
   final String? hlsUrl;
 
-  // -- Playback & UI state --
+  // -- Lifecycle state --
+  /// True when the live stream has definitively ended while the MiniPlayer was visible.
+  /// Does NOT auto-dismiss — user controls when to close.
+  final bool isEnded;
+
+  /// Duration in seconds when the stream ended, if available.
+  final int? endedDurationSeconds;
+
+  // -- Playback and UI state --
   final bool isPlaying;
   final Offset? position; // Dragged position on screen
   final bool isNavigatingToFull; // Controller handoff flag
@@ -44,6 +52,8 @@ class MiniPlayerState {
     this.avatarUrl,
     this.controller,
     this.hlsUrl,
+    this.isEnded = false,
+    this.endedDurationSeconds,
     this.isPlaying = true,
     this.position,
     this.isNavigatingToFull = false,
@@ -60,6 +70,9 @@ class MiniPlayerState {
     VideoPlayerController? controller,
     bool clearController = false,
     String? hlsUrl,
+    bool? isEnded,
+    int? endedDurationSeconds,
+    bool clearEndedDuration = false,
     bool? isPlaying,
     Offset? position,
     bool? isNavigatingToFull,
@@ -74,6 +87,10 @@ class MiniPlayerState {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       controller: clearController ? null : (controller ?? this.controller),
       hlsUrl: hlsUrl ?? this.hlsUrl,
+      isEnded: isEnded ?? this.isEnded,
+      endedDurationSeconds: clearEndedDuration
+          ? null
+          : (endedDurationSeconds ?? this.endedDurationSeconds),
       isPlaying: isPlaying ?? this.isPlaying,
       position: position ?? this.position,
       isNavigatingToFull: isNavigatingToFull ?? this.isNavigatingToFull,
@@ -89,7 +106,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   VoidCallback? _controllerListener;
 
-  // ── Show Video MiniPlayer ──────────────────────────────────────────────────
+  // ── Show Video MiniPlayer ──────────────────────────────────────────────
 
   void showVideo({
     required String videoId,
@@ -99,13 +116,10 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     String? avatarUrl,
     required VideoPlayerController controller,
   }) {
-    // If switching content or duplicate, clean previous
     if (state.controller != null && state.controller != controller) {
       _disposeCurrentController();
     }
-
     _bindController(controller);
-
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.video,
@@ -115,13 +129,14 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       thumbnailUrl: thumbnailUrl,
       avatarUrl: avatarUrl,
       controller: controller,
+      isEnded: false,
       isPlaying: controller.value.isPlaying,
-      position: state.position, // Retain previously positioned coordinates
+      position: state.position,
       isNavigatingToFull: false,
     );
   }
 
-  // ── Show Live MiniPlayer ───────────────────────────────────────────────────
+  // ── Show Live MiniPlayer ───────────────────────────────────────────────
 
   void showLive({
     required String streamId,
@@ -137,11 +152,9 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
         state.controller != controller) {
       _disposeCurrentController();
     }
-
     if (controller != null) {
       _bindController(controller);
     }
-
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.live,
@@ -152,15 +165,47 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       avatarUrl: avatarUrl,
       hlsUrl: hlsUrl,
       controller: controller,
+      isEnded: false,
       isPlaying: controller?.value.isPlaying ?? true,
       position: state.position,
       isNavigatingToFull: false,
     );
   }
 
+  // ── Mark stream as ended while MiniPlayer is visible ─────────────────
+
+  /// Pauses playback, sets isEnded = true.
+  /// Does NOT auto-dismiss — user controls when to close.
+  void markEnded({int? durationSeconds}) {
+    if (!state.hasContent) return;
+    try {
+      final ctrl = state.controller;
+      if (ctrl != null && ctrl.value.isInitialized && ctrl.value.isPlaying) {
+        ctrl.pause();
+      }
+    } catch (e) {
+      debugPrint('[MiniPlayer] markEnded pause error: ');
+    }
+    state = state.copyWith(
+      isEnded: true,
+      isPlaying: false,
+      endedDurationSeconds: durationSeconds,
+    );
+  }
+
+  /// Only acts if the given streamId matches the current MiniPlayer content.
+  void markEndedForStream(String streamId, {int? durationSeconds}) {
+    if (state.contentId == streamId && state.isLive) {
+      markEnded(durationSeconds: durationSeconds);
+    }
+  }
+
   void updateLiveController(VideoPlayerController ctrl) {
     _bindController(ctrl);
-    state = state.copyWith(controller: ctrl, isPlaying: ctrl.value.isPlaying);
+    state = state.copyWith(
+      controller: ctrl,
+      isPlaying: ctrl.value.isPlaying,
+    );
   }
 
   void syncPlaybackState(VideoPlayerController ctrl) {
@@ -190,9 +235,10 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     }
   }
 
-  // ── Controls & Actions ────────────────────────────────────────────────────
+  // ── Controls and Actions ────────────────────────────────────────────
 
   void togglePlayPause() {
+    if (state.isEnded) return;
     final ctrl = state.controller;
     if (ctrl != null && ctrl.value.isInitialized) {
       if (ctrl.value.isPlaying) {
@@ -214,7 +260,6 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   }
 
   /// Reclaims the controller for full-screen player ownership.
-  /// Clears mini-player state without calling dispose() on the controller.
   VideoPlayerController? reclaimController(String expectedId) {
     if (state.contentId == expectedId) {
       final ctrl = state.controller;
@@ -244,7 +289,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
         ctrl.pause();
         ctrl.dispose();
       } catch (e) {
-        debugPrint('[MiniPlayer] Controller dispose error: $e');
+        debugPrint('[MiniPlayer] Controller dispose error: ');
       }
     }
   }
@@ -259,5 +304,5 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
 final miniPlayerProvider =
     StateNotifierProvider<MiniPlayerNotifier, MiniPlayerState>(
-      (_) => MiniPlayerNotifier(),
-    );
+  (_) => MiniPlayerNotifier(),
+);

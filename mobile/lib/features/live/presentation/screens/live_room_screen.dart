@@ -21,6 +21,8 @@ import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart'
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
+import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 
 // ─── Reaction Particle ────────────────────────────────────────────────────────
@@ -59,10 +61,11 @@ class LiveRoomScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // Player
   VideoPlayerController? _playerCtrl;
   bool _playerInitialized = false;
+  bool _isPlayerInitializing = false;
   bool _playerError = false;
   bool _controlsVisible = true;
   bool _isFullscreen = false;
@@ -83,6 +86,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable().ignore();
     _scheduleHideControls();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,16 +114,30 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             _playerCtrl = reclaimed;
             _playerInitialized = true;
           });
+          _attachPlayerListeners(reclaimed);
+          ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
         }
       } else if (mini.hasContent && mini.contentId != widget.streamId) {
         // Dismiss previous mini player if entering a different stream
         ref.read(miniPlayerProvider.notifier).dismiss();
+      }
+
+      // Check initial state: if starting or live and HLS is available, initialize
+      final initialRoom = ref.read(liveRoomProvider(widget.streamId));
+      if (!initialRoom.phase.isTerminal &&
+          initialRoom.phase != LiveStreamPhase.ended &&
+          initialRoom.stream?.hlsUrl != null &&
+          initialRoom.stream!.hlsUrl!.isNotEmpty &&
+          !_playerInitialized &&
+          !_isPlayerInitializing) {
+        _initPlayer(initialRoom.stream!.hlsUrl!);
       }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
     // Note: _playerCtrl may have been transferred to miniPlayerProvider
     // (in that case it's null here because we call _minimizeToMiniPlayer).
@@ -132,10 +150,37 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _playerCtrl?.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      final roomState = ref.read(liveRoomProvider(widget.streamId));
+      if (roomState.phase == LiveStreamPhase.live &&
+          _playerCtrl != null &&
+          _playerCtrl!.value.isInitialized) {
+        _playerCtrl?.play();
+      }
+    }
+  }
+
+  void _attachPlayerListeners(VideoPlayerController ctrl) {
+    ctrl.addListener(() {
+      if (!mounted) return;
+      if (ctrl.value.hasError) {
+        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
+      }
+    });
+  }
+
   // ── Player ─────────────────────────────────────────────────────────────────
 
   Future<void> _initPlayer(String hlsUrl) async {
-    if (_playerInitialized || hlsUrl.trim().isEmpty) return;
+    final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
+    if (currentPhase == LiveStreamPhase.ended || currentPhase.isTerminal) return;
+    if (_playerInitialized || _isPlayerInitializing || hlsUrl.trim().isEmpty) return;
+
+    _isPlayerInitializing = true;
     try {
       final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl.trim()));
       await ctrl.initialize();
@@ -145,11 +190,20 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           _playerCtrl = ctrl;
           _playerInitialized = true;
           _playerError = false;
+          _isPlayerInitializing = false;
         });
+        _attachPlayerListeners(ctrl);
+        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
       }
     } catch (e) {
       debugPrint('[LiveRoom] Failed to init player: $e');
-      if (mounted) setState(() => _playerError = true);
+      if (mounted) {
+        setState(() {
+          _playerError = true;
+          _isPlayerInitializing = false;
+        });
+        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
+      }
     }
   }
 
@@ -172,6 +226,26 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   void _minimizeToMiniPlayer(LiveRoomState roomState) {
     final stream = roomState.stream;
     final hlsUrl = stream?.hlsUrl ?? '';
+
+    if (roomState.phase == LiveStreamPhase.ended) {
+      ref.read(miniPlayerProvider.notifier).showLive(
+        streamId: widget.streamId,
+        title: stream?.title ?? 'Live Stream',
+        channelName:
+            stream?.videoChannel?.name ?? stream?.createdBy?.username,
+        thumbnailUrl: stream?.thumbnailUrl,
+        avatarUrl:
+            stream?.videoChannel?.avatarUrl ?? stream?.createdBy?.avatarUrl,
+        hlsUrl: hlsUrl,
+        controller: null,
+      );
+      ref.read(miniPlayerProvider.notifier).markEnded(
+        durationSeconds: stream?.duration,
+      );
+      WakelockPlus.disable().ignore();
+      if (mounted) context.pop();
+      return;
+    }
 
     final ctrl = _playerCtrl;
     _playerCtrl =
@@ -253,16 +327,20 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     final roomState = ref.watch(liveRoomProvider(widget.streamId));
     final theme = Theme.of(context);
 
-    // Kick off player when HLS URL becomes available (scheduled safely after build phase)
-    final hlsUrl = roomState.stream?.hlsUrl;
-    if (hlsUrl != null &&
-        hlsUrl.isNotEmpty &&
-        !_playerInitialized &&
-        !_playerError) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _initPlayer(hlsUrl);
-      });
-    }
+    // Listen to stream lifecycle phase changes
+    ref.listen<LiveRoomState>(liveRoomProvider(widget.streamId), (previous, next) {
+      if (next.phase == LiveStreamPhase.ended) {
+        _playerCtrl?.pause();
+      }
+      final hls = next.stream?.hlsUrl;
+      if ((next.phase == LiveStreamPhase.live || next.phase == LiveStreamPhase.starting) &&
+          hls != null &&
+          hls.isNotEmpty &&
+          !_playerInitialized &&
+          !_isPlayerInitializing) {
+        _initPlayer(hls);
+      }
+    });
 
     // Subscribe to incoming reactions
     final socket = ref.read(liveSocketServiceProvider);
@@ -419,18 +497,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             // Black backdrop
             Container(color: Colors.black),
 
-            // Video
-            if (_playerInitialized && _playerCtrl != null)
-              VideoPlayer(_playerCtrl!)
-            else if (_playerError)
-              _buildPlayerError()
-            else if (state.isEnded)
-              _buildStreamEnded(state)
-            else if (state.stream?.hlsUrl == null ||
-                state.stream!.hlsUrl!.isEmpty)
-              _buildStreamStarting(state)
-            else
-              _buildBuffering(),
+            // Phase-driven player content
+            _buildPlayerContent(state),
 
             // Controls overlay (gradient + top bar)
             AnimatedOpacity(
@@ -443,12 +511,40 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             _buildParticleLayer(),
 
             // Reconnect banner
-            if (state.connectionState == SocketConnectionState.reconnecting)
-              _buildReconnectBanner(),
+            if (state.phase == LiveStreamPhase.reconnecting ||
+                state.connectionState == SocketConnectionState.reconnecting)
+              _buildReconnectBanner(state),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPlayerContent(LiveRoomState state) {
+    switch (state.phase) {
+      case LiveStreamPhase.loading:
+        return _buildBuffering();
+      case LiveStreamPhase.scheduled:
+        return _buildStreamScheduled(state);
+      case LiveStreamPhase.starting:
+        return _buildStreamStarting(state);
+      case LiveStreamPhase.live:
+        if (_playerInitialized && _playerCtrl != null) {
+          return VideoPlayer(_playerCtrl!);
+        } else if (_playerError) {
+          return _buildPlayerError();
+        } else {
+          return _buildBuffering();
+        }
+      case LiveStreamPhase.interrupted:
+        return _buildInterrupted(state);
+      case LiveStreamPhase.reconnecting:
+        return _buildReconnecting(state);
+      case LiveStreamPhase.ended:
+        return _buildStreamEnded(state);
+      case LiveStreamPhase.error:
+        return _buildPlayerError();
+    }
   }
 
   Widget _buildControls(LiveRoomState state) {
@@ -479,9 +575,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 },
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
               ),
-              const LiveBadgeWidget(small: true),
-              const SizedBox(width: 6),
-              ViewerCountWidget(count: state.viewerCount, light: true),
+              _buildPhaseBadge(state),
+              if (state.phase == LiveStreamPhase.live) ...[
+                const SizedBox(width: 6),
+                ViewerCountWidget(count: state.viewerCount, light: true),
+              ],
               const Spacer(),
               IconButton(
                 onPressed: _toggleFullscreen,
@@ -511,27 +609,108 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    final v = _playerCtrl?.value.volume ?? 1.0;
-                    _playerCtrl?.setVolume(v > 0 ? 0.0 : 1.0);
-                    setState(() {});
-                  },
-                  child: Icon(
-                    (_playerCtrl?.value.volume ?? 1.0) > 0
-                        ? Icons.volume_up
-                        : Icons.volume_off,
-                    color: Colors.white,
-                    size: 22,
+                if (_playerInitialized && _playerCtrl != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      final v = _playerCtrl?.value.volume ?? 1.0;
+                      _playerCtrl?.setVolume(v > 0 ? 0.0 : 1.0);
+                      setState(() {});
+                    },
+                    child: Icon(
+                      (_playerCtrl?.value.volume ?? 1.0) > 0
+                          ? Icons.volume_up
+                          : Icons.volume_off,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPhaseBadge(LiveRoomState state) {
+    switch (state.phase) {
+      case LiveStreamPhase.live:
+        return const LiveBadgeWidget(small: true);
+      case LiveStreamPhase.scheduled:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.blueAccent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.calendar_today, size: 10, color: Colors.white),
+              SizedBox(width: 4),
+              Text(
+                'SCHEDULED',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      case LiveStreamPhase.interrupted:
+      case LiveStreamPhase.reconnecting:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade800,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sync_problem_rounded, size: 10, color: Colors.white),
+              SizedBox(width: 4),
+              Text(
+                'RECONNECTING',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      case LiveStreamPhase.ended:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.stop_circle_outlined, size: 10, color: Colors.white70),
+              SizedBox(width: 4),
+              Text(
+                'ENDED',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildParticleLayer() {
@@ -613,6 +792,90 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
+  Widget _buildStreamScheduled(LiveRoomState state) {
+    final stream = state.stream;
+    final scheduledDate = stream?.scheduledAt != null
+        ? DateTime.tryParse(stream!.scheduledAt!)
+        : null;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (stream?.thumbnailUrl != null)
+          AppNetworkImage(
+            imageUrl: stream!.thumbnailUrl!,
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        Container(
+          color: Colors.black.withValues(alpha: 0.82),
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'SCHEDULED LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  stream?.title ?? 'Live Stream',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (scheduledDate != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${EthiopianCalendar.formatDateAm(scheduledDate)} • ${EthiopianCalendar.formatTimeAm(scheduledDate)}',
+                    style: const TextStyle(
+                      color: Colors.amberAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                const Text(
+                  'The broadcast will begin once the host goes live.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBuffering() {
     final tr = ref.read(trProvider);
     return Center(
@@ -644,10 +907,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () => setState(() {
-              _playerError = false;
-              _playerInitialized = false;
-            }),
+            onPressed: () {
+              setState(() {
+                _playerError = false;
+                _playerInitialized = false;
+              });
+              ref.read(liveRoomProvider(widget.streamId).notifier).refresh();
+            },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white30),
@@ -659,37 +925,239 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
-  Widget _buildStreamEnded(LiveRoomState state) {
-    final tr = ref.read(trProvider);
+  Widget _buildInterrupted(LiveRoomState state) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.live_tv_outlined, color: Colors.white54, size: 64),
-          const SizedBox(height: 16),
-          Text(
-            tr('live.stream_ended'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, color: Colors.orangeAccent, size: 40),
+            const SizedBox(height: 10),
+            const Text(
+              'Stream Interrupted',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () => context.pop(),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white30),
+            const SizedBox(height: 6),
+            const Text(
+              'Broadcaster connection temporarily lost. Waiting for stream to resume...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+              textAlign: TextAlign.center,
             ),
-            child: Text(tr('common.go_back')),
-          ),
-        ],
+            const SizedBox(height: 12),
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orangeAccent),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildReconnectBanner() {
+  Widget _buildReconnecting(LiveRoomState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.orangeAccent),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Reconnecting to stream...${state.retryCount > 0 ? ' (Attempt ${state.retryCount})' : ''}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Checking stream status with server...',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreamEnded(LiveRoomState state) {
+    final tr = ref.read(trProvider);
+    final stream = state.stream;
+    final channelName = stream?.videoChannel?.name ??
+        stream?.createdBy?.username ??
+        'Broadcaster';
+    final avatarUrl = stream?.videoChannel?.avatarUrl ??
+        stream?.createdBy?.avatarUrl;
+    final durationSeconds = stream?.duration;
+
+    String? durationFormatted;
+    if (durationSeconds != null && durationSeconds > 0) {
+      final hours = durationSeconds ~/ 3600;
+      final minutes = (durationSeconds % 3600) ~/ 60;
+      if (hours > 0) {
+        durationFormatted = '${hours}h ${minutes}m';
+      } else {
+        durationFormatted = '${minutes}m';
+      }
+    }
+
+    final vodUrl = state.vodUrl;
+    final hasVod = vodUrl != null && vodUrl.isNotEmpty;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Thumbnail backdrop with dark tint
+        if (stream?.thumbnailUrl != null)
+          AppNetworkImage(
+            imageUrl: stream!.thumbnailUrl!,
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        Container(
+          color: Colors.black.withValues(alpha: 0.85),
+        ),
+
+        // Content
+        Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Ended status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade800,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.stop_circle_outlined, size: 13, color: Colors.white70),
+                      const SizedBox(width: 5),
+                      Text(
+                        tr('live.stream_ended'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Channel avatar + name
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.white24,
+                      backgroundImage: avatarUrl != null
+                          ? AppNetworkImage.provider(avatarUrl)
+                          : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              channelName.isNotEmpty ? channelName[0].toUpperCase() : '?',
+                              style: const TextStyle(fontSize: 10, color: Colors.white),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      channelName,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                // Title
+                Text(
+                  stream?.title ?? 'Live Stream',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                if (durationFormatted != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Duration: $durationFormatted',
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+
+                // Action buttons
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    if (hasVod)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          context.push('/video/${widget.streamId}');
+                        },
+                        icon: const Icon(Icons.play_circle_outline, size: 16),
+                        label: const Text('Watch Replay'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        if (_isFullscreen) _toggleFullscreen();
+                        _minimizeToMiniPlayer(state);
+                      },
+                      icon: const Icon(Icons.arrow_back, size: 14),
+                      label: Text(tr('common.go_back')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white30),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReconnectBanner(LiveRoomState state) {
     final tr = ref.read(trProvider);
     return Positioned(
       top: 0,
@@ -711,7 +1179,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             ),
             const SizedBox(width: 8),
             Text(
-              tr('live.reconnecting'),
+              state.retryCount > 0
+                  ? '${tr('live.reconnecting')} (Attempt ${state.retryCount})'
+                  : tr('live.reconnecting'),
               style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ],
