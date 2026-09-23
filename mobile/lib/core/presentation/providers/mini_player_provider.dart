@@ -160,10 +160,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   void updateLiveController(VideoPlayerController ctrl) {
     _bindController(ctrl);
-    state = state.copyWith(
-      controller: ctrl,
-      isPlaying: ctrl.value.isPlaying,
-    );
+    state = state.copyWith(controller: ctrl, isPlaying: ctrl.value.isPlaying);
   }
 
   void syncPlaybackState(VideoPlayerController ctrl) {
@@ -262,5 +259,5 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
 final miniPlayerProvider =
     StateNotifierProvider<MiniPlayerNotifier, MiniPlayerState>(
-  (_) => MiniPlayerNotifier(),
-);
+      (_) => MiniPlayerNotifier(),
+    );

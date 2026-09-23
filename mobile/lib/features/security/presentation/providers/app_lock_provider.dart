@@ -19,7 +19,10 @@ import 'package:mobile/features/security/data/secure_window_service.dart';
 
 // Re-export biometric helpers so the lock screen only imports this file.
 export 'package:mobile/features/security/data/biometric_service.dart'
-    show BiometricHardwareType, biometricHardwareTypeProvider, biometricAvailableProvider;
+    show
+        BiometricHardwareType,
+        biometricHardwareTypeProvider,
+        biometricAvailableProvider;
 
 const _kLastActive = 'app_lock_last_active';
 const _kFailedAttempts = 'app_lock_failed_attempts';
@@ -66,15 +69,13 @@ class AppLockState {
     bool? biometricExhausted,
     DateTime? cooldownUntil,
     bool clearCooldown = false,
-  }) =>
-      AppLockState(
-        status: status ?? this.status,
-        failedAttempts: failedAttempts ?? this.failedAttempts,
-        biometricFailures: biometricFailures ?? this.biometricFailures,
-        biometricExhausted: biometricExhausted ?? this.biometricExhausted,
-        cooldownUntil:
-            clearCooldown ? null : (cooldownUntil ?? this.cooldownUntil),
-      );
+  }) => AppLockState(
+    status: status ?? this.status,
+    failedAttempts: failedAttempts ?? this.failedAttempts,
+    biometricFailures: biometricFailures ?? this.biometricFailures,
+    biometricExhausted: biometricExhausted ?? this.biometricExhausted,
+    cooldownUntil: clearCooldown ? null : (cooldownUntil ?? this.cooldownUntil),
+  );
 }
 
 class AppLockNotifier extends StateNotifier<AppLockState> {
@@ -94,28 +95,24 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     required PinService pinService,
     required BiometricService biometricService,
     required PatternService patternService,
-  })  : _ref = ref,
-        _prefs = prefs,
-        _pinService = pinService,
-        _biometricService = biometricService,
-        _patternService = patternService,
-        super(const AppLockState()) {
+  }) : _ref = ref,
+       _prefs = prefs,
+       _pinService = pinService,
+       _biometricService = biometricService,
+       _patternService = patternService,
+       super(const AppLockState()) {
     _init();
 
     // Avoid mutating this provider while it is still initializing.
     // The initial value from appLockSettingsProvider should not trigger a
     // state change here; only real later changes should disable the lock.
-    _ref.listen<AppLockSettings>(
-      appLockSettingsProvider,
-      (prev, next) {
-        if (prev == null) return;
-        if (!next.isEnabled && state.status != AppLockStatus.disabled) {
-          state = const AppLockState(status: AppLockStatus.disabled);
-          _secureWindowService.setSecureMode(false);
-        }
-      },
-      fireImmediately: false,
-    );
+    _ref.listen<AppLockSettings>(appLockSettingsProvider, (prev, next) {
+      if (prev == null) return;
+      if (!next.isEnabled && state.status != AppLockStatus.disabled) {
+        state = const AppLockState(status: AppLockStatus.disabled);
+        _secureWindowService.setSecureMode(false);
+      }
+    }, fireImmediately: false);
   }
 
   Future<void> _init() async {
@@ -162,8 +159,9 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     final timeoutMinutes = _settings.timeoutMinutes;
     if (timeoutMinutes < 0) return; // -1 = never auto-lock
 
-    final elapsed = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(lastActiveMs));
+    final elapsed = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(lastActiveMs),
+    );
 
     if (elapsed.inMinutes >= timeoutMinutes) {
       _lock();
@@ -276,7 +274,9 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     if (newAttempts >= kMaxAttempts) {
       final cooldownUntil = DateTime.now().add(const Duration(seconds: 30));
       await _prefs.setInt(
-          _kCooldownUntil, cooldownUntil.millisecondsSinceEpoch);
+        _kCooldownUntil,
+        cooldownUntil.millisecondsSinceEpoch,
+      );
       state = state.copyWith(
         failedAttempts: newAttempts,
         cooldownUntil: cooldownUntil,
@@ -323,12 +323,12 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     _secureWindowService.setSecureMode(false);
   }
 
-  bool get shouldForceLogout =>
-      state.failedAttempts >= kMaxAttemptsForceLogout;
+  bool get shouldForceLogout => state.failedAttempts >= kMaxAttemptsForceLogout;
 }
 
-final appLockProvider =
-    StateNotifierProvider<AppLockNotifier, AppLockState>((ref) {
+final appLockProvider = StateNotifierProvider<AppLockNotifier, AppLockState>((
+  ref,
+) {
   final prefs = ref.watch(sharedPreferencesProvider);
   final pinService = ref.watch(pinServiceProvider);
   final biometricService = ref.watch(biometricServiceProvider);

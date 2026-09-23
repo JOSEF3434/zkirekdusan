@@ -123,7 +123,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     this._videoId,
     double initialSpeed, {
     VideoPlayerController? existingController,
-  }) : super(PlayerState(playbackSpeed: initialSpeed, controller: existingController)) {
+  }) : super(
+         PlayerState(
+           playbackSpeed: initialSpeed,
+           controller: existingController,
+         ),
+       ) {
     _initialize(existingController: existingController);
   }
 
@@ -229,8 +234,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       // ── Offline download resolution ──────────────────────────────────────
       // On native: look for local file path on disk.
       // On web: look for stored blob URL in localStorage (persisted by DownloadService).
-      String? localFileUrl;   // file:// or blob: URL
-      String? localFilePath;  // native: raw filesystem path (null on web)
+      String? localFileUrl; // file:// or blob: URL
+      String? localFilePath; // native: raw filesystem path (null on web)
       String? offlineTitle;
       String? offlineThumbnail;
 
@@ -249,7 +254,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
                 // Web: blob URL is the playable source directly
                 localFileUrl = localPath;
                 // We don't set localFilePath on web — blob: is already a URL
-              } else if (!kIsWeb && await FileSystemHelper.fileExists(localPath)) {
+              } else if (!kIsWeb &&
+                  await FileSystemHelper.fileExists(localPath)) {
                 localFilePath = localPath;
                 localFileUrl = Uri.file(localPath).toString();
               }
@@ -264,8 +270,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           final docDir = await FileSystemHelper.getApplicationDocumentsPath();
           final metaFile = File('$docDir/videos/video_$_videoId/metadata.json');
           if (await metaFile.exists()) {
-            final Map<String, dynamic> decoded =
-                jsonDecode(await metaFile.readAsString());
+            final Map<String, dynamic> decoded = jsonDecode(
+              await metaFile.readAsString(),
+            );
             final localPath = decoded['localPath'] as String?;
             offlineTitle = decoded['title'] as String?;
             offlineThumbnail = decoded['thumbnailUrl'] as String?;
@@ -301,7 +308,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       }
 
       // If we are adopting an existing controller from MiniPlayer, bind and return immediately
-      if (existingController != null && existingController.value.isInitialized) {
+      if (existingController != null &&
+          existingController.value.isInitialized) {
         existingController.addListener(_onControllerUpdate);
         _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
           if (video != null) {
@@ -322,8 +330,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
             video: video,
             controller: existingController,
             isLoading: false,
-            currentRendition:
-                video.renditions.isNotEmpty ? video.renditions.first : null,
+            currentRendition: video.renditions.isNotEmpty
+                ? video.renditions.first
+                : null,
           );
         }
         return;
@@ -364,7 +373,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         try {
           // A URL is a native local file if it has a local filesystem path
           // OR starts with file://. Web blob: URLs are played via networkUrl.
-          final isNativeLocalFile = !kIsWeb &&
+          final isNativeLocalFile =
+              !kIsWeb &&
               ((localFilePath != null &&
                       (url == localFilePath || url == localFileUrl)) ||
                   url.startsWith('file://') ||
@@ -377,8 +387,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
             final path = (localFilePath != null && url == localFilePath)
                 ? localFilePath
                 : (url.startsWith('file://')
-                    ? Uri.parse(url).toFilePath()
-                    : url);
+                      ? Uri.parse(url).toFilePath()
+                      : url);
             ctrl = VideoPlayerController.file(
               File(path),
               videoPlayerOptions: VideoPlayerOptions(
@@ -462,7 +472,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           .catchError((_) {});
 
       // Offline if we played from a native local file or a web blob URL
-      final isOffline = (localFilePath != null &&
+      final isOffline =
+          (localFilePath != null &&
               (successUrl == localFilePath || successUrl == localFileUrl)) ||
           (kIsWeb &&
               localFileUrl != null &&
@@ -477,8 +488,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           resumePositionSeconds: resumePos,
           activeStreamUrl: successUrl,
           isOfflinePlayback: isOffline,
-          currentRendition:
-              video.renditions.isNotEmpty ? video.renditions.first : null,
+          currentRendition: video.renditions.isNotEmpty
+              ? video.renditions.first
+              : null,
         );
       }
     } catch (e) {
