@@ -18,6 +18,7 @@ import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/features/live/presentation/providers/live_room_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/live_stream_progress_bar.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
@@ -514,6 +515,17 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             if (state.phase == LiveStreamPhase.reconnecting ||
                 state.connectionState == SocketConnectionState.reconnecting)
               _buildReconnectBanner(state),
+
+            // Persistent live-position progress bar beneath the video player
+            if (state.phase == LiveStreamPhase.live)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: LiveStreamProgressBar(
+                  startedAt: state.stream?.startedAt,
+                ),
+              ),
           ],
         ),
       ),
@@ -637,7 +649,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   Widget _buildPhaseBadge(LiveRoomState state) {
     switch (state.phase) {
       case LiveStreamPhase.live:
-        return const LiveBadgeWidget(small: true);
+        return LiveBadgeWidget(
+          small: true,
+          startedAt: state.stream?.startedAt,
+        );
       case LiveStreamPhase.scheduled:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

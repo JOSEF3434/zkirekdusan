@@ -1,4 +1,5 @@
 // lib/main.dart
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,28 +53,34 @@ void main() async {
   // 3. Initialize SQLite local database (offline-first foundation)
   final appDatabase = AppDatabase();
 
-  // 4. Initialize Background Sync Service
+  // 4. Initialize Background Sync Service (non-blocking so main thread is not starved)
   if (!kIsWeb) {
-    await BackgroundSyncService.initialize();
+    unawaited(() async {
+      try {
+        await BackgroundSyncService.initialize();
 
-    // Initialize Calendar Background Sync
-    await CalendarBackgroundSyncManager.initialize(
-      apiBaseUrl: Env.apiBaseUrl,
-      // authToken: null, // Token will be set after user login
-    );
+        // Initialize Calendar Background Sync
+        await CalendarBackgroundSyncManager.initialize(
+          apiBaseUrl: Env.apiBaseUrl,
+          // authToken: null, // Token will be set after user login
+        );
 
-    // Register periodic sync (every 15 minutes)
-    await CalendarBackgroundSyncManager.registerPeriodicSync(
-      apiBaseUrl: Env.apiBaseUrl,
-      frequency: const Duration(minutes: 15),
-    );
+        // Register periodic sync (every 15 minutes)
+        await CalendarBackgroundSyncManager.registerPeriodicSync(
+          apiBaseUrl: Env.apiBaseUrl,
+          frequency: const Duration(minutes: 15),
+        );
 
-    // Initialize Calendar Reminder System
-    final calendarNotifications = CalendarNotificationsService();
-    await calendarNotifications.initialize();
+        // Initialize Calendar Reminder System
+        final calendarNotifications = CalendarNotificationsService();
+        await calendarNotifications.initialize();
 
-    await CalendarReminderManager.initialize();
-    await CalendarReminderManager.registerPeriodicReminderCheck();
+        await CalendarReminderManager.initialize();
+        await CalendarReminderManager.registerPeriodicReminderCheck();
+      } catch (e) {
+        debugPrint('[Main] Background sync init error: $e');
+      }
+    }());
   }
 
   // 5. Initialize SharedPreferences

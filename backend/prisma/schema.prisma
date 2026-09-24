@@ -2028,9 +2028,13 @@ model LiveStream {
   tags       String[]
   hashtags   String[]
 
-  scheduledAt DateTime?
-  startedAt   DateTime?
-  endedAt     DateTime?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  /// Set once by StreamReminderService when the "still live after 2 min"
+  /// notification is dispatched. NULL = not yet notified. Non-null = already
+  /// notified. Guards against duplicate dispatches across dyno restarts.
+  notifiedLiveAt  DateTime?
 
   isRecordingEnabled Boolean @default(true)
   isDvrEnabled       Boolean @default(true)
@@ -2073,6 +2077,7 @@ model LiveStream {
   @@index([groupId])
   @@index([createdById])
   @@index([status])
+  @@index([status, startedAt])
   @@index([visibility])
   @@index([scheduledAt])
   @@index([slug])

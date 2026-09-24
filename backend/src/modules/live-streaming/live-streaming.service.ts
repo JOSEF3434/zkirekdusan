@@ -155,15 +155,11 @@ export class LiveStreamingService {
     // Re-fetch with full relations so Flutter can parse the response correctly
     const fullStream = await this.repository.getStreamById(stream.id);
 
-    // Dispatch notification immediately upon schedule / stream creation
-    this.sendStreamNotification({
-      stream: fullStream ?? stream,
-      channel,
-      isScheduled: !!dto.scheduledAt,
-      notifyAll: !!dto.notifyAllUsers,
-    }).catch((err) =>
-      this.logger.error('Failed to dispatch stream notification', err),
-    );
+    // NOTE: no notification is dispatched here intentionally.
+    // At this point the stream is in DRAFT/SCHEDULED status — the streamer
+    // has not pressed "Go Live" yet. The `notify_all` tag was persisted above
+    // (line ~126) so startStream() and the StreamReminderService poller can
+    // read it when the stream actually transitions to LIVE.
 
     return fullStream ?? stream;
   }
@@ -579,11 +575,11 @@ export class LiveStreamingService {
       webrtcUrl: updatedStream.webrtcUrl,
     });
 
-    // Dispatch notification to users / followers
-    const isNotifyAll = stream.tags?.includes('notify_all');
-    this.sendStreamStartedNotification(updatedStream, isNotifyAll).catch((err) =>
-      this.logger.error('Failed to dispatch stream started notification', err),
-    );
+    // Follower/subscriber notification is intentionally NOT fired here.
+    // StreamReminderService polls every 60 s and fires the notification only
+    // once the stream has been LIVE for ≥ 2 minutes — preventing notifications
+    // for test streams that start and immediately end.
+    // Guard column: live_streams.notified_live_at (set once, never reset).
 
     return {
       ...updatedStream,
