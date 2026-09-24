@@ -2361,13 +2361,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     _lastStreamKey = key;
 
-    // Retry up to 5 times with increasing delays.
-    // Cloudinary activation is async — the backend polls for up to 35 s but the
-    // RTMP ingest edge node may still take a few extra seconds to become ready.
-    // A client-side pre-wait of 5 s covers the remaining warm-up time.
     const maxAttempts = 5;
     const retryDelays = [3000, 5000, 8000, 10000]; // ms between attempts
+    final attemptDiagnostics = <Map<String, dynamic>>[];
     Object? lastError;
+    StackTrace? lastStackTrace;
 
     // Pre-connection grace period: give Cloudinary's RTMP edge node time to
     // become ready before the very first publish attempt.
@@ -2380,30 +2378,31 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     if (!mounted) return;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        // On retry: wait before attempting again
-        if (attempt > 0) {
-          final waitMs = retryDelays[attempt - 1];
-          debugPrint(
-            '[LiveStudio] RTMP connectStream retry $attempt/$maxAttempts — waiting ${waitMs}ms',
-          );
-          if (mounted) {
-            setState(() {
-              _streamingError =
-                  'Connecting to live server... (attempt ${attempt + 1}/$maxAttempts)';
-            });
-          }
-          await Future<void>.delayed(Duration(milliseconds: waitMs));
-        }
+      final attemptNumber = attempt + 1;
+      final stopwatch = Stopwatch()..start();
 
+      debugPrint('[LiveStudio][Diagnostic] attempt started: attempt=$attemptNumber/$maxAttempts');
+      debugPrint('[LiveStudio][Diagnostic] URL validated: url=$targetUrl');
+
+      final safeKeyPreview = key.length >= 8
+          ? '${key.substring(0, 4)}...${key.substring(key.length - 4)}'
+          : '***';
+      debugPrint('[LiveStudio][Diagnostic] stream key validated: keyLen=${key.length} preview=$safeKeyPreview');
+      debugPrint('[LiveStudio][Diagnostic] connectStream called: attempt=$attemptNumber');
+
+      try {
         await _liveStreamController!
             .startStreaming(streamKey: key, url: targetUrl)
             .timeout(
               const Duration(seconds: 20),
               onTimeout: () => throw Exception(
-                'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
+                'Connection to RTMP broadcast server timed out after 20s.',
               ),
             );
+
+        stopwatch.stop();
+        debugPrint('[LiveStudio][Diagnostic] connectStream succeeded: '
+            'attempt=$attemptNumber, elapsedMs=${stopwatch.elapsedMilliseconds}');
 
         // Success
         if (mounted) {
@@ -2413,36 +2412,69 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           });
         }
         return;
-      } catch (e) {
+      } catch (e, st) {
+        stopwatch.stop();
         lastError = e;
-        final msg = e.toString();
-        // Only retry on connectStream-type errors (Cloudinary not ready yet)
+        lastStackTrace = st;
+        final elapsedMs = stopwatch.elapsedMilliseconds;
+        final excType = e.runtimeType.toString();
+        final excMsg = e.toString();
+
+        debugPrint('[LiveStudio][Diagnostic] connectStream failed: '
+            'attempt=$attemptNumber, exceptionType=$excType, '
+            'exceptionMessage=$excMsg, elapsedMs=$elapsedMs');
+        debugPrint('[LiveStudio][Diagnostic] stack trace:\n$st');
+
+        attemptDiagnostics.add({
+          'attempt': attemptNumber,
+          'elapsedMs': elapsedMs,
+          'exceptionType': excType,
+          'exceptionMessage': excMsg,
+        });
+
+        final msg = excMsg;
+        // Only retry on connectStream-type errors
         final isConnectError =
             msg.contains('Failed to connectStream') ||
             msg.contains('connectStream') ||
             msg.contains('ConnectException') ||
             msg.contains('failed_to_start_stream');
 
-        debugPrint(
-          '[LiveStudio] RTMP attempt ${attempt + 1} failed: $msg '
-          '(willRetry=${isConnectError && attempt < maxAttempts - 1})',
-        );
-
         if (!isConnectError || attempt >= maxAttempts - 1) {
-          // Not retryable or exhausted retries
           break;
         }
-        // Otherwise loop and retry
+
+        final waitMs = retryDelays[attempt];
+        debugPrint(
+          '[LiveStudio] RTMP connectStream retry $attemptNumber/$maxAttempts — waiting ${waitMs}ms',
+        );
+        if (mounted) {
+          setState(() {
+            _streamingError =
+                'Connecting to live server... (attempt ${attemptNumber + 1}/$maxAttempts)';
+          });
+        }
+        await Future<void>.delayed(Duration(milliseconds: waitMs));
       }
     }
 
     // All attempts failed
+    final diagnosticSummary = attemptDiagnostics
+        .map((d) => 'Attempt ${d['attempt']} (${d['elapsedMs']}ms): [${d['exceptionType']}] ${d['exceptionMessage']}')
+        .join('; ');
+
     if (mounted) {
       setState(() {
-        _streamingError = 'RTMP broadcast failed: $lastError';
+        _streamingError = 'RTMP broadcast failed: ${lastError ?? "Unknown error"} ($diagnosticSummary)';
       });
     }
-    throw Exception(lastError?.toString() ?? 'RTMP broadcast failed');
+
+    throw RtmpBroadcastException(
+      message: 'RTMP broadcast connection failed after $maxAttempts attempts. $diagnosticSummary',
+      originalException: lastError,
+      stackTrace: lastStackTrace,
+      attempts: attemptDiagnostics,
+    );
   }
 
   Future<void> _stopRtmpBroadcast() async {
@@ -2489,6 +2521,24 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       if (updatedState.error != null && updatedState.error!.isNotEmpty) {
         throw Exception(updatedState.error);
       }
+
+      // Safe diagnostic metadata logging (trace response without leaking secrets)
+      final liveStream = updatedState.stream;
+      final rawKeyCandidate = updatedState.streamKey?.rawKey;
+      final keyLen = rawKeyCandidate?.length ?? 0;
+      final safeKeyPreview = keyLen >= 8
+          ? '${rawKeyCandidate!.substring(0, 4)}...${rawKeyCandidate.substring(keyLen - 4)}'
+          : (keyLen > 0 ? '***' : 'NONE');
+      debugPrint('[LiveStudio][Diagnostic] go-live response: '
+          'success=${updatedState.error == null}, '
+          'streamKeyExists=${updatedState.streamKey != null}, '
+          'rawKeyExists=${rawKeyCandidate != null && rawKeyCandidate.isNotEmpty}, '
+          'keyLen=$keyLen, '
+          'keyPreview=$safeKeyPreview, '
+          'rtmpServerUrl=${liveStream?.rtmpIngestUrl}, '
+          'cloudinaryStreamId=${liveStream?.webrtcUrl}, '
+          'cloudinaryArchiveId=${liveStream?.dashUrl}, '
+          'streamStatus=${liveStream?.status.name}');
 
       // Step 2: Prefer the key embedded by the go-live response (Cloudinary plain-text key)
       var key = updatedState.streamKey?.rawKey;
@@ -3504,4 +3554,21 @@ class _ActionBar extends ConsumerWidget {
       },
     );
   }
+}
+
+class RtmpBroadcastException implements Exception {
+  final String message;
+  final Object? originalException;
+  final StackTrace? stackTrace;
+  final List<Map<String, dynamic>> attempts;
+
+  RtmpBroadcastException({
+    required this.message,
+    this.originalException,
+    this.stackTrace,
+    this.attempts = const [],
+  });
+
+  @override
+  String toString() => message;
 }

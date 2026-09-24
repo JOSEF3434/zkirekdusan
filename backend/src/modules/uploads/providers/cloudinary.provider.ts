@@ -412,7 +412,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
           name,
           input: { type: 'rtmp' },
           idle_timeout_sec: options.idleTimeoutSec ?? 120,
-          max_runtime_sec: options.maxRuntimeSec ?? 43200,
+          max_runtime_sec: Math.min(options.maxRuntimeSec ?? 36000, 36000),
         }),
       },
     );

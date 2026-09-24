@@ -471,7 +471,7 @@ export class LiveStreamingService {
             '_',
           );
           const cld = await this.cloudinaryProvider.createLiveStream(
-            `stream_${safeSlug}`,
+            `stream_${safeSlug}_${Date.now()}`,
           );
           cldStreamId = cld.id;
           hlsUrl = cld.hlsUrl;
@@ -530,6 +530,9 @@ export class LiveStreamingService {
         this.logger.error(
           `Error provisioning Cloudinary live stream: ${err.message}`,
           err.stack,
+        );
+        throw new BadRequestException(
+          `Failed to provision live stream: ${err.message}`,
         );
       }
     }
@@ -837,7 +840,7 @@ export class LiveStreamingService {
 
     if (this.cloudinaryProvider?.configured) {
       try {
-        const safeName = `channel_${(channel.handle || channel.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const safeName = `channel_${(channel.handle || channel.id).replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}`;
         const cld = await this.cloudinaryProvider.createLiveStream(safeName);
         rawKey = cld.streamKey;
         rtmpUrl = cld.rtmpIngestUrl || this.getRtmpServerUrl();
@@ -845,14 +848,13 @@ export class LiveStreamingService {
         const keyHash = createHash('sha256').update(rawKey).digest('hex');
         await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
       } catch (err: any) {
-        this.logger.warn(
-          `Cloudinary live stream creation failed: ${err?.message || err}. Falling back to internal RTMP server.`,
+        this.logger.error(
+          `Cloudinary live stream creation failed: ${err?.message || err}`,
+          err.stack,
         );
-        rawKey = randomBytes(24).toString('hex');
-        const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
-        const keyHash = createHash('sha256').update(rawKey).digest('hex');
-        rtmpUrl = this.getRtmpServerUrl();
-        await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+        throw new BadRequestException(
+          `Failed to generate Cloudinary stream key: ${err?.message || err}`,
+        );
       }
     } else {
       rawKey = randomBytes(24).toString('hex');
