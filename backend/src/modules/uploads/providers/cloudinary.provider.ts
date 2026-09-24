@@ -454,13 +454,14 @@ export class CloudinaryStorageProvider implements IStorageProvider {
    * Activate a live stream and wait until Cloudinary confirms status=="active".
    * Cloudinary activation is asynchronous; calling publish before the stream
    * is active results in ConnectException: Failed to connectStream on Android.
-   * We poll up to maxWaitMs (default 10 s) with pollIntervalMs (default 600 ms)
-   * intervals before returning.
+   * We poll up to maxWaitMs (default 35 s) with pollIntervalMs (default 800 ms)
+   * intervals before returning. The extra headroom ensures the RTMP ingest
+   * endpoint is fully ready before the mobile client attempts to connect.
    */
   async activateLiveStream(
     streamId: string,
-    maxWaitMs = 10_000,
-    pollIntervalMs = 600,
+    maxWaitMs = 35_000,
+    pollIntervalMs = 800,
   ): Promise<void> {
     if (!this.isConfigured) return;
     // 1. Send the activation request
@@ -510,7 +511,8 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     // Timed out — log a warning but don't throw so the stream can still proceed
     this.logger.warn(
       `Cloudinary live stream ${streamId} did not reach "active" within ${maxWaitMs}ms ` +
-        `(last status: ${lastStatus}). Client will attempt RTMP publish anyway.`,
+        `(last status: ${lastStatus}). Client will attempt RTMP publish anyway — ` +
+        `it may need additional retries on first connect.`,
     );
   }
 

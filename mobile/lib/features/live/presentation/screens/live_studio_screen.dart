@@ -2361,12 +2361,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     _lastStreamKey = key;
 
-    // Retry up to 3 times with increasing delays.
-    // Cloudinary activation is async — even with backend polling the ingest
-    // edge may not be fully ready on the very first publish attempt.
-    const maxAttempts = 3;
-    const retryDelays = [2000, 3000, 4000]; // ms between attempts
+    // Retry up to 5 times with increasing delays.
+    // Cloudinary activation is async — the backend polls for up to 35 s but the
+    // RTMP ingest edge node may still take a few extra seconds to become ready.
+    // A client-side pre-wait of 5 s covers the remaining warm-up time.
+    const maxAttempts = 5;
+    const retryDelays = [3000, 5000, 8000, 10000]; // ms between attempts
     Object? lastError;
+
+    // Pre-connection grace period: give Cloudinary's RTMP edge node time to
+    // become ready before the very first publish attempt.
+    if (mounted) {
+      setState(() {
+        _streamingError = 'Warming up live server...';
+      });
+    }
+    await Future<void>.delayed(const Duration(seconds: 5));
+    if (!mounted) return;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
@@ -2388,7 +2399,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
         await _liveStreamController!
             .startStreaming(streamKey: key, url: targetUrl)
             .timeout(
-              const Duration(seconds: 15),
+              const Duration(seconds: 20),
               onTimeout: () => throw Exception(
                 'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
               ),

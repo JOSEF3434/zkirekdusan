@@ -495,9 +495,25 @@ export class LiveStreamingService {
           rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
         }
 
-        // Activate Cloudinary live stream
+        // Activate Cloudinary live stream (polls until status=active, up to 35s)
         if (cldStreamId) {
           await this.cloudinaryProvider.activateLiveStream(cldStreamId);
+
+          // Re-fetch stream key after activation — Cloudinary may not expose
+          // the stream_key field until the stream reaches the "active" state.
+          // This guarantees the key is always returned to the mobile broadcaster.
+          if (!activeStreamKey) {
+            try {
+              const cldData =
+                await this.cloudinaryProvider.getLiveStream(cldStreamId);
+              if (cldData?.input?.stream_key) {
+                activeStreamKey = cldData.input.stream_key;
+                this.logger.log(
+                  `Cloudinary stream key retrieved after activation for stream ${streamId}`,
+                );
+              }
+            } catch (_) {}
+          }
         }
 
         // Update stream with Cloudinary playback & ingest URLs
