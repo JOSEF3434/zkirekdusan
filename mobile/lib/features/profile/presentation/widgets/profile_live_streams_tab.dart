@@ -286,17 +286,21 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
               else
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                  sliver: SliverList(
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 320,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.94,
+                    ),
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final stream = displayedStreams[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: _StreamCard(
-                          stream: stream,
-                          isOwner: widget.isMyProfile,
-                          onRefresh: () => ref.invalidate(
-                            profileLiveStreamsProvider(widget.userId),
-                          ),
+                      return _StreamCard(
+                        stream: stream,
+                        isOwner: widget.isMyProfile,
+                        onRefresh: () => ref.invalidate(
+                          profileLiveStreamsProvider(widget.userId),
                         ),
                       );
                     }, childCount: displayedStreams.length),
@@ -540,9 +544,10 @@ class _StreamCard extends ConsumerWidget {
 
           // ── Metadata & Details ───────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.all(14.0),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,33 +559,17 @@ class _StreamCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 13,
                           height: 1.25,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                     // Management Menu (Three Dots)
                     _buildManagementMenu(context, ref),
                   ],
                 ),
-
-                if (stream.description != null &&
-                    stream.description!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    stream.description!.trim(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
 
                 // Info tags: Group/Channel, Date, Likes
                 Row(
@@ -588,30 +577,34 @@ class _StreamCard extends ConsumerWidget {
                     if (stream.videoChannel != null) ...[
                       Icon(
                         Icons.tv_rounded,
-                        size: 13,
+                        size: 12,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        stream.videoChannel!.name,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          stream.videoChannel!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 6),
                     ],
                     Icon(
                       Icons.schedule_rounded,
-                      size: 13,
+                      size: 12,
                       color: theme.colorScheme.outline,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Text(
                       _formatStreamTimestamp(stream),
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         color: theme.colorScheme.outline,
                       ),
                     ),
@@ -619,30 +612,30 @@ class _StreamCard extends ConsumerWidget {
                     if (stream.likesCount > 0) ...[
                       Icon(
                         Icons.favorite_rounded,
-                        size: 13,
+                        size: 12,
                         color: Colors.pinkAccent.withValues(alpha: 0.8),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 3),
                       Text(
                         '${stream.likesCount}',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                     ],
                     if (stream.totalChatMessages > 0) ...[
                       Icon(
                         Icons.chat_bubble_outline_rounded,
-                        size: 13,
+                        size: 12,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 3),
                       Text(
                         '${stream.totalChatMessages}',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -650,8 +643,6 @@ class _StreamCard extends ConsumerWidget {
                   ],
                 ),
 
-                const SizedBox(height: 12),
-                const Divider(height: 1),
                 const SizedBox(height: 8),
 
                 // ── Quick Action Bar ───────────────────────────────────────
@@ -907,8 +898,6 @@ class _StreamCard extends ConsumerWidget {
   }
 
   Widget _buildQuickActionBar(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
     return Row(
       children: [
         // Primary Action
@@ -918,32 +907,27 @@ class _StreamCard extends ConsumerWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               onPressed: () => context.push('/live/${stream.id}'),
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              icon: const Icon(Icons.play_arrow_rounded, size: 16),
               label: const Text(
                 'Watch Live',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
           ),
           if (isOwner) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             IconButton.filledTonal(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Enter Studio',
               onPressed: () => context.push('/live/studio'),
-              icon: const Icon(Icons.video_settings_rounded, size: 18),
-            ),
-            const SizedBox(width: 6),
-            IconButton.outlined(
-              tooltip: 'End Stream',
-              color: Colors.redAccent,
-              onPressed: () => _confirmEndStream(context, ref),
-              icon: const Icon(Icons.stop_circle_outlined, size: 18),
+              icon: const Icon(Icons.video_settings_rounded, size: 16),
             ),
           ],
         ] else if (stream.status == LiveStreamStatus.scheduled) ...[
@@ -951,122 +935,106 @@ class _StreamCard extends ConsumerWidget {
             child: isOwner
                 ? FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     onPressed: () => _startScheduledStream(context, ref),
-                    icon: const Icon(Icons.videocam_rounded, size: 18),
+                    icon: const Icon(Icons.videocam_rounded, size: 16),
                     label: const Text(
                       'Go Live Now',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   )
                 : OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     onPressed: () => _shareStream(context),
-                    icon: const Icon(Icons.notifications_active_outlined),
+                    icon: const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 16,
+                    ),
                     label: Consumer(
-                      builder: (_, ref, _) =>
-                          Text(ref.watch(trProvider)('profile.remind_me')),
+                      builder: (_, ref, _) => Text(
+                        ref.watch(trProvider)('profile.remind_me'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
           ),
-          if (isOwner) ...[
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              tooltip: 'Edit Stream',
-              onPressed: () => _showEditStreamDialog(context, ref),
-              icon: const Icon(Icons.edit_outlined, size: 18),
-            ),
-            const SizedBox(width: 6),
-            IconButton.filledTonal(
-              tooltip: 'Share',
-              onPressed: () => _shareStream(context),
-              icon: const Icon(Icons.share_outlined, size: 18),
-            ),
-          ],
         ] else if (stream.status == LiveStreamStatus.draft) ...[
           Expanded(
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 6,
+                  horizontal: 8,
+                ),
+                visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               onPressed: () => context.push('/live/studio'),
-              icon: const Icon(Icons.rocket_launch_rounded, size: 18),
+              icon: const Icon(Icons.rocket_launch_rounded, size: 16),
               label: const Text(
-                'Open in Studio',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                'Open Studio',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton.filledTonal(
-            tooltip: 'Edit Draft',
-            onPressed: () => _showEditStreamDialog(context, ref),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-          ),
-          const SizedBox(width: 6),
-          IconButton.outlined(
-            tooltip: 'Delete Draft',
-            color: theme.colorScheme.error,
-            onPressed: () => _confirmDeleteStream(context, ref),
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
           ),
         ] else ...[
           // Ended / VOD Ready / Processing
           Expanded(
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 6,
+                  horizontal: 8,
+                ),
+                visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               onPressed: () => _handleCardTap(context),
-              icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+              icon: const Icon(Icons.play_circle_outline_rounded, size: 16),
               label: Text(
                 stream.status == LiveStreamStatus.vodReady
                     ? 'Watch Recording'
                     : 'View Archive',
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             ),
           ),
           if (isOwner && stream.status == LiveStreamStatus.ended) ...[
-            const SizedBox(width: 8),
-            FilledButton.tonalIcon(
+            const SizedBox(width: 6),
+            IconButton.filledTonal(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Publish VOD',
               onPressed: () => _publishVod(context, ref),
               icon: const Icon(Icons.publish_rounded, size: 16),
-              label: Consumer(
-                builder: (_, ref, _) => Text(
-                  ref.watch(trProvider)('profile.publish_vod'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
             ),
           ],
-          const SizedBox(width: 8),
-          IconButton.filledTonal(
-            tooltip: 'Share',
-            onPressed: () => _shareStream(context),
-            icon: const Icon(Icons.share_outlined, size: 18),
-          ),
         ],
       ],
     );

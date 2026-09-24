@@ -7,7 +7,8 @@ import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
-import 'package:mobile/features/home/presentation/widgets/video_card.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
+import 'package:mobile/features/home/presentation/widgets/video_management_sheet.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/domain/playlist_dto.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
@@ -711,118 +712,135 @@ class _ProfileVideosTab extends ConsumerWidget {
       data: (videos) {
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(profileVideosProvider(userId)),
-          child: ListView(
-            padding: const EdgeInsets.only(top: 8, bottom: 80),
-            children: [
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
               // Library shortcuts at the top
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.download_done,
+                            color: Colors.blue,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.download_done,
-                          color: Colors.blue,
+                        title: const Text(
+                          'Downloads',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
+                        trailing: const Icon(Icons.chevron_right, size: 20),
+                        onTap: () => context.push('/library/downloads'),
                       ),
-                      title: const Text(
-                        'Downloads',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => context.push('/library/downloads'),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.thumb_up_alt_outlined,
+                            color: Colors.red,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.thumb_up_alt_outlined,
-                          color: Colors.red,
+                        title: const Text(
+                          'Liked videos',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                      ),
-                      title: const Text(
-                        'Liked videos',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: const Text(
-                        'Private',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => context.push('/library/liked'),
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                        subtitle: const Text(
+                          'Private',
+                          style: TextStyle(fontSize: 12),
                         ),
-                        child: const Icon(
-                          Icons.bookmark_outline,
-                          color: Colors.amber,
+                        trailing: const Icon(Icons.chevron_right, size: 20),
+                        onTap: () => context.push('/library/liked'),
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.bookmark_outline,
+                            color: Colors.amber,
+                          ),
                         ),
+                        title: const Text(
+                          'Bookmarked videos',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, size: 20),
+                        onTap: () => context.push('/library/bookmarks'),
                       ),
-                      title: const Text(
-                        'Bookmarked videos',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => context.push('/library/bookmarks'),
-                    ),
-                    const Divider(height: 24),
-                  ],
+                      const Divider(height: 24),
+                    ],
+                  ),
                 ),
               ),
-              // Videos list
+              // Videos grid or empty state
               if (videos.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48.0),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.video_library_outlined,
-                          size: 56,
-                          color: theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.5,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48.0),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.video_library_outlined,
+                            size: 56,
+                            color: theme.colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Nothing to see here yet.',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: 15,
+                          const SizedBox(height: 12),
+                          Text(
+                            'Nothing to see here yet.',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 15,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 )
               else
-                ...videos.map(
-                  (video) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: VideoCard(
-                      video: video,
-                      onVideoDeleted: () {
-                        ref.invalidate(profileVideosProvider(userId));
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 280,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 1.15,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final video = videos[index];
+                        return _ProfileVideoSmallCard(
+                          video: video,
+                          onVideoDeleted: () {
+                            ref.invalidate(profileVideosProvider(userId));
+                          },
+                        );
                       },
+                      childCount: videos.length,
                     ),
                   ),
                 ),
@@ -831,7 +849,168 @@ class _ProfileVideosTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('${ref.read(trProvider)('profile.error_loading_videos')}: $err')),
+      error: (err, _) => Center(
+        child: Text(
+          '${ref.read(trProvider)('profile.error_loading_videos')}: $err',
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileVideoSmallCard extends ConsumerWidget {
+  final VideoResponseDto video;
+  final VoidCallback? onVideoDeleted;
+
+  const _ProfileVideoSmallCard({
+    required this.video,
+    this.onVideoDeleted,
+  });
+
+  String _formatDuration(int seconds) {
+    final duration = Duration(seconds: seconds);
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    if (duration.inHours > 0) {
+      return "${duration.inHours}:$twoDigitMinutes:$twoDigitSeconds";
+    }
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  String _formatViews(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M views';
+    }
+    if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K views';
+    }
+    return '$views views';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+      thumbnailUrl: video.thumbnailUrl,
+      hlsUrl: video.hlsUrl,
+      renditionUrls: video.renditions.map((r) => r.url).toList(),
+    );
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => context.push('/video/${video.id}'),
+      onLongPress: () => VideoManagementSheet.show(
+        context,
+        video: video,
+        onVideoDeleted: onVideoDeleted,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Container(
+                    color: Colors.grey.shade900,
+                    child: resolvedThumb != null && resolvedThumb.isNotEmpty
+                        ? AppNetworkImage(
+                            imageUrl: resolvedThumb,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              child: const Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white54,
+                            ),
+                          ),
+                  ),
+                ),
+                if (video.duration > 0)
+                  Positioned(
+                    bottom: 5,
+                    right: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _formatDuration(video.duration),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      video.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${video.author.displayName ?? video.author.username ?? "Channel"} • ${_formatViews(video.viewsCount)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => VideoManagementSheet.show(
+                  context,
+                  video: video,
+                  onVideoDeleted: onVideoDeleted,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4.0, top: 2.0),
+                  child: Icon(Icons.more_vert, size: 16),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
