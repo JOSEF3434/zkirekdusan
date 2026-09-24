@@ -5,6 +5,22 @@ import { IStorageProvider, StorageUploadResult } from './storage.interface.js';
 import { Readable } from 'stream';
 import path from 'path';
 
+export const CLOUDINARY_MAX_RUNTIME_ARCHIVE_ENABLED = 10800; // 3 hours (Cloudinary hard limit with archive output)
+export const CLOUDINARY_MAX_RUNTIME_ARCHIVE_DISABLED = 36000; // 10 hours (Cloudinary general limit)
+
+export function calculateCloudinaryMaxRuntimeSec(
+  archiveEnabled = true,
+  requestedSec?: number,
+): number {
+  const hardLimit = archiveEnabled
+    ? CLOUDINARY_MAX_RUNTIME_ARCHIVE_ENABLED
+    : CLOUDINARY_MAX_RUNTIME_ARCHIVE_DISABLED;
+  if (requestedSec !== undefined && requestedSec > 0) {
+    return Math.min(requestedSec, hardLimit);
+  }
+  return hardLimit;
+}
+
 @Injectable()
 export class CloudinaryStorageProvider implements IStorageProvider {
   readonly providerType = 'CLOUDINARY';
@@ -394,13 +410,38 @@ export class CloudinaryStorageProvider implements IStorageProvider {
    */
   async createLiveStream(
     name: string,
-    options: { idleTimeoutSec?: number; maxRuntimeSec?: number } = {},
+    options: {
+      idleTimeoutSec?: number;
+      maxRuntimeSec?: number;
+      archiveEnabled?: boolean;
+    } = {},
   ): Promise<CloudinaryLiveStreamResource> {
     if (!this.isConfigured) {
       throw new Error('Cloudinary is not configured with credentials');
     }
 
-    const res = await fetch(
+    const archiveEnabled = options.archiveEnabled ?? true;
+    let maxRuntimeSec = calculateCloudinaryMaxRuntimeSec(
+      archiveEnabled,
+      options.maxRuntimeSec,
+    );
+
+    this.logger.log(
+      `[CloudinaryLive][Diagnostic] Cloudinary stream creation started: ` +
+        `name=${name}, archiveEnabled=${archiveEnabled}, selectedMaxRuntimeSec=${maxRuntimeSec}`,
+    );
+
+    const requestBody: Record<string, any> = {
+      name,
+      input: { type: 'rtmp' },
+      idle_timeout_sec: options.idleTimeoutSec ?? 120,
+      max_runtime_sec: maxRuntimeSec,
+    };
+    if (!archiveEnabled) {
+      requestBody.outputs = [{ type: 'hls' }];
+    }
+
+    let res = await fetch(
       `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams`,
       {
         method: 'POST',
@@ -408,19 +449,39 @@ export class CloudinaryStorageProvider implements IStorageProvider {
           Authorization: this.basicAuthHeader,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name,
-          input: { type: 'rtmp' },
-          idle_timeout_sec: options.idleTimeoutSec ?? 120,
-          max_runtime_sec: Math.min(options.maxRuntimeSec ?? 36000, 36000),
-        }),
+        body: JSON.stringify(requestBody),
       },
     );
+
+    // If Cloudinary rejects because account-level archive output is attached despite requesting > 10800s,
+    // automatically fall back to the archive-compliant ceiling (10800s) to guarantee stream creation succeeds.
+    if (!res.ok && maxRuntimeSec > CLOUDINARY_MAX_RUNTIME_ARCHIVE_ENABLED) {
+      const errText = await res.text();
+      if (errText.includes('with archive output is too large')) {
+        this.logger.warn(
+          `[CloudinaryLive] Cloudinary account enforced archive output limit (10800s). ` +
+            `Retrying stream creation with max_runtime_sec=${CLOUDINARY_MAX_RUNTIME_ARCHIVE_ENABLED}`,
+        );
+        maxRuntimeSec = CLOUDINARY_MAX_RUNTIME_ARCHIVE_ENABLED;
+        requestBody.max_runtime_sec = maxRuntimeSec;
+        res = await fetch(
+          `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: this.basicAuthHeader,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          },
+        );
+      }
+    }
 
     if (!res.ok) {
       const errBody = await res.text();
       this.logger.error(
-        `Cloudinary createLiveStream failed (${res.status}): ${errBody}`,
+        `[CloudinaryLive][Diagnostic] Cloudinary stream creation failed (${res.status}): ${errBody}`,
       );
       throw new Error(`Failed to create Cloudinary live stream: ${errBody}`);
     }
@@ -430,6 +491,15 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     if (!stream) {
       throw new Error('Cloudinary live stream creation returned empty data');
     }
+
+    const key = stream.input?.stream_key;
+    const hasKey = !!key;
+    const keyLen = key?.length ?? 0;
+
+    this.logger.log(
+      `[CloudinaryLive][Diagnostic] Cloudinary stream creation succeeded: ` +
+        `id=${stream.id}, status=${stream.status}, hasStreamKey=${hasKey}, keyLength=${keyLen}`,
+    );
 
     const hlsOutput = stream.outputs?.find((o: any) => o.type === 'hls');
     const archiveOutput = stream.outputs?.find(

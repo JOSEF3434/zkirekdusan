@@ -446,21 +446,26 @@ export class LiveStreamingService {
           : null;
 
         if (cldIdFromKey && (!cldStreamId || cldStreamId === cldIdFromKey)) {
-          cldStreamId = cldIdFromKey;
-          hlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
-          archivePublicId = `live_stream_${cldStreamId}_archive`;
-          rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
-          rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
-
-          // Fetch active stream key from Cloudinary to pass to the broadcaster
           try {
             const cldData =
-              await this.cloudinaryProvider.getLiveStream(cldStreamId);
+              await this.cloudinaryProvider.getLiveStream(cldIdFromKey);
             if (cldData?.input?.stream_key) {
+              cldStreamId = cldIdFromKey;
               activeStreamKey = cldData.input.stream_key;
+              hlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
+              archivePublicId = `live_stream_${cldStreamId}_archive`;
+              rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
+              rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
             }
-          } catch (_) {}
-        } else if (
+          } catch (err: any) {
+            this.logger.warn(
+              `Stored Cloudinary stream ${cldIdFromKey} is not accessible: ${err?.message}. Will provision fresh stream.`,
+            );
+            cldStreamId = undefined;
+          }
+        }
+
+        if (
           !cldStreamId ||
           !hlsUrl ||
           !streamKey?.keyPrefix?.startsWith('cld_')
@@ -470,8 +475,14 @@ export class LiveStreamingService {
             /[^a-zA-Z0-9_-]/g,
             '_',
           );
+          const archiveEnabled = stream.isRecordingEnabled ?? true;
+          this.logger.log(
+            `[LiveStreamingService] Provisioning Cloudinary live stream: ` +
+              `streamId=${streamId}, archiveEnabled=${archiveEnabled}`,
+          );
           const cld = await this.cloudinaryProvider.createLiveStream(
             `stream_${safeSlug}_${Date.now()}`,
+            { archiveEnabled },
           );
           cldStreamId = cld.id;
           hlsUrl = cld.hlsUrl;
@@ -841,7 +852,9 @@ export class LiveStreamingService {
     if (this.cloudinaryProvider?.configured) {
       try {
         const safeName = `channel_${(channel.handle || channel.id).replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}`;
-        const cld = await this.cloudinaryProvider.createLiveStream(safeName);
+        const cld = await this.cloudinaryProvider.createLiveStream(safeName, {
+          archiveEnabled: true,
+        });
         rawKey = cld.streamKey;
         rtmpUrl = cld.rtmpIngestUrl || this.getRtmpServerUrl();
         const keyPrefix = `cld_${cld.id}`;
@@ -857,11 +870,9 @@ export class LiveStreamingService {
         );
       }
     } else {
-      rawKey = randomBytes(24).toString('hex');
-      const keyPrefix = `sk_live_${rawKey.substring(0, 8)}`;
-      const keyHash = createHash('sha256').update(rawKey).digest('hex');
-      rtmpUrl = this.getRtmpServerUrl();
-      await this.repository.upsertStreamKey(channelId, keyHash, keyPrefix);
+      throw new BadRequestException(
+        'Cloudinary live streaming provider is not configured. Real streaming credentials are required.',
+      );
     }
 
     // Return raw key ONCE — not stored in plaintext
