@@ -2361,30 +2361,77 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     _lastStreamKey = key;
 
-    try {
-      await _liveStreamController!
-          .startStreaming(streamKey: key, url: targetUrl)
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception(
-              'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
-            ),
-          );
+    // Retry up to 3 times with increasing delays.
+    // Cloudinary activation is async — even with backend polling the ingest
+    // edge may not be fully ready on the very first publish attempt.
+    const maxAttempts = 3;
+    const retryDelays = [2000, 3000, 4000]; // ms between attempts
+    Object? lastError;
 
-      if (mounted) {
-        setState(() {
-          _isStreamingRtmp = true;
-          _streamingError = null;
-        });
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // On retry: wait before attempting again
+        if (attempt > 0) {
+          final waitMs = retryDelays[attempt - 1];
+          debugPrint(
+            '[LiveStudio] RTMP connectStream retry $attempt/$maxAttempts — waiting ${waitMs}ms',
+          );
+          if (mounted) {
+            setState(() {
+              _streamingError =
+                  'Connecting to live server... (attempt ${attempt + 1}/$maxAttempts)';
+            });
+          }
+          await Future<void>.delayed(Duration(milliseconds: waitMs));
+        }
+
+        await _liveStreamController!
+            .startStreaming(streamKey: key, url: targetUrl)
+            .timeout(
+              const Duration(seconds: 15),
+              onTimeout: () => throw Exception(
+                'Connection to RTMP broadcast server timed out. Please check your internet connection and try again.',
+              ),
+            );
+
+        // Success
+        if (mounted) {
+          setState(() {
+            _isStreamingRtmp = true;
+            _streamingError = null;
+          });
+        }
+        return;
+      } catch (e) {
+        lastError = e;
+        final msg = e.toString();
+        // Only retry on connectStream-type errors (Cloudinary not ready yet)
+        final isConnectError =
+            msg.contains('Failed to connectStream') ||
+            msg.contains('connectStream') ||
+            msg.contains('ConnectException') ||
+            msg.contains('failed_to_start_stream');
+
+        debugPrint(
+          '[LiveStudio] RTMP attempt ${attempt + 1} failed: $msg '
+          '(willRetry=${isConnectError && attempt < maxAttempts - 1})',
+        );
+
+        if (!isConnectError || attempt >= maxAttempts - 1) {
+          // Not retryable or exhausted retries
+          break;
+        }
+        // Otherwise loop and retry
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _streamingError = 'RTMP broadcast failed: $e';
-        });
-      }
-      rethrow;
     }
+
+    // All attempts failed
+    if (mounted) {
+      setState(() {
+        _streamingError = 'RTMP broadcast failed: $lastError';
+      });
+    }
+    throw Exception(lastError?.toString() ?? 'RTMP broadcast failed');
   }
 
   Future<void> _stopRtmpBroadcast() async {

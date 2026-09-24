@@ -451,10 +451,19 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   }
 
   /**
-   * Manually activate a live stream so it is ready to receive RTMP feed immediately.
+   * Activate a live stream and wait until Cloudinary confirms status=="active".
+   * Cloudinary activation is asynchronous; calling publish before the stream
+   * is active results in ConnectException: Failed to connectStream on Android.
+   * We poll up to maxWaitMs (default 10 s) with pollIntervalMs (default 600 ms)
+   * intervals before returning.
    */
-  async activateLiveStream(streamId: string): Promise<void> {
+  async activateLiveStream(
+    streamId: string,
+    maxWaitMs = 10_000,
+    pollIntervalMs = 600,
+  ): Promise<void> {
     if (!this.isConfigured) return;
+    // 1. Send the activation request
     try {
       const res = await fetch(
         `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}/activate`,
@@ -468,12 +477,41 @@ export class CloudinaryStorageProvider implements IStorageProvider {
         this.logger.warn(
           `Cloudinary activateLiveStream warning (${res.status}): ${body}`,
         );
+        // Don't throw — stream may already be active
+      } else {
+        this.logger.log(`Cloudinary live stream ${streamId} activation requested.`);
       }
     } catch (err: any) {
       this.logger.error(
         `Error activating Cloudinary live stream ${streamId}: ${err.message}`,
       );
+      // Continue polling — the stream may already be active
     }
+
+    // 2. Poll until status becomes "active" or we time out
+    const deadline = Date.now() + maxWaitMs;
+    let lastStatus = 'unknown';
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+      try {
+        const data = await this.getLiveStream(streamId);
+        lastStatus = data?.status ?? 'unknown';
+        if (lastStatus === 'active') {
+          this.logger.log(
+            `Cloudinary live stream ${streamId} is now active — RTMP ingest ready.`,
+          );
+          return;
+        }
+      } catch {
+        // ignore poll errors, keep retrying
+      }
+    }
+
+    // Timed out — log a warning but don't throw so the stream can still proceed
+    this.logger.warn(
+      `Cloudinary live stream ${streamId} did not reach "active" within ${maxWaitMs}ms ` +
+        `(last status: ${lastStatus}). Client will attempt RTMP publish anyway.`,
+    );
   }
 
   /**
