@@ -3,6 +3,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/home/domain/feed_response.dart';
@@ -236,6 +237,41 @@ class LiveStreamingRepository {
       );
       final data = parseEnvelope(response.data);
       return StreamKeyDto.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// Upload a thumbnail image file to /uploads/media and return its id and url.
+  Future<({String id, String url})> uploadThumbnail(XFile file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final filename = file.name.isNotEmpty ? file.name : 'thumbnail.jpg';
+      final mimeType = filename.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
+
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: filename,
+          contentType: DioMediaType.parse(mimeType),
+        ),
+      });
+
+      final response = await _dio.post(
+        '/uploads/media',
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+      );
+
+      final envelope = parseEnvelope(response.data);
+      final id = envelope['id']?.toString() ?? '';
+      final url = envelope['url']?.toString() ?? '';
+      return (id: id, url: url);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
     }

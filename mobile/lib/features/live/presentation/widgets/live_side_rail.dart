@@ -178,40 +178,42 @@ class _RailCircleItem extends StatelessWidget {
       preferBelow: false,
       child: GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeInOut,
-          margin: EdgeInsets.symmetric(
-            horizontal: isExpanded ? 8 : 10,
-            vertical: 4,
-          ),
-          width: isExpanded ? 168 : 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: circleColor,
-            borderRadius: BorderRadius.circular(isExpanded ? 12 : 24),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: Center(child: Icon(icon, size: 22, color: iconColor)),
-              ),
-              if (isExpanded)
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: iconColor,
-                      fontSize: 13,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            margin: EdgeInsets.symmetric(
+              horizontal: isExpanded ? 8 : 0,
+              vertical: 4,
+            ),
+            width: isExpanded ? 168 : 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: circleColor,
+              borderRadius: BorderRadius.circular(isExpanded ? 12 : 24),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(child: Icon(icon, size: 22, color: iconColor)),
+                ),
+                if (isExpanded)
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: iconColor,
+                        fontSize: 13,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

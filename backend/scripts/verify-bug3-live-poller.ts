@@ -76,7 +76,7 @@ async function run() {
   console.log('Executing poller tick (at ~2 min mark)...');
   await poller.checkLiveStreamNotifications();
 
-  console.log(`State after tick: notifiedLiveAt = ${stream1.notifiedLiveAt ? stream1.notifiedLiveAt.toISOString() : 'NULL'}`);
+  console.log(`State after tick: notifiedLiveAt = ${(stream1.notifiedLiveAt as any) ? (stream1.notifiedLiveAt as any).toISOString() : 'NULL'}`);
   console.log(`Notifications dispatched count: ${dbNotifications.length}`);
   if (dbNotifications.length > 0) {
     console.log(`Dispatched payload: ${JSON.stringify(dbNotifications[0])}`);
@@ -112,7 +112,7 @@ async function run() {
 
   const notifCountAfterCase2 = dbNotifications.length;
   console.log(`Notifications dispatched for ended stream: ${notifCountAfterCase2 - notifCountBeforeCase2}`);
-  console.log(`State after tick: stream.notifiedLiveAt = ${stream2.notifiedLiveAt ? stream2.notifiedLiveAt.toISOString() : 'NULL'} (Unchanged: never notified)`);
+  console.log(`State after tick: stream.notifiedLiveAt = ${(stream2.notifiedLiveAt as any) ? (stream2.notifiedLiveAt as any).toISOString() : 'NULL'} (Unchanged: never notified)`);
   console.log('\n================================================================================');
   console.log('RESULT: Verified both cases successfully.');
   console.log('================================================================================');

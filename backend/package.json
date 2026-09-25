@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "prisma generate && nest build",
-    "build:render": "npm install --include=dev && npm run build",
+    "build:render": "npm install --include=dev && npx prisma migrate deploy && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
@@ -26,7 +26,10 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "security:generate-secrets": "node scripts/generate-secrets.js",
+    "security:verify": "node scripts/verify-security-config.js",
+    "predeploy": "npm run security:verify"
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

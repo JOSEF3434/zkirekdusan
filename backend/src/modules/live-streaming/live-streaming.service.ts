@@ -141,6 +141,8 @@ export class LiveStreamingService {
       categories: dto.categories ?? [],
       tags: initialTags,
       hashtags: dto.hashtags ?? [],
+      thumbnailUrl: dto.thumbnailUrl,
+      thumbnailFileId: dto.thumbnailFileId,
       isRecordingEnabled: dto.isRecordingEnabled,
       isDvrEnabled: dto.isDvrEnabled,
       isReplayEnabled: dto.isReplayEnabled,

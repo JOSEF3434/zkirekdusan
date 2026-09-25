@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:apivideo_live_stream/apivideo_live_stream.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
@@ -73,6 +74,96 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   TimeOfDay _scheduledTime = const TimeOfDay(hour: 18, minute: 0);
   String? _selectedCategory;
   bool _notifyAllUsers = false; // Default false per user requirement
+
+  // Thumbnail state (optional stream cover image)
+  XFile? _thumbnailFile;
+  Uint8List? _thumbnailBytes;
+
+  Future<void> _pickThumbnail({ImageSource source = ImageSource.gallery}) async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _thumbnailFile = image;
+            _thumbnailBytes = bytes;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick thumbnail image: $e')),
+        );
+      }
+    }
+  }
+
+  void _removeThumbnail() {
+    setState(() {
+      _thumbnailFile = null;
+      _thumbnailBytes = null;
+    });
+  }
+
+  void _showThumbnailSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'Stream Thumbnail (Optional)',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickThumbnail(source: ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take a Photo'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickThumbnail(source: ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // Camera & Streaming hardware state (apivideo_live_stream)
   ApiVideoLiveStreamController? _liveStreamController;
@@ -318,6 +409,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               maxLength: 500,
             ),
             const SizedBox(height: 16),
+
+            // ── Stream Thumbnail (Optional) ──
+            _buildThumbnailSection(theme, tr),
 
             // ── Broadcast Timing: Go Live Now vs Schedule for Later ──
             Text(
@@ -604,6 +698,179 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
       ),
       horizontalTitleGap: 8,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildThumbnailSection(ThemeData theme, dynamic tr) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.image_outlined,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Stream Thumbnail (Optional)',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              if (_thumbnailBytes != null)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: _showThumbnailSourceDialog,
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text('Change', style: TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Add an optional cover image to show in feeds and player previews.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 12),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.3)
+                    : Colors.black.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _thumbnailBytes != null
+                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _thumbnailBytes != null
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.memory(_thumbnailBytes!, fit: BoxFit.cover),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Row(
+                            children: [
+                              IconButton.filledTonal(
+                                icon: const Icon(Icons.edit, size: 16),
+                                onPressed: _showThumbnailSourceDialog,
+                                tooltip: 'Change thumbnail',
+                              ),
+                              const SizedBox(width: 6),
+                              IconButton.filled(
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.black54,
+                                ),
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                onPressed: _removeThumbnail,
+                                tooltip: 'Remove thumbnail',
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 12,
+                                  color: Colors.tealAccent,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Thumbnail Selected',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : InkWell(
+                      onTap: _showThumbnailSourceDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 38,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Choose Thumbnail (Optional)',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap to pick from gallery or take a photo',
+                            style: TextStyle(
+                              color: isDark ? Colors.white38 : Colors.black38,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1858,6 +2125,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
 
     try {
       final repo = ref.read(liveStreamingRepositoryProvider);
+      String? thumbnailUrl;
+      String? thumbnailFileId;
+
+      if (_thumbnailFile != null) {
+        try {
+          final uploadRes = await repo.uploadThumbnail(_thumbnailFile!);
+          if (uploadRes.url.isNotEmpty) {
+            thumbnailUrl = uploadRes.url;
+          }
+          if (uploadRes.id.isNotEmpty) {
+            thumbnailFileId = uploadRes.id;
+          }
+        } catch (uploadErr) {
+          debugPrint('Thumbnail upload failed: $uploadErr');
+        }
+      }
+
       final stream = await repo.createStream(
         _effectiveChannelId,
         CreateLiveStreamRequest(
@@ -1869,6 +2153,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           categories: _selectedCategory != null && _selectedCategory != 'All'
               ? [_selectedCategory!]
               : null,
+          thumbnailUrl: thumbnailUrl,
+          thumbnailFileId: thumbnailFileId,
           notifyAllUsers: _notifyAllUsers,
           isChatEnabled: _isChatEnabled,
           isRecordingEnabled: _isRecordingEnabled,

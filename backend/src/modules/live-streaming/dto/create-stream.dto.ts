@@ -61,6 +61,22 @@ export class CreateStreamDto {
   scheduledAt?: string;
 
   @ApiPropertyOptional({
+    example: 'https://res.cloudinary.com/.../thumb.jpg',
+    description: 'URL of the stream thumbnail cover image',
+  })
+  @IsOptional()
+  @IsString()
+  thumbnailUrl?: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'File ID of the uploaded stream thumbnail',
+  })
+  @IsOptional()
+  @IsString()
+  thumbnailFileId?: string;
+
+  @ApiPropertyOptional({
     example: ['technology', 'programming'],
     type: [String],
   })

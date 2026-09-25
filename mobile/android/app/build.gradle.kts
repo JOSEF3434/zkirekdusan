@@ -20,10 +20,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
 
     defaultConfig {
         applicationId = "com.zikrekidusan.mobile"
