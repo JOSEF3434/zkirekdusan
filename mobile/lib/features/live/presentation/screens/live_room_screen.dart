@@ -25,6 +25,7 @@ import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 // ─── Reaction Particle ────────────────────────────────────────────────────────
@@ -69,6 +70,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   bool _playerInitialized = false;
   bool _isPlayerInitializing = false;
   bool _playerError = false;
+  int _initAttemptCount = 0;
+  static const int _maxInitAttempts = 8;
+  Timer? _playerRetryTimer;
   bool _controlsVisible = true;
   bool _isFullscreen = false;
 
@@ -170,6 +174,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
+    _playerRetryTimer?.cancel();
     // Note: _playerCtrl may have been transferred to miniPlayerProvider
     // (in that case it's null here because we call _minimizeToMiniPlayer).
     _playerCtrl?.dispose();
@@ -199,35 +204,148 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     ctrl.addListener(() {
       if (!mounted) return;
       if (ctrl.value.hasError) {
-        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
+        debugPrint('[LiveRoom] Player error detected during playback: ${ctrl.value.errorDescription}');
+        _handlePlaybackError();
       }
     });
   }
 
+  void _handlePlaybackError() {
+    if (!mounted || _isPlayerInitializing) return;
+    final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
+    if (currentPhase.isTerminal || currentPhase == LiveStreamPhase.ended) return;
+
+    final oldCtrl = _playerCtrl;
+    _playerCtrl = null;
+    _playerInitialized = false;
+    oldCtrl?.dispose().ignore();
+
+    ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
+
+    final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
+    if (hls != null && hls.isNotEmpty) {
+      _initPlayer(hls);
+    }
+  }
+
   // ── Player ─────────────────────────────────────────────────────────────────
 
-  Future<void> _initPlayer(String hlsUrl) async {
+  Future<void> _initPlayer(String hlsUrl, {bool force = false}) async {
     final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
     if (currentPhase == LiveStreamPhase.ended || currentPhase.isTerminal) return;
-    if (_playerInitialized || _isPlayerInitializing || hlsUrl.trim().isEmpty) return;
+    if ((_playerInitialized && !force) || _isPlayerInitializing) return;
 
+    final resolved = MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
+    if (resolved.isEmpty) return;
+
+    _playerRetryTimer?.cancel();
     _isPlayerInitializing = true;
-    try {
-      final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl.trim()));
-      await ctrl.initialize();
-      await ctrl.play();
+    if (force) {
+      _initAttemptCount = 0;
       if (mounted) {
         setState(() {
-          _playerCtrl = ctrl;
-          _playerInitialized = true;
           _playerError = false;
+        });
+      }
+    }
+
+    try {
+      while (_initAttemptCount < _maxInitAttempts && mounted) {
+        final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
+        if (phaseNow == LiveStreamPhase.ended || phaseNow.isTerminal) {
+          _isPlayerInitializing = false;
+          return;
+        }
+
+        _initAttemptCount++;
+        if (mounted) {
+          setState(() {
+            _playerError = false;
+          });
+        }
+
+        debugPrint(
+          '[LiveRoom] Connecting player (attempt $_initAttemptCount/$_maxInitAttempts) to: $resolved',
+        );
+
+        VideoPlayerController? testCtrl;
+        try {
+          final uri = Uri.parse(resolved);
+          testCtrl = VideoPlayerController.networkUrl(
+            uri,
+            videoPlayerOptions: VideoPlayerOptions(
+              mixWithOthers: false,
+              allowBackgroundPlayback: false,
+            ),
+          );
+
+          await testCtrl.initialize().timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw TimeoutException('Timed out connecting to stream');
+            },
+          );
+
+          if (testCtrl.value.hasError) {
+            throw Exception(
+              testCtrl.value.errorDescription ?? 'Controller reported error',
+            );
+          }
+
+          await testCtrl.play();
+
+          if (!mounted) {
+            await testCtrl.dispose();
+            return;
+          }
+
+          // Successfully initialized
+          final oldCtrl = _playerCtrl;
+          _playerCtrl = null;
+          oldCtrl?.dispose().ignore();
+
+          setState(() {
+            _playerCtrl = testCtrl;
+            _playerInitialized = true;
+            _playerError = false;
+            _isPlayerInitializing = false;
+            _initAttemptCount = 0;
+          });
+
+          _attachPlayerListeners(testCtrl);
+          ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
+          debugPrint('[LiveRoom] Connected to live stream successfully!');
+          return;
+        } catch (attemptErr) {
+          debugPrint(
+            '[LiveRoom] Player attempt $_initAttemptCount failed: $attemptErr',
+          );
+          if (testCtrl != null) {
+            try {
+              await testCtrl.dispose();
+            } catch (_) {}
+          }
+
+          // If more attempts remain, delay before next attempt while HLS stream warms up
+          if (_initAttemptCount < _maxInitAttempts && mounted) {
+            await Future<void>.delayed(const Duration(milliseconds: 2500));
+          }
+        }
+      }
+
+      // If all attempts failed
+      debugPrint(
+        '[LiveRoom] All $_maxInitAttempts connection attempts failed for: $resolved',
+      );
+      if (mounted) {
+        setState(() {
+          _playerError = true;
           _isPlayerInitializing = false;
         });
-        _attachPlayerListeners(ctrl);
-        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
+        ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
       }
     } catch (e) {
-      debugPrint('[LiveRoom] Failed to init player: $e');
+      debugPrint('[LiveRoom] Unexpected error in _initPlayer: $e');
       if (mounted) {
         setState(() {
           _playerError = true;
@@ -374,10 +492,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     ref.listen<LiveRoomState>(liveRoomProvider(widget.streamId), (previous, next) {
       _checkCreatorRedirect(next);
       if (next.phase == LiveStreamPhase.ended) {
+        _playerRetryTimer?.cancel();
         _playerCtrl?.pause();
       }
       final hls = next.stream?.hlsUrl;
-      if ((next.phase == LiveStreamPhase.live || next.phase == LiveStreamPhase.starting) &&
+      if ((next.phase == LiveStreamPhase.live ||
+              next.phase == LiveStreamPhase.starting ||
+              next.phase == LiveStreamPhase.reconnecting) &&
           hls != null &&
           hls.isNotEmpty &&
           !_playerInitialized &&
@@ -957,8 +1078,17 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
-  Widget _buildBuffering() {
+  Widget _buildBuffering([String? customMessage]) {
     final tr = ref.read(trProvider);
+    final String message;
+    if (customMessage != null) {
+      message = customMessage;
+    } else if (_initAttemptCount > 1) {
+      message = '${tr('live.connecting')} ($_initAttemptCount/$_maxInitAttempts)...';
+    } else {
+      message = tr('live.connecting');
+    }
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -966,7 +1096,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           const CircularProgressIndicator(color: Colors.white),
           const SizedBox(height: 12),
           Text(
-            tr('live.connecting'),
+            message,
             style: const TextStyle(color: Colors.white70),
           ),
         ],
@@ -992,7 +1122,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               setState(() {
                 _playerError = false;
                 _playerInitialized = false;
+                _isPlayerInitializing = false;
+                _initAttemptCount = 0;
               });
+              final stream = ref.read(liveRoomProvider(widget.streamId)).stream;
+              if (stream?.hlsUrl != null && stream!.hlsUrl!.isNotEmpty) {
+                _initPlayer(stream.hlsUrl!, force: true);
+              }
               ref.read(liveRoomProvider(widget.streamId).notifier).refresh();
             },
             style: OutlinedButton.styleFrom(

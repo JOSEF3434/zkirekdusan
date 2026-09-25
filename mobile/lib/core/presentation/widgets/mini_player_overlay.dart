@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 
 class MiniPlayerOverlay extends ConsumerStatefulWidget {
   const MiniPlayerOverlay({super.key});
@@ -56,7 +57,9 @@ class _MiniPlayerOverlayState extends ConsumerState<MiniPlayerOverlay>
 
   Future<void> _initLiveCtrl(String hlsUrl) async {
     if (_liveCtrl != null) return; // already initialising
-    final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl));
+    final resolved = MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
+    if (resolved.isEmpty) return;
+    final ctrl = VideoPlayerController.networkUrl(Uri.parse(resolved));
     _liveCtrl = ctrl;
     try {
       await ctrl.initialize();

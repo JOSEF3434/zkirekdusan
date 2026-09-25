@@ -15,6 +15,7 @@ import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/navigation/navigation_service.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
 
@@ -81,7 +82,12 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     }
     _isLiveCtrlInitializing = true;
     try {
-      final ctrl = VideoPlayerController.networkUrl(Uri.parse(hlsUrl.trim()));
+      final resolved = MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
+      if (resolved.isEmpty) {
+        _isLiveCtrlInitializing = false;
+        return;
+      }
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(resolved));
       await ctrl.initialize();
       await ctrl.play();
       if (mounted) {

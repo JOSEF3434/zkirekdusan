@@ -450,15 +450,17 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
     _reconnectTimer = null;
   }
 
-  // ── Player successfully restored ──────────────────────────────────────────
+  // ── Player successfully restored / initialized ───────────────────────────
 
-  /// Called by LiveRoomScreen when the video player successfully resumes after
-  /// an interruption. Transitions phase back to live.
-  void notifyPlayerRestored() {
+  /// Called by LiveRoomScreen when the video player successfully initializes or resumes.
+  /// Cancels any active reconnect loops and transitions phase to live.
+  void notifyPlayerReady() {
     if (!mounted) return;
-    if (state.phase == LiveStreamPhase.interrupted ||
-        state.phase == LiveStreamPhase.reconnecting) {
-      _cancelReconnect();
+    _cancelReconnect();
+    if (state.phase == LiveStreamPhase.starting ||
+        state.phase == LiveStreamPhase.interrupted ||
+        state.phase == LiveStreamPhase.reconnecting ||
+        state.phase == LiveStreamPhase.error) {
       state = state.copyWith(
         phase: LiveStreamPhase.live,
         retryCount: 0,
@@ -468,15 +470,8 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
     }
   }
 
-  // ── Player successfully initialized (first time) ──────────────────────────
-
-  /// Called by LiveRoomScreen when the video player initializes for the first time.
-  void notifyPlayerReady() {
-    if (!mounted) return;
-    if (state.phase == LiveStreamPhase.starting) {
-      state = state.copyWith(phase: LiveStreamPhase.live);
-    }
-  }
+  /// Alias for notifyPlayerReady to maintain backwards compatibility.
+  void notifyPlayerRestored() => notifyPlayerReady();
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
