@@ -11,6 +11,7 @@ import 'package:mobile/features/explore/domain/explore_content_model.dart';
 import 'package:mobile/features/explore/presentation/providers/discover_provider.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
 import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class ExploreScreen extends ConsumerWidget {
   const ExploreScreen({super.key});
@@ -191,7 +192,7 @@ class ExploreScreen extends ConsumerWidget {
           color: Colors.red,
         ),
       );
-      widgets.add(_buildLiveCarousel(liveStreams, tr));
+      widgets.add(_buildLiveCarousel(liveStreams, tr, ref));
       widgets.add(const SizedBox(height: 24));
     }
 
@@ -203,16 +204,36 @@ class ExploreScreen extends ConsumerWidget {
           color: Colors.blueAccent,
         ),
       );
-      widgets.add(_buildScheduledCarousel(scheduledStreams, context, tr));
+      widgets.add(_buildScheduledCarousel(scheduledStreams, context, tr, ref));
       widgets.add(const SizedBox(height: 24));
     }
 
     return widgets;
   }
 
+  void _navigateToStream(
+    BuildContext context,
+    WidgetRef ref,
+    ExploreStreamDto stream,
+  ) {
+    final auth = ref.read(authProvider);
+    final user = auth.user;
+    final isCreator = user != null &&
+        ((stream.createdById != null && stream.createdById == user.id) ||
+         (stream.creatorUsername != null && stream.creatorUsername == user.username));
+
+    if (isCreator) {
+      final channelParam = stream.videoChannelId != null ? '&channelId=${stream.videoChannelId}' : '';
+      context.push('/live/studio?streamId=${stream.id}$channelParam');
+    } else {
+      context.push('/live/${stream.id}');
+    }
+  }
+
   Widget _buildLiveCarousel(
     List<ExploreStreamDto> streams,
     String Function(String, [Map<String, dynamic>?]) tr,
+    WidgetRef ref,
   ) {
     return SizedBox(
       height: 195,
@@ -224,7 +245,7 @@ class ExploreScreen extends ConsumerWidget {
         itemBuilder: (context, index) {
           final stream = streams[index];
           return GestureDetector(
-            onTap: () => context.push('/live/${stream.id}'),
+            onTap: () => _navigateToStream(context, ref, stream),
             child: Container(
               width: 160,
               decoration: BoxDecoration(
@@ -335,6 +356,7 @@ class ExploreScreen extends ConsumerWidget {
     List<ExploreStreamDto> streams,
     BuildContext context,
     String Function(String, [Map<String, dynamic>?]) tr,
+    WidgetRef ref,
   ) {
     return SizedBox(
       height: 195,
@@ -347,7 +369,7 @@ class ExploreScreen extends ConsumerWidget {
           final stream = streams[index];
           final countdown = _formatCountdown(stream.scheduledDateTime);
           return GestureDetector(
-            onTap: () => context.push('/live/${stream.id}'),
+            onTap: () => _navigateToStream(context, ref, stream),
             child: Container(
               width: 160,
               decoration: BoxDecoration(

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 // ── Skeleton Loader ───────────────────────────────────────────────────────────
 
@@ -244,12 +245,12 @@ class SearchReelTile extends StatelessWidget {
 
 // ── Stream Tile ───────────────────────────────────────────────────────────────
 
-class SearchStreamTile extends StatelessWidget {
+class SearchStreamTile extends ConsumerWidget {
   final SearchStreamDto stream;
   const SearchStreamTile({super.key, required this.stream});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return ListTile(
       leading: Container(
@@ -289,7 +290,19 @@ class SearchStreamTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: () {
-        context.push('/live/${stream.id}');
+        final authUser = ref.read(authProvider).user;
+        final isCreator = authUser != null && (
+          (stream.createdById != null && stream.createdById == authUser.id) ||
+          (stream.creatorUsername != null &&
+           stream.creatorUsername!.isNotEmpty &&
+           stream.creatorUsername == authUser.username)
+        );
+        if (isCreator && stream.status?.toUpperCase() != 'ENDED') {
+          final chId = stream.videoChannelId != null ? '&channelId=${stream.videoChannelId}' : '';
+          context.push('/live/studio?streamId=${stream.id}$chId');
+        } else {
+          context.push('/live/${stream.id}');
+        }
       },
     );
   }

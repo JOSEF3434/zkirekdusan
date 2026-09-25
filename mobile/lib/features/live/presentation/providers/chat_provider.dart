@@ -9,6 +9,8 @@ import 'package:mobile/features/live/data/stream_chat_repository.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
+import 'package:mobile/core/storage/secure_storage.dart';
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class ChatState {
@@ -57,6 +59,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final String _streamId;
   final StreamChatRepository _chatRepo;
   final LiveSocketService _socket;
+  final StorageService _storage;
   final bool _isAuthenticated;
 
   final List<StreamSubscription> _subs = [];
@@ -65,10 +68,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     required String streamId,
     required StreamChatRepository chatRepo,
     required LiveSocketService socket,
+    required StorageService storage,
     required bool isAuthenticated,
   }) : _streamId = streamId,
        _chatRepo = chatRepo,
        _socket = socket,
+       _storage = storage,
        _isAuthenticated = isAuthenticated,
        super(const ChatState()) {
     _init();
@@ -78,12 +83,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     // Load chat history via REST
     await _loadHistory();
 
+    // Ensure socket connected & joined stream room
+    await _ensureSocketConnected();
+
     // Subscribe to real-time messages
     _subs.add(_socket.onChatMessage.listen(_onNewMessage));
     _subs.add(_socket.onChatDeleted.listen(_onMessageDeleted));
     _subs.add(_socket.onChatPinned.listen(_onMessagePinned));
     _subs.add(_socket.onChatReaction.listen(_onChatReaction));
     _subs.add(_socket.onError.listen(_onSocketError));
+  }
+
+  Future<void> _ensureSocketConnected() async {
+    try {
+      if (!_socket.isConnected) {
+        final token = await _storage.getToken();
+        if (token != null && token.isNotEmpty) {
+          await _socket.connect(token);
+        }
+      }
+      _socket.joinStream(_streamId);
+    } catch (_) {}
   }
 
   Future<void> _loadHistory() async {
@@ -129,18 +149,33 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   void _onNewMessage(ChatMessageDto msg) {
     if (!mounted) return;
-    // Deduplicate: replace pending version or ignore duplicate
-    final existing = state.messages.indexWhere((m) => m.id == msg.id);
-    if (existing >= 0) {
+
+    // 1. Deduplicate by exact message ID
+    final existingIndex = state.messages.indexWhere((m) => m.id == msg.id);
+    if (existingIndex >= 0) {
       final updated = List<ChatMessageDto>.from(state.messages);
-      updated[existing] = msg;
-      state = state.copyWith(messages: updated, clearSendError: true);
-    } else {
-      state = state.copyWith(
-        messages: [...state.messages, msg],
-        clearSendError: true,
-      );
+      updated[existingIndex] = msg;
+      state = state.copyWith(messages: updated, clearSendError: true, isSending: false);
+      return;
     }
+
+    // 2. Replace pending version matching the same content
+    final pendingIndex = state.messages.indexWhere(
+      (m) => m.isPending && m.content.trim() == msg.content.trim(),
+    );
+    if (pendingIndex >= 0) {
+      final updated = List<ChatMessageDto>.from(state.messages);
+      updated[pendingIndex] = msg;
+      state = state.copyWith(messages: updated, clearSendError: true, isSending: false);
+      return;
+    }
+
+    // 3. Append incoming message
+    state = state.copyWith(
+      messages: [...state.messages, msg],
+      clearSendError: true,
+      isSending: false,
+    );
   }
 
   void _onMessageDeleted(String messageId) {
@@ -158,7 +193,6 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   void _onMessagePinned(ChatMessageDto pinned) {
     if (!mounted) return;
-    // Unpin all others then pin this one
     state = state.copyWith(
       messages: state.messages
           .map((m) => m.id == pinned.id ? pinned : m.copyWith(isPinned: false))
@@ -167,46 +201,62 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void _onChatReaction(ChatReactionEvent event) {
-    // Reactions are cosmetic; no state change needed for MVP
+    // Reactions are cosmetic
   }
 
   void _onSocketError(String msg) {
     if (!mounted) return;
-    // Rate-limit / send error
-    if (msg.toLowerCase().contains('slow down') ||
-        msg.toLowerCase().contains('fast')) {
-      state = state.copyWith(sendError: msg, isSending: false);
-    }
+    // Mark pending messages as sent or clear pending state on error
+    final updated = state.messages.map((m) {
+      if (m.isPending) return m.copyWith(isPending: false);
+      return m;
+    }).toList();
+    state = state.copyWith(sendError: msg, isSending: false, messages: updated);
   }
 
   Future<void> sendMessage(String content) async {
-    if (!_isAuthenticated) return;
-    if (content.trim().isEmpty) return;
+    final text = content.trim();
+    if (text.isEmpty) return;
     if (state.isSending) return;
+    if (!_isAuthenticated) {
+      state = state.copyWith(sendError: 'Please log in to participate in chat');
+      return;
+    }
+
+    await _ensureSocketConnected();
 
     state = state.copyWith(isSending: true, clearSendError: true);
-    // Optimistic: add pending message (no real id yet)
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     final pending = ChatMessageDto(
-      id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
-      content: content.trim(),
+      id: pendingId,
+      content: text,
       type: ChatMessageType.text,
       createdAt: DateTime.now().toIso8601String(),
       isPending: true,
     );
     state = state.copyWith(messages: [...state.messages, pending]);
 
-    _socket.sendChat(streamId: _streamId, content: content.trim());
+    _socket.sendChat(streamId: _streamId, content: text);
 
-    // The actual confirmation comes via the onChatMessage stream event.
-    // Mark pending as complete after timeout fallback (3s)
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted && state.isSending) {
-      state = state.copyWith(isSending: false);
-    }
+    // Timeout fallback (4s): clear isSending and remove pending spinner
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) {
+        final hasPending = state.messages.any((m) => m.id == pendingId && m.isPending);
+        if (hasPending) {
+          final updated = state.messages.map((m) {
+            if (m.id == pendingId) return m.copyWith(isPending: false);
+            return m;
+          }).toList();
+          state = state.copyWith(messages: updated, isSending: false);
+        } else if (state.isSending) {
+          state = state.copyWith(isSending: false);
+        }
+      }
+    });
   }
 
-  void sendReaction(String emoji) {
-    if (!_isAuthenticated) return;
+  Future<void> sendReaction(String emoji) async {
+    await _ensureSocketConnected();
     _socket.sendReaction(streamId: _streamId, emoji: emoji);
   }
 
@@ -228,12 +278,14 @@ final chatProvider =
     ) {
       final chatRepo = ref.read(streamChatRepositoryProvider);
       final socket = ref.read(liveSocketServiceProvider);
+      final storage = ref.read(storageServiceProvider);
       final auth = ref.read(authProvider);
 
       return ChatNotifier(
         streamId: streamId,
         chatRepo: chatRepo,
         socket: socket,
+        storage: storage,
         isAuthenticated: auth.status == AuthStatus.authenticated,
       );
     });

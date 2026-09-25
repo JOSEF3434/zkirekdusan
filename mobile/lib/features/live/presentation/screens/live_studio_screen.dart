@@ -1,6 +1,8 @@
 // lib/features/live/presentation/screens/live_studio_screen.dart
 // Broadcaster dashboard: setup, stream key, go-live, health monitoring, end stream.
 
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,8 @@ import 'package:apivideo_live_stream/apivideo_live_stream.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/error/exceptions.dart';
+import 'package:mobile/core/storage/secure_storage.dart';
+import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/domain/stream_health_model.dart';
@@ -30,6 +34,27 @@ import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
 
+// ─── Studio Floating Particle (Live Reactions) ──────────────────────────────
+
+class _StudioParticle {
+  final String emoji;
+  final double xPos;
+  final AnimationController ctrl;
+  late final Animation<double> opacity;
+  late final Animation<double> y;
+
+  _StudioParticle({required this.emoji, required this.xPos, required this.ctrl}) {
+    opacity = Tween<double>(
+      begin: 1,
+      end: 0,
+    ).animate(CurvedAnimation(parent: ctrl, curve: const Interval(0.5, 1.0)));
+    y = Tween<double>(
+      begin: 0,
+      end: -160,
+    ).animate(CurvedAnimation(parent: ctrl, curve: Curves.easeOut));
+  }
+}
+
 // ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
 
 class LiveStudioChannelItem {
@@ -48,14 +73,17 @@ class LiveStudioChannelItem {
 class LiveStudioScreen extends ConsumerStatefulWidget {
   /// Optional pre-selected channelId. If null, the user picks from a dropdown.
   final String? channelId;
+  /// Optional existing streamId when redirecting creator to manage an active stream.
+  final String? streamId;
 
-  const LiveStudioScreen({super.key, this.channelId});
+  const LiveStudioScreen({super.key, this.channelId, this.streamId});
 
   @override
   ConsumerState<LiveStudioScreen> createState() => _LiveStudioScreenState();
 }
 
-class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
+class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
+    with TickerProviderStateMixin {
   // Setup form controllers (shown before stream exists)
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -182,21 +210,89 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   bool _loadingChannels = false;
   String? _loadError;
 
-  // Set after stream is created
+  // Set after stream is created or passed via route
   String? _streamId;
+  String? _channelIdFromStream;
+
+  // Real-time reaction particles
+  final List<_StudioParticle> _particles = [];
+  final _rng = Random();
+  StreamSubscription? _reactionSub;
 
   @override
   void initState() {
     super.initState();
-    if (widget.channelId == null) {
+    if (widget.streamId != null) {
+      _streamId = widget.streamId;
+      _initBroadcasterSocket(widget.streamId!);
+      _fetchStreamChannelId(widget.streamId!);
+    }
+    if (widget.channelId == null && widget.streamId == null) {
       _loadChannels();
     }
     _setupCamera(front: true);
   }
 
+  Future<void> _fetchStreamChannelId(String streamId) async {
+    try {
+      final s = await ref.read(liveStreamingRepositoryProvider).getStreamById(streamId);
+      if (mounted) {
+        setState(() {
+          _channelIdFromStream = s.videoChannelId;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _initBroadcasterSocket(String streamId) async {
+    try {
+      final token = await ref.read(storageServiceProvider).getToken();
+      final socket = ref.read(liveSocketServiceProvider);
+      if (token != null && token.isNotEmpty) {
+        await socket.connect(token);
+      }
+      socket.joinStream(streamId);
+
+      _reactionSub?.cancel();
+      _reactionSub = socket.onReactionBroadcast.listen((event) {
+        if (!mounted) return;
+        _spawnParticles(event.emoji, min(event.count, 4));
+      });
+    } catch (e) {
+      debugPrint('[LiveStudio] Error connecting broadcaster socket: $e');
+    }
+  }
+
+  void _spawnParticles(String emoji, int count) {
+    for (int i = 0; i < count; i++) {
+      final ctrl = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1600),
+      );
+      final particle = _StudioParticle(
+        emoji: emoji,
+        xPos: 0.15 + _rng.nextDouble() * 0.7,
+        ctrl: ctrl,
+      );
+      setState(() => _particles.add(particle));
+      ctrl.forward().then((_) {
+        if (mounted) {
+          setState(() => _particles.remove(particle));
+          ctrl.dispose();
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _reactionSub?.cancel();
+    for (final p in _particles) {
+      p.ctrl.dispose();
+    }
+    if (_streamId != null) {
+      ref.read(liveSocketServiceProvider).leaveStream(_streamId!);
+    }
     _stopRtmpBroadcast();
     _liveStreamController?.stop();
     _liveStreamController?.dispose();
@@ -300,7 +396,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   }
 
   String get _effectiveChannelId =>
-      widget.channelId ?? _selectedChannelItem?.channel.id ?? '';
+      widget.channelId ??
+      _selectedChannelItem?.channel.id ??
+      _channelIdFromStream ??
+      '';
 
   String _formatElapsed(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
@@ -2178,6 +2277,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
           _streamId = stream.id;
           _isCreating = false;
         });
+        _initBroadcasterSocket(stream.id);
       }
     } catch (e) {
       String msg;
@@ -2204,22 +2304,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
     final stream = bState.stream;
     final tr = ref.read(trProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: stream?.status == LiveStreamStatus.live
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LiveBadgeWidget(small: true),
-                  const SizedBox(width: 8),
-                  Text(_formatElapsed(bState.elapsed)),
-                ],
-              )
-            : Text(tr('live.studio_title')),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => _confirmLeave(context, bState.stream),
-        ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _confirmLeave(context, bState.stream, streamId, bState);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: stream?.status == LiveStreamStatus.live
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const LiveBadgeWidget(small: true),
+                    const SizedBox(width: 8),
+                    Text(_formatElapsed(bState.elapsed)),
+                  ],
+                )
+              : Text(tr('live.studio_title')),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+            onPressed: () => _confirmLeave(context, bState.stream, streamId, bState),
+          ),
         actions: [
           // Stream health
           Padding(
@@ -2415,6 +2523,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
                   ),
               ],
             ),
+      ),
     );
   }
 
@@ -3212,6 +3321,32 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
               ),
             ),
 
+          // ── Real-time floating reaction particles ──
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Stack(
+                children: _particles.map((p) {
+                  return AnimatedBuilder(
+                    animation: p.ctrl,
+                    builder: (_, child) {
+                      return Positioned(
+                        left: MediaQuery.of(context).size.width * p.xPos,
+                        bottom: 30 - p.y.value,
+                        child: Opacity(
+                          opacity: p.opacity.value.clamp(0.0, 1.0),
+                          child: Text(
+                            p.emoji,
+                            style: const TextStyle(fontSize: 26),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
           // Controls Toolbar (bottom overlay)
           Positioned(
             bottom: 8,
@@ -3514,31 +3649,48 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen> {
   Future<void> _confirmLeave(
     BuildContext context,
     LiveStreamDto? stream,
+    String streamId,
+    BroadcasterState bState,
   ) async {
-    final trFn = ref.read(trProvider);
     if (stream?.status == LiveStreamStatus.live) {
-      final confirm = await showDialog<bool>(
+      final shouldEnd = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
-          title: Text(trFn('live.setup_title')),
-          content: Text(trFn('live.preparing')),
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.red,
+            size: 38,
+          ),
+          title: const Text('Do you want to end the live stream?'),
+          content: const Text(
+            'Ending the live stream will terminate the broadcast for all viewers and finish the session.',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(trFn('common.dismiss')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(trFn('common.done')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('End Stream'),
             ),
           ],
         ),
       );
-      if (confirm == true && mounted) {
+
+      if (shouldEnd == true && mounted) {
         await _stopRtmpBroadcast();
-        // ignore: use_build_context_synchronously
-        context.pop();
+        await ref
+            .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
+            .endStream();
+
+        if (mounted) {
+          _showPostStreamSummaryDialog(this.context, streamId, bState);
+        }
       }
+      // If Cancel clicked -> popup dismisses and streaming continues!
     } else {
       await _stopRtmpBroadcast();
       if (context.mounted) {

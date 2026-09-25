@@ -926,7 +926,7 @@ class _StreamCard extends ConsumerWidget {
             IconButton.filledTonal(
               visualDensity: VisualDensity.compact,
               tooltip: 'Enter Studio',
-              onPressed: () => context.push('/live/studio'),
+              onPressed: () => context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}'),
               icon: const Icon(Icons.video_settings_rounded, size: 16),
             ),
           ],
@@ -1173,12 +1173,14 @@ class _StreamCard extends ConsumerWidget {
   }
 
   void _handleCardTap(BuildContext context) {
-    if (stream.status == LiveStreamStatus.live ||
+    if (isOwner && stream.status == LiveStreamStatus.live) {
+      context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
+    } else if (stream.status == LiveStreamStatus.live ||
         stream.status == LiveStreamStatus.vodReady ||
         stream.status == LiveStreamStatus.ended) {
       context.push('/live/${stream.id}');
     } else if (isOwner) {
-      context.push('/live/studio');
+      context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
     }
   }
 

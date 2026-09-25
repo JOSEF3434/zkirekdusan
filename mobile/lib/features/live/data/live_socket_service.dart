@@ -165,13 +165,14 @@ class LiveSocketService {
     _socket = io.io(
       '$baseUrl/live',
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
           .setQuery({'token': token})
           .enableAutoConnect()
           .enableReconnection()
-          .setReconnectionAttempts(10)
-          .setReconnectionDelay(2000)
+          .setReconnectionAttempts(20)
+          .setReconnectionDelay(1500)
           .setReconnectionDelayMax(30000)
           .build(),
     );

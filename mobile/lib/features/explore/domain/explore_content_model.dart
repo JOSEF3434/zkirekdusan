@@ -38,6 +38,8 @@ class ExploreStreamDto {
   final String? status;
   final int viewerCount;
   final String? creatorUsername;
+  final String? createdById;
+  final String? videoChannelId;
   final String? scheduledAt;
   final String? startedAt;
   final String? thumbnailUrl;
@@ -50,6 +52,8 @@ class ExploreStreamDto {
     this.status,
     this.viewerCount = 0,
     this.creatorUsername,
+    this.createdById,
+    this.videoChannelId,
     this.scheduledAt,
     this.startedAt,
     this.thumbnailUrl,
@@ -76,6 +80,8 @@ class ExploreStreamDto {
     String? status,
     int? viewerCount,
     String? creatorUsername,
+    String? createdById,
+    String? videoChannelId,
     String? scheduledAt,
     String? startedAt,
     String? thumbnailUrl,
@@ -88,6 +94,8 @@ class ExploreStreamDto {
       status: status ?? this.status,
       viewerCount: viewerCount ?? this.viewerCount,
       creatorUsername: creatorUsername ?? this.creatorUsername,
+      createdById: createdById ?? this.createdById,
+      videoChannelId: videoChannelId ?? this.videoChannelId,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       startedAt: startedAt ?? this.startedAt,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
@@ -105,6 +113,8 @@ class ExploreStreamDto {
       status: json['status'] as String?,
       viewerCount: json['currentViewerCount'] as int? ?? 0,
       creatorUsername: createdBy?['username'] as String?,
+      createdById: (json['createdById'] as String?) ?? (createdBy?['id'] as String?),
+      videoChannelId: (json['videoChannelId'] as String?) ?? (videoChannel?['id'] as String?),
       scheduledAt: json['scheduledAt'] as String?,
       startedAt: json['startedAt'] as String?,
       thumbnailUrl: json['thumbnailUrl'] as String?,

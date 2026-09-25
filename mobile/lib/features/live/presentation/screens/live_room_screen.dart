@@ -25,6 +25,7 @@ import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 // ─── Reaction Particle ────────────────────────────────────────────────────────
 
@@ -74,7 +75,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   // Mini-player drag tracking
   double _dragOffset = 0;
   bool _isDragging = false;
-  static const _kMiniDragThreshold = 120.0; // px to trigger minimize
+  static const _kMiniDragThreshold = 60.0; // px to trigger minimize
+  bool _redirectedToStudio = false;
 
   // Reactions
   final List<_Particle> _particles = [];
@@ -83,6 +85,32 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // Timer to hide controls
   Timer? _hideControlsTimer;
+
+  void _checkCreatorRedirect(LiveRoomState roomState) {
+    if (_redirectedToStudio) return;
+    final stream = roomState.stream;
+    if (stream == null || roomState.phase == LiveStreamPhase.ended) return;
+
+    final authUser = ref.read(authProvider).user;
+    if (authUser == null) return;
+
+    final isCreator = stream.createdById == authUser.id ||
+        (stream.createdBy?.username != null &&
+         stream.createdBy!.username == authUser.username);
+
+    if (isCreator) {
+      _redirectedToStudio = true;
+      WakelockPlus.disable().ignore();
+      _playerCtrl?.pause();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go(
+            '/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}',
+          );
+        }
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -125,6 +153,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
       // Check initial state: if starting or live and HLS is available, initialize
       final initialRoom = ref.read(liveRoomProvider(widget.streamId));
+      _checkCreatorRedirect(initialRoom);
+
       if (!initialRoom.phase.isTerminal &&
           initialRoom.phase != LiveStreamPhase.ended &&
           initialRoom.stream?.hlsUrl != null &&
@@ -244,7 +274,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         durationSeconds: stream?.duration,
       );
       WakelockPlus.disable().ignore();
-      if (mounted) context.pop();
+      if (mounted) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      }
       return;
     }
 
@@ -268,7 +304,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         );
 
     WakelockPlus.disable().ignore();
-    if (mounted) context.pop();
+    if (mounted) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    }
   }
 
   // ── Fullscreen ─────────────────────────────────────────────────────────────
@@ -330,6 +372,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
     // Listen to stream lifecycle phase changes
     ref.listen<LiveRoomState>(liveRoomProvider(widget.streamId), (previous, next) {
+      _checkCreatorRedirect(next);
       if (next.phase == LiveStreamPhase.ended) {
         _playerCtrl?.pause();
       }
@@ -376,10 +419,12 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         }),
         onVerticalDragUpdate: (details) {
           if (!_isDragging) return;
-          setState(() => _dragOffset += details.delta.dy);
+          final next = _dragOffset + details.delta.dy;
+          setState(() => _dragOffset = next < 0 ? 0 : next);
         },
-        onVerticalDragEnd: (_) {
-          if (_dragOffset > _kMiniDragThreshold) {
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0.0;
+          if (_dragOffset > _kMiniDragThreshold || (velocity > 250 && _dragOffset > 20)) {
             _minimizeToMiniPlayer(roomState);
           }
           setState(() {
@@ -491,7 +536,27 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: _onTapPlayer,
+        onVerticalDragStart: (_) => setState(() {
+          _isDragging = true;
+          _dragOffset = 0;
+        }),
+        onVerticalDragUpdate: (details) {
+          if (!_isDragging) return;
+          final next = _dragOffset + details.delta.dy;
+          setState(() => _dragOffset = next < 0 ? 0 : next);
+        },
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0.0;
+          if (_dragOffset > _kMiniDragThreshold || (velocity > 250 && _dragOffset > 20)) {
+            _minimizeToMiniPlayer(state);
+          }
+          setState(() {
+            _isDragging = false;
+            _dragOffset = 0;
+          });
+        },
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -580,12 +645,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           Row(
             children: [
               IconButton(
+                tooltip: 'Minimize',
                 onPressed: () {
                   if (_isFullscreen) _toggleFullscreen();
                   // Minimize to mini player instead of hard-popping.
                   _minimizeToMiniPlayer(state);
                 },
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: Colors.white),
               ),
               _buildPhaseBadge(state),
               if (state.phase == LiveStreamPhase.live) ...[

@@ -282,8 +282,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/live/studio',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
-          // channelId is now selected in-screen via group/channel dropdown
-          return const LiveStudioScreen();
+          final streamId = state.uri.queryParameters['streamId'] ??
+              (state.extra is Map ? (state.extra as Map)['streamId'] as String? : null);
+          final channelId = state.uri.queryParameters['channelId'] ??
+              (state.extra is Map ? (state.extra as Map)['channelId'] as String? : null);
+          return LiveStudioScreen(streamId: streamId, channelId: channelId);
         },
       ),
       GoRoute(

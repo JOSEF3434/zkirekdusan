@@ -219,10 +219,11 @@ export class LiveGateway
     const token = this.extractToken(client);
     if (!token) return null;
     try {
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-      });
-      return payload.sub as string;
+      const secret =
+        this.configService.get<string>('JWT_ACCESS_SECRET') ||
+        this.configService.get<string>('JWT_SECRET');
+      const payload = this.jwtService.verify(token, { secret });
+      return (payload.sub || (payload as any).id || (payload as any).userId) as string;
     } catch {
       return null;
     }
@@ -231,8 +232,15 @@ export class LiveGateway
   private extractToken(client: Socket): string | null {
     const authHeader = client.handshake.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) return authHeader.substring(7);
-    const queryToken = client.handshake.query.token;
-    if (typeof queryToken === 'string') return queryToken;
+    if (authHeader && typeof authHeader === 'string') return authHeader;
+    const authToken = client.handshake.auth?.token;
+    if (typeof authToken === 'string') {
+      return authToken.startsWith('Bearer ') ? authToken.substring(7) : authToken;
+    }
+    const queryToken = client.handshake.query?.token;
+    if (typeof queryToken === 'string') {
+      return queryToken.startsWith('Bearer ') ? queryToken.substring(7) : queryToken;
+    }
     return null;
   }
 
@@ -461,7 +469,6 @@ export class LiveGateway
       .emit(LIVE_EVENTS.VIEWER_COUNT, { streamId, count });
   }
 
-  @UsePipes(new ValidationPipe({ transform: true }))
   @SubscribeMessage(LIVE_EVENTS.SEND_CHAT)
   async handleSendChat(
     @ConnectedSocket() client: Socket,
@@ -472,6 +479,11 @@ export class LiveGateway
       type?: StreamChatMessageType;
     },
   ) {
+    if (!payload?.streamId || !payload?.content?.trim()) {
+      client.emit(LIVE_EVENTS.ERROR, { message: 'Message content and streamId are required' });
+      return;
+    }
+
     const userId = client.data.userId as string | null;
     if (!userId) {
       client.emit(LIVE_EVENTS.ERROR, {
@@ -494,7 +506,7 @@ export class LiveGateway
       const message = await this.streamChatRepo.saveMessage({
         chatRoomId: chatRoom.id,
         senderId: userId,
-        content: payload.content,
+        content: payload.content.trim(),
         type: payload.type ?? StreamChatMessageType.TEXT,
       });
 
@@ -504,7 +516,8 @@ export class LiveGateway
       this.streamAnalyticsService
         .trackEngagement(payload.streamId, 'chat')
         .catch(() => null);
-    } catch {
+    } catch (err: any) {
+      this.logger.error(`Error sending chat message in stream ${payload.streamId}`, err);
       client.emit(LIVE_EVENTS.ERROR, { message: 'Failed to send message' });
     }
   }
@@ -664,15 +677,17 @@ export class LiveGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { streamId: string; emoji: string },
   ) {
+    if (!payload?.streamId || !payload?.emoji) return;
     const userId = client.data.userId as string | null;
-    if (!userId) return; // Silently ignore unauthenticated reactions
 
-    if (!this.checkRateLimit(userId, 'reaction')) return; // Rate limited - silent
+    if (userId && !this.checkRateLimit(userId, 'reaction')) return; // Rate limited - silent
 
     try {
-      await this.prisma.streamReaction.create({
-        data: { liveStreamId: payload.streamId, userId, emoji: payload.emoji },
-      });
+      if (userId) {
+        await this.prisma.streamReaction.create({
+          data: { liveStreamId: payload.streamId, userId, emoji: payload.emoji },
+        });
+      }
 
       // Count recent reactions for this emoji (last 5 seconds)
       const cutoff = new Date(Date.now() - 5000);
@@ -688,14 +703,20 @@ export class LiveGateway
         .to(`stream:${payload.streamId}`)
         .emit(LIVE_EVENTS.REACTION_BROADCAST, {
           emoji: payload.emoji,
-          count,
+          count: Math.max(1, count),
         });
 
       this.streamAnalyticsService
         .trackEngagement(payload.streamId, 'reaction')
         .catch(() => null);
     } catch {
-      // Non-critical — reactions can fail silently
+      // Non-critical — broadcast anyway so real-time UI responds
+      this.server
+        .to(`stream:${payload.streamId}`)
+        .emit(LIVE_EVENTS.REACTION_BROADCAST, {
+          emoji: payload.emoji,
+          count: 1,
+        });
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
 import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
 class LiveCardWidget extends ConsumerWidget {
   final LiveStreamDto stream;
@@ -27,7 +28,19 @@ class LiveCardWidget extends ConsumerWidget {
     final effectiveStatus = syncMap[stream.id] ?? stream.status;
 
     return GestureDetector(
-      onTap: () => context.push('/live/${stream.id}'),
+      onTap: () {
+        final authUser = ref.read(authProvider).user;
+        final isCreator = authUser != null && (
+          stream.createdById == authUser.id ||
+          (stream.createdBy?.username != null &&
+           stream.createdBy!.username == authUser.username)
+        );
+        if (isCreator && effectiveStatus != LiveStreamStatus.ended) {
+          context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
+        } else {
+          context.push('/live/${stream.id}');
+        }
+      },
       child: horizontal
           ? _buildHorizontalCard(theme, effectiveStatus: effectiveStatus)
           : _buildVerticalCard(theme, effectiveStatus: effectiveStatus),

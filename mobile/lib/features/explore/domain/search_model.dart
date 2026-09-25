@@ -107,6 +107,8 @@ class SearchStreamDto {
   final int? viewerCount;
   final String? creatorUsername;
   final DateTime? scheduledAt;
+  final String? createdById;
+  final String? videoChannelId;
 
   const SearchStreamDto({
     required this.id,
@@ -115,12 +117,15 @@ class SearchStreamDto {
     this.viewerCount,
     this.creatorUsername,
     this.scheduledAt,
+    this.createdById,
+    this.videoChannelId,
   });
 
   bool get isLive => status?.toUpperCase() == 'LIVE';
 
   factory SearchStreamDto.fromJson(Map<String, dynamic> json) {
     final createdBy = json['createdBy'] as Map<String, dynamic>?;
+    final videoChannel = json['videoChannel'] as Map<String, dynamic>?;
     return SearchStreamDto(
       id: json['id'] as String? ?? '',
       title: json['title'] as String?,
@@ -130,6 +135,8 @@ class SearchStreamDto {
       scheduledAt: json['scheduledAt'] != null
           ? DateTime.tryParse(json['scheduledAt'] as String)
           : null,
+      createdById: json['createdById'] as String? ?? createdBy?['id'] as String?,
+      videoChannelId: json['videoChannelId'] as String? ?? videoChannel?['id'] as String?,
     );
   }
 }
