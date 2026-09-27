@@ -6,7 +6,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   emoji_picker_flutter
   file_selector_linux
   flutter_secure_storage_linux
-  flutter_sound
   flutter_webrtc
   record_linux
   sqlite3_flutter_libs

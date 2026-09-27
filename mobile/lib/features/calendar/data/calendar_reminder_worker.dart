@@ -23,7 +23,22 @@ void calendarReminderCallbackDispatcher() {
       // Initialize dependencies
       final db = AppDatabase();
       final notificationsService = CalendarNotificationsService();
-      await notificationsService.initialize();
+      // Use the background-safe init path: does NOT request permissions
+      // (requestNotificationsPermission requires a foreground Activity context
+      // and will crash with NPE in a WorkManager headless isolate).
+      await notificationsService.initializeForBackground();
+
+      // If the user has not granted notification permission, skip scheduling
+      // entirely. The foreground app is responsible for requesting permission.
+      final hasPermission = await notificationsService.areNotificationsEnabled();
+      if (!hasPermission) {
+        developer.log(
+          '⚠️ Notifications not enabled — skipping reminder scheduling',
+          name: 'ReminderWorker',
+        );
+        await db.close();
+        return true;
+      }
 
       final upcomingNotes =
           await (db.select(db.localCalendarNotes)..where(

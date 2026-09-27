@@ -20,8 +20,10 @@ class CalendarNotificationsService {
       FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
+  static bool _backgroundInitialized = false;
 
-  /// Initialize local notifications
+  /// Initialize local notifications (foreground path — requests permission).
+  /// Must only be called from a context with a live Activity (main isolate).
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -52,7 +54,7 @@ class CalendarNotificationsService {
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
-      // Request permissions
+      // Request permissions — only safe in a foreground/Activity context.
       await _requestPermissions();
 
       _initialized = true;
@@ -65,6 +67,65 @@ class CalendarNotificationsService {
         '❌ Failed to initialize notifications: $e',
         name: 'CalendarNotifications',
       );
+    }
+  }
+
+  /// Background-safe initialization — does NOT request permissions.
+  /// Safe to call from a WorkManager/headless isolate where no Activity is
+  /// attached. Only initialises the plugin so that zonedSchedule() works;
+  /// never touches the permission-request method channel.
+  Future<void> initializeForBackground() async {
+    if (_backgroundInitialized) return;
+
+    try {
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Africa/Addis_Ababa'));
+
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+      );
+
+      // No onDidReceiveNotificationResponse — taps cannot be handled in a
+      // headless isolate anyway.
+      await _notifications.initialize(initSettings);
+
+      _backgroundInitialized = true;
+      developer.log(
+        '✅ Calendar notifications initialized (background)',
+        name: 'CalendarNotifications',
+      );
+    } catch (e) {
+      developer.log(
+        '❌ Failed to initialize notifications (background): $e',
+        name: 'CalendarNotifications',
+      );
+    }
+  }
+
+  /// Returns true if notifications are currently enabled for this app.
+  /// Uses the Android plugin's areNotificationsEnabled() — safe in any isolate
+  /// context as it only reads a flag, never triggers a permission dialog.
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (androidPlugin != null) {
+        return await androidPlugin.areNotificationsEnabled() ?? false;
+      }
+      // On iOS/other platforms default to true so scheduling still proceeds.
+      return true;
+    } catch (e) {
+      developer.log(
+        '⚠️ areNotificationsEnabled check failed: $e',
+        name: 'CalendarNotifications',
+      );
+      return false;
     }
   }
 
