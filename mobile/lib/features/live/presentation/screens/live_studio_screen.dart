@@ -3256,6 +3256,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         }
       }
 
+      // On Web: verify WHIP gateway readiness before marking stream LIVE in DB
+      if (kIsWeb) {
+        debugPrint('[LiveStudio] Performing Web WHIP pre-flight check...');
+        final session = await ref
+            .read(liveStreamingRepositoryProvider)
+            .getWhipSession(streamId);
+        if (session.whipUrl.isEmpty) {
+          throw Exception(
+            'WHIP gateway URL is empty. Please set WHIP_GATEWAY_URL in the backend environment.',
+          );
+        }
+      }
+
       final notifier = ref.read(
         broadcasterProvider((streamId, channelId)).notifier,
       );
@@ -3322,6 +3335,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         }
         if (msg.startsWith('AppException: ')) {
           msg = msg.substring('AppException: '.length);
+        }
+        if (msg.startsWith('App')) {
+          msg = msg.substring(3);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

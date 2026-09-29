@@ -34,6 +34,7 @@ hls: no
 # ─── WebRTC / WHIP ───────────────────────────────────────────────────────────
 webrtc: yes
 webrtcAddress: :8889
+webrtcAllowOrigins: ["*"]
 
 # Add your server's public IP/hostname here if clients are behind NAT/firewall
 webrtcAdditionalHosts: []

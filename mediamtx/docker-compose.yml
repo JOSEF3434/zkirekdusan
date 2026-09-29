@@ -1,8 +1,8 @@
-﻿version: "3.9"
+version: "3.9"
 
 services:
   mediamtx:
-    image: bluenviron/mediamtx:latest
+    image: bluenviron/mediamtx:latest-ffmpeg
     container_name: zikrekidusan-mediamtx
     restart: unless-stopped
     ports:
