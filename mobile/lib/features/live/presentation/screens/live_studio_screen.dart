@@ -197,10 +197,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     );
   }
 
-  // Camera & Streaming hardware state (apivideo_live_stream for mobile, camera/flutter_webrtc for web)
+  // Camera & Streaming hardware state (apivideo_live_stream for mobile, flutter_webrtc for web)
   ApiVideoLiveStreamController? _liveStreamController;
+  // camera_web controller — MOBILE only. On Web we use flutter_webrtc getUserMedia directly.
   cam.CameraController? _webCameraController;
-  List<cam.CameraDescription> _webAvailableCameras = [];
+  // Web standby preview stream (acquired eagerly at init, before WHIP starts)
+  rtc.MediaStream? _webPreviewStream;
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = true;
   bool _isTorchOn = false;
@@ -219,13 +221,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   bool get _isCameraReady {
     if (kIsWeb) {
-      // On Web, camera readiness is confirmed once the WHIP broadcaster
-      // has acquired a local MediaStream (getUserMedia succeeded).
+      // On Web, camera readiness is confirmed once flutter_webrtc has acquired
+      // a local MediaStream — either from the standby preview or WHIP broadcaster.
       if (_whipBroadcaster?.localStream != null) return true;
-      // Fall back to camera_web controller while WHIP is not yet started
-      return _webCameraController != null &&
-          _webCameraController!.value.isInitialized &&
-          _isCameraInitialized;
+      return _webPreviewStream != null && _isCameraInitialized;
     }
     return _liveStreamController != null &&
         _liveStreamController!.isInitialized &&
@@ -335,6 +334,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _liveStreamController?.stop();
     _liveStreamController?.dispose();
     _webCameraController?.dispose();
+    // Release the standby preview stream tracks
+    if (kIsWeb && _webPreviewStream != null) {
+      for (final t in _webPreviewStream!.getTracks()) {
+        t.stop();
+      }
+      _webPreviewStream?.dispose();
+      _webPreviewStream = null;
+    }
     // Stop WHIP broadcaster and release WebRTC resources
     _whipBroadcaster?.stop();
     if (_webRendererInitialized) {
@@ -2646,88 +2653,118 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       final isFront = front ?? _isFrontCamera;
 
       if (kIsWeb) {
-        // ── 1. [WEB CAMERA] permission ──
-        debugPrint('[WEB CAMERA] permission: checking / requesting browser media permissions');
+        // ── Web: use flutter_webrtc getUserMedia directly ──────────────────────
+        // Do NOT use camera_web / CameraController on Web — it conflicts with
+        // flutter_webrtc's internal getUserMedia and causes cameraNotReadable.
+        debugPrint('[WEB CAMERA] Acquiring preview stream via flutter_webrtc getUserMedia');
 
-        final oldWeb = _webCameraController;
-        _webCameraController = null;
-        if (oldWeb != null) {
+        // Release any old preview stream
+        if (_webPreviewStream != null) {
+          for (final t in _webPreviewStream!.getTracks()) {
+            t.stop();
+          }
+          await _webPreviewStream?.dispose();
+          _webPreviewStream = null;
+        }
+
+        // Initialize the RTCVideoRenderer once
+        if (!_webRendererInitialized) {
+          await _webVideoRenderer.initialize();
+          _webRendererInitialized = true;
+        }
+
+        // ── 3-tier getUserMedia fallback ─────────────────────────────────────
+        // Tier 1: ideal facingMode + resolution hints (best for phones/laptops)
+        // Tier 2: video:true (any device, no constraints) + audio — for desktop
+        //         webcams that don't declare facingMode and reject exact matches
+        // Tier 3: video:true only (mics blocked by site policy)
+        rtc.MediaStream? stream;
+
+        final tier1 = <String, dynamic>{
+          'video': {
+            'width': {'ideal': 1280},
+            'height': {'ideal': 720},
+            'frameRate': {'ideal': 30},
+            // Use 'ideal' not a bare string — makes facingMode advisory, not required.
+            // Desktop webcams have no declared facingMode and reject required constraints.
+            'facingMode': {'ideal': isFront ? 'user' : 'environment'},
+          },
+          'audio': {
+            'echoCancellation': true,
+            'noiseSuppression': true,
+            'autoGainControl': true,
+          },
+        };
+
+        try {
+          stream = await rtc.navigator.mediaDevices.getUserMedia(tier1);
+          debugPrint('[WEB CAMERA] Tier-1 constraints succeeded');
+        } catch (e1) {
+          debugPrint('[WEB CAMERA] Tier-1 failed ($e1) — retrying with bare constraints');
           try {
-            await oldWeb.dispose();
-          } catch (e) {
-            debugPrint('[WEB CAMERA] error disposing old controller: $e');
+            stream = await rtc.navigator.mediaDevices.getUserMedia({
+              'video': true,
+              'audio': true,
+            });
+            debugPrint('[WEB CAMERA] Tier-2 (video:true, audio:true) succeeded');
+          } catch (e2) {
+            debugPrint('[WEB CAMERA] Tier-2 failed ($e2) — retrying video-only');
+            try {
+              stream = await rtc.navigator.mediaDevices.getUserMedia({
+                'video': true,
+                'audio': false,
+              });
+              debugPrint('[WEB CAMERA] Tier-3 (video only) succeeded');
+              // Attempt to optionally attach audio if microphone is available
+              try {
+                final audioStream = await rtc.navigator.mediaDevices.getUserMedia({
+                  'video': false,
+                  'audio': true,
+                });
+                for (final aTrack in audioStream.getAudioTracks()) {
+                  stream.addTrack(aTrack);
+                }
+                debugPrint('[WEB CAMERA] Separate audio track attached');
+              } catch (audioErr) {
+                debugPrint('[WEB CAMERA] Audio track attach failed ($audioErr) — continuing video-only');
+              }
+            } catch (e3) {
+              throw Exception(
+                'Unable to access your camera.\n'
+                'Please check:\n'
+                '• Camera is connected and not in use by another app\n'
+                '• Browser has camera permission for this site\n'
+                '• No other tab/app is using the camera\n'
+                'Detail: $e3',
+              );
+            }
           }
         }
 
-        // ── 2. [WEB CAMERA] available cameras ──
-        try {
-          _webAvailableCameras = await cam.availableCameras();
-        } catch (e, st) {
-          debugPrint('[WEB CAMERA] error querying available cameras: $e\n$st');
-          throw Exception('Failed to query available cameras: $e');
-        }
-
         debugPrint(
-          '[WEB CAMERA] available cameras: count=${_webAvailableCameras.length}, '
-          'cameras=${_webAvailableCameras.map((c) => "${c.name} (${c.lensDirection.name})").toList()}',
+          '[WEB CAMERA] Preview stream acquired: '
+          'video=${stream.getVideoTracks().length} audio=${stream.getAudioTracks().length}',
         );
-
-        if (_webAvailableCameras.isEmpty) {
-          throw Exception(
-            'No cameras detected on this device. Please connect a camera or verify browser permissions.',
-          );
-        }
-
-        // ── 3. [WEB CAMERA] selected camera ──
-        final targetDirection =
-            isFront ? cam.CameraLensDirection.front : cam.CameraLensDirection.back;
-        final selectedCam = _webAvailableCameras.firstWhere(
-          (c) => c.lensDirection == targetDirection,
-          orElse: () => _webAvailableCameras.first,
-        );
-        debugPrint(
-          '[WEB CAMERA] selected camera: name=${selectedCam.name}, direction=${selectedCam.lensDirection.name}',
-        );
-
-        // ── 4. [WEB CAMERA] CameraController creation ──
-        final controller = cam.CameraController(
-          selectedCam,
-          cam.ResolutionPreset.high,
-          enableAudio: true,
-        );
-
-        // ── 5. [WEB CAMERA] initialize started ──
-        debugPrint('[WEB CAMERA] initialize started: camera=${selectedCam.name}');
-        await controller.initialize().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw Exception(
-            'Web camera initialization timed out. Please allow camera access in your browser.',
-          ),
-        );
-
-        // ── 6. [WEB CAMERA] initialize completed & controller.isInitialized ──
-        debugPrint(
-          '[WEB CAMERA] initialize completed: isInitialized=${controller.value.isInitialized}, '
-          'previewSize=${controller.value.previewSize}',
-        );
-        debugPrint('[WEB CAMERA] controller.isInitialized: ${controller.value.isInitialized}');
 
         if (!mounted) {
-          await controller.dispose();
+          for (final t in stream.getTracks()) {
+            t.stop();
+          }
           return;
         }
 
+        _webVideoRenderer.srcObject = stream;
+
         setState(() {
-          _webCameraController = controller;
-          _isCameraInitialized = controller.value.isInitialized;
+          _webPreviewStream = stream;
+          _isCameraInitialized = true;
           _isCameraPermissionGranted = true;
-          _isFrontCamera = selectedCam.lensDirection == cam.CameraLensDirection.front;
+          _isFrontCamera = isFront;
           _isInitializingCamera = false;
           _cameraErrorMessage = null;
         });
 
-        // ── 7. [WEB CAMERA] preview ready ──
-        debugPrint('[WEB CAMERA] preview ready');
+        debugPrint('[WEB CAMERA] ✓ Preview ready — RTCVideoRenderer wired to local stream');
         return;
       }
 
@@ -2814,8 +2851,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       if (_whipBroadcaster != null && _whipBroadcaster!.isConnected) {
         // WHIP active: replace track in existing RTCPeerConnection
         await _whipBroadcaster!.switchCamera(nextIsFront);
+        if (_whipBroadcaster!.localStream != null && mounted) {
+          _webVideoRenderer.srcObject = _whipBroadcaster!.localStream;
+          setState(() {});
+        }
       } else {
-        // Standby: switch the camera_web preview
+        // Standby: switch the preview stream
         await _setupCamera(front: nextIsFront);
       }
       return;
@@ -2847,8 +2888,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     final nextMute = !_isMicMuted;
     setState(() => _isMicMuted = nextMute);
     if (kIsWeb) {
-      // WHIP: toggle audio track enabled on the WebRTC MediaStream
-      _whipBroadcaster?.setMuted(nextMute);
+      // WHIP active: toggle audio on the RTCPeerConnection MediaStream
+      if (_whipBroadcaster != null) {
+        _whipBroadcaster!.setMuted(nextMute);
+      } else {
+        // Standby: mute the preview stream audio tracks directly
+        for (final t in _webPreviewStream?.getAudioTracks() ?? []) {
+          t.enabled = !nextMute;
+        }
+      }
     } else if (_liveStreamController != null && _isCameraInitialized) {
       try {
         await _liveStreamController!.setIsMuted(nextMute);
@@ -2945,7 +2993,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             'width': {'ideal': 1280},
             'height': {'ideal': 720},
             'frameRate': {'ideal': 30, 'max': 30},
-            'facingMode': _isFrontCamera ? 'user' : 'environment',
+            'facingMode': {'ideal': _isFrontCamera ? 'user' : 'environment'},
           },
           audioConstraints: {
             'echoCancellation': true,
@@ -2978,11 +3026,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
         _whipBroadcaster = broadcaster;
 
-        // Start: getUserMedia → PeerConnection → WHIP handshake
-        await broadcaster.start();
+        // Pass the standby preview stream so WHIP reuses it instead of calling
+        // getUserMedia again (which would conflict and cause cameraNotReadable).
+        await broadcaster.start(existingStream: _webPreviewStream);
 
-        // Wire the MediaStream to the RTCVideoRenderer for live preview
-        if (broadcaster.localStream != null && mounted) {
+        // If WHIP acquired its own stream (no preview was available), wire it
+        // to the renderer. If we reused _webPreviewStream it's already wired.
+        if (broadcaster.localStream != null &&
+            broadcaster.localStream != _webPreviewStream &&
+            mounted) {
           _webVideoRenderer.srcObject = broadcaster.localStream;
           setState(() {});
         }
@@ -3152,6 +3204,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       if (_webVideoRenderer.srcObject != null) {
         _webVideoRenderer.srcObject = null;
       }
+      // Restore standby preview stream if still available
+      if (_webPreviewStream != null && mounted) {
+        _webVideoRenderer.srcObject = _webPreviewStream;
+      }
     } else {
       // Mobile: stop apivideo RTMP stream
       if (_isStreamingRtmp && _liveStreamController != null) {
@@ -3190,8 +3246,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         throw Exception('Please select a streaming channel first.');
       }
 
-      // On Web: camera preview may be via camera_web but actual WHIP capture
-      // happens in _startRtmpBroadcast (getUserMedia is called there).
+      // On Web: preview is already live via flutter_webrtc getUserMedia.
       // On Mobile: require camera to be initialized before going live.
       if (!kIsWeb && !_isCameraReady) {
         debugPrint('[LiveStudio] Camera not ready — attempting re-init');
@@ -3300,32 +3355,28 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   fit: BoxFit.cover,
                   child: SizedBox(
                     width: kIsWeb
-                        ? (_webCameraController?.value.previewSize?.height ??
-                            (_webVideoRenderer.videoWidth > 0
-                                ? _webVideoRenderer.videoWidth.toDouble()
-                                : 1280))
+                        ? (_webVideoRenderer.videoWidth > 0
+                            ? _webVideoRenderer.videoWidth.toDouble()
+                            : 1280)
                         : 1280,
                     height: kIsWeb
-                        ? (_webCameraController?.value.previewSize?.width ??
-                            (_webVideoRenderer.videoHeight > 0
-                                ? _webVideoRenderer.videoHeight.toDouble()
-                                : 720))
+                        ? (_webVideoRenderer.videoHeight > 0
+                            ? _webVideoRenderer.videoHeight.toDouble()
+                            : 720)
                         : 720,
                     child: kIsWeb
-                        ? (_whipBroadcaster != null &&
-                                _webRendererInitialized &&
+                        // Web: RTCVideoView shows both standby preview and live stream
+                        // _webVideoRenderer.srcObject is set in _setupCamera (preview)
+                        // and updated in _startRtmpBroadcast (WHIP stream)
+                        ? (_webRendererInitialized &&
                                 _webVideoRenderer.srcObject != null
-                            // WHIP active: show the live WebRTC preview
                             ? rtc.RTCVideoView(
                                 _webVideoRenderer,
                                 mirror: _isFrontCamera,
                                 objectFit: rtc.RTCVideoViewObjectFit
                                     .RTCVideoViewObjectFitCover,
                               )
-                            // Standby: camera_web preview (no WHIP yet)
-                            : (_webCameraController != null
-                                ? cam.CameraPreview(_webCameraController!)
-                                : const SizedBox.shrink()))
+                            : const SizedBox.shrink())
                         : ApiVideoCameraPreview(
                             controller: _liveStreamController!,
                           ),

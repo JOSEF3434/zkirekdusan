@@ -50,7 +50,7 @@ class WebWhipBroadcaster {
       'width': {'ideal': 1280},
       'height': {'ideal': 720},
       'frameRate': {'ideal': 30, 'max': 30},
-      'facingMode': 'user',
+      'facingMode': {'ideal': 'user'},
     },
     this.audioConstraints = const {
       'echoCancellation': true,
@@ -86,8 +86,13 @@ class WebWhipBroadcaster {
 
   // ─── Public API ────────────────────────────────────────────────────────────
 
-  /// Acquire camera/mic, create RTCPeerConnection, perform WHIP handshake.
-  Future<void> start() async {
+  /// Acquire camera/mic (or reuse [existingStream]), create RTCPeerConnection,
+  /// perform WHIP handshake.
+  ///
+  /// Pass [existingStream] when a MediaStream was already acquired for the
+  /// standby preview (e.g. from _setupCamera in live_studio_screen.dart).
+  /// This avoids a second getUserMedia call which can trigger cameraNotReadable.
+  Future<void> start({MediaStream? existingStream}) async {
     assert(kIsWeb, 'WebWhipBroadcaster is Web-only');
     if (_state != WhipState.idle && _state != WhipState.stopped) {
       _emitError('start() called in invalid state: ${_state.name}');
@@ -97,15 +102,43 @@ class WebWhipBroadcaster {
     try {
       // ── 1. Acquire media ──────────────────────────────────────────────────
       _setState(WhipState.acquiringMedia);
-      _localStream = await navigator.mediaDevices.getUserMedia({
-        'video': videoConstraints,
-        'audio': audioConstraints,
-      });
-      debugPrint(
-        '[WHIP] Media acquired: '
-        'video=${_localStream!.getVideoTracks().length} '
-        'audio=${_localStream!.getAudioTracks().length}',
-      );
+
+      if (existingStream != null) {
+        // Reuse the preview stream already acquired by the UI — avoids
+        // a second getUserMedia call that would conflict on the same device.
+        _localStream = existingStream;
+        debugPrint(
+          '[WHIP] Reusing existing preview stream: '
+          'video=${_localStream!.getVideoTracks().length} '
+          'audio=${_localStream!.getAudioTracks().length}',
+        );
+      } else {
+        try {
+          _localStream = await navigator.mediaDevices.getUserMedia({
+            'video': videoConstraints,
+            'audio': audioConstraints,
+          });
+        } catch (e1) {
+          debugPrint('[WHIP] Ideal constraints failed ($e1) — retrying basic video+audio');
+          try {
+            _localStream = await navigator.mediaDevices.getUserMedia({
+              'video': true,
+              'audio': true,
+            });
+          } catch (e2) {
+            debugPrint('[WHIP] Basic video+audio failed ($e2) — retrying video-only');
+            _localStream = await navigator.mediaDevices.getUserMedia({
+              'video': true,
+              'audio': false,
+            });
+          }
+        }
+        debugPrint(
+          '[WHIP] Media acquired: '
+          'video=${_localStream!.getVideoTracks().length} '
+          'audio=${_localStream!.getAudioTracks().length}',
+        );
+      }
 
       // ── 2. Create PeerConnection ──────────────────────────────────────────
       _setState(WhipState.connecting);
@@ -185,13 +218,21 @@ class WebWhipBroadcaster {
   Future<void> switchCamera(bool useFront) async {
     if (_localStream == null || _pc == null) return;
     try {
-      final newStream = await navigator.mediaDevices.getUserMedia({
-        'video': {
-          ...videoConstraints,
-          'facingMode': useFront ? 'user' : 'environment',
-        },
-        'audio': false,
-      });
+      MediaStream? newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          'video': {
+            ...videoConstraints,
+            'facingMode': {'ideal': useFront ? 'user' : 'environment'},
+          },
+          'audio': false,
+        });
+      } catch (_) {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          'video': true,
+          'audio': false,
+        });
+      }
 
       final newVideoTrack = newStream.getVideoTracks().firstOrNull;
       if (newVideoTrack == null) return;
@@ -207,6 +248,10 @@ class WebWhipBroadcaster {
       // Stop the old video tracks and update _localStream reference
       for (final t in _localStream!.getVideoTracks()) {
         t.stop();
+      }
+      // Preserve existing audio tracks onto the new stream
+      for (final a in _localStream!.getAudioTracks()) {
+        newStream.addTrack(a);
       }
       _localStream = newStream;
     } catch (e) {
