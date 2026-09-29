@@ -13,6 +13,7 @@ import { LiveGatewayModule } from '../live-gateway/live-gateway.module.js';
 import { UploadsModule } from '../uploads/uploads.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { StreamReminderService } from './stream-reminder.service.js';
+import { MediaMtxService } from './mediamtx.service.js';
 
 @Module({
   imports: [
@@ -25,8 +26,8 @@ import { StreamReminderService } from './stream-reminder.service.js';
     NotificationsModule,
   ],
   controllers: [LiveStreamingController, StreamsController],
-  providers: [LiveStreamingService, LiveStreamingRepository, StreamReminderService],
-  exports: [LiveStreamingService, LiveStreamingRepository, StreamReminderService],
+  providers: [LiveStreamingService, LiveStreamingRepository, StreamReminderService, MediaMtxService],
+  exports: [LiveStreamingService, LiveStreamingRepository, StreamReminderService, MediaMtxService],
 })
 export class LiveStreamingModule {}
 

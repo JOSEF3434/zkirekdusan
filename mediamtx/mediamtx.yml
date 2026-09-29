@@ -1,0 +1,54 @@
+###############################################################################
+# MediaMTX — Zikre Kedusan WebRTC-to-RTMP Ingest Gateway
+#
+# Role: Accept WebRTC streams from browser via WHIP, re-stream to Cloudinary.
+# WHIP endpoint: POST https://<host>/<path>/whip
+#
+# IMPORTANT: Individual stream paths are registered DYNAMICALLY by the backend
+# via the MediaMTX REST API (POST /v3/config/paths/add/<name>).
+# Each path is created with the exact Cloudinary RTMP ingest URL (including
+# the actual stream_key) embedded in the runOnAvailable FFmpeg command.
+# This avoids the previous bug where {path} was used as the stream key but
+# the path name is the Cloudinary stream ID, not the RTMP stream_key token.
+###############################################################################
+
+logLevel: info
+logDestinations: [stdout]
+
+# REST API — used for health checks and dynamic path management by the backend
+api: yes
+apiAddress: :9997
+
+# RTSP — MediaMTX exposes each WHIP session as RTSP internally so FFmpeg can
+# read from rtsp://127.0.0.1:8554/<path> to re-publish to Cloudinary RTMP.
+rtsp: yes
+rtspAddress: :8554
+protocols: [tcp]
+
+# Disable RTMP server-side ingest (ffmpeg pushes to Cloudinary as RTMP client)
+rtmp: no
+
+# Disable HLS (Cloudinary provides HLS output)
+hls: no
+
+# ─── WebRTC / WHIP ───────────────────────────────────────────────────────────
+webrtc: yes
+webrtcAddress: :8889
+
+# Add your server's public IP/hostname here if clients are behind NAT/firewall
+webrtcAdditionalHosts: []
+
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# ─── Path Defaults ───────────────────────────────────────────────────────────
+# Paths are registered per broadcast session via the MediaMTX REST API.
+# The backend calls POST /v3/config/paths/add/<cloudinary-path-name> with the
+# correct runOnAvailable FFmpeg command embedding the exact Cloudinary RTMP
+# ingest URI (rtmp://live.cloudinary.com/streams/<actual_stream_key>).
+# No static all_others fallback — each path is explicit and correctly keyed.
+pathDefaults:
+  readUser: ""
+  readPass: ""
+  publishUser: ""
+  publishPass: ""

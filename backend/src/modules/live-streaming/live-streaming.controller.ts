@@ -212,6 +212,25 @@ export class StreamsController {
     return this.liveStreamingService.deleteStream(userId, streamId);
   }
 
+  @Get(':id/whip-session')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get WHIP ingest endpoint for browser WebRTC broadcasting (Web Live Studio)',
+  })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns whipUrl, streamKey, and rtmpUrl for WebRTC ingest',
+  })
+  async getWhipSession(
+    @CurrentUser('sub') userId: string,
+    @Param('id') streamId: string,
+  ) {
+    return this.liveStreamingService.getWhipSession(userId, streamId);
+  }
+
   @Post(':id/go-live')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

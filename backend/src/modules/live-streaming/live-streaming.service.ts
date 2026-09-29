@@ -23,6 +23,7 @@ import { LiveGateway } from '../live-gateway/live.gateway.js';
 import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { forwardRef, Inject } from '@nestjs/common';
+import { MediaMtxService } from './mediamtx.service.js';
 
 @Injectable()
 export class LiveStreamingService {
@@ -39,6 +40,7 @@ export class LiveStreamingService {
     private readonly liveGateway: LiveGateway,
     private readonly cloudinaryProvider: CloudinaryStorageProvider,
     private readonly notificationsService: NotificationsService,
+    private readonly mediaMtx: MediaMtxService,
   ) {}
 
 
@@ -399,6 +401,158 @@ export class LiveStreamingService {
     return 'rtmp://live.cloudinary.com/streams';
   }
 
+  /**
+   * GET /streams/:id/whip-session
+   *
+   * Returns the WHIP ingest endpoint URL for the given stream.
+   *
+   * Flow:
+   *   1. Validates the user has stream permission.
+   *   2. Provisions or retrieves the Cloudinary live stream, resolving the
+   *      ACTUAL stream key (not just the hashed/stored version).
+   *   3. Activates the Cloudinary stream so it is ready when the browser
+   *      publishes its WHIP SDP offer.
+   *   4. Registers a per-session path on MediaMTX via its REST API, embedding
+   *      the exact Cloudinary RTMP destination in the runOnAvailable FFmpeg cmd.
+   *   5. Returns whipUrl, rtmpDestination (for debugging), and streamKey.
+   */
+  async getWhipSession(
+    userId: string,
+    streamId: string,
+  ): Promise<{ whipUrl: string; streamKey: string; rtmpUrl: string; rtmpDestination: string }> {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt)
+      throw new NotFoundException('Stream not found');
+
+    const hasPermission = await this.hasStreamPermission(userId, stream.groupId);
+    if (!hasPermission)
+      throw new ForbiddenException('You do not have permission to stream this channel');
+
+    if (
+      stream.status === LiveStreamStatus.ENDED ||
+      stream.status === LiveStreamStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Cannot stream an ended or cancelled session');
+    }
+
+    // ── 1. Resolve the Cloudinary stream + actual stream key ──────────────────
+    let streamKeyRecord = await this.repository.getStreamKeyByChannelId(stream.videoChannelId);
+    let cldStreamId: string | undefined;
+    let actualStreamKey: string | undefined;
+    let rtmpIngestBase = 'rtmp://live.cloudinary.com/streams';
+
+    const existingCldId = streamKeyRecord?.keyPrefix?.startsWith('cld_')
+      ? streamKeyRecord.keyPrefix.substring(4)
+      : null;
+
+    if (existingCldId) {
+      // Try to fetch the existing Cloudinary stream and its key
+      try {
+        const cldData = await this.cloudinaryProvider.getLiveStream(existingCldId);
+        if (cldData?.input?.stream_key) {
+          cldStreamId = existingCldId;
+          actualStreamKey = cldData.input.stream_key as string;
+          rtmpIngestBase = (cldData.input?.uri as string) || rtmpIngestBase;
+        } else {
+          this.logger.warn(
+            `[WHIP] Cloudinary stream ${existingCldId} returned no stream_key — will reprovision.`,
+          );
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `[WHIP] Could not fetch Cloudinary stream ${existingCldId}: ${err.message} — will reprovision.`,
+        );
+      }
+    }
+
+    if (!cldStreamId || !actualStreamKey) {
+      // Provision a fresh Cloudinary live stream
+      const safeSlug = (stream.slug || stream.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cld = await this.cloudinaryProvider.createLiveStream(
+        `stream_${safeSlug}_${Date.now()}`,
+        { archiveEnabled: stream.isRecordingEnabled ?? true },
+      );
+      cldStreamId = cld.id;
+      actualStreamKey = cld.streamKey;
+      rtmpIngestBase = cld.rtmpIngestUrl || rtmpIngestBase;
+
+      const keyHash = createHash('sha256').update(actualStreamKey).digest('hex');
+      const keyPrefix = `cld_${cld.id}`;
+      streamKeyRecord = await this.repository.upsertStreamKey(
+        stream.videoChannelId,
+        keyHash,
+        keyPrefix,
+      );
+      // Persist Cloudinary URLs
+      await this.prisma.liveStream.update({
+        where: { id: streamId },
+        data: {
+          hlsUrl: cld.hlsUrl,
+          rtmpIngestUrl: cld.rtmpIngestUrl,
+          webrtcUrl: `cloudinary:${cld.id}`,
+          dashUrl: cld.archivePublicId,
+        },
+      });
+    }
+
+    // ── 2. Activate the Cloudinary stream ────────────────────────────────────
+    if (cldStreamId) {
+      try {
+        await this.cloudinaryProvider.activateLiveStream(cldStreamId);
+        // Re-fetch key after activation if still missing
+        if (!actualStreamKey) {
+          const cldData = await this.cloudinaryProvider.getLiveStream(cldStreamId);
+          actualStreamKey = cldData?.input?.stream_key;
+        }
+      } catch (err: any) {
+        this.logger.warn(`[WHIP] activateLiveStream failed: ${err.message}`);
+      }
+    }
+
+    if (!actualStreamKey) {
+      throw new BadRequestException(
+        'Could not obtain Cloudinary stream key. Please retry in a moment.',
+      );
+    }
+
+    // ── 3. Build WHIP URL + RTMP destination ─────────────────────────────────
+    const whipGatewayBase =
+      this.configService.get<string>('WHIP_GATEWAY_URL')?.replace(/\/$/, '') ?? '';
+
+    if (!whipGatewayBase) {
+      throw new BadRequestException(
+        'WHIP_GATEWAY_URL is not configured. ' +
+          'Deploy MediaMTX and set WHIP_GATEWAY_URL in the backend environment.',
+      );
+    }
+
+    // Use the Cloudinary stream ID as the WHIP path identifier (URL-safe)
+    const whipPath = cldStreamId!;
+    const whipUrl = `${whipGatewayBase}/${whipPath}/whip`;
+
+    // Full Cloudinary RTMP destination: <base>/<stream_key>
+    // This is the exact URL FFmpeg must push to.
+    const rtmpDestination = `${rtmpIngestBase.replace(/\/$/, '')}/${actualStreamKey}`;
+
+    // ── 4. Register the MediaMTX path dynamically ────────────────────────────
+    // This sets the correct runOnAvailable FFmpeg command with the exact key.
+    await this.mediaMtx.registerBroadcastPath(whipPath, {
+      rtmpDestination,
+    });
+
+    this.logger.log(
+      `[WHIP] Session ready: stream=${streamId} path=${whipPath} ` +
+        `rtmpDest=rtmp://live.cloudinary.com/streams/<key>`,
+    );
+
+    return {
+      whipUrl,
+      streamKey: actualStreamKey,
+      rtmpUrl: rtmpIngestBase,
+      rtmpDestination,
+    };
+  }
+
   async startStream(userId: string, streamId: string) {
     const stream = await this.repository.getStreamById(streamId);
     if (!stream || stream.deletedAt)
@@ -622,6 +776,10 @@ export class LiveStreamingService {
       const cldStreamId = stream.webrtcUrl?.replace('cloudinary:', '');
       if (cldStreamId) {
         await this.cloudinaryProvider.idleLiveStream(cldStreamId);
+
+        // Clean up the dynamically-registered MediaMTX broadcast path
+        // so stale runOnAvailable hooks don't fire on future sessions.
+        await this.mediaMtx.removeBroadcastPath(cldStreamId);
       }
     }
 

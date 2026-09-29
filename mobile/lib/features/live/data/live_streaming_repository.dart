@@ -216,6 +216,26 @@ class LiveStreamingRepository {
     }
   }
 
+  /// GET /streams/:id/whip-session
+  /// Returns WHIP ingest URL for browser WebRTC broadcasting (Web Live Studio).
+  /// The backend ensures a Cloudinary stream key exists and returns the
+  /// MediaMTX WHIP endpoint URL pointing to that key's path.
+  Future<({String whipUrl, String streamKey, String rtmpUrl})> getWhipSession(
+    String streamId,
+  ) async {
+    try {
+      final response = await _dio.get('/streams/$streamId/whip-session');
+      final data = parseEnvelope(response.data);
+      return (
+        whipUrl: (data['whipUrl'] as String? ?? ''),
+        streamKey: (data['streamKey'] as String? ?? ''),
+        rtmpUrl: (data['rtmpUrl'] as String? ?? ''),
+      );
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
   // ─── Stream Key ────────────────────────────────────────────────────────────
 
   /// GET /video-channels/:channelId/streams/key

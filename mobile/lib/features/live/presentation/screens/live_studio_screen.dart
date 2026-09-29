@@ -3,11 +3,15 @@
 
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:apivideo_live_stream/apivideo_live_stream.dart';
+import 'package:camera/camera.dart' as cam;
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:mobile/features/live/data/web_whip_broadcaster.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/error/exceptions.dart';
@@ -193,15 +197,49 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     );
   }
 
-  // Camera & Streaming hardware state (apivideo_live_stream)
+  // Camera & Streaming hardware state (apivideo_live_stream for mobile, camera/flutter_webrtc for web)
   ApiVideoLiveStreamController? _liveStreamController;
+  cam.CameraController? _webCameraController;
+  List<cam.CameraDescription> _webAvailableCameras = [];
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = true;
   bool _isTorchOn = false;
   bool _isInitializingCamera = false;
   bool _isStreamingRtmp = false;
   String? _streamingError;
+  String? _cameraErrorMessage;
   String? _lastStreamKey;
+
+  // Web WHIP broadcaster (flutter_webrtc → MediaMTX → Cloudinary)
+  WebWhipBroadcaster? _whipBroadcaster;
+  final rtc.RTCVideoRenderer _webVideoRenderer = rtc.RTCVideoRenderer();
+  bool _webRendererInitialized = false;
+  WhipState _whipState = WhipState.idle;
+  String? _whipError;
+
+  bool get _isCameraReady {
+    if (kIsWeb) {
+      // On Web, camera readiness is confirmed once the WHIP broadcaster
+      // has acquired a local MediaStream (getUserMedia succeeded).
+      if (_whipBroadcaster?.localStream != null) return true;
+      // Fall back to camera_web controller while WHIP is not yet started
+      return _webCameraController != null &&
+          _webCameraController!.value.isInitialized &&
+          _isCameraInitialized;
+    }
+    return _liveStreamController != null &&
+        _liveStreamController!.isInitialized &&
+        _isCameraInitialized;
+  }
+
+  bool get _isBroadcastTransportReady {
+    if (kIsWeb) {
+      // WebRTC WHIP transport is available via flutter_webrtc + MediaMTX.
+      // Transport is considered ready when WHIP is connected.
+      return _whipBroadcaster?.isConnected ?? false;
+    }
+    return _liveStreamController != null && _isCameraInitialized;
+  }
 
   // Channel picker state (YouTube style)
   List<LiveStudioChannelItem> _availableChannels = [];
@@ -296,6 +334,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _stopRtmpBroadcast();
     _liveStreamController?.stop();
     _liveStreamController?.dispose();
+    _webCameraController?.dispose();
+    // Stop WHIP broadcaster and release WebRTC resources
+    _whipBroadcaster?.stop();
+    if (_webRendererInitialized) {
+      _webVideoRenderer.dispose();
+    }
     _titleCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
@@ -2383,6 +2427,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                               _StatusBanner(status: stream.status),
                               const SizedBox(height: 16),
 
+                              // ── Web WHIP Status Banner ──────────────────
+                              if (kIsWeb) ...[
+                                _WhipStatusBanner(
+                                  whipState: _whipState,
+                                  error: _whipError,
+                                  onRetry: () => _handleGoLive(streamId, bState),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+
                               // RTMP key card
                               _StreamKeyCard(
                                 streamKey: bState.streamKey,
@@ -2509,6 +2563,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     status: stream.status,
                     isGoingLive: bState.isGoingLive,
                     isEndingStream: bState.isEndingStream,
+                    isCameraReady: _isCameraReady,
+                    // On Web, WHIP transport connects during Go Live (not before).
+                    // Always pass true so the button is enabled when camera is ready.
+                    isTransportReady: kIsWeb ? true : _isBroadcastTransportReady,
+                    whipState: kIsWeb ? _whipState : null,
                     onGoLive: () => _handleGoLive(streamId, bState),
                     onEndStream: () =>
                         _confirmEndStream(context, streamId, bState),
@@ -2578,9 +2637,101 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   Future<void> _setupCamera({bool? front}) async {
     if (_isInitializingCamera) return;
-    setState(() => _isInitializingCamera = true);
+    setState(() {
+      _isInitializingCamera = true;
+      _cameraErrorMessage = null;
+    });
 
     try {
+      final isFront = front ?? _isFrontCamera;
+
+      if (kIsWeb) {
+        // ── 1. [WEB CAMERA] permission ──
+        debugPrint('[WEB CAMERA] permission: checking / requesting browser media permissions');
+
+        final oldWeb = _webCameraController;
+        _webCameraController = null;
+        if (oldWeb != null) {
+          try {
+            await oldWeb.dispose();
+          } catch (e) {
+            debugPrint('[WEB CAMERA] error disposing old controller: $e');
+          }
+        }
+
+        // ── 2. [WEB CAMERA] available cameras ──
+        try {
+          _webAvailableCameras = await cam.availableCameras();
+        } catch (e, st) {
+          debugPrint('[WEB CAMERA] error querying available cameras: $e\n$st');
+          throw Exception('Failed to query available cameras: $e');
+        }
+
+        debugPrint(
+          '[WEB CAMERA] available cameras: count=${_webAvailableCameras.length}, '
+          'cameras=${_webAvailableCameras.map((c) => "${c.name} (${c.lensDirection.name})").toList()}',
+        );
+
+        if (_webAvailableCameras.isEmpty) {
+          throw Exception(
+            'No cameras detected on this device. Please connect a camera or verify browser permissions.',
+          );
+        }
+
+        // ── 3. [WEB CAMERA] selected camera ──
+        final targetDirection =
+            isFront ? cam.CameraLensDirection.front : cam.CameraLensDirection.back;
+        final selectedCam = _webAvailableCameras.firstWhere(
+          (c) => c.lensDirection == targetDirection,
+          orElse: () => _webAvailableCameras.first,
+        );
+        debugPrint(
+          '[WEB CAMERA] selected camera: name=${selectedCam.name}, direction=${selectedCam.lensDirection.name}',
+        );
+
+        // ── 4. [WEB CAMERA] CameraController creation ──
+        final controller = cam.CameraController(
+          selectedCam,
+          cam.ResolutionPreset.high,
+          enableAudio: true,
+        );
+
+        // ── 5. [WEB CAMERA] initialize started ──
+        debugPrint('[WEB CAMERA] initialize started: camera=${selectedCam.name}');
+        await controller.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw Exception(
+            'Web camera initialization timed out. Please allow camera access in your browser.',
+          ),
+        );
+
+        // ── 6. [WEB CAMERA] initialize completed & controller.isInitialized ──
+        debugPrint(
+          '[WEB CAMERA] initialize completed: isInitialized=${controller.value.isInitialized}, '
+          'previewSize=${controller.value.previewSize}',
+        );
+        debugPrint('[WEB CAMERA] controller.isInitialized: ${controller.value.isInitialized}');
+
+        if (!mounted) {
+          await controller.dispose();
+          return;
+        }
+
+        setState(() {
+          _webCameraController = controller;
+          _isCameraInitialized = controller.value.isInitialized;
+          _isCameraPermissionGranted = true;
+          _isFrontCamera = selectedCam.lensDirection == cam.CameraLensDirection.front;
+          _isInitializingCamera = false;
+          _cameraErrorMessage = null;
+        });
+
+        // ── 7. [WEB CAMERA] preview ready ──
+        debugPrint('[WEB CAMERA] preview ready');
+        return;
+      }
+
+      // ── Mobile Native path (Android / iOS) ──
       final camStatus = await Permission.camera.request();
       final micStatus = await Permission.microphone.request();
 
@@ -2590,12 +2741,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             _isCameraPermissionGranted = false;
             _isCameraInitialized = false;
             _isInitializingCamera = false;
+            _cameraErrorMessage = 'Camera and microphone permissions are required.';
           });
         }
         return;
       }
-
-      final isFront = front ?? _isFrontCamera;
 
       final oldController = _liveStreamController;
       _liveStreamController = null;
@@ -2638,12 +2788,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         _isCameraPermissionGranted = true;
         _isFrontCamera = isFront;
         _isInitializingCamera = false;
+        _cameraErrorMessage = null;
       });
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[LiveStudio] Camera setup exception: $e\n$st');
+      if (kIsWeb) {
+        debugPrint('[WEB CAMERA] error: $e');
+      }
       if (mounted) {
+        final errText = e.toString().replaceFirst('Exception: ', '');
         setState(() {
           _isCameraInitialized = false;
           _isInitializingCamera = false;
+          _cameraErrorMessage = errText;
         });
       }
     }
@@ -2651,6 +2808,18 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   Future<void> _flipCamera() async {
     HapticFeedback.lightImpact();
+    if (kIsWeb) {
+      final nextIsFront = !_isFrontCamera;
+      setState(() => _isFrontCamera = nextIsFront);
+      if (_whipBroadcaster != null && _whipBroadcaster!.isConnected) {
+        // WHIP active: replace track in existing RTCPeerConnection
+        await _whipBroadcaster!.switchCamera(nextIsFront);
+      } else {
+        // Standby: switch the camera_web preview
+        await _setupCamera(front: nextIsFront);
+      }
+      return;
+    }
     if (_liveStreamController != null && _isCameraInitialized) {
       try {
         await _liveStreamController!.switchCamera();
@@ -2668,14 +2837,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   Future<void> _toggleTorch() async {
     HapticFeedback.lightImpact();
-    setState(() => _isTorchOn = !_isTorchOn);
+    if (!kIsWeb) {
+      setState(() => _isTorchOn = !_isTorchOn);
+    }
   }
 
   Future<void> _toggleMic() async {
     HapticFeedback.lightImpact();
     final nextMute = !_isMicMuted;
     setState(() => _isMicMuted = nextMute);
-    if (_liveStreamController != null && _isCameraInitialized) {
+    if (kIsWeb) {
+      // WHIP: toggle audio track enabled on the WebRTC MediaStream
+      _whipBroadcaster?.setMuted(nextMute);
+    } else if (_liveStreamController != null && _isCameraInitialized) {
       try {
         await _liveStreamController!.setIsMuted(nextMute);
       } catch (_) {}
@@ -2730,14 +2904,108 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     LiveStreamDto stream,
     String streamKey,
   ) async {
+    final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
+
+    if (kIsWeb) {
+      // ── Web: WebRTC WHIP via MediaMTX ──────────────────────────────────────
+      // Flow: Browser getUserMedia → flutter_webrtc RTCPeerConnection
+      //       → WHIP POST to MediaMTX → MediaMTX ffmpeg → Cloudinary RTMP
+      debugPrint('[WEB BROADCAST] Starting WebRTC WHIP ingest...');
+
+      try {
+        // Fetch the WHIP endpoint URL from the backend.
+        // This also ensures a Cloudinary stream key exists for this session.
+        final session = await ref
+            .read(liveStreamingRepositoryProvider)
+            .getWhipSession(stream.id);
+
+        final whipUrl = session.whipUrl;
+        if (whipUrl.isEmpty) {
+          throw Exception(
+            'WHIP gateway is not configured on the server. '
+            'Please ask your administrator to deploy MediaMTX and set WHIP_GATEWAY_URL.',
+          );
+        }
+
+        debugPrint('[WEB BROADCAST] WHIP endpoint: $whipUrl');
+
+        // Initialize RTCVideoRenderer for the preview (only once per session)
+        if (!_webRendererInitialized) {
+          await _webVideoRenderer.initialize();
+          _webRendererInitialized = true;
+        }
+
+        // Stop any previous broadcaster
+        await _whipBroadcaster?.stop();
+        _whipBroadcaster = null;
+
+        final broadcaster = WebWhipBroadcaster(
+          whipUrl: whipUrl,
+          videoConstraints: {
+            'width': {'ideal': 1280},
+            'height': {'ideal': 720},
+            'frameRate': {'ideal': 30, 'max': 30},
+            'facingMode': _isFrontCamera ? 'user' : 'environment',
+          },
+          audioConstraints: {
+            'echoCancellation': true,
+            'noiseSuppression': true,
+            'autoGainControl': true,
+          },
+          onStateChange: (state) {
+            if (!mounted) return;
+            setState(() {
+              _whipState = state;
+              if (state == WhipState.connected) {
+                _isStreamingRtmp = true;
+                _streamingError = null;
+                _whipError = null;
+              } else if (state == WhipState.failed) {
+                _isStreamingRtmp = false;
+              } else if (state == WhipState.stopped) {
+                _isStreamingRtmp = false;
+              }
+            });
+          },
+          onError: (error) {
+            if (!mounted) return;
+            setState(() {
+              _whipError = error;
+              _streamingError = error;
+            });
+          },
+        );
+
+        _whipBroadcaster = broadcaster;
+
+        // Start: getUserMedia → PeerConnection → WHIP handshake
+        await broadcaster.start();
+
+        // Wire the MediaStream to the RTCVideoRenderer for live preview
+        if (broadcaster.localStream != null && mounted) {
+          _webVideoRenderer.srcObject = broadcaster.localStream;
+          setState(() {});
+        }
+
+        if (broadcaster.state == WhipState.failed) {
+          throw Exception(_whipError ?? 'WebRTC connection failed. Please retry.');
+        }
+
+        debugPrint('[WEB BROADCAST] ✓ WHIP session active — streaming to Cloudinary via MediaMTX');
+        return; // Success — do not fall through to mobile RTMP path
+      } catch (e) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        debugPrint('[WEB BROADCAST] error: $msg');
+        throw Exception(msg);
+      }
+    }
+
     if (_liveStreamController == null || !_isCameraInitialized) {
       await _setupCamera(front: _isFrontCamera);
     }
     if (_liveStreamController == null || !_isCameraInitialized) {
       throw Exception('Camera is not ready for live broadcasting.');
     }
-
-    final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
 
     // Safely log RTMP host for debugging (never log stream keys or secrets)
     try {
@@ -2873,13 +3141,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   Future<void> _stopRtmpBroadcast() async {
-    if (_isStreamingRtmp && _liveStreamController != null) {
-      try {
-        await _liveStreamController!.stopStreaming();
-      } catch (_) {}
-      if (mounted) {
-        setState(() => _isStreamingRtmp = false);
+    if (kIsWeb) {
+      // Web: stop the WHIP broadcaster
+      if (_whipBroadcaster != null) {
+        try {
+          await _whipBroadcaster!.stop();
+        } catch (_) {}
+        _whipBroadcaster = null;
       }
+      if (_webVideoRenderer.srcObject != null) {
+        _webVideoRenderer.srcObject = null;
+      }
+    } else {
+      // Mobile: stop apivideo RTMP stream
+      if (_isStreamingRtmp && _liveStreamController != null) {
+        try {
+          await _liveStreamController!.stopStreaming();
+        } catch (_) {}
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = false;
+        _whipState = WhipState.stopped;
+      });
     }
   }
 
@@ -2903,6 +3188,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       final channelId = _effectiveChannelId;
       if (channelId.isEmpty) {
         throw Exception('Please select a streaming channel first.');
+      }
+
+      // On Web: camera preview may be via camera_web but actual WHIP capture
+      // happens in _startRtmpBroadcast (getUserMedia is called there).
+      // On Mobile: require camera to be initialized before going live.
+      if (!kIsWeb && !_isCameraReady) {
+        debugPrint('[LiveStudio] Camera not ready — attempting re-init');
+        await _setupCamera(front: _isFrontCamera);
+        if (!_isCameraReady) {
+          throw Exception('Camera is not ready. Please allow camera access and retry.');
+        }
       }
 
       final notifier = ref.read(
@@ -2998,18 +3294,41 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         children: [
           // ── Video Preview or Audio Waveform ──
           if (_isVideoStream)
-            if (_isCameraInitialized &&
-                _liveStreamController != null &&
-                _liveStreamController!.isInitialized)
+            if (_isCameraReady)
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
                   child: SizedBox(
-                    width: 1280,
-                    height: 720,
-                    child: ApiVideoCameraPreview(
-                      controller: _liveStreamController!,
-                    ),
+                    width: kIsWeb
+                        ? (_webCameraController?.value.previewSize?.height ??
+                            (_webVideoRenderer.videoWidth > 0
+                                ? _webVideoRenderer.videoWidth.toDouble()
+                                : 1280))
+                        : 1280,
+                    height: kIsWeb
+                        ? (_webCameraController?.value.previewSize?.width ??
+                            (_webVideoRenderer.videoHeight > 0
+                                ? _webVideoRenderer.videoHeight.toDouble()
+                                : 720))
+                        : 720,
+                    child: kIsWeb
+                        ? (_whipBroadcaster != null &&
+                                _webRendererInitialized &&
+                                _webVideoRenderer.srcObject != null
+                            // WHIP active: show the live WebRTC preview
+                            ? rtc.RTCVideoView(
+                                _webVideoRenderer,
+                                mirror: _isFrontCamera,
+                                objectFit: rtc.RTCVideoViewObjectFit
+                                    .RTCVideoViewObjectFitCover,
+                              )
+                            // Standby: camera_web preview (no WHIP yet)
+                            : (_webCameraController != null
+                                ? cam.CameraPreview(_webCameraController!)
+                                : const SizedBox.shrink()))
+                        : ApiVideoCameraPreview(
+                            controller: _liveStreamController!,
+                          ),
                   ),
                 ),
               )
@@ -3039,6 +3358,39 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                         onPressed: () => _setupCamera(),
                         child: const Text(
                           'Grant Camera Access',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_cameraErrorMessage != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 36,
+                        color: Colors.redAccent,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _cameraErrorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.tonal(
+                        onPressed: () => _setupCamera(),
+                        child: const Text(
+                          'Retry Camera',
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
@@ -3413,7 +3765,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                           ),
                           onPressed: () {
                             setState(() => _isVideoStream = !_isVideoStream);
-                            if (_isVideoStream && !_isCameraInitialized) {
+                            if (_isVideoStream && !_isCameraReady) {
                               _setupCamera();
                             }
                           },
@@ -3753,7 +4105,120 @@ class _StatusBanner extends StatelessWidget {
   }
 }
 
-// ─── Stream key card ───────────────────────────────────────────────────────
+// ─── Web WHIP Status Banner ─────────────────────────────────────────────────
+
+class _WhipStatusBanner extends StatelessWidget {
+  final WhipState whipState;
+  final String? error;
+  final VoidCallback? onRetry;
+
+  const _WhipStatusBanner({
+    required this.whipState,
+    this.error,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (whipState == WhipState.idle || whipState == WhipState.stopped) {
+      return const SizedBox.shrink();
+    }
+
+    final (Color color, String label, IconData icon, bool showRetry) =
+        switch (whipState) {
+      WhipState.acquiringMedia => (
+        Colors.amber,
+        'Acquiring camera & microphone...',
+        Icons.camera_alt_outlined,
+        false,
+      ),
+      WhipState.connecting => (
+        Colors.blue,
+        'Connecting WebRTC to streaming gateway...',
+        Icons.wifi_tethering,
+        false,
+      ),
+      WhipState.connected => (
+        Colors.green,
+        'WebRTC Connected — streaming via MediaMTX → Cloudinary',
+        Icons.broadcast_on_personal,
+        false,
+      ),
+      WhipState.reconnecting => (
+        Colors.orange,
+        'WebRTC reconnecting...',
+        Icons.wifi_tethering_error,
+        false,
+      ),
+      WhipState.failed => (
+        Colors.red,
+        error ?? 'WebRTC connection failed',
+        Icons.error_outline,
+        true,
+      ),
+      _ => (Colors.grey, '', Icons.info_outline, false),
+    };
+
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          if (whipState == WhipState.acquiringMedia ||
+              whipState == WhipState.connecting ||
+              whipState == WhipState.reconnecting)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            )
+          else
+            Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (showRetry && onRetry != null) ...[
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 14),
+              label: const Text('Retry', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: color,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+
 
 class _StreamKeyCard extends StatelessWidget {
   final dynamic streamKey;
@@ -3892,6 +4357,10 @@ class _ActionBar extends ConsumerWidget {
   final LiveStreamStatus status;
   final bool isGoingLive;
   final bool isEndingStream;
+  final bool isCameraReady;
+  final bool isTransportReady;
+  /// Current WHIP state on Web (null on mobile).
+  final WhipState? whipState;
   final VoidCallback onGoLive;
   final VoidCallback onEndStream;
   final VoidCallback onPublishVod;
@@ -3900,6 +4369,9 @@ class _ActionBar extends ConsumerWidget {
     required this.status,
     required this.isGoingLive,
     required this.isEndingStream,
+    this.isCameraReady = true,
+    this.isTransportReady = true,
+    this.whipState,
     required this.onGoLive,
     required this.onEndStream,
     required this.onPublishVod,
@@ -3924,7 +4396,9 @@ class _ActionBar extends ConsumerWidget {
         LiveStreamStatus.draft || LiveStreamStatus.scheduled => SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: isGoingLive ? null : onGoLive,
+            onPressed: (isGoingLive || !isCameraReady || !isTransportReady)
+                ? null
+                : onGoLive,
             icon: isGoingLive
                 ? const SizedBox(
                     width: 18,
@@ -3935,9 +4409,21 @@ class _ActionBar extends ConsumerWidget {
                     ),
                   )
                 : const Icon(Icons.live_tv),
-            label: Text(tr('shell.go_live')),
+            label: Text(
+              !isCameraReady
+                  ? 'Camera Initializing...'
+                  : (!isTransportReady
+                      ? 'Transport Not Ready'
+                      : (kIsWeb && whipState == WhipState.connecting
+                          ? 'Connecting WebRTC...'
+                          : (kIsWeb && whipState == WhipState.acquiringMedia
+                              ? 'Acquiring Camera...'
+                              : tr('shell.go_live')))),
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFE53935),
+              disabledBackgroundColor: Colors.grey.shade800,
+              disabledForegroundColor: Colors.white38,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
