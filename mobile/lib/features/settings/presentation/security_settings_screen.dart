@@ -10,6 +10,7 @@ import 'package:mobile/features/security/presentation/providers/app_lock_provide
 import 'package:mobile/features/security/presentation/pin_setup_screen.dart';
 import 'package:mobile/features/security/presentation/pattern_setup_screen.dart';
 import 'package:mobile/features/security/data/pin_service.dart';
+import 'package:mobile/features/security/data/secure_window_service.dart';
 
 class SecuritySettingsScreen extends ConsumerWidget {
   const SecuritySettingsScreen({super.key});
@@ -154,6 +155,36 @@ class SecuritySettingsScreen extends ConsumerWidget {
                               const PatternSetupScreen(isChange: true)),
                     ),
                   ),
+
+                // ── Notification Privacy ──────────────────────────────
+                SettingsSwitchTile(
+                  icon: Icons.notifications_off_outlined,
+                  iconColor: const Color(0xFF00C6FF),
+                  title: 'Notification Privacy',
+                  subtitle: lockSettings.notificationPrivacyEnabled
+                      ? 'New message content is hidden in notifications'
+                      : 'Notification content is shown normally',
+                  value: lockSettings.notificationPrivacyEnabled,
+                  onChanged: (v) =>
+                      lockNotifier.setNotificationPrivacy(v),
+                ),
+
+                // ── Screenshot Protection ─────────────────────────────
+                SettingsSwitchTile(
+                  icon: Icons.screenshot_monitor_rounded,
+                  iconColor: const Color(0xFFFF9F43),
+                  title: 'Screenshot Protection',
+                  subtitle: lockSettings.screenshotProtectionEnabled
+                      ? 'App content is hidden from screen recorders'
+                      : 'Screenshots and screen recording allowed',
+                  value: lockSettings.screenshotProtectionEnabled,
+                  onChanged: (v) async {
+                    await lockNotifier.setScreenshotProtection(v);
+                    ref
+                        .read(secureWindowServiceProvider)
+                        .setSecureMode(v);
+                  },
+                ),
 
                 // ── Lock Now ──────────────────────────────────────────
                 ListTile(

@@ -66,6 +66,24 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-trigger biometric prompt when user returns to the lock screen
+    // (e.g. after dismissing the biometric system dialog and re-focusing).
+    if (state == AppLifecycleState.resumed) {
+      final settings = ref.read(appLockSettingsProvider);
+      final lockState = ref.read(appLockProvider);
+      if (lockState.status == AppLockStatus.locked &&
+          settings.method.usesBiometric &&
+          !_showFallback &&
+          !_isLoading) {
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted && !_showFallback) _authenticateWithBiometric();
+        });
+      }
+    }
+  }
+
   // ── Biometric auto-trigger ─────────────────────────────────────────────
 
   Future<void> _tryBiometricIfAvailable() async {
@@ -151,8 +169,14 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
         _isLoading = false;
       });
 
-      if (lockState.shouldForceLogout) {
-        _forceLogout();
+      // Never force logout — account session is preserved.
+      // After 10+ failures the state flags requireBiometricFallback.
+      if (lockState.requireBiometricFallback) {
+        setState(() {
+          _errorMessage =
+              'Too many failed attempts. Please use device biometric to continue.';
+          _showFallback = false; // reset to biometric-first view
+        });
         return;
       }
 
@@ -227,8 +251,13 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
       _patternKey.currentState?.reset();
       setState(() => _patternState = PatternLockState.idle);
 
-      if (lockState.shouldForceLogout) {
-        _forceLogout();
+      // Never force logout — account session is preserved.
+      if (lockState.requireBiometricFallback) {
+        setState(() {
+          _errorMessage =
+              'Too many failed attempts. Please use device biometric to continue.';
+          _showFallback = false;
+        });
         return;
       }
 
@@ -248,7 +277,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
     }
   }
 
-  // ── Forgot / Force logout ──────────────────────────────────────────────
+  // ── Forgot / Recovery ───────────────────────────────────────────────────
 
   void _showForgotDialog() {
     final settings = ref.read(appLockSettingsProvider);
@@ -260,7 +289,60 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
         title: Text('Forgot $what?',
             style: const TextStyle(fontWeight: FontWeight.bold)),
         content: const Text(
-          'You will be logged out of the app. You can log back in with your account credentials.',
+          'You can reset your App Lock using your device biometric or passcode. '
+          'Your account and downloads will remain intact.\n\n'
+          'Alternatively you can log out and log back in with your account credentials.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Use device biometric to verify identity, then reset local lock
+              final success = await ref
+                  .read(appLockProvider.notifier)
+                  .authenticateWithBiometric();
+              if (!mounted) return;
+              if (success) {
+                await _resetAppLockOnly();
+              } else {
+                setState(() {
+                  _errorMessage = 'Device authentication failed. Try again.';
+                });
+              }
+            },
+            child: const Text('Use Device Biometric'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showLogoutConfirmation();
+            },
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Log out?',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+          'This will sign you out of your account. Downloads will remain on this device.',
         ),
         actions: [
           TextButton(
@@ -276,7 +358,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
             ),
             onPressed: () {
               Navigator.of(context).pop();
-              _forceLogout();
+              _logOutVoluntarily();
             },
             child: const Text('Log Out'),
           ),
@@ -285,7 +367,15 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
     );
   }
 
-  Future<void> _forceLogout() async {
+  /// Clears local App Lock credentials only. Account/session/downloads intact.
+  Future<void> _resetAppLockOnly() async {
+    await ref.read(appLockProvider.notifier).disable();
+    await ref.read(appLockSettingsProvider.notifier).disable();
+    if (mounted) context.go('/home');
+  }
+
+  /// Voluntary account logout — only triggered by explicit user action.
+  Future<void> _logOutVoluntarily() async {
     await ref.read(appLockProvider.notifier).disable();
     await ref.read(appLockSettingsProvider.notifier).disable();
     if (mounted) {

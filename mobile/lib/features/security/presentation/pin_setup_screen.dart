@@ -133,9 +133,26 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     final first = _isPassword ? _firstPin : _firstPin;
     final confirm = _isPassword ? _confirmCtrl.text.trim() : _confirmPin;
 
-    if (first != confirm) {
+    // Validate strength before saving
+    final pinService = ref.read(pinServiceProvider);
+    final validationError = pinService.validate(first, _pinType);
+    if (validationError == PinValidationError.tooShort) {
       setState(() {
-        _errorMessage = '${_isPassword ? "Passwords" : "PINs"} do not match. Please try again.';
+        _errorMessage = _isPassword
+            ? 'Password must be at least 6 characters.'
+            : 'PIN must be ${_pinType.length} digits.';
+        _confirming = false;
+        _firstPin = '';
+        _confirmPin = '';
+        _firstCtrl.clear();
+        _confirmCtrl.clear();
+      });
+      return;
+    }
+    if (validationError == PinValidationError.tooWeak) {
+      setState(() {
+        _errorMessage =
+            'This PIN is too easy to guess. Please choose a less predictable one.';
         _confirming = false;
         _firstPin = '';
         _confirmPin = '';
@@ -145,7 +162,19 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
       return;
     }
 
-    final pinService = ref.read(pinServiceProvider);
+    if (first != confirm) {
+      setState(() {
+        _errorMessage =
+            '${_isPassword ? "Passwords" : "PINs"} do not match. Please try again.';
+        _confirming = false;
+        _firstPin = '';
+        _confirmPin = '';
+        _firstCtrl.clear();
+        _confirmCtrl.clear();
+      });
+      return;
+    }
+
     await pinService.setPin(first, type: _pinType);
 
     // Persist selected PinType in settings

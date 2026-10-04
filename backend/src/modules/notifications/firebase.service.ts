@@ -46,6 +46,25 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
+  private buildDataPayload(payload: {
+    title: string;
+    body: string;
+    data?: Record<string, any>;
+  }): Record<string, string> {
+    const fcmData: Record<string, string> = {
+      title: payload.title ?? '',
+      body: payload.body ?? '',
+    };
+    if (payload.data) {
+      for (const [k, v] of Object.entries(payload.data)) {
+        if (v !== undefined && v !== null) {
+          fcmData[k] = typeof v === 'string' ? v : JSON.stringify(v);
+        }
+      }
+    }
+    return fcmData;
+  }
+
   async sendPushNotification(payload: {
     token: string;
     title: string;
@@ -55,22 +74,30 @@ export class FirebaseService implements OnModuleInit {
     if (!this.initialized) return false;
 
     try {
+      const fcmData = this.buildDataPayload(payload);
+
+      // SECURITY: DATA-ONLY FCM payload.
+      // Do NOT send top-level or android/apns `notification` objects.
+      // A raw `notification` payload causes Android/iOS to render sensitive
+      // contents in the system notification shade automatically, bypassing
+      // the application's App Lock and notification privacy redaction logic.
       await getMessaging(this.app).send({
         token: payload.token,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-        },
-        data: payload.data ?? {},
+        data: fcmData,
         android: {
           priority: 'high',
-          notification: {
-            sound: 'default',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-          },
         },
         apns: {
-          payload: { aps: { sound: 'default', badge: 1 } },
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              contentAvailable: true,
+              badge: 1,
+              sound: 'default',
+            },
+          },
         },
       });
       return true;
@@ -97,10 +124,27 @@ export class FirebaseService implements OnModuleInit {
     if (!this.initialized || payload.tokens.length === 0) return;
 
     try {
+      const fcmData = this.buildDataPayload(payload);
+
+      // SECURITY: DATA-ONLY FCM multicast payload.
       const response = await getMessaging(this.app).sendEachForMulticast({
         tokens: payload.tokens,
-        notification: { title: payload.title, body: payload.body },
-        data: payload.data ?? {},
+        data: fcmData,
+        android: {
+          priority: 'high',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              contentAvailable: true,
+              badge: 1,
+              sound: 'default',
+            },
+          },
+        },
       });
       this.logger.log(
         `Multicast push sent: ${response.successCount} success, ${response.failureCount} failure`,
