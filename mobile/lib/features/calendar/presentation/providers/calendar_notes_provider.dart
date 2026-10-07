@@ -174,3 +174,36 @@ final pushUnsyncedNotesProvider = Provider<Future<void> Function()>(
     return repository.pushUnsyncedNotes();
   },
 );
+
+// ── Media management providers ────────────────────────────────────────────────
+
+/// Remove a single media item from a calendar note (SUPER_ADMIN only).
+final deleteCalendarNoteMediaProvider =
+    Provider<Future<void> Function(String noteId, String mediaId)>(
+      (ref) => (noteId, mediaId) {
+        final repository = ref.read(calendarOfflineRepositoryProvider);
+        return repository.removeNoteMedia(noteId: noteId, mediaId: mediaId);
+      },
+    );
+
+/// Update caption / order of a media item on a calendar note (SUPER_ADMIN only).
+final updateCalendarNoteMediaProvider =
+    Provider<
+      Future<void> Function(
+        String noteId,
+        String mediaId, {
+        String? caption,
+        int? order,
+      })
+    >(
+      (ref) =>
+          (noteId, mediaId, {caption, order}) {
+            final repository = ref.read(calendarOfflineRepositoryProvider);
+            return repository.updateNoteMedia(
+              noteId: noteId,
+              mediaId: mediaId,
+              caption: caption,
+              order: order,
+            );
+          },
+    );

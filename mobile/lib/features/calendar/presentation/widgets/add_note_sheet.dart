@@ -3,7 +3,9 @@ import 'package:abushakir/abushakir.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
@@ -39,6 +41,9 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   final List<String> _selectedMediaPaths = [];
   bool _allowDownload = false; // per-post download flag (default OFF)
 
+  // Existing server-side media (when editing a note)
+  late List<CalendarNoteMedia> _existingMedia;
+
   // Reminder state - default to Monthly repeat at 12:00 PM
   DateTime? _reminderDateTime;
   ReminderRepeat _reminderRepeat = ReminderRepeat.monthly;
@@ -65,12 +70,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     // Initialize allowDownload from existing note if editing
     _allowDownload = widget.existingNote?.allowDownload ?? false;
 
-    // Load existing media if editing
-    if (widget.existingNote != null && widget.existingNote!.media.isNotEmpty) {
-      // Note: For editing, we should show existing media URLs, not paths
-      // For now, we'll just track new media additions
-      // You may want to enhance this to show existing media from server
-    }
+    // Load existing media from the note (editable by SUPER_ADMIN)
+    _existingMedia = List<CalendarNoteMedia>.from(
+      widget.existingNote?.media ?? [],
+    );
   }
 
   @override
@@ -107,10 +110,99 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     }
   }
 
+
   void _removeMedia(int index) {
     setState(() {
       _selectedMediaPaths.removeAt(index);
     });
+  }
+
+  /// Delete an already-uploaded media item from the note (SUPER_ADMIN).
+  Future<void> _deleteExistingMedia(CalendarNoteMedia media, int index) async {
+    final noteId = widget.existingNote?.id;
+    if (noteId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete media?'),
+        content: const Text('This will permanently remove this attachment.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final deleteMedia = ref.read(deleteCalendarNoteMediaProvider);
+      await deleteMedia(noteId, media.id);
+      setState(() => _existingMedia.removeAt(index));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete media: $e')),
+        );
+      }
+    }
+  }
+
+  /// Edit the caption of an already-uploaded media item (SUPER_ADMIN).
+  Future<void> _editMediaCaption(CalendarNoteMedia media, int index) async {
+    final noteId = widget.existingNote?.id;
+    if (noteId == null) return;
+
+    final captionController =
+        TextEditingController(text: media.caption ?? '');
+    final newCaption = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit caption'),
+        content: TextField(
+          controller: captionController,
+          decoration: const InputDecoration(
+            labelText: 'Caption',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.of(ctx).pop(captionController.text),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(captionController.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    captionController.dispose();
+    if (newCaption == null || !mounted) return;
+
+    try {
+      final updateMedia = ref.read(updateCalendarNoteMediaProvider);
+      await updateMedia(noteId, media.id, caption: newCaption);
+      setState(() {
+        _existingMedia[index] = media.copyWith(caption: newCaption);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update caption: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -442,7 +534,145 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
             const SizedBox(height: 16),
 
-            // Media section — show queue items for existing note, or local list for new note
+            // ── Existing server media (edit mode only) ────────────────────
+            if (widget.existingNote != null && _existingMedia.isNotEmpty) ...[
+              Text(
+                'Current media (${_existingMedia.length})',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _existingMedia.length,
+                  itemBuilder: (context, index) {
+                    final media = _existingMedia[index];
+                    final rawUrl = media.file?['url'] as String?;
+                    final resolved = MediaUrlResolver.resolve(rawUrl);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Stack(
+                        children: [
+                          // Thumbnail
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: resolved != null
+                                ? AppNetworkImage(
+                                    imageUrl: resolved,
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (ctx, url, err) => Container(
+                                      width: 120,
+                                      height: 120,
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      child: const Icon(
+                                        Icons.attach_file,
+                                        size: 36,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.attach_file,
+                                      size: 36,
+                                    ),
+                                  ),
+                          ),
+                          // Caption badge (bottom-left)
+                          if (media.caption != null &&
+                              media.caption!.isNotEmpty)
+                            Positioned(
+                              bottom: 4,
+                              left: 4,
+                              right: 28,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  media.caption!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          // Edit caption button (top-left)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Material(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                onTap: () =>
+                                    _editMediaCaption(media, index),
+                                borderRadius: BorderRadius.circular(12),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Delete button (top-right)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Material(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                onTap: () =>
+                                    _deleteExistingMedia(media, index),
+                                borderRadius: BorderRadius.circular(12),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── New media queue ────────────────────────────────────────────
             Builder(
               builder: (context) {
                 final noteId = widget.existingNote?.id;

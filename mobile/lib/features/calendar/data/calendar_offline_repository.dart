@@ -548,7 +548,8 @@ class CalendarOfflineRepository {
     );
   }
 
-  /// Remove media from note
+
+  /// Remove media from note (local-only by mediaId)
   Future<void> removeMedia(String mediaId) async {
     await _dao.deleteMedia(mediaId);
 
@@ -558,6 +559,34 @@ class CalendarOfflineRepository {
       entityType: 'CALENDAR_NOTE_MEDIA',
       entityId: mediaId,
       payload: {},
+    );
+  }
+
+  /// Remove a specific media item from a note by (noteId, mediaId).
+  /// Calls the server directly and then purges from the local cache.
+  Future<void> removeNoteMedia({
+    required String noteId,
+    required String mediaId,
+  }) async {
+    // Delete from server immediately (admin operation — always online)
+    await _remoteRepo.removeNoteMedia(noteId: noteId, mediaId: mediaId);
+    // Purge from local cache so the UI refreshes
+    await _dao.deleteMedia(mediaId);
+  }
+
+  /// Update caption/order of a specific media item on a note.
+  /// Calls the server directly (admin operation — always online).
+  Future<void> updateNoteMedia({
+    required String noteId,
+    required String mediaId,
+    String? caption,
+    int? order,
+  }) async {
+    await _remoteRepo.updateNoteMedia(
+      noteId: noteId,
+      mediaId: mediaId,
+      caption: caption,
+      order: order,
     );
   }
 

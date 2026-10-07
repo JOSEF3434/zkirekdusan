@@ -129,4 +129,27 @@ class CalendarRepository {
       rethrow;
     }
   }
+
+  // ── Media management (SUPER_ADMIN) ────────────────────────────────────────
+
+  /// Remove a single media item from a note.
+  Future<void> removeNoteMedia({
+    required String noteId,
+    required String mediaId,
+  }) async {
+    await _dio.delete('/calendar/notes/$noteId/media/$mediaId');
+  }
+
+  /// Update a media item's caption and/or order on a note.
+  Future<void> updateNoteMedia({
+    required String noteId,
+    required String mediaId,
+    String? caption,
+    int? order,
+  }) async {
+    final body = <String, dynamic>{};
+    if (caption != null) body['caption'] = caption;
+    if (order != null) body['order'] = order;
+    await _dio.patch('/calendar/notes/$noteId/media/$mediaId', data: body);
+  }
 }
