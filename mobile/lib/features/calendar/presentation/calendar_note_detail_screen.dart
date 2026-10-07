@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/core/utils/media_watermark_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
@@ -316,7 +318,8 @@ class _CalendarNoteDetailScreenState
                 itemCount: note.media.length,
                 itemBuilder: (context, index) {
                   final media = note.media[index];
-                  final url = media.file?['url'] as String?;
+                  final rawUrl = media.file?['url'] as String?;
+                  final resolved = MediaUrlResolver.resolve(rawUrl);
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: GestureDetector(
@@ -328,14 +331,14 @@ class _CalendarNoteDetailScreenState
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
-                        child: url != null
-                            ? Image.network(
-                                url,
+                        child: resolved != null
+                            ? AppNetworkImage(
+                                imageUrl: resolved,
                                 width: 120,
                                 height: 120,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) =>
-                                    _mediaPlaceholder(theme),
+                              errorWidget: (ctx, url, err) =>
+                                  _mediaPlaceholder(theme),
                               )
                             : _mediaPlaceholder(theme),
                       ),
@@ -690,8 +693,10 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
             onPageChanged: (i) => setState(() => _currentIndex = i),
             itemBuilder: (context, index) {
               final media = widget.media[index];
-              final url = _getMediaUrl(media);
-              if (url == null || url.isEmpty) {
+              final rawUrl = _getMediaUrl(media);
+              final resolved =
+                  MediaUrlResolver.resolve(rawUrl) ?? (rawUrl ?? '');
+              if (resolved.isEmpty) {
                 return const Center(
                   child: Icon(
                     Icons.broken_image,
@@ -702,10 +707,10 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
               }
               return InteractiveViewer(
                 child: Center(
-                  child: Image.network(
-                    url,
+                  child: AppNetworkImage(
+                    imageUrl: resolved,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => const Center(
+                    errorWidget: (context, error, stackTrace) => const Center(
                       child: Icon(
                         Icons.broken_image,
                         color: Colors.white54,

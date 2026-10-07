@@ -74,6 +74,26 @@ export class UploadsController {
     return this.uploadsService.uploadPostMedia(userId, file);
   }
 
+  @Post('calendar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload calendar note media (image, video, audio)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, type: FileResponseDto })
+  async uploadCalendarMedia(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<FileResponseDto> {
+    return this.uploadsService.uploadCalendarMedia(userId, file);
+  }
+
   @Delete(':fileId')
   @ApiOperation({ summary: 'Delete an uploaded file' })
   async deleteFile(

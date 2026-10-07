@@ -113,9 +113,37 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       };
     }
 
-    const isVideo = file.mimetype.startsWith('video/');
-    const isImage = file.mimetype.startsWith('image/');
-    const isAudio = file.mimetype.startsWith('audio/');
+    let isVideo = file.mimetype.startsWith('video/');
+    let isImage = file.mimetype.startsWith('image/');
+    let isAudio = file.mimetype.startsWith('audio/');
+
+    // Fallback: sniff buffer magic bytes so images sent as application/octet-stream
+    // (e.g. Flutter image_picker on Android) are NEVER stored as raw resources.
+    if (!isVideo && !isImage && !isAudio && file.buffer && file.buffer.length >= 4) {
+      const h = file.buffer;
+      if (
+        (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) || // JPEG
+        (h[0] === 0x89 && h[1] === 0x50 && h[2] === 0x4e && h[3] === 0x47) || // PNG
+        (h[0] === 0x47 && h[1] === 0x49 && h[2] === 0x46) || // GIF
+        (h[0] === 0x42 && h[1] === 0x4d) || // BMP
+        (file.buffer.length >= 12 &&
+          h[0] === 0x52 && h[1] === 0x49 && h[2] === 0x46 && h[3] === 0x46 &&
+          h[8] === 0x57 && h[9] === 0x45 && h[10] === 0x42 && h[11] === 0x50) || // WebP
+        (file.buffer.length >= 12 &&
+          h[4] === 0x66 && h[5] === 0x74 && h[6] === 0x79 && h[7] === 0x70 &&
+          ['heic', 'heix', 'mif1'].includes(
+            h.slice(8, 12).toString('ascii'),
+          )) // HEIC
+      ) {
+        isImage = true;
+      } else if (
+        file.buffer.length >= 8 &&
+        h[4] === 0x66 && h[5] === 0x74 && h[6] === 0x79 && h[7] === 0x70
+      ) {
+        isVideo = true;
+      }
+    }
+
     // In Cloudinary, audio is treated under the 'video' resource type
     const resourceType: 'image' | 'video' | 'raw' =
       isVideo || isAudio ? 'video' : isImage ? 'image' : 'raw';

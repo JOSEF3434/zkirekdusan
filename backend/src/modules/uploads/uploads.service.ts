@@ -42,14 +42,37 @@ export class UploadsService {
       throw new BadRequestException('File is required');
     }
 
-    const fileType = this.resolveFileType(file.mimetype);
+    // When the client sends application/octet-stream (e.g. image_picker on Android
+    // returns UUID filenames with no extension), sniff the real MIME from file bytes
+    // so Cloudinary stores it as an image rather than a raw resource.
+    const effectiveMime =
+      file.mimetype === 'application/octet-stream' || !file.mimetype
+        ? (this.sniffMimeFromBuffer(file.buffer) ?? file.mimetype)
+        : file.mimetype;
+
+    let ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+    if (!ext) {
+      ext = this.resolveExtensionFromMime(effectiveMime);
+    }
+
+    const resolvedFilename =
+      ext && !path.extname(file.originalname)
+        ? `${file.originalname}.${ext}`
+        : file.originalname;
+
+    const resolvedFile: Express.Multer.File = {
+      ...file,
+      mimetype: effectiveMime,
+      originalname: resolvedFilename,
+    };
+
+    const fileType = this.resolveFileType(effectiveMime);
     const checksum = crypto
       .createHash('sha256')
       .update(file.buffer)
       .digest('hex');
 
-    const result = await this.storageProvider.upload(file, subfolder);
-    const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+    const result = await this.storageProvider.upload(resolvedFile, subfolder);
 
     // For video files on Cloudinary, derive the universal direct playback MP4 URL
     let mediaUrl = result.url;
@@ -63,9 +86,9 @@ export class UploadsService {
     }
 
     const dbFile = await this.uploadsRepository.createFile({
-      originalName: file.originalname,
+      originalName: resolvedFilename,
       fileName: path.basename(result.storageKey),
-      mimeType: file.mimetype,
+      mimeType: effectiveMime,
       extension: ext,
       size: file.size,
       fileType,
@@ -78,6 +101,17 @@ export class UploadsService {
     });
 
     return this.mapToFileResponse(dbFile);
+  }
+
+  /**
+   * Calendar note media upload.
+   * Routes to the calendar/ Cloudinary folder and ensures correct resource_type.
+   */
+  async uploadCalendarMedia(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<FileResponseDto> {
+    return this.uploadMediaFile(userId, file, `calendar/${userId}`);
   }
 
   /**
@@ -459,5 +493,68 @@ export class UploadsService {
       return FileType.ARCHIVE;
     }
     return FileType.OTHER;
+  }
+
+  /**
+   * Sniff MIME type from the first 12 bytes of a buffer.
+   * Used to detect images sent with application/octet-stream content-type
+   * (e.g. Flutter image_picker on Android sends UUID filenames without extensions).
+   */
+  private sniffMimeFromBuffer(buffer: Buffer): string | null {
+    if (!buffer || buffer.length < 4) return null;
+    const h = buffer;
+
+    // JPEG: FF D8 FF
+    if (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) return 'image/jpeg';
+
+    // PNG: 89 50 4E 47
+    if (h[0] === 0x89 && h[1] === 0x50 && h[2] === 0x4e && h[3] === 0x47)
+      return 'image/png';
+
+    // GIF87a / GIF89a: 47 49 46 38
+    if (h[0] === 0x47 && h[1] === 0x49 && h[2] === 0x46 && h[3] === 0x38)
+      return 'image/gif';
+
+    // WebP: 52 49 46 46 ?? ?? ?? ?? 57 45 42 50
+    if (
+      buffer.length >= 12 &&
+      h[0] === 0x52 && h[1] === 0x49 && h[2] === 0x46 && h[3] === 0x46 &&
+      h[8] === 0x57 && h[9] === 0x45 && h[10] === 0x42 && h[11] === 0x50
+    )
+      return 'image/webp';
+
+    // HEIC / HEIF / MP4 / MOV — all share 'ftyp' at bytes 4-7
+    if (
+      buffer.length >= 8 &&
+      h[4] === 0x66 && h[5] === 0x74 && h[6] === 0x79 && h[7] === 0x70
+    ) {
+      if (buffer.length >= 12) {
+        const brand = buffer.slice(8, 12).toString('ascii');
+        if (brand === 'heic' || brand === 'heix' || brand === 'mif1')
+          return 'image/heic';
+        if (brand === 'isom' || brand === 'mp41' || brand === 'mp42')
+          return 'video/mp4';
+        if (brand === 'qt  ') return 'video/quicktime';
+      }
+      return 'video/mp4';
+    }
+
+    // BMP: 42 4D
+    if (h[0] === 0x42 && h[1] === 0x4d) return 'image/bmp';
+
+    return null;
+  }
+
+  private resolveExtensionFromMime(mimeType: string): string {
+    if (mimeType === 'image/jpeg') return 'jpg';
+    if (mimeType === 'image/png') return 'png';
+    if (mimeType === 'image/gif') return 'gif';
+    if (mimeType === 'image/webp') return 'webp';
+    if (mimeType === 'image/heic') return 'heic';
+    if (mimeType === 'image/bmp') return 'bmp';
+    if (mimeType === 'video/mp4') return 'mp4';
+    if (mimeType === 'video/quicktime') return 'mov';
+    if (mimeType === 'audio/mpeg' || mimeType === 'audio/mp3') return 'mp3';
+    return '';
   }
 }
