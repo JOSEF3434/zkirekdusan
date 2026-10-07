@@ -19,7 +19,7 @@ class DayNotesSheet extends ConsumerWidget {
 
   bool _canManage(WidgetRef ref) {
     final role = ref.watch(authProvider).user?.role ?? '';
-    return role == 'SUPER_ADMIN' || role == 'ADMIN';
+    return role == 'SUPER_ADMIN';
   }
 
   @override

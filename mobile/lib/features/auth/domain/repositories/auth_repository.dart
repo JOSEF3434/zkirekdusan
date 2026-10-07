@@ -38,4 +38,10 @@ abstract class AuthRepository {
 
   /// Read a flag previously saved with [saveFlag]. Returns null if not set.
   Future<String?> getStoredFlag(String key);
+
+  /// Clears all session tokens locally WITHOUT making a network request.
+  ///
+  /// Used on cold-start when Remember Me is OFF — avoids a blocking/failing
+  /// network logout call during app initialisation.
+  Future<void> clearSessionLocally();
 }

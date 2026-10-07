@@ -71,11 +71,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuthentication() async {
     try {
-      // If user logged in with Remember Me = OFF, clear session on cold start
+      // If user logged in with Remember Me = OFF, clear session on cold start.
+      // We use clearSessionLocally() — NOT logout() — so we don't make a
+      // network request during startup (which would fail if offline and would
+      // also hang before the first frame is shown).
       final isSessionOnly =
           await _repository.getStoredFlag('session_only') == 'true';
       if (isSessionOnly) {
-        await _repository.logout();
+        await _repository.clearSessionLocally();
         state = const AuthState(status: AuthStatus.unauthenticated);
         return;
       }

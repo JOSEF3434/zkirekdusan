@@ -16,6 +16,8 @@ const _kUserEmail = 'user_email';
 const _kUserPhone = 'user_phone';
 const _kUsername = 'username';
 const _kUserRole = 'user_role';
+// Flag key stored via saveFlag/getStoredFlag (prefixed with 'flag_' internally)
+const _kSessionOnlyFlag = 'session_only';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource _remote;
@@ -150,7 +152,19 @@ class AuthRepositoryImpl implements AuthRepository {
       _storage.deleteToken(key: _kUserPhone),
       _storage.deleteToken(key: _kUsername),
       _storage.deleteToken(key: _kUserRole),
+      // Always erase the session_only flag so a subsequent Remember-Me login
+      // is not incorrectly cleared on the next cold start.
+      _storage.deleteToken(key: 'flag_$_kSessionOnlyFlag'),
     ]);
+  }
+
+  /// Clears session tokens WITHOUT making a network call.
+  ///
+  /// Used on cold-start when Remember Me is OFF — avoids hanging on a network
+  /// logout request when the app is just starting up.
+  @override
+  Future<void> clearSessionLocally() async {
+    await _clearSession();
   }
 
   AuthUser _modelToEntity(AuthUserModel model) => AuthUser(

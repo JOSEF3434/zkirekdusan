@@ -91,9 +91,14 @@ export class CalendarService {
     return note;
   }
 
-  async findAll(userId: string, query: QueryCalendarNotesDto) {
+  async findAll(
+    queryOrUserId: QueryCalendarNotesDto | string = {},
+    maybeQuery?: QueryCalendarNotesDto,
+  ) {
+    const query: QueryCalendarNotesDto =
+      typeof queryOrUserId === 'string' ? (maybeQuery ?? {}) : queryOrUserId;
+
     const where: any = {
-      userId,
       deletedAt: null,
     };
 
@@ -130,7 +135,8 @@ export class CalendarService {
     });
   }
 
-  async findOne(userId: string, id: string) {
+  async findOne(idOrUserId: string, maybeId?: string) {
+    const id = maybeId ?? idOrUserId;
     const note = await this.prisma.calendarNote.findFirst({
       where: {
         id,
@@ -152,7 +158,7 @@ export class CalendarService {
       throw new NotFoundException('Calendar note not found');
     }
 
-    // Allow any authenticated user to read; only the owner can edit/delete
+    // Publicly readable to all users with calendar access
     return note;
   }
 

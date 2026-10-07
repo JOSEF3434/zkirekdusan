@@ -20,7 +20,7 @@ class CalendarScreen extends ConsumerWidget {
 
   bool _canManage(WidgetRef ref) {
     final role = ref.watch(authProvider).user?.role ?? '';
-    return role == 'SUPER_ADMIN' || role == 'ADMIN';
+    return role == 'SUPER_ADMIN';
   }
 
   @override
@@ -198,9 +198,14 @@ class CalendarScreen extends ConsumerWidget {
     final leadingEmpty = firstWeekday - 1;
     final totalCells = leadingEmpty + daysInMonth;
     final rows = (totalCells / 7).ceil();
+    final monthNotesAsync = ref.watch(
+      calendarNotesForMonthProvider((year: year, month: month)),
+    );
+    final monthNotes =
+        monthNotesAsync.valueOrNull ?? const <CalendarNoteModel>[];
 
     return SliverGrid(
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         childAspectRatio: 1.0,
         crossAxisSpacing: 4,
@@ -224,11 +229,17 @@ class CalendarScreen extends ConsumerWidget {
             state.selectedDate != null &&
             EthiopianCalendarUtil.isSameDay(cellDate, state.selectedDate!);
 
-        // Check if there are notes for this day
-        final notesAsync = ref.watch(
+        // Check if there are notes for this day (month provider with day-provider fallback)
+        final dayNotesFromMonth =
+            monthNotes.where((note) => note.ethiopianDay == day).toList();
+        final dateNotesAsync = ref.watch(
           calendarNotesForDateProvider((year: year, month: month, day: day)),
         );
-        final notes = notesAsync.valueOrNull ?? const <CalendarNoteModel>[];
+        final notes = (dateNotesAsync.valueOrNull?.isNotEmpty ?? false)
+            ? dateNotesAsync.valueOrNull!
+            : dayNotesFromMonth;
+        final hasNotes = notes.isNotEmpty;
+        final noteCount = notes.length;
         final hasReminder = notes.any((note) => note.hasReminder);
         final hasMedia = notes.any((note) => note.media.isNotEmpty);
 
@@ -238,14 +249,8 @@ class CalendarScreen extends ConsumerWidget {
           day: day,
           isToday: isToday,
           isSelected: isSelected,
-          hasNotes: notesAsync.maybeWhen(
-            data: (notes) => notes.isNotEmpty,
-            orElse: () => false,
-          ),
-          noteCount: notesAsync.maybeWhen(
-            data: (notes) => notes.length,
-            orElse: () => 0,
-          ),
+          hasNotes: hasNotes,
+          noteCount: noteCount,
           hasReminder: hasReminder,
           hasMedia: hasMedia,
           onTap: () {

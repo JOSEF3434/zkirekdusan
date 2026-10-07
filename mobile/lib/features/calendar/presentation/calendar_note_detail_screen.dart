@@ -80,7 +80,7 @@ class _CalendarNoteDetailScreenState
 
   bool get _canManage {
     final role = ref.watch(authProvider).user?.role ?? '';
-    return role == 'SUPER_ADMIN' || role == 'ADMIN';
+    return role == 'SUPER_ADMIN';
   }
 
   @override

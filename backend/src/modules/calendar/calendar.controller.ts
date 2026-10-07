@@ -17,16 +17,20 @@ import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
 import { AddNoteMediaDto } from './dto/add-note-media.dto.js';
 import { UpdateNoteMediaDto } from './dto/update-note-media.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { AppRole } from '../../common/constants/roles.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 @ApiTags('Calendar')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('calendar/notes')
 export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
   @Post()
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create a calendar note' })
   create(
     @CurrentUser('sub') userId: string,
@@ -38,19 +42,19 @@ export class CalendarController {
   @Get()
   @ApiOperation({ summary: 'Get calendar notes (with optional filters)' })
   findAll(
-    @CurrentUser('sub') userId: string,
     @Query() query: QueryCalendarNotesDto,
   ) {
-    return this.calendarService.findAll(userId, query);
+    return this.calendarService.findAll(query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific calendar note' })
-  findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.calendarService.findOne(userId, id);
+  findOne(@Param('id') id: string) {
+    return this.calendarService.findOne(id);
   }
 
   @Patch(':id')
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update a calendar note' })
   update(
     @CurrentUser('sub') userId: string,
@@ -61,6 +65,7 @@ export class CalendarController {
   }
 
   @Delete(':id')
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete a calendar note (soft delete)' })
   remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.calendarService.remove(userId, id);
@@ -68,6 +73,7 @@ export class CalendarController {
 
   // Media endpoints
   @Post(':noteId/media')
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Add media to a calendar note' })
   addMedia(
     @CurrentUser('sub') userId: string,
@@ -84,6 +90,7 @@ export class CalendarController {
   }
 
   @Patch(':noteId/media/:mediaId')
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update note media order/caption' })
   updateMedia(
     @CurrentUser('sub') userId: string,
@@ -101,6 +108,7 @@ export class CalendarController {
   }
 
   @Delete(':noteId/media/:mediaId')
+  @Roles(AppRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Remove media from calendar note' })
   removeMedia(
     @CurrentUser('sub') userId: string,
