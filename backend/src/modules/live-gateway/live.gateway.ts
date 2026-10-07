@@ -510,9 +510,32 @@ export class LiveGateway
         type: payload.type ?? StreamChatMessageType.TEXT,
       });
 
+      // Normalize sender shape so Flutter ChatSenderDto.fromJson receives
+      // flat { id, username, displayName, avatarUrl } rather than the nested
+      // Prisma shape { profile: { displayName, avatar: { url } } }.
+      const raw = message as any;
+      const normalized = {
+        ...message,
+        sender: raw.sender
+          ? {
+              id: raw.sender.id,
+              username: raw.sender.username ?? null,
+              displayName:
+                raw.sender.profile?.displayName ??
+                raw.sender.displayName ??
+                raw.sender.username ??
+                null,
+              avatarUrl:
+                raw.sender.profile?.avatar?.url ??
+                raw.sender.avatarUrl ??
+                null,
+            }
+          : null,
+      };
+
       this.server
         .to(`stream:${payload.streamId}`)
-        .emit(LIVE_EVENTS.CHAT_MESSAGE, message);
+        .emit(LIVE_EVENTS.CHAT_MESSAGE, normalized);
       this.streamAnalyticsService
         .trackEngagement(payload.streamId, 'chat')
         .catch(() => null);

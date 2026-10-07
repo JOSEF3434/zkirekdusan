@@ -91,6 +91,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _subs.add(_socket.onChatDeleted.listen(_onMessageDeleted));
     _subs.add(_socket.onChatPinned.listen(_onMessagePinned));
     _subs.add(_socket.onChatReaction.listen(_onChatReaction));
+    _subs.add(_socket.onReactionBroadcast.listen(_onReactionBroadcast));
     _subs.add(_socket.onError.listen(_onSocketError));
   }
 
@@ -201,7 +202,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void _onChatReaction(ChatReactionEvent event) {
-    // Reactions are cosmetic
+    // Append emoji reaction as a system chat message so it appears in the feed
+    if (!mounted) return;
+    final id = 'reaction_${event.reactionId}';
+    if (state.messages.any((m) => m.id == id)) return; // deduplicate
+    final msg = ChatMessageDto(
+      id: id,
+      content: '${event.emoji}  reacted',
+      type: ChatMessageType.system,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    state = state.copyWith(messages: [...state.messages, msg]);
+  }
+
+  void _onReactionBroadcast(ReactionBroadcastEvent event) {
+    // Show emoji burst reactions as a chat feed entry (e.g. "❤️ x3")
+    if (!mounted) return;
+    final id = 'rbcast_${DateTime.now().millisecondsSinceEpoch}';
+    final countLabel = event.count > 1 ? ' ×${event.count}' : '';
+    final msg = ChatMessageDto(
+      id: id,
+      content: '${event.emoji}$countLabel',
+      type: ChatMessageType.system,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    state = state.copyWith(messages: [...state.messages, msg]);
   }
 
   void _onSocketError(String msg) {

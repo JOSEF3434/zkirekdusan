@@ -231,8 +231,35 @@ class _MessageTile extends StatelessWidget {
       );
     }
 
+    // ── System messages (reactions / emoji bursts) shown as centred pills ──
+    if (message.type == ChatMessageType.system) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              message.content,
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── Regular chat messages ──
     final sender =
         message.sender?.displayName ?? message.sender?.username ?? 'Viewer';
+
+    // Creator / moderator get gold, others get the primary colour
+    final senderColor = message.isPinned
+        ? Colors.amber
+        : Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -255,12 +282,17 @@ class _MessageTile extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: senderColor,
                         ),
                       ),
                       TextSpan(
                         text: message.content,
-                        style: const TextStyle(fontSize: 13),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface,
+                        ),
                       ),
                     ],
                   ),

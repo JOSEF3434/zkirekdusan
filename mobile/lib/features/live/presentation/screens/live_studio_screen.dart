@@ -11,7 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:apivideo_live_stream/apivideo_live_stream.dart';
 import 'package:camera/camera.dart' as cam;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:mobile/features/live/data/web_whip_broadcaster.dart';
+import 'package:mobile/features/live/data/web_whip_broadcaster_shim.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/error/exceptions.dart';

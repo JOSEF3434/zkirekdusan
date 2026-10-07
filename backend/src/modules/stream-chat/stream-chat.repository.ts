@@ -2,6 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { StreamChatMessage, StreamChatRoom, Prisma } from '@prisma/client';
 
+/** Flatten the Prisma nested sender shape into what Flutter expects:
+ *  { id, username, displayName, avatarUrl }
+ */
+function normalizeSenderShape(message: any): any {
+  if (!message) return message;
+  const { sender, ...rest } = message;
+  if (!sender) return message;
+  return {
+    ...rest,
+    sender: {
+      id: sender.id,
+      username: sender.username ?? null,
+      displayName:
+        sender.profile?.displayName ??
+        sender.displayName ??
+        sender.username ??
+        null,
+      avatarUrl:
+        sender.profile?.avatar?.url ?? sender.avatarUrl ?? null,
+    },
+  };
+}
+
 @Injectable()
 export class StreamChatRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,8 +48,8 @@ export class StreamChatRepository {
 
   async saveMessage(
     data: Prisma.StreamChatMessageUncheckedCreateInput,
-  ): Promise<StreamChatMessage> {
-    return this.prisma.streamChatMessage.create({
+  ): Promise<any> {
+    const message = await this.prisma.streamChatMessage.create({
       data,
       include: {
         sender: {
@@ -41,13 +64,14 @@ export class StreamChatRepository {
         },
       },
     });
+    return normalizeSenderShape(message);
   }
 
   async getMessages(
     chatRoomId: string,
     limit: number,
     cursor?: string,
-  ): Promise<StreamChatMessage[]> {
+  ): Promise<any[]> {
     const args: Prisma.StreamChatMessageFindManyArgs = {
       where: { chatRoomId, deletedAt: null },
       take: limit,
@@ -71,7 +95,8 @@ export class StreamChatRepository {
     }
 
     const messages = await this.prisma.streamChatMessage.findMany(args);
-    return messages.reverse(); // Return in chronological order
+    // Return in chronological order with flat sender shape
+    return messages.reverse().map(normalizeSenderShape);
   }
 
   async getMessageById(messageId: string): Promise<StreamChatMessage | null> {
