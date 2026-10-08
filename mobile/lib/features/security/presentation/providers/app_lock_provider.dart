@@ -5,9 +5,20 @@
 // inactivity timeout.  Also tracks brute-force failed attempts.
 // Supports PIN, biometric, and pattern authentication methods.
 //
+// Inactivity auto-lock:
+//   • When unlocked, a Dart timer fires after [timeoutMinutes].
+//   • On any user interaction (pointer/keyboard), [recordActivity()] resets it.
+//   • On app-pause, timestamp is persisted; on resume elapsed time is compared
+//     to the setting so OS-suspended timers never cause incorrect behavior.
+//
 // Biometric auto-switch rule: after [kMaxBiometricAttempts] consecutive
 // biometric failures the lock screen silently switches to PIN/pattern entry.
+//
+// Duplicate-prompt guard: [_biometricAuthInProgress] ensures only one
+// biometric prompt is open at any time, preventing dialog stacking.
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
@@ -25,6 +36,7 @@ export 'package:mobile/features/security/data/biometric_service.dart'
         biometricAvailableProvider;
 
 const _kLastActive = 'app_lock_last_active';
+const _kLastBackground = 'app_lock_last_background';
 const _kFailedAttempts = 'app_lock_failed_attempts';
 const _kCooldownUntil = 'app_lock_cooldown_until';
 
@@ -85,6 +97,14 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   final BiometricService _biometricService;
   final PatternService _patternService;
 
+  // ── Inactivity timer ──────────────────────────────────────────────────────
+  // A single timer; never more than one is active at once.
+  Timer? _inactivityTimer;
+
+  // ── Biometric duplicate-prompt guard ─────────────────────────────────────
+  // True while a biometric OS prompt is open; prevents stacking two prompts.
+  bool _biometricAuthInProgress = false;
+
   AppLockSettings get _settings => _ref.read(appLockSettingsProvider);
   SecureWindowService get _secureWindowService =>
       _ref.read(secureWindowServiceProvider);
@@ -103,16 +123,28 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
        super(const AppLockState()) {
     _init();
 
-    // Avoid mutating this provider while it is still initializing.
-    // The initial value from appLockSettingsProvider should not trigger a
-    // state change here; only real later changes should disable the lock.
+    // Listen for settings changes: disable lock OR update the running timer.
     _ref.listen<AppLockSettings>(appLockSettingsProvider, (prev, next) {
       if (prev == null) return;
       if (!next.isEnabled && state.status != AppLockStatus.disabled) {
+        _cancelInactivityTimer();
         state = const AppLockState(status: AppLockStatus.disabled);
         _secureWindowService.setSecureMode(false);
+        return;
+      }
+      // Timeout changed while unlocked → restart timer with new duration.
+      if (next.isEnabled &&
+          state.status == AppLockStatus.unlocked &&
+          prev.timeoutMinutes != next.timeoutMinutes) {
+        _restartInactivityTimer();
       }
     }, fireImmediately: false);
+  }
+
+  @override
+  void dispose() {
+    _cancelInactivityTimer();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -130,51 +162,115 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     state = AppLockState(
       status: AppLockStatus.locked,
       failedAttempts: failedAttempts,
-      // Reset biometric failure count on fresh app start
       biometricFailures: 0,
       biometricExhausted: false,
       cooldownUntil: cooldownUntil,
     );
     _secureWindowService.setSecureMode(true);
+    // Do NOT start inactivity timer — app starts locked.
   }
 
-  // ── AppLifecycleObserver callbacks ──────────────────────────────────────
+  // ── Inactivity timer API ─────────────────────────────────────────────────
+
+  /// Called by [AppActivityTracker] on any meaningful pointer/keyboard event.
+  /// Resets the countdown without ever creating duplicate timers.
+  void recordActivity() {
+    if (state.status != AppLockStatus.unlocked) return;
+    _restartInactivityTimer();
+    _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  void _restartInactivityTimer() {
+    _cancelInactivityTimer();
+    final minutes = _settings.timeoutMinutes;
+    if (minutes < 0) return; // -1 = never auto-lock
+    if (minutes == 0) {
+      // "Immediately" → lock on background (handled in onPaused).
+      // Do not lock instantly in the foreground after unlock.
+      return;
+    }
+    _inactivityTimer = Timer(Duration(minutes: minutes), _onInactivityTimeout);
+  }
+
+  void _cancelInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = null;
+  }
+
+  void _onInactivityTimeout() {
+    if (state.status == AppLockStatus.unlocked) {
+      debugPrint('[AppLock] Inactivity timeout fired — locking.');
+      _lock();
+    }
+  }
+
+  // ── AppLifecycleObserver callbacks ───────────────────────────────────────
 
   Future<void> onPaused() async {
     if (!_settings.isEnabled) return;
-    await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _prefs.setInt(_kLastBackground, now);
+    await _prefs.setInt(_kLastActive, now);
+    // Stop foreground timer — Dart timers don't fire while the OS suspends.
+    _cancelInactivityTimer();
     _secureWindowService.setSecureMode(true);
+
+    // "Immediately" mode: lock the moment the app backgrounds.
+    if (_settings.timeoutMinutes == 0 &&
+        state.status == AppLockStatus.unlocked) {
+      _lock();
+    }
   }
 
   Future<void> onResumed() async {
     if (!_settings.isEnabled) return;
-    if (state.status == AppLockStatus.locked) return;
+    if (state.status == AppLockStatus.locked) {
+      // Already locked — nothing to do; lock screen is shown by the router.
+      return;
+    }
 
-    final lastActiveMs = _prefs.getInt(_kLastActive);
-    if (lastActiveMs == null) {
+    final backgroundMs = _prefs.getInt(_kLastBackground);
+    if (backgroundMs == null) {
+      // No timestamp stored — treat as cold start while unlocked; lock.
       _lock();
       return;
     }
 
     final timeoutMinutes = _settings.timeoutMinutes;
-    if (timeoutMinutes < 0) return; // -1 = never auto-lock
+    if (timeoutMinutes < 0) {
+      // "Never" mode — resume without locking, restart foreground timer.
+      _secureWindowService.setSecureMode(false);
+      _restartInactivityTimer();
+      return;
+    }
 
     final elapsed = DateTime.now().difference(
-      DateTime.fromMillisecondsSinceEpoch(lastActiveMs),
+      DateTime.fromMillisecondsSinceEpoch(backgroundMs),
     );
 
-    if (elapsed.inMinutes >= timeoutMinutes) {
+    if (timeoutMinutes == 0 || elapsed.inMinutes >= timeoutMinutes) {
       _lock();
     } else {
       _secureWindowService.setSecureMode(false);
+      // Resume with remaining time so combined background+foreground
+      // inactivity is correctly honoured.
+      final remaining = Duration(minutes: timeoutMinutes) - elapsed;
+      _cancelInactivityTimer();
+      if (remaining > Duration.zero) {
+        _inactivityTimer = Timer(remaining, _onInactivityTimeout);
+      } else {
+        _lock();
+      }
     }
   }
 
+  // ── Internal lock ─────────────────────────────────────────────────────────
+
   void _lock() {
     if (!_settings.isEnabled) return;
+    _cancelInactivityTimer();
     state = state.copyWith(
       status: AppLockStatus.locked,
-      // Reset biometric exhaustion on each new lock cycle
       biometricFailures: 0,
       biometricExhausted: false,
     );
@@ -183,12 +279,26 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
 
   void lock() => _lock();
 
-  // ── Biometric authentication ────────────────────────────────────────────
+  // ── Biometric authentication ──────────────────────────────────────────────
+
+  /// True while the OS biometric prompt is open; prevents duplicate dialogs.
+  bool get isBiometricAuthInProgress => _biometricAuthInProgress;
 
   Future<bool> authenticateWithBiometric() async {
-    final success = await _biometricService.authenticate(
-      reason: 'Unlock ዝክረ ቅዱሳን',
-    );
+    if (_biometricAuthInProgress) {
+      debugPrint('[AppLock] Biometric auth already in progress — skipping.');
+      return false;
+    }
+    _biometricAuthInProgress = true;
+
+    bool success = false;
+    try {
+      success = await _biometricService.authenticate(
+        reason: 'Unlock ዝክረ ቅዱሳን',
+      );
+    } finally {
+      _biometricAuthInProgress = false;
+    }
 
     if (success) {
       await _resetAttempts();
@@ -201,21 +311,20 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
+      _restartInactivityTimer();
       return true;
     }
 
-    // Track biometric failures; exhaust after kMaxBiometricAttempts
     final newBiometricFailures = state.biometricFailures + 1;
     final exhausted = newBiometricFailures >= kMaxBiometricAttempts;
     state = state.copyWith(
       biometricFailures: newBiometricFailures,
       biometricExhausted: exhausted,
     );
-
     return false;
   }
 
-  // ── PIN verification ────────────────────────────────────────────────────
+  // ── PIN verification ──────────────────────────────────────────────────────
 
   Future<bool> verifyPin(String pin) async {
     if (state.isInCooldown) return false;
@@ -230,13 +339,14 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
+      _restartInactivityTimer();
       return true;
     }
 
     return _handleFailedAttempt();
   }
 
-  // ── Pattern verification ────────────────────────────────────────────────
+  // ── Pattern verification ──────────────────────────────────────────────────
 
   Future<bool> verifyPattern(List<int> nodes) async {
     if (state.isInCooldown) return false;
@@ -251,13 +361,14 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
+      _restartInactivityTimer();
       return true;
     }
 
     return _handleFailedAttempt();
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   Future<bool> _handleFailedAttempt() async {
     final newAttempts = state.failedAttempts + 1;
@@ -298,6 +409,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   }
 
   Future<void> disable() async {
+    _cancelInactivityTimer();
     await _resetAttempts();
     await _pinService.clearPin();
     await _patternService.clearPattern();
@@ -312,6 +424,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       clearCooldown: true,
     );
     _secureWindowService.setSecureMode(false);
+    _restartInactivityTimer();
   }
 
   void onPatternSet() {
@@ -321,6 +434,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       clearCooldown: true,
     );
     _secureWindowService.setSecureMode(false);
+    _restartInactivityTimer();
   }
 
   bool get shouldForceLogout => state.failedAttempts >= kMaxAttemptsForceLogout;

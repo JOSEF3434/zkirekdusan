@@ -67,7 +67,12 @@ class RecurringReminderPicker extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Reminder', style: theme.textTheme.titleMedium),
+            Consumer(
+              builder: (_, ref, _) => Text(
+                ref.watch(trProvider)('calendar.reminder'),
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
             RadioGroup<ReminderRepeat>(
               groupValue: settings.enabled
                   ? settings.repeat
@@ -111,7 +116,7 @@ class RecurringReminderPicker extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     title: Consumer(
                       builder: (_, ref, _) =>
-                          Text(ref.watch(trProvider)('calendar.prev_month')),
+                          Text(ref.watch(trProvider)('calendar.monthly')),
                     ),
                     value: ReminderRepeat.monthly,
                   ),
@@ -119,7 +124,7 @@ class RecurringReminderPicker extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     title: Consumer(
                       builder: (_, ref, _) =>
-                          Text(ref.watch(trProvider)('common.years')),
+                          Text(ref.watch(trProvider)('calendar.yearly')),
                     ),
                     value: ReminderRepeat.yearly,
                   ),

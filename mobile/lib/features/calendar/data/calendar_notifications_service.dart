@@ -4,6 +4,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
@@ -21,6 +22,44 @@ class CalendarNotificationsService {
 
   static bool _initialized = false;
   static bool _backgroundInitialized = false;
+
+  static const AndroidNotificationChannel _reminderChannel =
+      AndroidNotificationChannel(
+    'calendar_reminders',
+    'Calendar Reminders',
+    description: 'Reminders for calendar notes',
+    importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  /// Ensures the Android notification channel is cleanly configured with system default sound.
+  /// If an older version created the channel with a missing raw resource in the Android OS,
+  /// this migrates the channel once by deleting and re-creating it with default sound.
+  Future<void> _ensureNotificationChannel() async {
+    try {
+      final androidPlugin = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (androidPlugin != null) {
+        final prefs = await SharedPreferences.getInstance();
+        const migrationKey = 'calendar_channel_sound_migration_v2';
+        if (!(prefs.getBool(migrationKey) ?? false)) {
+          try {
+            await androidPlugin.deleteNotificationChannel('calendar_reminders');
+          } catch (_) {}
+          await prefs.setBool(migrationKey, true);
+        }
+        await androidPlugin.createNotificationChannel(_reminderChannel);
+      }
+    } catch (e) {
+      developer.log(
+        '⚠️ Error configuring notification channel: $e',
+        name: 'CalendarNotifications',
+      );
+    }
+  }
 
   /// Initialize local notifications (foreground path — requests permission).
   /// Must only be called from a context with a live Activity (main isolate).
@@ -53,6 +92,8 @@ class CalendarNotificationsService {
         initSettings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
+
+      await _ensureNotificationChannel();
 
       // Request permissions — only safe in a foreground/Activity context.
       await _requestPermissions();
@@ -92,6 +133,8 @@ class CalendarNotificationsService {
       // No onDidReceiveNotificationResponse — taps cannot be handled in a
       // headless isolate anyway.
       await _notifications.initialize(initSettings);
+
+      await _ensureNotificationChannel();
 
       _backgroundInitialized = true;
       developer.log(
@@ -191,15 +234,14 @@ class CalendarNotificationsService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
-        sound: RawResourceAndroidNotificationSound('notification_sound'),
         enableVibration: true,
+        playSound: true,
       );
 
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: 'notification_sound.aiff',
       );
 
       const notificationDetails = NotificationDetails(

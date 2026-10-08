@@ -1,4 +1,5 @@
 // lib/features/settings/presentation/security_settings_screen.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -280,7 +281,10 @@ class SecuritySettingsScreen extends ConsumerWidget {
   // ── App Lock helpers ─────────────────────────────────────────────────────
 
   String _methodLabel(AppLockMethod method, BiometricHardwareType hwType) {
-    final bioLabel = hwType == BiometricHardwareType.face ? 'Face ID' : 'Touch ID';
+    final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+    final bioLabel = hwType == BiometricHardwareType.face
+        ? (isIOS ? 'Face ID' : 'Face Unlock')
+        : (isIOS ? 'Touch ID' : 'Fingerprint');
     switch (method) {
       case AppLockMethod.biometric:
         return '$bioLabel (biometric only)';
@@ -391,7 +395,10 @@ class SecuritySettingsScreen extends ConsumerWidget {
     BiometricHardwareType hwType,
     WidgetRef ref,
   ) {
-    final bioLabel = hwType == BiometricHardwareType.face ? 'Face ID' : 'Touch ID';
+    final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+    final bioLabel = hwType == BiometricHardwareType.face
+        ? (isIOS ? 'Face ID' : 'Face Unlock')
+        : (isIOS ? 'Touch ID' : 'Fingerprint');
 
     showModalBottomSheet(
       context: context,

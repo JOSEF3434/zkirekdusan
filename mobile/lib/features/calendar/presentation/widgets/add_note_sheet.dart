@@ -110,7 +110,6 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     }
   }
 
-
   void _removeMedia(int index) {
     setState(() {
       _selectedMediaPaths.removeAt(index);
@@ -125,16 +124,16 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete media?'),
-        content: const Text('This will permanently remove this attachment.'),
+        title: Text(ref.read(trProvider)('calendar.delete_media')),
+        content: Text(ref.read(trProvider)('calendar.delete_media_msg')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(ref.read(trProvider)('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(ref.read(trProvider)('common.delete')),
           ),
         ],
       ),
@@ -148,7 +147,13 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete media: $e')),
+          SnackBar(
+            content: Text(
+              ref.read(trProvider)('calendar.failed_delete_media', {
+                'error': e.toString(),
+              }),
+            ),
+          ),
         );
       }
     }
@@ -159,17 +164,16 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     final noteId = widget.existingNote?.id;
     if (noteId == null) return;
 
-    final captionController =
-        TextEditingController(text: media.caption ?? '');
+    final captionController = TextEditingController(text: media.caption ?? '');
     final newCaption = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit caption'),
+        title: Text(ref.read(trProvider)('calendar.edit_caption')),
         content: TextField(
           controller: captionController,
-          decoration: const InputDecoration(
-            labelText: 'Caption',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: ref.read(trProvider)('calendar.caption'),
+            border: const OutlineInputBorder(),
           ),
           autofocus: true,
           textInputAction: TextInputAction.done,
@@ -178,11 +182,11 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancel'),
+            child: Text(ref.read(trProvider)('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(captionController.text),
-            child: const Text('Save'),
+            child: Text(ref.read(trProvider)('common.save')),
           ),
         ],
       ),
@@ -199,7 +203,13 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update caption: $e')),
+          SnackBar(
+            content: Text(
+              ref.read(trProvider)('calendar.failed_update_caption', {
+                'error': e.toString(),
+              }),
+            ),
+          ),
         );
       }
     }
@@ -213,8 +223,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
         contentText.isEmpty &&
         _selectedMediaPaths.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a title, content, or attach media'),
+        SnackBar(
+          content: Text(
+            ref.read(trProvider)('calendar.enter_title_content_media'),
+          ),
         ),
       );
       return;
@@ -305,8 +317,8 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           SnackBar(
             content: Text(
               widget.existingNote != null
-                  ? 'Note updated successfully'
-                  : 'Note created successfully',
+                  ? ref.read(trProvider)('calendar.note_updated')
+                  : ref.read(trProvider)('calendar.note_created'),
             ),
           ),
         );
@@ -468,10 +480,14 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.existingNote != null ? 'Edit Note' : 'Add Note',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      Consumer(
+                        builder: (_, ref, _) => Text(
+                          widget.existingNote != null
+                              ? ref.watch(trProvider)('calendar.edit_note')
+                              : ref.watch(trProvider)('calendar.add_note'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -504,42 +520,50 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             const SizedBox(height: 16),
 
             // Title field
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                labelText: 'Title (optional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Consumer(
+              builder: (context, ref, _) => TextField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  labelText: ref.watch(trProvider)('calendar.title_optional'),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
+                textInputAction: TextInputAction.next,
+                enabled: !_isSaving,
               ),
-              textInputAction: TextInputAction.next,
-              enabled: !_isSaving,
             ),
 
             const SizedBox(height: 16),
 
             // Content field
-            TextField(
-              controller: _contentController,
-              decoration: InputDecoration(
-                labelText: 'Content',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Consumer(
+              builder: (context, ref, _) => TextField(
+                controller: _contentController,
+                decoration: InputDecoration(
+                  labelText: ref.watch(trProvider)('calendar.content'),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
+                maxLines: 5,
+                textInputAction: TextInputAction.done,
+                enabled: !_isSaving,
               ),
-              maxLines: 5,
-              textInputAction: TextInputAction.done,
-              enabled: !_isSaving,
             ),
 
             const SizedBox(height: 16),
 
             // ── Existing server media (edit mode only) ────────────────────
             if (widget.existingNote != null && _existingMedia.isNotEmpty) ...[
-              Text(
-                'Current media (${_existingMedia.length})',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Consumer(
+                builder: (context, ref, _) => Text(
+                  ref.watch(trProvider)('calendar.current_media', {
+                    'count': _existingMedia.length.toString(),
+                  }),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -627,8 +651,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                               color: Colors.black54,
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
-                                onTap: () =>
-                                    _editMediaCaption(media, index),
+                                onTap: () => _editMediaCaption(media, index),
                                 borderRadius: BorderRadius.circular(12),
                                 child: const Padding(
                                   padding: EdgeInsets.all(4),
@@ -649,8 +672,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                               color: Colors.redAccent,
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
-                                onTap: () =>
-                                    _deleteExistingMedia(media, index),
+                                onTap: () => _deleteExistingMedia(media, index),
                                 borderRadius: BorderRadius.circular(12),
                                 child: const Padding(
                                   padding: EdgeInsets.all(4),
@@ -688,10 +710,22 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Attachments (${allPaths.length + queueItems.where((q) => !allPaths.contains(q.localPath)).length})',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    Consumer(
+                      builder: (context, ref, _) => Text(
+                        ref.watch(trProvider)('calendar.attachments', {
+                          'count':
+                              (allPaths.length +
+                                      queueItems
+                                          .where(
+                                            (q) =>
+                                                !allPaths.contains(q.localPath),
+                                          )
+                                          .length)
+                                  .toString(),
+                        }),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -884,8 +918,9 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
             // ── Per-post download toggle (only shown if global download is enabled) ──
             Consumer(
               builder: (context, ref, _) {
-                final globalDownloadEnabled =
-                    ref.watch(calendarDownloadEnabledProvider);
+                final globalDownloadEnabled = ref.watch(
+                  calendarDownloadEnabledProvider,
+                );
                 if (!globalDownloadEnabled) return const SizedBox.shrink();
                 return Column(
                   children: [
@@ -896,7 +931,9 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                         side: BorderSide(
                           color: _allowDownload
                               ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.outline.withValues(alpha: 0.3),
                         ),
                       ),
                       child: CheckboxListTile(
@@ -904,12 +941,17 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                         onChanged: _isSaving
                             ? null
                             : (val) =>
-                                setState(() => _allowDownload = val ?? false),
-                        title: const Text('Allow users to download this media'),
-                        subtitle: const Text(
-                          'When checked, users can save media files to their '
-                          'ZikreKdusan folder with a watermark. Off by default.',
-                          style: TextStyle(fontSize: 12),
+                                  setState(() => _allowDownload = val ?? false),
+                        title: Text(
+                          ref.watch(trProvider)(
+                            'calendar.allow_download_title',
+                          ),
+                        ),
+                        subtitle: Text(
+                          ref.watch(trProvider)(
+                            'calendar.allow_download_subtitle',
+                          ),
+                          style: const TextStyle(fontSize: 12),
                         ),
                         secondary: Icon(
                           _allowDownload

@@ -13,6 +13,7 @@
 // 10 wrong attempts → force logout.
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -66,11 +67,45 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
     super.dispose();
   }
 
+  // ── App lifecycle: re-trigger biometrics when returning from background ──
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    super.didChangeAppLifecycleState(lifecycle);
+    if (!mounted) return;
+    if (lifecycle == AppLifecycleState.resumed) {
+      final lockState = ref.read(appLockProvider);
+      // Only re-trigger biometrics if:
+      //  1. The app is still locked (not unlocked by another path)
+      //  2. The user has biometric configured and has not switched to fallback
+      //  3. No biometric prompt is already in-progress (prevents stacking)
+      if (lockState.status == AppLockStatus.locked &&
+          !_showFallback &&
+          !_isLoading &&
+          !ref.read(appLockProvider.notifier).isBiometricAuthInProgress) {
+        final settings = ref.read(appLockSettingsProvider);
+        if (settings.method.usesBiometric) {
+          // Small delay so the UI finishes its own resume transition first.
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted &&
+                ref.read(appLockProvider).status == AppLockStatus.locked &&
+                !_showFallback) {
+              _authenticateWithBiometric();
+            }
+          });
+        }
+      }
+    }
+  }
+
   // ── Biometric auto-trigger ─────────────────────────────────────────────
 
   Future<void> _tryBiometricIfAvailable() async {
     final settings = ref.read(appLockSettingsProvider);
     if (settings.method.usesBiometric) {
+      // Check the notifier guard before attempting — prevents re-entry on
+      // hot-restart or widget rebuild while a prompt is already showing.
+      if (ref.read(appLockProvider.notifier).isBiometricAuthInProgress) return;
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted && !_showFallback) _authenticateWithBiometric();
     }
@@ -177,7 +212,11 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
   // ── Biometric auth ─────────────────────────────────────────────────────
 
   Future<void> _authenticateWithBiometric() async {
+    // Widget-level guard: prevents triggering while loading is already shown.
     if (_isLoading) return;
+    // Notifier-level guard: prevents duplicate OS biometric dialogs.
+    if (ref.read(appLockProvider.notifier).isBiometricAuthInProgress) return;
+
     setState(() => _isLoading = true);
 
     await ref.read(appLockProvider.notifier).authenticateWithBiometric();
@@ -187,7 +226,10 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen>
     final lockState = ref.read(appLockProvider);
     setState(() => _isLoading = false);
 
-    // After 5 biometric failures → auto-switch to fallback
+    // On success the lock state changes to unlocked; the router redirects.
+    // Nothing to do here except handle failures below.
+
+    // After kMaxBiometricAttempts failures → auto-switch to fallback.
     if (lockState.biometricExhausted && !_showFallback) {
       setState(() {
         _showFallback = true;
@@ -438,7 +480,19 @@ class _BiometricPanel extends ConsumerWidget {
     );
 
     final biometricLabel = biometricType.when(
-      data: (type) => type == BiometricHardwareType.face ? 'Face ID' : 'Touch ID',
+      data: (type) {
+        final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
+        switch (type) {
+          case BiometricHardwareType.face:
+            return isIOS ? 'Face ID' : 'Face Unlock';
+          case BiometricHardwareType.fingerprint:
+            return isIOS ? 'Touch ID' : 'Fingerprint';
+          case BiometricHardwareType.both:
+            return isIOS ? 'Face ID / Touch ID' : 'Biometric Unlock';
+          case BiometricHardwareType.none:
+            return 'Biometric';
+        }
+      },
       loading: () => 'Biometric',
       error: (_, _) => 'Biometric',
     );

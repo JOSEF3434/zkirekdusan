@@ -53,40 +53,10 @@ void main() async {
   // 3. Initialize SQLite local database (offline-first foundation)
   final appDatabase = AppDatabase();
 
-  // 4. Initialize Background Sync Service (non-blocking so main thread is not starved)
-  if (!kIsWeb) {
-    unawaited(() async {
-      try {
-        await BackgroundSyncService.initialize();
-
-        // Initialize Calendar Background Sync
-        await CalendarBackgroundSyncManager.initialize(
-          apiBaseUrl: Env.apiBaseUrl,
-          // authToken: null, // Token will be set after user login
-        );
-
-        // Register periodic sync (every 15 minutes)
-        await CalendarBackgroundSyncManager.registerPeriodicSync(
-          apiBaseUrl: Env.apiBaseUrl,
-          frequency: const Duration(minutes: 15),
-        );
-
-        // Initialize Calendar Reminder System
-        final calendarNotifications = CalendarNotificationsService();
-        await calendarNotifications.initialize();
-
-        await CalendarReminderManager.initialize();
-        await CalendarReminderManager.registerPeriodicReminderCheck();
-      } catch (e) {
-        debugPrint('[Main] Background sync init error: $e');
-      }
-    }());
-  }
-
-  // 5. Initialize SharedPreferences
+  // 4. Initialize SharedPreferences
   final sharedPrefs = await SharedPreferences.getInstance();
 
-  // 6. Initialize Localization
+  // 5. Initialize Localization
   final localizationService = LocalizationService();
   await localizationService.init();
 
@@ -103,7 +73,7 @@ void main() async {
   final lifecycleObserver = AppLifecycleObserver(container);
   WidgetsBinding.instance.addObserver(lifecycleObserver);
 
-  // 7. Wire FCM locale sync: when the user changes language, re-register the
+  // 6. Wire FCM locale sync: when the user changes language, re-register the
   //    device token with the new locale so the backend generates notifications
   //    in the correct language.
   PreferencesNotifier.onLanguageChanged = (String languageCode) async {
@@ -121,4 +91,30 @@ void main() async {
       child: const StreamHubApp(),
     ),
   );
+
+  // 8. Initialize Background Sync & Notification Services after the first frame
+  //    has painted so the main UI thread is not starved during initial launch,
+  //    preventing frame drops and Choreographer warnings.
+  if (!kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await BackgroundSyncService.initialize();
+
+        // Register periodic calendar sync (every 15 minutes)
+        await CalendarBackgroundSyncManager.registerPeriodicSync(
+          apiBaseUrl: Env.apiBaseUrl,
+          frequency: const Duration(minutes: 15),
+        );
+
+        // Initialize Calendar Reminder System
+        final calendarNotifications = CalendarNotificationsService();
+        await calendarNotifications.initialize();
+
+        await CalendarReminderManager.initialize();
+        await CalendarReminderManager.registerPeriodicReminderCheck();
+      } catch (e) {
+        debugPrint('[Main] Background services init error: $e');
+      }
+    });
+  }
 }

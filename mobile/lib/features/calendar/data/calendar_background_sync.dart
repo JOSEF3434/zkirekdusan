@@ -15,65 +15,70 @@ class CalendarSyncTasks {
   static const String oneTimeSync = 'calendar_one_time_sync';
 }
 
-/// Background sync callback dispatcher
+/// Core calendar background sync task execution logic.
+Future<bool> executeCalendarSyncTask(Map<String, dynamic>? inputData) async {
+  try {
+    developer.log(
+      '🔄 Background sync task executing',
+      name: 'BackgroundSync',
+    );
+
+    // Initialize dependencies in background isolate
+    final db = AppDatabase();
+    final dio = Dio(
+      BaseOptions(
+        baseUrl:
+            inputData?['apiBaseUrl'] as String? ?? 'http://localhost:3000',
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (inputData?['authToken'] != null)
+            'Authorization': 'Bearer ${inputData!['authToken']}',
+        },
+      ),
+    );
+
+    final remoteRepo = CalendarRepository(dio);
+    final offlineRepo = CalendarOfflineRepository(
+      db.calendarNotesDao,
+      db.syncQueueDao,
+      remoteRepo,
+    );
+
+    final syncService = CalendarSyncService(offlineRepo);
+
+    // Perform sync
+    final success = await syncService.performSync();
+
+    // Clean up
+    await db.close();
+
+    if (success) {
+      developer.log('✅ Background sync completed', name: 'BackgroundSync');
+      return true;
+    } else {
+      developer.log('⚠️ Background sync failed', name: 'BackgroundSync');
+      return false;
+    }
+  } catch (e, stackTrace) {
+    developer.log(
+      '❌ Background sync error: $e',
+      name: 'BackgroundSync',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    return false;
+  }
+}
+
+/// Background sync callback dispatcher (for backward compatibility if invoked directly)
 /// This runs in an isolated background thread
 @pragma('vm:entry-point')
 void calendarSyncCallbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    try {
-      developer.log(
-        '🔄 Background sync task started: $task',
-        name: 'BackgroundSync',
-      );
-
-      // Initialize dependencies in background isolate
-      final db = AppDatabase();
-      final dio = Dio(
-        BaseOptions(
-          baseUrl:
-              inputData?['apiBaseUrl'] as String? ?? 'http://localhost:3000',
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            if (inputData?['authToken'] != null)
-              'Authorization': 'Bearer ${inputData!['authToken']}',
-          },
-        ),
-      );
-
-      final remoteRepo = CalendarRepository(dio);
-      final offlineRepo = CalendarOfflineRepository(
-        db.calendarNotesDao,
-        db.syncQueueDao,
-        remoteRepo,
-      );
-
-      final syncService = CalendarSyncService(offlineRepo);
-
-      // Perform sync
-      final success = await syncService.performSync();
-
-      // Clean up
-      await db.close();
-
-      if (success) {
-        developer.log('✅ Background sync completed', name: 'BackgroundSync');
-        return true;
-      } else {
-        developer.log('⚠️ Background sync failed', name: 'BackgroundSync');
-        return false;
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        '❌ Background sync error: $e',
-        name: 'BackgroundSync',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return false;
-    }
+    return await executeCalendarSyncTask(inputData);
   });
 }
 
@@ -87,15 +92,7 @@ class CalendarBackgroundSyncManager {
     String? apiBaseUrl,
     String? authToken,
   }) async {
-    developer.log('🚀 Initializing background sync', name: 'BackgroundSync');
-
-    try {
-      await Workmanager().initialize(calendarSyncCallbackDispatcher);
-
-      developer.log('✅ Workmanager initialized', name: 'BackgroundSync');
-    } catch (e) {
-      developer.log('❌ Workmanager init failed: $e', name: 'BackgroundSync');
-    }
+    developer.log('✅ Calendar background sync ready', name: 'BackgroundSync');
   }
 
   /// Register periodic sync task (runs every 15 minutes)
