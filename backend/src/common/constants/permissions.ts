@@ -115,6 +115,12 @@ export const PERMISSIONS = {
     MANAGE: 'storage.manage',
   },
 
+  // ─── Auth Login Policy ──────────────────────────────────
+  AUTH_POLICY: {
+    MANAGE: 'auth.login-policy.manage',
+    VIEW: 'auth.login-policy.view',
+  },
+
   // ─── Preserved user-facing permissions ──────────────────
   PROFILE: {
     READ: 'profile.read',
@@ -236,6 +242,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'audit.view',
     'storage.view',
     'storage.manage',
+    'auth.login-policy.view',
+    'auth.login-policy.manage',
   ],
 
   MODERATOR: [

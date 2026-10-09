@@ -99,8 +99,21 @@ export async function seed(prisma: PrismaClient) {
     console.log(`✅ Super Admin created: ${adminUser.email}`);
   }
 
-  // MODERATOR and SUPPORT are now valid platform roles — do NOT migrate them to USER.
-  // If there are any genuinely stale custom roles (not in the enum), they can be cleaned up manually.
+  /**
+   * 5. Seed Default Login Policy
+   */
+  const existingPolicy = await prisma.loginPolicy.findFirst();
+  if (!existingPolicy) {
+    await prisma.loginPolicy.create({
+      data: {
+        activePolicy: 'SINGLE_IDENTIFIER',
+        allowEmail: true,
+        allowPhone: true,
+        allowUsername: true,
+      },
+    });
+    console.log('✅ Default Login Policy seeded');
+  }
 
   console.log('🎉 Database seed completed successfully!');
 }

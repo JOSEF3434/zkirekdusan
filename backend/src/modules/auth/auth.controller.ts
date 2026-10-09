@@ -1,6 +1,6 @@
 // src/modules/auth/auth.controller.ts
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -20,6 +20,16 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for auth endpoints
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @SkipThrottle() // Public read-only config — not a sensitive auth endpoint; skip the class-level 5/min limit
+  @Get('login-config')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get active login identifier policy configuration' })
+  @ApiResponse({ status: 200, description: 'Current login policy configuration' })
+  getLoginConfig() {
+    return this.authService.getLoginConfig();
+  }
 
   @Public()
   @Post('register')

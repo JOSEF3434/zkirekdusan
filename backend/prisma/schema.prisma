@@ -10,6 +10,20 @@ datasource db {
 // ENUMS
 // ─────────────────────────────────────────────
 
+/// Login policy type — which combination of identifiers is required
+enum LoginPolicyType {
+  SINGLE_IDENTIFIER   /// One of: email | phone | username + password
+  DUAL_IDENTIFIER     /// Two of: email+phone | email+username | phone+username + password
+  ALL_IDENTIFIERS     /// All three: email + phone + username + password
+}
+
+/// Which dual-identifier combination is required (used when policy = DUAL_IDENTIFIER)
+enum DualIdentifierCombination {
+  EMAIL_PHONE
+  EMAIL_USERNAME
+  PHONE_USERNAME
+}
+
 /// Global platform roles — 5 tiers at platform level
 enum GlobalRole {
   SUPER_ADMIN
@@ -385,8 +399,13 @@ model User {
   // Ethiopian Calendar
   calendarNotes CalendarNote[] @relation("UserCalendarNotes")
 
+  // Login Policy Management
+  modifiedLoginPolicies LoginPolicy[]          @relation("LoginPolicyModifier")
+  loginPolicyAuditLogs  LoginPolicyAuditLog[]  @relation("LoginPolicyAuditActor")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
 
   @@index([email])
   @@index([phoneNumber])
@@ -2755,3 +2774,68 @@ model CalendarNoteMedia {
   @@index([fileId])
   @@map("calendar_note_media")
 }
+
+// ─────────────────────────────────────────────
+// LOGIN POLICY MANAGEMENT (Admin Controlled)
+// ─────────────────────────────────────────────
+
+/// Singleton table — exactly ONE active login policy for the platform.
+/// Controlled exclusively by SUPER_ADMIN / users with auth.login-policy.manage permission.
+model LoginPolicy {
+  id String @id @default(uuid())
+
+  /// Which policy type is currently active
+  activePolicy LoginPolicyType @default(SINGLE_IDENTIFIER)
+
+  /// Whether users can also provide any single identifier (used in SINGLE_IDENTIFIER mode)
+  allowEmail    Boolean @default(true)
+  allowPhone    Boolean @default(true)
+  allowUsername Boolean @default(true)
+
+  /// For DUAL_IDENTIFIER: which combination is required
+  dualCombination DualIdentifierCombination?
+
+  /// Whether any policy updates are currently locked (emergency override)
+  isLocked Boolean @default(false)
+
+  /// Informational note for admins
+  description String? @db.Text
+
+  /// The admin who last modified this policy
+  lastModifiedById String?
+  lastModifiedBy   User?   @relation("LoginPolicyModifier", fields: [lastModifiedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("login_policies")
+}
+
+/// Immutable audit trail of every login policy change.
+model LoginPolicyAuditLog {
+  id String @id @default(uuid())
+
+  /// Admin who made the change
+  actorId String?
+  actor   User?   @relation("LoginPolicyAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  /// Snapshot of settings before the change
+  before Json?
+
+  /// Snapshot of settings after the change
+  after Json?
+
+  /// Human-readable reason provided by the admin
+  reason String? @db.Text
+
+  /// Extra context: IP, user-agent, etc.
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("login_policy_audit_logs")
+}
+

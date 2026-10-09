@@ -5,6 +5,7 @@
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mobile/features/auth/data/models/auth_user_model.dart';
+import 'package:mobile/features/auth/data/models/login_policy_model.dart';
 import 'package:mobile/features/auth/domain/entities/auth_user.dart';
 import 'package:mobile/features/auth/domain/repositories/auth_repository.dart';
 
@@ -28,6 +29,12 @@ class AuthRepositoryImpl implements AuthRepository {
     required StorageService storage,
   }) : _remote = remote,
        _storage = storage;
+
+  @override
+  Future<LoginPolicyConfig> getLoginPolicyConfig() async {
+    final map = await _remote.getLoginPolicyConfig();
+    return LoginPolicyConfig.fromJson(map);
+  }
 
   @override
   Future<AuthUser> register({

@@ -80,6 +80,7 @@ import 'package:mobile/features/admin/presentation/screens/admin_spam_screen.dar
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_rbac_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_auth_policy_screen.dart';
 import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/playlist_detail_screen.dart';
@@ -562,6 +563,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/rbac',
             builder: (context, state) => const AdminRbacScreen(),
+          ),
+          GoRoute(
+            path: '/admin/auth-policy',
+            builder: (context, state) => const AdminAuthPolicyScreen(),
           ),
           GoRoute(
             path: '/groups/:id',

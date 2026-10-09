@@ -39,6 +39,9 @@ export class LoginDto {
       'Phone number in E.164 format (provide either email, phoneNumber, or username)',
   })
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsPhoneNumber(undefined, {
     message:
       'phoneNumber must be a valid E.164 phone number (e.g. +12025550123)',

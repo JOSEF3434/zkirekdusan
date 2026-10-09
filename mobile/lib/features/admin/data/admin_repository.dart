@@ -277,6 +277,64 @@ class AdminRepository {
   }
 
   // ─────────────────────────────────────────────
+  // Login Policy Management
+  // ─────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getLoginPolicy() async {
+    final res = await _dio.get('/auth-policy');
+    return parseEnvelope(res.data);
+  }
+
+  Future<Map<String, dynamic>> updateLoginPolicy({
+    required String activePolicy,
+    bool allowEmail = true,
+    bool allowPhone = true,
+    bool allowUsername = true,
+    String? dualCombination,
+    String? reason,
+    bool acknowledgeUserImpact = false,
+  }) async {
+    final res = await _dio.put(
+      '/auth-policy',
+      data: {
+        'activePolicy': activePolicy,
+        'allowEmail': allowEmail,
+        'allowPhone': allowPhone,
+        'allowUsername': allowUsername,
+        if (dualCombination != null) 'dualCombination': dualCombination,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        if (acknowledgeUserImpact) 'acknowledgeUserImpact': true,
+      },
+    );
+    return parseEnvelope(res.data);
+  }
+
+  Future<Map<String, dynamic>> checkPolicyImpact({
+    required String activePolicy,
+    String? dualCombination,
+  }) async {
+    final res = await _dio.get(
+      '/auth-policy/impact-check',
+      queryParameters: {
+        'activePolicy': activePolicy,
+        if (dualCombination != null) 'dualCombination': dualCombination,
+      },
+    );
+    return parseEnvelope(res.data);
+  }
+
+  Future<Map<String, dynamic>> getLoginPolicyAuditLogs({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final res = await _dio.get(
+      '/auth-policy/audit-logs',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    return parseEnvelope(res.data);
+  }
+
+  // ─────────────────────────────────────────────
   // User Management
   // ─────────────────────────────────────────────
 

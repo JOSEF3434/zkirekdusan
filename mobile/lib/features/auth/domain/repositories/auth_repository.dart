@@ -2,8 +2,10 @@
 // Abstract repository contract for auth feature
 
 import 'package:mobile/features/auth/domain/entities/auth_user.dart';
+import 'package:mobile/features/auth/data/models/login_policy_model.dart';
 
 abstract class AuthRepository {
+  Future<LoginPolicyConfig> getLoginPolicyConfig();
   Future<AuthUser> register({
     String? email,
     String? phoneNumber,

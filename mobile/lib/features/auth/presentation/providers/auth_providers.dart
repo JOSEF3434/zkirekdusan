@@ -137,8 +137,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
             rawLower.contains('authentication failed') ||
             rawLower.contains('unexpected error');
 
+        final suppliedCount = [
+          email != null && email.isNotEmpty,
+          phoneNumber != null && phoneNumber.isNotEmpty,
+          username != null && username.isNotEmpty,
+        ].where((b) => b).length;
+
         if (isAuthFailure) {
-          if (email != null && email.isNotEmpty) {
+          if (suppliedCount > 1) {
+            errorMessage = 'Incorrect login credentials or password. Please check and try again.';
+          } else if (email != null && email.isNotEmpty) {
             errorMessage = 'Incorrect email or password. Please check and try again.';
           } else if (phoneNumber != null && phoneNumber.isNotEmpty) {
             errorMessage = 'Incorrect phone number or password. Please check and try again.';

@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PasswordService } from '../../common/service/password.service.js';
 import { UsersService } from '../users/users.service.js';
+import { AuthPolicyService } from '../auth-policy/auth-policy.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly authPolicyService: AuthPolicyService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -106,33 +108,49 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    let user: Awaited<ReturnType<typeof this.usersService.findByEmail>> | null =
-      null;
+    // ── Step 1: Fetch the active login policy ──────────────────────
+    const policy = await this.authPolicyService.getActivePolicy();
 
-    if (dto.email) {
-      user = await this.usersService.findByEmail(dto.email);
-    } else if (dto.phoneNumber) {
-      user = await this.usersService.findByPhoneNumber(dto.phoneNumber);
-    } else if (dto.username) {
-      user = await this.usersService.findByUsername(dto.username);
+    // ── Step 2: Enforce policy-specific identifier requirements ───
+    let user: Awaited<ReturnType<typeof this.usersService.findByEmail>> | null = null;
+
+    switch (policy.activePolicy) {
+      case 'SINGLE_IDENTIFIER': {
+        // Exactly one of email / phone / username must be supplied and allowed.
+        user = await this.resolveSingleIdentifier(dto, policy);
+        break;
+      }
+
+      case 'DUAL_IDENTIFIER': {
+        // Two specific identifiers must be supplied and both must resolve to the same account.
+        user = await this.resolveDualIdentifier(dto, policy);
+        break;
+      }
+
+      case 'ALL_IDENTIFIERS': {
+        // All three identifiers must be supplied and all must belong to the same account.
+        user = await this.resolveAllIdentifiers(dto);
+        break;
+      }
+
+      default:
+        throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // ── Step 3: Check account status ─────────────────────────────
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException(
-        `Account is ${user.status.toLowerCase()}`,
-      );
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new UnauthorizedException(
-        'Account is temporarily locked due to failed attempts',
-      );
+      throw new UnauthorizedException('Invalid credentials');
     }
 
+    // ── Step 4: Validate password ──────────────────────────────────
     const isPasswordValid = await this.passwordService.compare(
       dto.password,
       user.passwordHash,
@@ -145,6 +163,7 @@ export class AuthService {
 
     await this.usersService.updateLastLogin(user.id);
 
+    // ── Step 5: Issue tokens ───────────────────────────────────────
     const accessToken = await this.generateAccessToken(
       user.id,
       user.email ?? user.phoneNumber ?? user.username ?? 'user',
@@ -178,6 +197,135 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  // ── Private: Policy Enforcement Helpers ───────────────────────────
+
+  /**
+   * SINGLE_IDENTIFIER mode:
+   * Accept any enabled identifier type.
+   * If multiple identifiers are supplied in the request, all must be permitted by policy
+   * and all must resolve to the exact same registered account.
+   */
+  private async resolveSingleIdentifier(
+    dto: LoginDto,
+    policy: { allowEmail: boolean; allowPhone: boolean; allowUsername: boolean },
+  ) {
+    type ResolvedUser = NonNullable<
+      Awaited<ReturnType<typeof this.usersService.findByEmail>>
+    >;
+    const matchedUsers: ResolvedUser[] = [];
+
+    if (dto.email) {
+      if (!policy.allowEmail) throw new UnauthorizedException('Invalid credentials');
+      const u = await this.usersService.findByEmail(dto.email);
+      if (!u) throw new UnauthorizedException('Invalid credentials');
+      matchedUsers.push(u);
+    }
+    if (dto.phoneNumber) {
+      if (!policy.allowPhone) throw new UnauthorizedException('Invalid credentials');
+      const u = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+      if (!u) throw new UnauthorizedException('Invalid credentials');
+      matchedUsers.push(u);
+    }
+    if (dto.username) {
+      if (!policy.allowUsername) throw new UnauthorizedException('Invalid credentials');
+      const u = await this.usersService.findByUsername(dto.username);
+      if (!u) throw new UnauthorizedException('Invalid credentials');
+      matchedUsers.push(u);
+    }
+
+    const firstUser = matchedUsers[0];
+    if (!firstUser) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Security: All supplied identifiers must resolve to the exact same account
+    const firstId = firstUser.id;
+    for (const u of matchedUsers) {
+      if (u.id !== firstId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    }
+
+    return firstUser;
+  }
+
+  /**
+   * DUAL_IDENTIFIER mode:
+   * Require exactly two specific identifiers that both belong to the same account.
+   * SECURITY: Never reveal which identifier doesn't match. Always use 'Invalid credentials'.
+   */
+  private async resolveDualIdentifier(
+    dto: LoginDto,
+    policy: { dualCombination?: string | null },
+  ) {
+    const combo = policy.dualCombination;
+
+    if (combo === 'EMAIL_PHONE') {
+      if (!dto.email || !dto.phoneNumber) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const byEmail = await this.usersService.findByEmail(dto.email);
+      if (!byEmail) throw new UnauthorizedException('Invalid credentials');
+      const byPhone = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+      if (!byPhone) throw new UnauthorizedException('Invalid credentials');
+      // Both identifiers must belong to the same account
+      if (byEmail.id !== byPhone.id) throw new UnauthorizedException('Invalid credentials');
+      return byEmail;
+    }
+
+    if (combo === 'EMAIL_USERNAME') {
+      if (!dto.email || !dto.username) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const byEmail = await this.usersService.findByEmail(dto.email);
+      if (!byEmail) throw new UnauthorizedException('Invalid credentials');
+      const byUsername = await this.usersService.findByUsername(dto.username);
+      if (!byUsername) throw new UnauthorizedException('Invalid credentials');
+      if (byEmail.id !== byUsername.id) throw new UnauthorizedException('Invalid credentials');
+      return byEmail;
+    }
+
+    if (combo === 'PHONE_USERNAME') {
+      if (!dto.phoneNumber || !dto.username) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const byPhone = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+      if (!byPhone) throw new UnauthorizedException('Invalid credentials');
+      const byUsername = await this.usersService.findByUsername(dto.username);
+      if (!byUsername) throw new UnauthorizedException('Invalid credentials');
+      if (byPhone.id !== byUsername.id) throw new UnauthorizedException('Invalid credentials');
+      return byPhone;
+    }
+
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  /**
+   * ALL_IDENTIFIERS mode:
+   * Require email + phone + username, all belonging to the same account.
+   */
+  private async resolveAllIdentifiers(dto: LoginDto) {
+    if (!dto.email || !dto.phoneNumber || !dto.username) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const byEmail = await this.usersService.findByEmail(dto.email);
+    if (!byEmail) throw new UnauthorizedException('Invalid credentials');
+
+    const byPhone = await this.usersService.findByPhoneNumber(dto.phoneNumber);
+    if (!byPhone) throw new UnauthorizedException('Invalid credentials');
+
+    const byUsername = await this.usersService.findByUsername(dto.username);
+    if (!byUsername) throw new UnauthorizedException('Invalid credentials');
+
+    // All three must reference the exact same account — prevent cross-account matching
+    if (byEmail.id !== byPhone.id || byEmail.id !== byUsername.id) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return byEmail;
   }
 
   async refresh(
@@ -244,6 +392,10 @@ export class AuthService {
       accessToken,
       refreshToken: newRefreshToken,
     };
+  }
+
+  async getLoginConfig() {
+    return this.authPolicyService.getActivePolicy();
   }
 
   async logout(userId: string): Promise<{ message: string }> {

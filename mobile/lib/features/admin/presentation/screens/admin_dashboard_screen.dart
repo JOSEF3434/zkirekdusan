@@ -420,6 +420,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/system'),
                   ),
+                if (perms.canManageLoginPolicy)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.shield_outlined,
+                      color: Colors.indigoAccent,
+                    ),
+                    title: Text(tr('admin.auth_policy.title')),
+                    subtitle: Text(tr('admin.auth_policy.subtitle')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin/auth-policy'),
+                  ),
               ],
             ),
           ),

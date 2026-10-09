@@ -22,6 +22,7 @@ import { AuthorizationModule } from './modules/authorization/authorization.modul
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
 import { GroupsModule } from './modules/groups/groups.module.js';
 import { UploadsModule } from './modules/uploads/uploads.module.js';
+import { AuthPolicyModule } from './modules/auth-policy/auth-policy.module.js';
 
 // Social Features Modules (Phase 2)
 import { FollowsModule } from './modules/follows/follows.module.js';
@@ -131,6 +132,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 
     // Phase 1 — Foundation
     AuthModule,
+    AuthPolicyModule,
     UsersModule,
     RolesModule,
     SessionsModule,

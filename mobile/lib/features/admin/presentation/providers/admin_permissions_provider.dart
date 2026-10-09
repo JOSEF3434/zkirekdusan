@@ -67,6 +67,9 @@ class AdminPermissions {
 
   bool get canManageSystem => isAuthenticated && role == 'SUPER_ADMIN';
 
+  bool get canManageLoginPolicy =>
+      isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
+
   bool hasPermission(String requiredResource) {
     if (isSuperAdmin) return true;
     switch (requiredResource) {
@@ -94,6 +97,8 @@ class AdminPermissions {
         return canViewAudit;
       case 'system':
         return canManageSystem;
+      case 'login-policy':
+        return canManageLoginPolicy;
       default:
         return hasAdminAccess;
     }

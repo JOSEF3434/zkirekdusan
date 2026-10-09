@@ -88,6 +88,29 @@ class AuthRemoteDatasource {
     }
   }
 
+  /// GET /auth/login-config
+  /// Fetches the active login policy (publicly accessible)
+  Future<Map<String, dynamic>> getLoginPolicyConfig() async {
+    try {
+      final response = await _dio.get(
+        '/auth/login-config',
+        options: Options(
+          extra: {'skipAuth': true},
+        ),
+      );
+      final raw = _parseEnvelope(response.data);
+      return Map<String, dynamic>.from(raw);
+    } catch (_) {
+      // Graceful fallback to default single identifier
+      return {
+        'activePolicy': 'SINGLE_IDENTIFIER',
+        'allowEmail': true,
+        'allowPhone': true,
+        'allowUsername': true,
+      };
+    }
+  }
+
   /// POST /auth/refresh
   /// Returns new accessToken + refreshToken pair
   Future<Map<String, String>> refreshToken(String refreshToken) async {

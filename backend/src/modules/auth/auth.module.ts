@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RefreshStrategy } from './strategies/refresh.strategy.js';
+import { AuthPolicyModule } from '../auth-policy/auth-policy.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RefreshStrategy } from './strategies/refresh.strategy.js';
       inject: [ConfigService],
     }),
     UsersModule,
+    AuthPolicyModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RefreshStrategy],
