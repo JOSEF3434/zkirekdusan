@@ -354,33 +354,45 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
             ),
             const SizedBox(height: 12),
 
-            // Option 1: Single Identifier
-            _buildPolicyOptionCard(
-              cs: cs,
-              title: tr('admin.auth_policy.policy_single'),
-              subtitle: tr('admin.auth_policy.policy_single_desc'),
-              value: 'SINGLE_IDENTIFIER',
-              icon: Icons.person_pin_circle_outlined,
-            ),
-            const SizedBox(height: 8),
+            RadioGroup<String>(
+              groupValue: _selectedPolicy,
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _selectedPolicy = v);
+                }
+              },
+              child: Column(
+                children: [
+                  // Option 1: Single Identifier
+                  _buildPolicyOptionCard(
+                    cs: cs,
+                    title: tr('admin.auth_policy.policy_single'),
+                    subtitle: tr('admin.auth_policy.policy_single_desc'),
+                    value: 'SINGLE_IDENTIFIER',
+                    icon: Icons.person_pin_circle_outlined,
+                  ),
+                  const SizedBox(height: 8),
 
-            // Option 2: Dual Identifier
-            _buildPolicyOptionCard(
-              cs: cs,
-              title: tr('admin.auth_policy.policy_dual'),
-              subtitle: tr('admin.auth_policy.policy_dual_desc'),
-              value: 'DUAL_IDENTIFIER',
-              icon: Icons.people_outline,
-            ),
-            const SizedBox(height: 8),
+                  // Option 2: Dual Identifier
+                  _buildPolicyOptionCard(
+                    cs: cs,
+                    title: tr('admin.auth_policy.policy_dual'),
+                    subtitle: tr('admin.auth_policy.policy_dual_desc'),
+                    value: 'DUAL_IDENTIFIER',
+                    icon: Icons.people_outline,
+                  ),
+                  const SizedBox(height: 8),
 
-            // Option 3: All Three Identifiers
-            _buildPolicyOptionCard(
-              cs: cs,
-              title: tr('admin.auth_policy.policy_all'),
-              subtitle: tr('admin.auth_policy.policy_all_desc'),
-              value: 'ALL_IDENTIFIERS',
-              icon: Icons.verified_user_outlined,
+                  // Option 3: All Three Identifiers
+                  _buildPolicyOptionCard(
+                    cs: cs,
+                    title: tr('admin.auth_policy.policy_all'),
+                    subtitle: tr('admin.auth_policy.policy_all_desc'),
+                    value: 'ALL_IDENTIFIERS',
+                    icon: Icons.verified_user_outlined,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -441,35 +453,34 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(color: cs.outlineVariant),
                 ),
-                child: Column(
-                  children: [
-                    RadioListTile<String>(
-                      title: Text(tr('admin.auth_policy.combo_email_phone')),
-                      subtitle: Text(tr('admin.auth_policy.combo_email_phone_sub')),
-                      value: 'EMAIL_PHONE',
-                      groupValue: _dualCombination,
-                      onChanged: (v) =>
-                          setState(() => _dualCombination = v ?? 'EMAIL_PHONE'),
-                    ),
-                    const Divider(height: 1),
-                    RadioListTile<String>(
-                      title: Text(tr('admin.auth_policy.combo_email_username')),
-                      subtitle: Text(tr('admin.auth_policy.combo_email_username_sub')),
-                      value: 'EMAIL_USERNAME',
-                      groupValue: _dualCombination,
-                      onChanged: (v) =>
-                          setState(() => _dualCombination = v ?? 'EMAIL_USERNAME'),
-                    ),
-                    const Divider(height: 1),
-                    RadioListTile<String>(
-                      title: Text(tr('admin.auth_policy.combo_phone_username')),
-                      subtitle: Text(tr('admin.auth_policy.combo_phone_username_sub')),
-                      value: 'PHONE_USERNAME',
-                      groupValue: _dualCombination,
-                      onChanged: (v) =>
-                          setState(() => _dualCombination = v ?? 'PHONE_USERNAME'),
-                    ),
-                  ],
+                child: RadioGroup<String>(
+                  groupValue: _dualCombination,
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _dualCombination = v);
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: Text(tr('admin.auth_policy.combo_email_phone')),
+                        subtitle: Text(tr('admin.auth_policy.combo_email_phone_sub')),
+                        value: 'EMAIL_PHONE',
+                      ),
+                      const Divider(height: 1),
+                      RadioListTile<String>(
+                        title: Text(tr('admin.auth_policy.combo_email_username')),
+                        subtitle: Text(tr('admin.auth_policy.combo_email_username_sub')),
+                        value: 'EMAIL_USERNAME',
+                      ),
+                      const Divider(height: 1),
+                      RadioListTile<String>(
+                        title: Text(tr('admin.auth_policy.combo_phone_username')),
+                        subtitle: Text(tr('admin.auth_policy.combo_phone_username_sub')),
+                        value: 'PHONE_USERNAME',
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -596,8 +607,6 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
             ),
             Radio<String>(
               value: value,
-              groupValue: _selectedPolicy,
-              onChanged: (v) => setState(() => _selectedPolicy = v!),
               activeColor: cs.primary,
             ),
           ],

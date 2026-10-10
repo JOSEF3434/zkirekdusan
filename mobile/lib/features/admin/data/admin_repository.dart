@@ -301,7 +301,7 @@ class AdminRepository {
         'allowEmail': allowEmail,
         'allowPhone': allowPhone,
         'allowUsername': allowUsername,
-        if (dualCombination != null) 'dualCombination': dualCombination,
+        'dualCombination': ?dualCombination,
         if (reason != null && reason.isNotEmpty) 'reason': reason,
         if (acknowledgeUserImpact) 'acknowledgeUserImpact': true,
       },
@@ -317,7 +317,7 @@ class AdminRepository {
       '/auth-policy/impact-check',
       queryParameters: {
         'activePolicy': activePolicy,
-        if (dualCombination != null) 'dualCombination': dualCombination,
+        'dualCombination': ?dualCombination,
       },
     );
     return parseEnvelope(res.data);
