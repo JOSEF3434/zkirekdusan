@@ -1,10 +1,10 @@
 // lib/features/live/presentation/screens/live_room_screen.dart
 // YouTube Live-style viewer experience:
-//   • 16:9 player pinned at the top
-//   • Live badge + viewer count overlay on the player
-//   • Floating animated emoji reactions
-//   • Scrollable chat below the player
-//   • Emoji reaction picker bar at the very bottom
+//   * 16:9 player pinned at the top
+//   * Live badge + viewer count overlay on the player
+//   * Floating animated emoji reactions
+//   * Scrollable chat below the player
+//   * Emoji reaction picker bar at the very bottom
 
 import 'dart:async';
 import 'dart:math';
@@ -27,6 +27,7 @@ import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
 
 // ─── Reaction Particle ────────────────────────────────────────────────────────
 
@@ -89,6 +90,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // Timer to hide controls
   Timer? _hideControlsTimer;
+
+  // Media-session ID for App Lock inactivity exemption.
+  String get _mediaSessionId => 'live-viewer:${widget.streamId}';
 
   void _checkCreatorRedirect(LiveRoomState roomState) {
     if (_redirectedToStudio) return;
@@ -175,6 +179,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
     _playerRetryTimer?.cancel();
+    // End media session so the inactivity countdown restarts.
+    ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
     // Note: _playerCtrl may have been transferred to miniPlayerProvider
     // (in that case it's null here because we call _minimizeToMiniPlayer).
     _playerCtrl?.dispose();
@@ -504,6 +510,26 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           !_playerInitialized &&
           !_isPlayerInitializing) {
         _initPlayer(hls);
+      }
+
+      // Media-session policy: suspend App Lock inactivity timer while the
+      // viewer is actively watching (live or starting). Restore the countdown
+      // on terminal / error / interrupted states so a failed stream cannot
+      // hold the timer suspended indefinitely.
+      final isActivePhase =
+          next.phase == LiveStreamPhase.live ||
+          next.phase == LiveStreamPhase.starting;
+      final wasActivePhase =
+          previous?.phase == LiveStreamPhase.live ||
+          previous?.phase == LiveStreamPhase.starting;
+
+      if (isActivePhase && !wasActivePhase) {
+        ref.read(mediaActivityProvider.notifier).startSession(
+          _mediaSessionId,
+          MediaSessionKind.liveViewer,
+        );
+      } else if (!isActivePhase && wasActivePhase) {
+        ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
       }
     });
 

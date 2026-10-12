@@ -66,6 +66,7 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
   const CreateCalendarNoteDto._();
 
   const factory CreateCalendarNoteDto({
+    String? id,
     required int ethiopianYear,
     required int ethiopianMonth,
     required int ethiopianDay,
@@ -88,6 +89,7 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
 
   @override
   Map<String, dynamic> toJson() => {
+    if (id != null) 'id': id,
     'ethiopianYear': ethiopianYear,
     'ethiopianMonth': ethiopianMonth,
     'ethiopianDay': ethiopianDay,

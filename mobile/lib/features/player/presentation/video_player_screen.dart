@@ -8,6 +8,7 @@ import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
 import 'package:mobile/features/player/presentation/providers/player_provider.dart';
+import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
 import 'package:mobile/features/social/presentation/providers/likes_provider.dart';
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/follow_button.dart';
@@ -36,6 +37,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   double _dragOffset = 0;
   bool _isDragging = false;
   static const _kMiniDragThreshold = 120.0;
+
+  // Media-session ID used to register with mediaActivityProvider.
+  // Format: 'video:<videoId>' — stable for the lifetime of this screen.
+  String get _mediaSessionId => 'video:${widget.videoId}';
 
   @override
   void initState() {
@@ -106,6 +111,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   @override
   void dispose() {
     _seekFeedbackTimer?.cancel();
+    // End any active media session so the inactivity timer restarts.
+    ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
     // Restore orientation when leaving player
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -121,6 +128,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     final state = ref.watch(playerProvider(widget.videoId));
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+
+    // Media-session policy: suspend the App Lock inactivity timer while the
+    // video is actively playing; restore the countdown when paused or the
+    // player is in an error/loading state.
+    ref.listen<PlayerState>(playerProvider(widget.videoId), (prev, next) {
+      final wasPlaying = prev?.controller?.value.isPlaying ?? false;
+      final isPlaying = next.controller?.value.isPlaying ?? false;
+      final hasError = next.error != null || next.controller?.value.hasError == true;
+
+      if (hasError || next.isLoading) {
+        // Failed or loading — end any active session so the timer is not
+        // suspended indefinitely.
+        ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+        return;
+      }
+
+      if (isPlaying && !wasPlaying) {
+        ref.read(mediaActivityProvider.notifier).startSession(
+          _mediaSessionId,
+          MediaSessionKind.videoPlayback,
+        );
+      } else if (!isPlaying && wasPlaying) {
+        // Paused: end the session so the normal inactivity countdown resumes.
+        ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+      }
+    });
 
     if (state.isLoading) {
       return const Scaffold(

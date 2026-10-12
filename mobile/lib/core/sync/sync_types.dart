@@ -9,7 +9,13 @@ enum SyncOperationType {
   updateReadState('UPDATE_READ_STATE'),
   updateWatchHistory('UPDATE_WATCH_HISTORY'),
   createLike('CREATE_LIKE'),
-  removeLike('REMOVE_LIKE');
+  removeLike('REMOVE_LIKE'),
+  createCalendarNote('CREATE_CALENDAR_NOTE'),
+  updateCalendarNote('UPDATE_CALENDAR_NOTE'),
+  deleteCalendarNote('DELETE_CALENDAR_NOTE'),
+  addCalendarNoteMedia('ADD_CALENDAR_NOTE_MEDIA'),
+  deleteCalendarNoteMedia('DELETE_CALENDAR_NOTE_MEDIA'),
+  unknown('UNKNOWN');
 
   final String value;
   const SyncOperationType(this.value);
@@ -18,7 +24,7 @@ enum SyncOperationType {
     for (final op in SyncOperationType.values) {
       if (op.value == raw) return op;
     }
-    return SyncOperationType.createMessage;
+    return SyncOperationType.unknown;
   }
 }
 
@@ -27,7 +33,10 @@ enum SyncEntityType {
   reaction('REACTION'),
   readState('READ_STATE'),
   watchHistory('WATCH_HISTORY'),
-  like('LIKE');
+  like('LIKE'),
+  calendarNote('CALENDAR_NOTE'),
+  calendarNoteMedia('CALENDAR_NOTE_MEDIA'),
+  unknown('UNKNOWN');
 
   final String value;
   const SyncEntityType(this.value);
@@ -36,9 +45,10 @@ enum SyncEntityType {
     for (final e in SyncEntityType.values) {
       if (e.value == raw) return e;
     }
-    return SyncEntityType.message;
+    return SyncEntityType.unknown;
   }
 }
+
 
 enum SyncStatus {
   idle,

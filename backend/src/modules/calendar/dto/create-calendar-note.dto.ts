@@ -17,11 +17,20 @@ export enum CalendarReminderRepeat {
 }
 
 export class CreateCalendarNoteDto {
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Client-assigned note ID for idempotency',
+  })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @ApiProperty({ example: 2017, description: 'Ethiopian year' })
   @IsInt()
   @Min(1900)
   @Max(2200)
   ethiopianYear!: number;
+
 
   @ApiProperty({ example: 1, description: 'Ethiopian month (1-13)' })
   @IsInt()
@@ -102,4 +111,13 @@ export class CreateCalendarNoteDto {
   @IsOptional()
   @IsString()
   reminderTimezone?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Allow media download for this note',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowDownload?: boolean;
 }
+

@@ -37,6 +37,7 @@ import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart';
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
+import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
 
 // ─── Studio Floating Particle (Live Reactions) ──────────────────────────────
 
@@ -328,6 +329,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       p.ctrl.dispose();
     }
     if (_streamId != null) {
+      ref
+          .read(mediaActivityProvider.notifier)
+          .endSession('live-broadcaster:$_streamId');
       ref.read(liveSocketServiceProvider).leaveStream(_streamId!);
     }
     _stopRtmpBroadcast();
@@ -461,6 +465,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   @override
   Widget build(BuildContext context) {
+    final streamId = _streamId;
+    if (streamId != null) {
+      // Media-session policy: suspend App Lock inactivity timer while the
+      // broadcaster is actively live. When the stream ends, the session ends
+      // and the inactivity countdown restarts.
+      ref.listen<BroadcasterState>(
+        broadcasterProvider((streamId, _effectiveChannelId)),
+        (prev, next) {
+          final wasLive = prev?.stream?.status == LiveStreamStatus.live;
+          final isLive = next.stream?.status == LiveStreamStatus.live;
+          final sessionId = 'live-broadcaster:$streamId';
+
+          if (isLive && !wasLive) {
+            ref.read(mediaActivityProvider.notifier).startSession(
+              sessionId,
+              MediaSessionKind.liveBroadcaster,
+            );
+          } else if (!isLive && wasLive) {
+            ref.read(mediaActivityProvider.notifier).endSession(sessionId);
+          }
+        },
+      );
+    }
+
     if (_streamId == null) {
       return _buildSetupPage(context);
     }

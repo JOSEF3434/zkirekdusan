@@ -190,8 +190,22 @@ class SyncManager extends StateNotifier<SyncStatus> {
       case SyncOperationType.removeLike:
         await _handleRemoveLike(payload);
         break;
+      case SyncOperationType.createCalendarNote:
+        await _handleCreateCalendarNote(entry.entityId, payload);
+        break;
+      case SyncOperationType.updateCalendarNote:
+        await _handleUpdateCalendarNote(entry.entityId, payload);
+        break;
+      case SyncOperationType.deleteCalendarNote:
+        await _handleDeleteCalendarNote(entry.entityId);
+        break;
+      case SyncOperationType.addCalendarNoteMedia:
+      case SyncOperationType.deleteCalendarNoteMedia:
+      case SyncOperationType.unknown:
+        break;
     }
   }
+
 
   Future<void> _handleCreateMessage(Map<String, dynamic> payload) async {
     final conversationId = payload['conversationId'] as String;
@@ -329,6 +343,30 @@ class SyncManager extends StateNotifier<SyncStatus> {
     final videoId = payload['videoId'] as String;
     await _apiClient.delete('/videos/$videoId/like');
   }
+
+  Future<void> _handleCreateCalendarNote(
+    String noteId,
+    Map<String, dynamic> payload,
+  ) async {
+    final body = Map<String, dynamic>.from(payload);
+    body['id'] = noteId;
+    await _apiClient.post('/calendar/notes', data: body);
+    await _db.calendarNotesDao.markNoteSynced(noteId);
+  }
+
+  Future<void> _handleUpdateCalendarNote(
+    String noteId,
+    Map<String, dynamic> payload,
+  ) async {
+    await _apiClient.patch('/calendar/notes/$noteId', data: payload);
+    await _db.calendarNotesDao.markNoteSynced(noteId);
+  }
+
+  Future<void> _handleDeleteCalendarNote(String noteId) async {
+    await _apiClient.delete('/calendar/notes/$noteId');
+    await _db.calendarNotesDao.hardDeleteNote(noteId);
+  }
+
 
   bool _isRecoverableError(dynamic error) {
     if (error is DioException) {

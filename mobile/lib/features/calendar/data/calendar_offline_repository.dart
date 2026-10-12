@@ -1,14 +1,18 @@
 // lib/features/calendar/data/calendar_offline_repository.dart
 // Offline-first repository that uses local database and syncs with server
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/database/daos/calendar_notes_dao.dart';
 import 'package:mobile/core/database/daos/sync_queue_dao.dart';
 import 'package:mobile/core/providers/database_provider.dart';
+import 'package:mobile/core/sync/retry_strategy.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/data/calendar_repository.dart';
 import 'package:uuid/uuid.dart';
@@ -25,70 +29,45 @@ final calendarOfflineRepositoryProvider = Provider<CalendarOfflineRepository>((
   );
 });
 
+/// Structured result of pushing pending local notes to the server
+class CalendarPushResult {
+  final int pushedCount;
+  final int failedCount;
+  final int permanentFailures;
+  final bool isThrottled;
+  final String? lastError;
+
+  const CalendarPushResult({
+    this.pushedCount = 0,
+    this.failedCount = 0,
+    this.permanentFailures = 0,
+    this.isThrottled = false,
+    this.lastError,
+  });
+
+  bool get hasErrors => failedCount > 0 || permanentFailures > 0 || isThrottled;
+  bool get isSuccess => !hasErrors && failedCount == 0;
+}
+
 class CalendarOfflineRepository {
   final CalendarNotesDao _dao;
   final SyncQueueDao _syncQueue;
   final CalendarRepository _remoteRepo;
   final _uuid = const Uuid();
+  Future<CalendarPushResult>? _inFlightPush;
 
   CalendarOfflineRepository(this._dao, this._syncQueue, this._remoteRepo);
 
   // ═══════════════════════════════════════════════════════════════
-  // READ OPERATIONS (Local First)
+  // READ OPERATIONS (Local First - Instantaneous & Offline-Safe)
   // ═══════════════════════════════════════════════════════════════
 
-  /// Get notes for a specific date (local first with online sync)
+  /// Get notes for a specific date (authoritative local database)
   Future<List<CalendarNoteModel>> getNotesForDate({
     required int year,
     required int month,
     required int day,
   }) async {
-    try {
-      final remoteNotes = await _remoteRepo.getNotes(
-        year: year,
-        month: month,
-        day: day,
-      );
-      final companions = remoteNotes.map((note) {
-        return LocalCalendarNotesCompanion.insert(
-          id: note.id,
-          userId: note.userId,
-          ethiopianYear: note.ethiopianYear,
-          ethiopianMonth: note.ethiopianMonth,
-          ethiopianDay: note.ethiopianDay,
-          gregorianDate: note.gregorianDate,
-          title: Value(note.title),
-          content: Value(note.content),
-          hasReminder: Value(note.hasReminder),
-          reminderDateTime: Value(note.reminderDateTime),
-          reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
-          reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
-          reminderEthiopianDay: Value(note.reminderEthiopianDay),
-          reminderHour: Value(note.reminderHour),
-          reminderMinute: Value(note.reminderMinute),
-          reminderTimezone: Value(note.reminderTimezone),
-          reminderNextOccurrence: Value(note.reminderNextOccurrence),
-          createdAt: note.createdAt,
-          updatedAt: note.updatedAt,
-          deletedAt: Value(note.deletedAt),
-          isSynced: const Value(true),
-          lastSyncedAt: Value(DateTime.now()),
-        );
-      }).toList();
-
-      if (companions.isNotEmpty) {
-        await _dao.batchUpsertNotes(companions);
-      }
-      if (remoteNotes.isNotEmpty) {
-        return remoteNotes;
-      }
-    } catch (e) {
-      developer.log(
-        'Remote getNotesForDate fallback: $e',
-        name: 'CalendarOfflineRepository',
-      );
-    }
-
     final localNotes = await _dao.getNotesForDate(
       year: year,
       month: month,
@@ -103,56 +82,11 @@ class CalendarOfflineRepository {
     return results;
   }
 
-  /// Get notes for a specific month (local first with online sync)
+  /// Get notes for a specific month (authoritative local database)
   Future<List<CalendarNoteModel>> getNotesForMonth({
     required int year,
     required int month,
   }) async {
-    try {
-      final remoteNotes = await _remoteRepo.getNotes(
-        year: year,
-        month: month,
-      );
-      final companions = remoteNotes.map((note) {
-        return LocalCalendarNotesCompanion.insert(
-          id: note.id,
-          userId: note.userId,
-          ethiopianYear: note.ethiopianYear,
-          ethiopianMonth: note.ethiopianMonth,
-          ethiopianDay: note.ethiopianDay,
-          gregorianDate: note.gregorianDate,
-          title: Value(note.title),
-          content: Value(note.content),
-          hasReminder: Value(note.hasReminder),
-          reminderDateTime: Value(note.reminderDateTime),
-          reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
-          reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
-          reminderEthiopianDay: Value(note.reminderEthiopianDay),
-          reminderHour: Value(note.reminderHour),
-          reminderMinute: Value(note.reminderMinute),
-          reminderTimezone: Value(note.reminderTimezone),
-          reminderNextOccurrence: Value(note.reminderNextOccurrence),
-          createdAt: note.createdAt,
-          updatedAt: note.updatedAt,
-          deletedAt: Value(note.deletedAt),
-          isSynced: const Value(true),
-          lastSyncedAt: Value(DateTime.now()),
-        );
-      }).toList();
-
-      if (companions.isNotEmpty) {
-        await _dao.batchUpsertNotes(companions);
-      }
-      if (remoteNotes.isNotEmpty) {
-        return remoteNotes;
-      }
-    } catch (e) {
-      developer.log(
-        'Remote getNotesForMonth fallback: $e',
-        name: 'CalendarOfflineRepository',
-      );
-    }
-
     final localNotes = await _dao.getNotesForMonth(year: year, month: month);
 
     final results = <CalendarNoteModel>[];
@@ -175,7 +109,6 @@ class CalendarOfflineRepository {
     // 2. Fallback: fetch from remote API and cache locally
     try {
       final serverNote = await _remoteRepo.getNote(id);
-      // Cache it so the next open is instant
       await _dao.upsertNote(
         LocalCalendarNotesCompanion.insert(
           id: serverNote.id,
@@ -214,10 +147,10 @@ class CalendarOfflineRepository {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // WRITE OPERATIONS (Online First + Offline Fallback)
+  // WRITE OPERATIONS (Genuinely Offline-First)
   // ═══════════════════════════════════════════════════════════════
 
-  /// Create a note
+  /// Create a note (persists locally immediately, enqueues sync)
   Future<CalendarNoteModel> createNote({
     required String userId,
     required int ethiopianYear,
@@ -237,138 +170,89 @@ class CalendarOfflineRepository {
     DateTime? reminderNextOccurrence,
     bool allowDownload = false,
   }) async {
-    // 1. Try remote creation first
-    try {
-      final dto = CreateCalendarNoteDto(
-        ethiopianYear: ethiopianYear,
-        ethiopianMonth: ethiopianMonth,
-        ethiopianDay: ethiopianDay,
-        gregorianDate: gregorianDate.toIso8601String(),
-        title: title,
-        content: content,
-        hasReminder: hasReminder,
-        reminderDateTime: reminderDateTime?.toIso8601String(),
-        reminderRepeat: reminderRepeat,
-        reminderEthiopianMonth: reminderEthiopianMonth,
-        reminderEthiopianDay: reminderEthiopianDay,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-        reminderTimezone: reminderTimezone,
-        allowDownload: allowDownload,
-      );
+    final noteId = _uuid.v4();
+    final now = DateTime.now();
 
-      final serverNote = await _remoteRepo.createNote(dto);
+    // 1. Immediately persist to local database with isSynced = false
+    await _dao.createNote(
+      id: noteId,
+      userId: userId,
+      ethiopianYear: ethiopianYear,
+      ethiopianMonth: ethiopianMonth,
+      ethiopianDay: ethiopianDay,
+      gregorianDate: gregorianDate,
+      title: title,
+      content: content,
+      hasReminder: hasReminder,
+      reminderDateTime: reminderDateTime,
+      reminderRepeat: reminderRepeat.name.toUpperCase(),
+      reminderEthiopianMonth: reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
+      reminderTimezone: reminderTimezone,
+      reminderNextOccurrence: reminderNextOccurrence,
+    );
 
-      // Save to local database with official server ID
-      await _dao.upsertNote(
-        LocalCalendarNotesCompanion.insert(
-          id: serverNote.id,
-          userId: serverNote.userId,
-          ethiopianYear: serverNote.ethiopianYear,
-          ethiopianMonth: serverNote.ethiopianMonth,
-          ethiopianDay: serverNote.ethiopianDay,
-          gregorianDate: serverNote.gregorianDate,
-          title: Value(serverNote.title),
-          content: Value(serverNote.content),
-          hasReminder: Value(serverNote.hasReminder),
-          reminderDateTime: Value(serverNote.reminderDateTime),
-          reminderRepeat: Value(serverNote.reminderRepeat.name.toUpperCase()),
-          reminderEthiopianMonth: Value(serverNote.reminderEthiopianMonth),
-          reminderEthiopianDay: Value(serverNote.reminderEthiopianDay),
-          reminderHour: Value(serverNote.reminderHour),
-          reminderMinute: Value(serverNote.reminderMinute),
-          reminderTimezone: Value(serverNote.reminderTimezone),
-          reminderNextOccurrence: Value(serverNote.reminderNextOccurrence),
-          createdAt: serverNote.createdAt,
-          updatedAt: serverNote.updatedAt,
-          deletedAt: Value(serverNote.deletedAt),
-          isSynced: const Value(true),
-          lastSyncedAt: Value(DateTime.now()),
-        ),
-      );
+    // 2. Persist to durable sync queue with full JSON payload
+    await _enqueueSyncOperation(
+      operationType: 'CREATE_CALENDAR_NOTE',
+      entityType: 'CALENDAR_NOTE',
+      entityId: noteId,
+      payload: {
+        'id': noteId,
+        'userId': userId,
+        'ethiopianYear': ethiopianYear,
+        'ethiopianMonth': ethiopianMonth,
+        'ethiopianDay': ethiopianDay,
+        'gregorianDate': gregorianDate.toIso8601String(),
+        'title': ?title,
+        'content': ?content,
+        'hasReminder': hasReminder,
+        'reminderDateTime': ?reminderDateTime?.toIso8601String(),
+        'reminderRepeat': reminderRepeat.name.toUpperCase(),
+        'reminderEthiopianMonth': ?reminderEthiopianMonth,
+        'reminderEthiopianDay': ?reminderEthiopianDay,
+        'reminderHour': ?reminderHour,
+        'reminderMinute': ?reminderMinute,
+        'reminderTimezone': reminderTimezone,
+        'allowDownload': allowDownload,
+      },
+    );
 
-      return serverNote;
-    } catch (e) {
-      developer.log(
-        'Server note creation failed, falling back to local: $e',
-        name: 'CalendarOfflineRepository',
-        error: e,
-      );
+    // 3. Construct model and return immediately to UI
+    final localModel = CalendarNoteModel(
+      id: noteId,
+      userId: userId,
+      ethiopianYear: ethiopianYear,
+      ethiopianMonth: ethiopianMonth,
+      ethiopianDay: ethiopianDay,
+      gregorianDate: gregorianDate,
+      title: title,
+      content: content,
+      hasReminder: hasReminder,
+      reminderDateTime: reminderDateTime,
+      reminderNotified: false,
+      reminderRepeat: reminderRepeat,
+      reminderEthiopianMonth: reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
+      reminderTimezone: reminderTimezone,
+      reminderNextOccurrence: reminderNextOccurrence,
+      media: const [],
+      allowDownload: allowDownload,
+      createdAt: now,
+      updatedAt: now,
+    );
 
-      final noteId = await _dao.createNote(
-        userId: userId,
-        ethiopianYear: ethiopianYear,
-        ethiopianMonth: ethiopianMonth,
-        ethiopianDay: ethiopianDay,
-        gregorianDate: gregorianDate,
-        title: title,
-        content: content,
-        hasReminder: hasReminder,
-        reminderDateTime: reminderDateTime,
-        reminderRepeat: reminderRepeat.name.toUpperCase(),
-        reminderEthiopianMonth: reminderEthiopianMonth,
-        reminderEthiopianDay: reminderEthiopianDay,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-        reminderTimezone: reminderTimezone,
-        reminderNextOccurrence: reminderNextOccurrence,
-      );
+    // 4. Non-blocking asynchronous sync attempt
+    unawaited(pushUnsyncedNotes());
 
-      // Enqueue sync operation
-      await _enqueueSyncOperation(
-        operationType: 'CREATE_CALENDAR_NOTE',
-        entityType: 'CALENDAR_NOTE',
-        entityId: noteId,
-        payload: {
-          'userId': userId,
-          'ethiopianYear': ethiopianYear,
-          'ethiopianMonth': ethiopianMonth,
-          'ethiopianDay': ethiopianDay,
-          'gregorianDate': gregorianDate.toIso8601String(),
-          'title': ?title,
-          'content': ?content,
-          'hasReminder': hasReminder,
-          'reminderDateTime': ?reminderDateTime?.toIso8601String(),
-          'reminderRepeat': reminderRepeat.name.toUpperCase(),
-          'reminderEthiopianMonth': ?reminderEthiopianMonth,
-          'reminderEthiopianDay': ?reminderEthiopianDay,
-          'reminderHour': ?reminderHour,
-          'reminderMinute': ?reminderMinute,
-          'reminderTimezone': reminderTimezone,
-          'allowDownload': allowDownload,
-        },
-      );
-
-      final note = await getNoteById(noteId);
-      return note ??
-          CalendarNoteModel(
-            id: noteId,
-            userId: userId,
-            ethiopianYear: ethiopianYear,
-            ethiopianMonth: ethiopianMonth,
-            ethiopianDay: ethiopianDay,
-            gregorianDate: gregorianDate,
-            title: title,
-            content: content,
-            hasReminder: hasReminder,
-            reminderDateTime: reminderDateTime,
-            reminderNotified: false,
-            reminderRepeat: reminderRepeat,
-            reminderEthiopianMonth: reminderEthiopianMonth,
-            reminderEthiopianDay: reminderEthiopianDay,
-            reminderHour: reminderHour,
-            reminderMinute: reminderMinute,
-            reminderTimezone: reminderTimezone,
-            reminderNextOccurrence: reminderNextOccurrence,
-            media: const [],
-            allowDownload: allowDownload,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-    }
+    return localModel;
   }
 
-  /// Update a note (online-first with offline fallback)
+  /// Update a note (persists locally immediately, enqueues sync)
   Future<CalendarNoteModel> updateNote(
     String id, {
     String? title,
@@ -384,132 +268,90 @@ class CalendarOfflineRepository {
     DateTime? reminderNextOccurrence,
     bool? allowDownload,
   }) async {
-    try {
-      final dto = UpdateCalendarNoteDto(
-        title: title,
-        content: content,
-        hasReminder: hasReminder,
-        reminderDateTime: reminderDateTime?.toIso8601String(),
-        reminderRepeat: reminderRepeat,
-        reminderEthiopianMonth: reminderEthiopianMonth,
-        reminderEthiopianDay: reminderEthiopianDay,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-        reminderTimezone: reminderTimezone,
-        allowDownload: allowDownload,
-      );
+    // 1. Immediately persist to local database with isSynced = false
+    await _dao.updateNote(
+      id,
+      title: title,
+      content: content,
+      hasReminder: hasReminder,
+      reminderDateTime: reminderDateTime,
+      reminderRepeat: reminderRepeat?.name.toUpperCase(),
+      reminderEthiopianMonth: reminderEthiopianMonth,
+      reminderEthiopianDay: reminderEthiopianDay,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
+      reminderTimezone: reminderTimezone,
+      reminderNextOccurrence: reminderNextOccurrence,
+    );
 
-      final serverNote = await _remoteRepo.updateNote(id, dto);
+    // 2. Persist update to sync queue
+    await _enqueueSyncOperation(
+      operationType: 'UPDATE_CALENDAR_NOTE',
+      entityType: 'CALENDAR_NOTE',
+      entityId: id,
+      payload: {
+        'title': ?title,
+        'content': ?content,
+        'hasReminder': ?hasReminder,
+        'reminderDateTime': ?reminderDateTime?.toIso8601String(),
+        'reminderRepeat': ?reminderRepeat?.name.toUpperCase(),
+        'reminderEthiopianMonth': ?reminderEthiopianMonth,
+        'reminderEthiopianDay': ?reminderEthiopianDay,
+        'reminderHour': ?reminderHour,
+        'reminderMinute': ?reminderMinute,
+        'reminderTimezone': ?reminderTimezone,
+        'allowDownload': ?allowDownload,
+      },
+    );
 
-      await _dao.updateNote(
-        id,
-        title: title,
-        content: content,
-        hasReminder: hasReminder,
-        reminderDateTime: reminderDateTime,
-        reminderRepeat: reminderRepeat?.name.toUpperCase(),
-        reminderEthiopianMonth: reminderEthiopianMonth,
-        reminderEthiopianDay: reminderEthiopianDay,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-        reminderTimezone: reminderTimezone,
-        reminderNextOccurrence: reminderNextOccurrence,
-      );
-      await _dao.markNoteSynced(id);
+    // 3. Return updated model from local database immediately
+    final updatedNote = await getNoteById(id);
 
-      return serverNote;
-    } catch (e) {
-      developer.log(
-        'Server note update failed, saving offline: $e',
-        name: 'CalendarOfflineRepository',
-        error: e,
-      );
+    // 4. Non-blocking asynchronous sync attempt
+    unawaited(pushUnsyncedNotes());
 
-      await _dao.updateNote(
-        id,
-        title: title,
-        content: content,
-        hasReminder: hasReminder,
-        reminderDateTime: reminderDateTime,
-        reminderRepeat: reminderRepeat?.name.toUpperCase(),
-        reminderEthiopianMonth: reminderEthiopianMonth,
-        reminderEthiopianDay: reminderEthiopianDay,
-        reminderHour: reminderHour,
-        reminderMinute: reminderMinute,
-        reminderTimezone: reminderTimezone,
-        reminderNextOccurrence: reminderNextOccurrence,
-      );
-
-      // Enqueue sync operation
-      await _enqueueSyncOperation(
-        operationType: 'UPDATE_CALENDAR_NOTE',
-        entityType: 'CALENDAR_NOTE',
-        entityId: id,
-        payload: {
-          'title': ?title,
-          'content': ?content,
-          'hasReminder': ?hasReminder,
-          'reminderDateTime': ?reminderDateTime?.toIso8601String(),
-          'reminderRepeat': ?reminderRepeat?.name.toUpperCase(),
-          'reminderEthiopianMonth': ?reminderEthiopianMonth,
-          'reminderEthiopianDay': ?reminderEthiopianDay,
-          'reminderHour': ?reminderHour,
-          'reminderMinute': ?reminderMinute,
-          'reminderTimezone': ?reminderTimezone,
-          'allowDownload': ?allowDownload,
-        },
-      );
-
-      final note = await getNoteById(id);
-      return note ??
-          CalendarNoteModel(
-            id: id,
-            userId: '',
-            ethiopianYear: 0,
-            ethiopianMonth: 0,
-            ethiopianDay: 0,
-            gregorianDate: DateTime.now(),
-            title: title,
-            content: content,
-            hasReminder: hasReminder ?? false,
-            reminderDateTime: reminderDateTime,
-            reminderNotified: false,
-            reminderRepeat: reminderRepeat ?? ReminderRepeat.none,
-            reminderEthiopianMonth: reminderEthiopianMonth,
-            reminderEthiopianDay: reminderEthiopianDay,
-            reminderHour: reminderHour,
-            reminderMinute: reminderMinute,
-            reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
-            reminderNextOccurrence: reminderNextOccurrence,
-            media: const [],
-            allowDownload: allowDownload ?? false,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-    }
+    return updatedNote ??
+        CalendarNoteModel(
+          id: id,
+          userId: '',
+          ethiopianYear: 0,
+          ethiopianMonth: 0,
+          ethiopianDay: 0,
+          gregorianDate: DateTime.now(),
+          title: title,
+          content: content,
+          hasReminder: hasReminder ?? false,
+          reminderDateTime: reminderDateTime,
+          reminderNotified: false,
+          reminderRepeat: reminderRepeat ?? ReminderRepeat.none,
+          reminderEthiopianMonth: reminderEthiopianMonth,
+          reminderEthiopianDay: reminderEthiopianDay,
+          reminderHour: reminderHour,
+          reminderMinute: reminderMinute,
+          reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
+          reminderNextOccurrence: reminderNextOccurrence,
+          media: const [],
+          allowDownload: allowDownload ?? false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
   }
 
-  /// Delete a note (online-first with offline fallback)
+  /// Delete a note (marks deleted locally immediately, enqueues sync)
   Future<void> deleteNote(String id) async {
-    try {
-      await _remoteRepo.deleteNote(id);
-      await _dao.hardDeleteNote(id);
-    } catch (e) {
-      developer.log(
-        'Server note deletion failed, marking offline: $e',
-        name: 'CalendarOfflineRepository',
-        error: e,
-      );
-      await _dao.deleteNote(id);
+    // 1. Mark deleted in local database immediately
+    await _dao.deleteNote(id);
 
-      // Enqueue sync operation
-      await _enqueueSyncOperation(
-        operationType: 'DELETE_CALENDAR_NOTE',
-        entityType: 'CALENDAR_NOTE',
-        entityId: id,
-        payload: {},
-      );
-    }
+    // 2. Persist delete to sync queue
+    await _enqueueSyncOperation(
+      operationType: 'DELETE_CALENDAR_NOTE',
+      entityType: 'CALENDAR_NOTE',
+      entityId: id,
+      payload: {'id': id},
+    );
+
+    // 3. Non-blocking asynchronous sync attempt
+    unawaited(pushUnsyncedNotes());
   }
 
   /// Add media to note (offline-first)
@@ -534,7 +376,6 @@ class CalendarOfflineRepository {
       fileSize: fileSize,
     );
 
-    // Enqueue sync operation
     await _enqueueSyncOperation(
       operationType: 'ADD_CALENDAR_NOTE_MEDIA',
       entityType: 'CALENDAR_NOTE_MEDIA',
@@ -548,34 +389,28 @@ class CalendarOfflineRepository {
     );
   }
 
-
   /// Remove media from note (local-only by mediaId)
   Future<void> removeMedia(String mediaId) async {
     await _dao.deleteMedia(mediaId);
 
-    // Enqueue sync operation
     await _enqueueSyncOperation(
       operationType: 'DELETE_CALENDAR_NOTE_MEDIA',
       entityType: 'CALENDAR_NOTE_MEDIA',
       entityId: mediaId,
-      payload: {},
+      payload: {'mediaId': mediaId},
     );
   }
 
   /// Remove a specific media item from a note by (noteId, mediaId).
-  /// Calls the server directly and then purges from the local cache.
   Future<void> removeNoteMedia({
     required String noteId,
     required String mediaId,
   }) async {
-    // Delete from server immediately (admin operation — always online)
     await _remoteRepo.removeNoteMedia(noteId: noteId, mediaId: mediaId);
-    // Purge from local cache so the UI refreshes
     await _dao.deleteMedia(mediaId);
   }
 
   /// Update caption/order of a specific media item on a note.
-  /// Calls the server directly (admin operation — always online).
   Future<void> updateNoteMedia({
     required String noteId,
     required String mediaId,
@@ -594,12 +429,11 @@ class CalendarOfflineRepository {
   // SYNC OPERATIONS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Sync notes from server to local database
-  Future<void> syncNotesFromServer({int? year, int? month}) async {
+  /// Sync notes from server to local database while preserving local pending edits
+  Future<int> syncNotesFromServer({int? year, int? month}) async {
     try {
       final remoteNotes = await _remoteRepo.getNotes(year: year, month: month);
 
-      // Batch upsert to local database
       final companions = remoteNotes.map((note) {
         return LocalCalendarNotesCompanion.insert(
           id: note.id,
@@ -628,31 +462,80 @@ class CalendarOfflineRepository {
       }).toList();
 
       if (companions.isNotEmpty) {
-        await _dao.batchUpsertNotes(companions);
+        // Strictly preserve locally pending edits from being overwritten
+        await _dao.batchUpsertNotesPreservingPending(companions);
       }
+      return remoteNotes.length;
     } catch (e) {
-      // Silently fail - offline mode
       developer.log(
         'Sync from server failed: $e',
         name: 'CalendarOfflineRepository',
         error: e,
       );
+      rethrow;
     }
   }
 
-  /// Push unsynced notes to server
-  Future<void> pushUnsyncedNotes() async {
+  /// Push unsynced notes to server with structured result and retry handling
+  Future<CalendarPushResult> pushUnsyncedNotes() {
+    if (_inFlightPush != null) {
+      developer.log(
+        'Push unsynced notes already in progress, returning existing task',
+        name: 'CalendarOfflineRepository',
+      );
+      return _inFlightPush!;
+    }
+    _inFlightPush = _executePushUnsyncedNotes().whenComplete(() {
+      _inFlightPush = null;
+    });
+    return _inFlightPush!;
+  }
+
+  Future<CalendarPushResult> _executePushUnsyncedNotes() async {
     final unsyncedNotes = await _dao.getUnsyncedNotes();
+    if (unsyncedNotes.isEmpty) {
+      return const CalendarPushResult();
+    }
+
+    int pushedCount = 0;
+    int failedCount = 0;
+    int permanentFailures = 0;
+    bool isThrottled = false;
+    String? lastError;
+
+    final queueEntries = await _syncQueue.getPendingEntries(limit: 100);
 
     for (final note in unsyncedNotes) {
+      if (isThrottled) {
+        failedCount++;
+        continue;
+      }
+
+      final matchingQueue =
+          queueEntries.where((e) => e.entityId == note.id).firstOrNull;
+
       try {
         if (note.isPendingDelete) {
-          // Delete on server
-          await _remoteRepo.deleteNote(note.id);
+          try {
+            await _remoteRepo.deleteNote(note.id);
+          } on DioException catch (dioErr) {
+            if (dioErr.response?.statusCode != 404) rethrow;
+          }
           await _dao.hardDeleteNote(note.id);
+          await _syncQueue.removeEntriesForEntity(note.id);
+          pushedCount++;
         } else {
-          // Create or update on server
+          bool allowDownload = false;
+          if (matchingQueue != null) {
+            try {
+              final payload =
+                  jsonDecode(matchingQueue.payload) as Map<String, dynamic>;
+              allowDownload = payload['allowDownload'] as bool? ?? false;
+            } catch (_) {}
+          }
+
           final dto = CreateCalendarNoteDto(
+            id: note.id,
             ethiopianYear: note.ethiopianYear,
             ethiopianMonth: note.ethiopianMonth,
             ethiopianDay: note.ethiopianDay,
@@ -670,21 +553,84 @@ class CalendarOfflineRepository {
             reminderHour: note.reminderHour,
             reminderMinute: note.reminderMinute,
             reminderTimezone: note.reminderTimezone,
+            allowDownload: allowDownload,
           );
 
           await _remoteRepo.createNote(dto);
           await _dao.markNoteSynced(note.id);
+          await _syncQueue.removeEntriesForEntity(note.id);
+          pushedCount++;
         }
       } catch (e) {
-        // Continue with next note
+        lastError = e.toString();
         developer.log(
           'Failed to sync note ${note.id}: $e',
           name: 'CalendarOfflineRepository',
           error: e,
         );
+
+        if (e is DioException) {
+          final statusCode = e.response?.statusCode;
+          if (statusCode == 429) {
+            isThrottled = true;
+            failedCount++;
+            if (matchingQueue != null) {
+              await _syncQueue.updateEntryStatus(
+                matchingQueue.id,
+                'failed',
+                retryCount: matchingQueue.retryCount + 1,
+                nextRetryAt: DateTime.now().add(const Duration(seconds: 30)),
+                error: 'HTTP 429: Rate limited by server',
+              );
+            }
+          } else if (statusCode != null &&
+              statusCode >= 400 &&
+              statusCode < 500) {
+            permanentFailures++;
+            if (matchingQueue != null) {
+              await _syncQueue.updateEntryStatus(
+                matchingQueue.id,
+                'failed',
+                retryCount: matchingQueue.retryCount + 1,
+                nextRetryAt: null, // Do not loop retry on permanent 4xx validation errors
+                error: 'HTTP $statusCode: ${e.response?.data}',
+              );
+            }
+          } else {
+            failedCount++;
+            if (matchingQueue != null) {
+              final nextRetry =
+                  RetryStrategy.getNextRetryTime(matchingQueue.retryCount);
+              await _syncQueue.updateEntryStatus(
+                matchingQueue.id,
+                'failed',
+                retryCount: matchingQueue.retryCount + 1,
+                nextRetryAt: nextRetry,
+                error: e.toString(),
+              );
+            }
+          }
+        } else {
+          failedCount++;
+        }
       }
     }
+
+    return CalendarPushResult(
+      pushedCount: pushedCount,
+      failedCount: failedCount,
+      permanentFailures: permanentFailures,
+      isThrottled: isThrottled,
+      lastError: lastError,
+    );
   }
+
+  /// Get unsynced local notes
+  Future<List<LocalCalendarNoteData>> getUnsyncedNotes() =>
+      _dao.getUnsyncedNotes();
+
+  /// Watch unsynced notes count reactively
+  Stream<int> watchUnsyncedCount() => _dao.watchUnsyncedCount();
 
   // ═══════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
@@ -703,16 +649,11 @@ class CalendarOfflineRepository {
         operationType: operationType,
         entityType: entityType,
         entityId: entityId,
-        payload: _encodePayload(payload),
+        payload: jsonEncode(payload),
         createdAt: now,
         updatedAt: now,
       ),
     );
-  }
-
-  String _encodePayload(Map<String, dynamic> payload) {
-    // Simple JSON encoding - in production, use json.encode
-    return payload.toString();
   }
 
   CalendarNoteModel _mapToModel(

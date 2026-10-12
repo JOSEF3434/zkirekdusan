@@ -1,4 +1,4 @@
-// lib/features/security/presentation/providers/app_lock_provider.dart
+﻿// lib/features/security/presentation/providers/app_lock_provider.dart
 //
 // Controls the locked/unlocked state of the app.
 // Integrates with AppLifecycleObserver to auto-lock after a configurable
@@ -6,10 +6,19 @@
 // Supports PIN, biometric, and pattern authentication methods.
 //
 // Inactivity auto-lock:
-//   • When unlocked, a Dart timer fires after [timeoutMinutes].
-//   • On any user interaction (pointer/keyboard), [recordActivity()] resets it.
-//   • On app-pause, timestamp is persisted; on resume elapsed time is compared
+//   * When unlocked, a Dart timer fires after [timeoutMinutes].
+//   * On any user interaction (pointer/keyboard), [recordActivity()] resets it.
+//   * On app-pause, timestamp is persisted; on resume elapsed time is compared
 //     to the setting so OS-suspended timers never cause incorrect behavior.
+//
+// Media-active exemption:
+//   * While [mediaActivityProvider] reports hasActiveSession == true the
+//     inactivity countdown is suspended.
+//   * When the last session ends the listener calls [_resumeAfterMedia()]
+//     which restarts the full configured countdown.
+//   * The exemption only covers the normal inactivity timeout.  Manual lock,
+//     logout, background/resume security checks, and force-logout are NOT
+//     affected.
 //
 // Biometric auto-switch rule: after [kMaxBiometricAttempts] consecutive
 // biometric failures the lock screen silently switches to PIN/pattern entry.
@@ -23,6 +32,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/security/presentation/providers/app_lock_settings_provider.dart';
+import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
 import 'package:mobile/features/security/data/pin_service.dart';
 import 'package:mobile/features/security/data/biometric_service.dart';
 import 'package:mobile/features/security/data/pattern_service.dart';
@@ -43,7 +53,7 @@ const _kCooldownUntil = 'app_lock_cooldown_until';
 /// Maximum wrong PIN/pattern attempts before a 30-second cooldown.
 const kMaxAttempts = 5;
 
-/// After [kMaxAttemptsForceLogout] consecutive PIN/pattern failures → force logout.
+/// After [kMaxAttemptsForceLogout] consecutive PIN/pattern failures -> force logout.
 const kMaxAttemptsForceLogout = 10;
 
 /// After this many consecutive biometric failures the screen switches to the
@@ -97,11 +107,11 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   final BiometricService _biometricService;
   final PatternService _patternService;
 
-  // ── Inactivity timer ──────────────────────────────────────────────────────
+  // -- Inactivity timer -------------------------------------------------------
   // A single timer; never more than one is active at once.
   Timer? _inactivityTimer;
 
-  // ── Biometric duplicate-prompt guard ─────────────────────────────────────
+  // -- Biometric duplicate-prompt guard ---------------------------------------
   // True while a biometric OS prompt is open; prevents stacking two prompts.
   bool _biometricAuthInProgress = false;
 
@@ -132,11 +142,33 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         _secureWindowService.setSecureMode(false);
         return;
       }
-      // Timeout changed while unlocked → restart timer with new duration.
+      // Timeout changed while unlocked -> restart timer with new duration,
+      // but only if no media session is currently active (the new duration
+      // will apply automatically when the session ends).
       if (next.isEnabled &&
           state.status == AppLockStatus.unlocked &&
           prev.timeoutMinutes != next.timeoutMinutes) {
-        _restartInactivityTimer();
+        if (!_isMediaActive()) {
+          _restartInactivityTimer();
+        }
+      }
+    }, fireImmediately: false);
+
+    // Listen for media-activity transitions: suspend timer while media is
+    // active, restart full countdown when the last session ends.
+    _ref.listen<MediaActivityState>(mediaActivityProvider, (prev, next) {
+      if (state.status != AppLockStatus.unlocked) return;
+
+      final wasActive = prev?.hasActiveSession ?? false;
+      final isActive = next.hasActiveSession;
+      if (isActive == wasActive) return; // no transition
+
+      if (isActive) {
+        // A media session became active -> suspend the inactivity countdown.
+        _suspendForMedia();
+      } else {
+        // Last media session ended -> start a fresh full countdown.
+        _resumeAfterMedia();
       }
     }, fireImmediately: false);
   }
@@ -167,15 +199,42 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       cooldownUntil: cooldownUntil,
     );
     _secureWindowService.setSecureMode(true);
-    // Do NOT start inactivity timer — app starts locked.
+    // Do NOT start inactivity timer -- app starts locked.
   }
 
-  // ── Inactivity timer API ─────────────────────────────────────────────────
+  // -- Media-active helpers ---------------------------------------------------
+
+  bool _isMediaActive() =>
+      _ref.read(mediaActivityProvider).hasActiveSession;
+
+  /// Suspend the inactivity timer while media is playing.
+  void _suspendForMedia() {
+    _cancelInactivityTimer();
+    debugPrint('[AppLock] Inactivity timer suspended -- media session active.');
+  }
+
+  /// Restart the full countdown after media ends.
+  void _resumeAfterMedia() {
+    debugPrint(
+      '[AppLock] Media session ended -- restarting full inactivity countdown.',
+    );
+    _restartInactivityTimer();
+  }
+
+  /// Public variant for media screens to call directly (e.g. on forced lock).
+  void onMediaSessionEnded() {
+    if (state.status != AppLockStatus.unlocked) return;
+    _resumeAfterMedia();
+  }
+
+  // -- Inactivity timer API ---------------------------------------------------
 
   /// Called by [AppActivityTracker] on any meaningful pointer/keyboard event.
   /// Resets the countdown without ever creating duplicate timers.
+  /// No-op while media is actively playing (timer is suspended).
   void recordActivity() {
     if (state.status != AppLockStatus.unlocked) return;
+    if (_isMediaActive()) return; // timer suspended; ignore touch events
     _restartInactivityTimer();
     _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
   }
@@ -185,7 +244,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     final minutes = _settings.timeoutMinutes;
     if (minutes < 0) return; // -1 = never auto-lock
     if (minutes == 0) {
-      // "Immediately" → lock on background (handled in onPaused).
+      // "Immediately" -> lock on background (handled in onPaused).
       // Do not lock instantly in the foreground after unlock.
       return;
     }
@@ -198,49 +257,55 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   }
 
   void _onInactivityTimeout() {
-    if (state.status == AppLockStatus.unlocked) {
-      debugPrint('[AppLock] Inactivity timeout fired — locking.');
+    // Double-check: if media became active between timer creation and firing,
+    // do not lock.
+    if (state.status == AppLockStatus.unlocked && !_isMediaActive()) {
+      debugPrint('[AppLock] Inactivity timeout fired -- locking.');
       _lock();
     }
   }
 
-  // ── AppLifecycleObserver callbacks ───────────────────────────────────────
+  // -- AppLifecycleObserver callbacks -----------------------------------------
 
   Future<void> onPaused() async {
     if (!_settings.isEnabled) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     await _prefs.setInt(_kLastBackground, now);
     await _prefs.setInt(_kLastActive, now);
-    // Stop foreground timer — Dart timers don't fire while the OS suspends.
+    // Stop foreground timer -- Dart timers don't fire while the OS suspends.
     _cancelInactivityTimer();
     _secureWindowService.setSecureMode(true);
 
     // "Immediately" mode: lock the moment the app backgrounds.
+    // Media exemption does NOT apply to background security; clear sessions.
     if (_settings.timeoutMinutes == 0 &&
         state.status == AppLockStatus.unlocked) {
       _lock();
+      _ref.read(mediaActivityProvider.notifier).clearAll();
     }
   }
 
   Future<void> onResumed() async {
     if (!_settings.isEnabled) return;
     if (state.status == AppLockStatus.locked) {
-      // Already locked — nothing to do; lock screen is shown by the router.
+      // Already locked -- nothing to do; lock screen is shown by the router.
       return;
     }
 
     final backgroundMs = _prefs.getInt(_kLastBackground);
     if (backgroundMs == null) {
-      // No timestamp stored — treat as cold start while unlocked; lock.
+      // No timestamp stored -- treat as cold start while unlocked; lock.
       _lock();
+      _ref.read(mediaActivityProvider.notifier).clearAll();
       return;
     }
 
     final timeoutMinutes = _settings.timeoutMinutes;
     if (timeoutMinutes < 0) {
-      // "Never" mode — resume without locking, restart foreground timer.
+      // "Never" mode -- resume without locking, restart foreground timer
+      // only if no media session is currently active.
       _secureWindowService.setSecureMode(false);
-      _restartInactivityTimer();
+      if (!_isMediaActive()) _restartInactivityTimer();
       return;
     }
 
@@ -249,22 +314,26 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     );
 
     if (timeoutMinutes == 0 || elapsed.inMinutes >= timeoutMinutes) {
+      // Background elapsed beyond timeout -> lock regardless of media.
       _lock();
+      _ref.read(mediaActivityProvider.notifier).clearAll();
     } else {
       _secureWindowService.setSecureMode(false);
-      // Resume with remaining time so combined background+foreground
-      // inactivity is correctly honoured.
-      final remaining = Duration(minutes: timeoutMinutes) - elapsed;
-      _cancelInactivityTimer();
-      if (remaining > Duration.zero) {
-        _inactivityTimer = Timer(remaining, _onInactivityTimeout);
-      } else {
-        _lock();
+      // Resume with remaining time, but only if no media session is active.
+      if (!_isMediaActive()) {
+        final remaining = Duration(minutes: timeoutMinutes) - elapsed;
+        _cancelInactivityTimer();
+        if (remaining > Duration.zero) {
+          _inactivityTimer = Timer(remaining, _onInactivityTimeout);
+        } else {
+          _lock();
+          _ref.read(mediaActivityProvider.notifier).clearAll();
+        }
       }
     }
   }
 
-  // ── Internal lock ─────────────────────────────────────────────────────────
+  // -- Internal lock ----------------------------------------------------------
 
   void _lock() {
     if (!_settings.isEnabled) return;
@@ -277,16 +346,20 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     _secureWindowService.setSecureMode(true);
   }
 
-  void lock() => _lock();
+  /// Public lock -- always enforced; clears any active media exemption.
+  void lock() {
+    _ref.read(mediaActivityProvider.notifier).clearAll();
+    _lock();
+  }
 
-  // ── Biometric authentication ──────────────────────────────────────────────
+  // -- Biometric authentication -----------------------------------------------
 
   /// True while the OS biometric prompt is open; prevents duplicate dialogs.
   bool get isBiometricAuthInProgress => _biometricAuthInProgress;
 
   Future<bool> authenticateWithBiometric() async {
     if (_biometricAuthInProgress) {
-      debugPrint('[AppLock] Biometric auth already in progress — skipping.');
+      debugPrint('[AppLock] Biometric auth already in progress -- skipping.');
       return false;
     }
     _biometricAuthInProgress = true;
@@ -311,7 +384,8 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
-      _restartInactivityTimer();
+      // Only start inactivity timer if no media session is currently active.
+      if (!_isMediaActive()) _restartInactivityTimer();
       return true;
     }
 
@@ -324,7 +398,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     return false;
   }
 
-  // ── PIN verification ──────────────────────────────────────────────────────
+  // -- PIN verification -------------------------------------------------------
 
   Future<bool> verifyPin(String pin) async {
     if (state.isInCooldown) return false;
@@ -339,14 +413,14 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
-      _restartInactivityTimer();
+      if (!_isMediaActive()) _restartInactivityTimer();
       return true;
     }
 
     return _handleFailedAttempt();
   }
 
-  // ── Pattern verification ──────────────────────────────────────────────────
+  // -- Pattern verification ---------------------------------------------------
 
   Future<bool> verifyPattern(List<int> nodes) async {
     if (state.isInCooldown) return false;
@@ -361,14 +435,14 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
       _secureWindowService.setSecureMode(false);
-      _restartInactivityTimer();
+      if (!_isMediaActive()) _restartInactivityTimer();
       return true;
     }
 
     return _handleFailedAttempt();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // -- Helpers ----------------------------------------------------------------
 
   Future<bool> _handleFailedAttempt() async {
     final newAttempts = state.failedAttempts + 1;
@@ -413,6 +487,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     await _resetAttempts();
     await _pinService.clearPin();
     await _patternService.clearPattern();
+    _ref.read(mediaActivityProvider.notifier).clearAll();
     state = const AppLockState(status: AppLockStatus.disabled);
     _secureWindowService.setSecureMode(false);
   }
@@ -424,7 +499,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       clearCooldown: true,
     );
     _secureWindowService.setSecureMode(false);
-    _restartInactivityTimer();
+    if (!_isMediaActive()) _restartInactivityTimer();
   }
 
   void onPatternSet() {
@@ -434,7 +509,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       clearCooldown: true,
     );
     _secureWindowService.setSecureMode(false);
-    _restartInactivityTimer();
+    if (!_isMediaActive()) _restartInactivityTimer();
   }
 
   bool get shouldForceLogout => state.failedAttempts >= kMaxAttemptsForceLogout;

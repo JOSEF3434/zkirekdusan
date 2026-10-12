@@ -15,6 +15,7 @@ import 'package:mobile/core/sync/background_sync_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
+import 'package:mobile/features/calendar/data/calendar_connectivity_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 import 'package:mobile/core/services/app_lifecycle_observer.dart';
@@ -94,12 +95,18 @@ void main() async {
   // 8. Initialize Background Sync & Notification Services after the first frame
   //    has painted so the main UI thread is not starved during initial launch,
   //    preventing frame drops and Choreographer warnings.
-  if (!kIsWeb) {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    try {
+      // Initialize connectivity-based real-time sync (CRITICAL FOR OFFLINE-FIRST)
+      // Works on both mobile and web
+      final connectivitySync = container.read(calendarConnectivitySyncProvider);
+      await connectivitySync.initialize();
+
+      // Mobile-only background services
+      if (!kIsWeb) {
         await BackgroundSyncService.initialize();
 
-        // Register periodic calendar sync (every 15 minutes)
+        // Register periodic calendar sync (every 15 minutes as backup)
         await CalendarBackgroundSyncManager.registerPeriodicSync(
           apiBaseUrl: Env.apiBaseUrl,
           frequency: const Duration(minutes: 15),
@@ -111,9 +118,9 @@ void main() async {
 
         await CalendarReminderManager.initialize();
         await CalendarReminderManager.registerPeriodicReminderCheck();
-      } catch (e) {
-        debugPrint('[Main] Background services init error: $e');
       }
-    });
-  }
+    } catch (e) {
+      debugPrint('[Main] Background services init error: $e');
+    }
+  });
 }

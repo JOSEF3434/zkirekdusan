@@ -13,7 +13,7 @@ final lastSyncTimeProvider = StateProvider<DateTime?>((ref) => null);
 final syncInProgressProvider = StateProvider<bool>((ref) => false);
 
 /// Provider for manual sync trigger
-final manualSyncProvider = Provider<Future<bool> Function()>((ref) {
+final manualSyncProvider = Provider<Future<CalendarSyncResult> Function()>((ref) {
   return () async {
     final syncService = ref.read(calendarSyncServiceProvider);
     final syncInProgress = ref.read(syncInProgressProvider.notifier);
@@ -21,13 +21,13 @@ final manualSyncProvider = Provider<Future<bool> Function()>((ref) {
 
     try {
       syncInProgress.state = true;
-      final success = await syncService.performSync();
+      final result = await syncService.performSync();
 
-      if (success) {
+      if (result.isSuccess) {
         lastSyncTime.state = DateTime.now();
       }
 
-      return success;
+      return result;
     } finally {
       syncInProgress.state = false;
     }
@@ -35,7 +35,7 @@ final manualSyncProvider = Provider<Future<bool> Function()>((ref) {
 });
 
 /// Provider for quick sync trigger (current month only)
-final quickSyncProvider = Provider<Future<bool> Function()>((ref) {
+final quickSyncProvider = Provider<Future<CalendarSyncResult> Function()>((ref) {
   return () async {
     final syncService = ref.read(calendarSyncServiceProvider);
     final syncInProgress = ref.read(syncInProgressProvider.notifier);
@@ -43,13 +43,13 @@ final quickSyncProvider = Provider<Future<bool> Function()>((ref) {
 
     try {
       syncInProgress.state = true;
-      final success = await syncService.performQuickSync();
+      final result = await syncService.performQuickSync();
 
-      if (success) {
+      if (result.isSuccess) {
         lastSyncTime.state = DateTime.now();
       }
 
-      return success;
+      return result;
     } finally {
       syncInProgress.state = false;
     }
@@ -59,13 +59,13 @@ final quickSyncProvider = Provider<Future<bool> Function()>((ref) {
 /// Provider for pending sync count
 final pendingSyncCountProvider = FutureProvider<int>((ref) async {
   final db = ref.watch(appDatabaseProvider);
-  return db.syncQueueDao.getPendingCount();
+  return db.calendarNotesDao.getUnsyncedCount();
 });
 
 /// Stream provider for watching pending sync count
 final pendingSyncCountStreamProvider = StreamProvider<int>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return db.syncQueueDao.watchPendingCount();
+  return db.calendarNotesDao.watchUnsyncedCount();
 });
 
 /// Provider for background sync initialization

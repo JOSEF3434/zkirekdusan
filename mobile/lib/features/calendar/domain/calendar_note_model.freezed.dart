@@ -639,7 +639,7 @@ as DateTime,
 /// @nodoc
 mixin _$CreateCalendarNoteDto {
 
- int get ethiopianYear; int get ethiopianMonth; int get ethiopianDay; String get gregorianDate; String? get title; String? get content; bool get hasReminder; String? get reminderDateTime; ReminderRepeat get reminderRepeat; int? get reminderEthiopianMonth; int? get reminderEthiopianDay; int? get reminderHour; int? get reminderMinute; String get reminderTimezone; bool get allowDownload;
+ String? get id; int get ethiopianYear; int get ethiopianMonth; int get ethiopianDay; String get gregorianDate; String? get title; String? get content; bool get hasReminder; String? get reminderDateTime; ReminderRepeat get reminderRepeat; int? get reminderEthiopianMonth; int? get reminderEthiopianDay; int? get reminderHour; int? get reminderMinute; String get reminderTimezone; bool get allowDownload;
 /// Create a copy of CreateCalendarNoteDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -652,16 +652,16 @@ $CreateCalendarNoteDtoCopyWith<CreateCalendarNoteDto> get copyWith => _$CreateCa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CreateCalendarNoteDto&&(identical(other.ethiopianYear, ethiopianYear) || other.ethiopianYear == ethiopianYear)&&(identical(other.ethiopianMonth, ethiopianMonth) || other.ethiopianMonth == ethiopianMonth)&&(identical(other.ethiopianDay, ethiopianDay) || other.ethiopianDay == ethiopianDay)&&(identical(other.gregorianDate, gregorianDate) || other.gregorianDate == gregorianDate)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasReminder, hasReminder) || other.hasReminder == hasReminder)&&(identical(other.reminderDateTime, reminderDateTime) || other.reminderDateTime == reminderDateTime)&&(identical(other.reminderRepeat, reminderRepeat) || other.reminderRepeat == reminderRepeat)&&(identical(other.reminderEthiopianMonth, reminderEthiopianMonth) || other.reminderEthiopianMonth == reminderEthiopianMonth)&&(identical(other.reminderEthiopianDay, reminderEthiopianDay) || other.reminderEthiopianDay == reminderEthiopianDay)&&(identical(other.reminderHour, reminderHour) || other.reminderHour == reminderHour)&&(identical(other.reminderMinute, reminderMinute) || other.reminderMinute == reminderMinute)&&(identical(other.reminderTimezone, reminderTimezone) || other.reminderTimezone == reminderTimezone)&&(identical(other.allowDownload, allowDownload) || other.allowDownload == allowDownload));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CreateCalendarNoteDto&&(identical(other.id, id) || other.id == id)&&(identical(other.ethiopianYear, ethiopianYear) || other.ethiopianYear == ethiopianYear)&&(identical(other.ethiopianMonth, ethiopianMonth) || other.ethiopianMonth == ethiopianMonth)&&(identical(other.ethiopianDay, ethiopianDay) || other.ethiopianDay == ethiopianDay)&&(identical(other.gregorianDate, gregorianDate) || other.gregorianDate == gregorianDate)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasReminder, hasReminder) || other.hasReminder == hasReminder)&&(identical(other.reminderDateTime, reminderDateTime) || other.reminderDateTime == reminderDateTime)&&(identical(other.reminderRepeat, reminderRepeat) || other.reminderRepeat == reminderRepeat)&&(identical(other.reminderEthiopianMonth, reminderEthiopianMonth) || other.reminderEthiopianMonth == reminderEthiopianMonth)&&(identical(other.reminderEthiopianDay, reminderEthiopianDay) || other.reminderEthiopianDay == reminderEthiopianDay)&&(identical(other.reminderHour, reminderHour) || other.reminderHour == reminderHour)&&(identical(other.reminderMinute, reminderMinute) || other.reminderMinute == reminderMinute)&&(identical(other.reminderTimezone, reminderTimezone) || other.reminderTimezone == reminderTimezone)&&(identical(other.allowDownload, allowDownload) || other.allowDownload == allowDownload));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ethiopianYear,ethiopianMonth,ethiopianDay,gregorianDate,title,content,hasReminder,reminderDateTime,reminderRepeat,reminderEthiopianMonth,reminderEthiopianDay,reminderHour,reminderMinute,reminderTimezone,allowDownload);
+int get hashCode => Object.hash(runtimeType,id,ethiopianYear,ethiopianMonth,ethiopianDay,gregorianDate,title,content,hasReminder,reminderDateTime,reminderRepeat,reminderEthiopianMonth,reminderEthiopianDay,reminderHour,reminderMinute,reminderTimezone,allowDownload);
 
 @override
 String toString() {
-  return 'CreateCalendarNoteDto(ethiopianYear: $ethiopianYear, ethiopianMonth: $ethiopianMonth, ethiopianDay: $ethiopianDay, gregorianDate: $gregorianDate, title: $title, content: $content, hasReminder: $hasReminder, reminderDateTime: $reminderDateTime, reminderRepeat: $reminderRepeat, reminderEthiopianMonth: $reminderEthiopianMonth, reminderEthiopianDay: $reminderEthiopianDay, reminderHour: $reminderHour, reminderMinute: $reminderMinute, reminderTimezone: $reminderTimezone, allowDownload: $allowDownload)';
+  return 'CreateCalendarNoteDto(id: $id, ethiopianYear: $ethiopianYear, ethiopianMonth: $ethiopianMonth, ethiopianDay: $ethiopianDay, gregorianDate: $gregorianDate, title: $title, content: $content, hasReminder: $hasReminder, reminderDateTime: $reminderDateTime, reminderRepeat: $reminderRepeat, reminderEthiopianMonth: $reminderEthiopianMonth, reminderEthiopianDay: $reminderEthiopianDay, reminderHour: $reminderHour, reminderMinute: $reminderMinute, reminderTimezone: $reminderTimezone, allowDownload: $allowDownload)';
 }
 
 
@@ -672,7 +672,7 @@ abstract mixin class $CreateCalendarNoteDtoCopyWith<$Res>  {
   factory $CreateCalendarNoteDtoCopyWith(CreateCalendarNoteDto value, $Res Function(CreateCalendarNoteDto) _then) = _$CreateCalendarNoteDtoCopyWithImpl;
 @useResult
 $Res call({
- int ethiopianYear, int ethiopianMonth, int ethiopianDay, String gregorianDate, String? title, String? content, bool hasReminder, String? reminderDateTime, ReminderRepeat reminderRepeat, int? reminderEthiopianMonth, int? reminderEthiopianDay, int? reminderHour, int? reminderMinute, String reminderTimezone, bool allowDownload
+ String? id, int ethiopianYear, int ethiopianMonth, int ethiopianDay, String gregorianDate, String? title, String? content, bool hasReminder, String? reminderDateTime, ReminderRepeat reminderRepeat, int? reminderEthiopianMonth, int? reminderEthiopianDay, int? reminderHour, int? reminderMinute, String reminderTimezone, bool allowDownload
 });
 
 
@@ -689,9 +689,10 @@ class _$CreateCalendarNoteDtoCopyWithImpl<$Res>
 
 /// Create a copy of CreateCalendarNoteDto
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? ethiopianYear = null,Object? ethiopianMonth = null,Object? ethiopianDay = null,Object? gregorianDate = null,Object? title = freezed,Object? content = freezed,Object? hasReminder = null,Object? reminderDateTime = freezed,Object? reminderRepeat = null,Object? reminderEthiopianMonth = freezed,Object? reminderEthiopianDay = freezed,Object? reminderHour = freezed,Object? reminderMinute = freezed,Object? reminderTimezone = null,Object? allowDownload = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = freezed,Object? ethiopianYear = null,Object? ethiopianMonth = null,Object? ethiopianDay = null,Object? gregorianDate = null,Object? title = freezed,Object? content = freezed,Object? hasReminder = null,Object? reminderDateTime = freezed,Object? reminderRepeat = null,Object? reminderEthiopianMonth = freezed,Object? reminderEthiopianDay = freezed,Object? reminderHour = freezed,Object? reminderMinute = freezed,Object? reminderTimezone = null,Object? allowDownload = null,}) {
   return _then(_self.copyWith(
-ethiopianYear: null == ethiopianYear ? _self.ethiopianYear : ethiopianYear // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,ethiopianYear: null == ethiopianYear ? _self.ethiopianYear : ethiopianYear // ignore: cast_nullable_to_non_nullable
 as int,ethiopianMonth: null == ethiopianMonth ? _self.ethiopianMonth : ethiopianMonth // ignore: cast_nullable_to_non_nullable
 as int,ethiopianDay: null == ethiopianDay ? _self.ethiopianDay : ethiopianDay // ignore: cast_nullable_to_non_nullable
 as int,gregorianDate: null == gregorianDate ? _self.gregorianDate : gregorianDate // ignore: cast_nullable_to_non_nullable
@@ -791,10 +792,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? id,  int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CreateCalendarNoteDto() when $default != null:
-return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
+return $default(_that.id,_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
   return orElse();
 
 }
@@ -812,10 +813,10 @@ return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? id,  int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)  $default,) {final _that = this;
 switch (_that) {
 case _CreateCalendarNoteDto():
-return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
+return $default(_that.id,_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -832,10 +833,10 @@ return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? id,  int ethiopianYear,  int ethiopianMonth,  int ethiopianDay,  String gregorianDate,  String? title,  String? content,  bool hasReminder,  String? reminderDateTime,  ReminderRepeat reminderRepeat,  int? reminderEthiopianMonth,  int? reminderEthiopianDay,  int? reminderHour,  int? reminderMinute,  String reminderTimezone,  bool allowDownload)?  $default,) {final _that = this;
 switch (_that) {
 case _CreateCalendarNoteDto() when $default != null:
-return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
+return $default(_that.id,_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_that.gregorianDate,_that.title,_that.content,_that.hasReminder,_that.reminderDateTime,_that.reminderRepeat,_that.reminderEthiopianMonth,_that.reminderEthiopianDay,_that.reminderHour,_that.reminderMinute,_that.reminderTimezone,_that.allowDownload);case _:
   return null;
 
 }
@@ -847,9 +848,10 @@ return $default(_that.ethiopianYear,_that.ethiopianMonth,_that.ethiopianDay,_tha
 @JsonSerializable()
 
 class _CreateCalendarNoteDto extends CreateCalendarNoteDto {
-  const _CreateCalendarNoteDto({required this.ethiopianYear, required this.ethiopianMonth, required this.ethiopianDay, required this.gregorianDate, this.title, this.content, this.hasReminder = false, this.reminderDateTime, this.reminderRepeat = ReminderRepeat.none, this.reminderEthiopianMonth, this.reminderEthiopianDay, this.reminderHour, this.reminderMinute, this.reminderTimezone = 'Africa/Addis_Ababa', this.allowDownload = false}): super._();
+  const _CreateCalendarNoteDto({this.id, required this.ethiopianYear, required this.ethiopianMonth, required this.ethiopianDay, required this.gregorianDate, this.title, this.content, this.hasReminder = false, this.reminderDateTime, this.reminderRepeat = ReminderRepeat.none, this.reminderEthiopianMonth, this.reminderEthiopianDay, this.reminderHour, this.reminderMinute, this.reminderTimezone = 'Africa/Addis_Ababa', this.allowDownload = false}): super._();
   factory _CreateCalendarNoteDto.fromJson(Map<String, dynamic> json) => _$CreateCalendarNoteDtoFromJson(json);
 
+@override final  String? id;
 @override final  int ethiopianYear;
 @override final  int ethiopianMonth;
 @override final  int ethiopianDay;
@@ -879,16 +881,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CreateCalendarNoteDto&&(identical(other.ethiopianYear, ethiopianYear) || other.ethiopianYear == ethiopianYear)&&(identical(other.ethiopianMonth, ethiopianMonth) || other.ethiopianMonth == ethiopianMonth)&&(identical(other.ethiopianDay, ethiopianDay) || other.ethiopianDay == ethiopianDay)&&(identical(other.gregorianDate, gregorianDate) || other.gregorianDate == gregorianDate)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasReminder, hasReminder) || other.hasReminder == hasReminder)&&(identical(other.reminderDateTime, reminderDateTime) || other.reminderDateTime == reminderDateTime)&&(identical(other.reminderRepeat, reminderRepeat) || other.reminderRepeat == reminderRepeat)&&(identical(other.reminderEthiopianMonth, reminderEthiopianMonth) || other.reminderEthiopianMonth == reminderEthiopianMonth)&&(identical(other.reminderEthiopianDay, reminderEthiopianDay) || other.reminderEthiopianDay == reminderEthiopianDay)&&(identical(other.reminderHour, reminderHour) || other.reminderHour == reminderHour)&&(identical(other.reminderMinute, reminderMinute) || other.reminderMinute == reminderMinute)&&(identical(other.reminderTimezone, reminderTimezone) || other.reminderTimezone == reminderTimezone)&&(identical(other.allowDownload, allowDownload) || other.allowDownload == allowDownload));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CreateCalendarNoteDto&&(identical(other.id, id) || other.id == id)&&(identical(other.ethiopianYear, ethiopianYear) || other.ethiopianYear == ethiopianYear)&&(identical(other.ethiopianMonth, ethiopianMonth) || other.ethiopianMonth == ethiopianMonth)&&(identical(other.ethiopianDay, ethiopianDay) || other.ethiopianDay == ethiopianDay)&&(identical(other.gregorianDate, gregorianDate) || other.gregorianDate == gregorianDate)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.hasReminder, hasReminder) || other.hasReminder == hasReminder)&&(identical(other.reminderDateTime, reminderDateTime) || other.reminderDateTime == reminderDateTime)&&(identical(other.reminderRepeat, reminderRepeat) || other.reminderRepeat == reminderRepeat)&&(identical(other.reminderEthiopianMonth, reminderEthiopianMonth) || other.reminderEthiopianMonth == reminderEthiopianMonth)&&(identical(other.reminderEthiopianDay, reminderEthiopianDay) || other.reminderEthiopianDay == reminderEthiopianDay)&&(identical(other.reminderHour, reminderHour) || other.reminderHour == reminderHour)&&(identical(other.reminderMinute, reminderMinute) || other.reminderMinute == reminderMinute)&&(identical(other.reminderTimezone, reminderTimezone) || other.reminderTimezone == reminderTimezone)&&(identical(other.allowDownload, allowDownload) || other.allowDownload == allowDownload));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,ethiopianYear,ethiopianMonth,ethiopianDay,gregorianDate,title,content,hasReminder,reminderDateTime,reminderRepeat,reminderEthiopianMonth,reminderEthiopianDay,reminderHour,reminderMinute,reminderTimezone,allowDownload);
+int get hashCode => Object.hash(runtimeType,id,ethiopianYear,ethiopianMonth,ethiopianDay,gregorianDate,title,content,hasReminder,reminderDateTime,reminderRepeat,reminderEthiopianMonth,reminderEthiopianDay,reminderHour,reminderMinute,reminderTimezone,allowDownload);
 
 @override
 String toString() {
-  return 'CreateCalendarNoteDto(ethiopianYear: $ethiopianYear, ethiopianMonth: $ethiopianMonth, ethiopianDay: $ethiopianDay, gregorianDate: $gregorianDate, title: $title, content: $content, hasReminder: $hasReminder, reminderDateTime: $reminderDateTime, reminderRepeat: $reminderRepeat, reminderEthiopianMonth: $reminderEthiopianMonth, reminderEthiopianDay: $reminderEthiopianDay, reminderHour: $reminderHour, reminderMinute: $reminderMinute, reminderTimezone: $reminderTimezone, allowDownload: $allowDownload)';
+  return 'CreateCalendarNoteDto(id: $id, ethiopianYear: $ethiopianYear, ethiopianMonth: $ethiopianMonth, ethiopianDay: $ethiopianDay, gregorianDate: $gregorianDate, title: $title, content: $content, hasReminder: $hasReminder, reminderDateTime: $reminderDateTime, reminderRepeat: $reminderRepeat, reminderEthiopianMonth: $reminderEthiopianMonth, reminderEthiopianDay: $reminderEthiopianDay, reminderHour: $reminderHour, reminderMinute: $reminderMinute, reminderTimezone: $reminderTimezone, allowDownload: $allowDownload)';
 }
 
 
@@ -899,7 +901,7 @@ abstract mixin class _$CreateCalendarNoteDtoCopyWith<$Res> implements $CreateCal
   factory _$CreateCalendarNoteDtoCopyWith(_CreateCalendarNoteDto value, $Res Function(_CreateCalendarNoteDto) _then) = __$CreateCalendarNoteDtoCopyWithImpl;
 @override @useResult
 $Res call({
- int ethiopianYear, int ethiopianMonth, int ethiopianDay, String gregorianDate, String? title, String? content, bool hasReminder, String? reminderDateTime, ReminderRepeat reminderRepeat, int? reminderEthiopianMonth, int? reminderEthiopianDay, int? reminderHour, int? reminderMinute, String reminderTimezone, bool allowDownload
+ String? id, int ethiopianYear, int ethiopianMonth, int ethiopianDay, String gregorianDate, String? title, String? content, bool hasReminder, String? reminderDateTime, ReminderRepeat reminderRepeat, int? reminderEthiopianMonth, int? reminderEthiopianDay, int? reminderHour, int? reminderMinute, String reminderTimezone, bool allowDownload
 });
 
 
@@ -916,9 +918,10 @@ class __$CreateCalendarNoteDtoCopyWithImpl<$Res>
 
 /// Create a copy of CreateCalendarNoteDto
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? ethiopianYear = null,Object? ethiopianMonth = null,Object? ethiopianDay = null,Object? gregorianDate = null,Object? title = freezed,Object? content = freezed,Object? hasReminder = null,Object? reminderDateTime = freezed,Object? reminderRepeat = null,Object? reminderEthiopianMonth = freezed,Object? reminderEthiopianDay = freezed,Object? reminderHour = freezed,Object? reminderMinute = freezed,Object? reminderTimezone = null,Object? allowDownload = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = freezed,Object? ethiopianYear = null,Object? ethiopianMonth = null,Object? ethiopianDay = null,Object? gregorianDate = null,Object? title = freezed,Object? content = freezed,Object? hasReminder = null,Object? reminderDateTime = freezed,Object? reminderRepeat = null,Object? reminderEthiopianMonth = freezed,Object? reminderEthiopianDay = freezed,Object? reminderHour = freezed,Object? reminderMinute = freezed,Object? reminderTimezone = null,Object? allowDownload = null,}) {
   return _then(_CreateCalendarNoteDto(
-ethiopianYear: null == ethiopianYear ? _self.ethiopianYear : ethiopianYear // ignore: cast_nullable_to_non_nullable
+id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String?,ethiopianYear: null == ethiopianYear ? _self.ethiopianYear : ethiopianYear // ignore: cast_nullable_to_non_nullable
 as int,ethiopianMonth: null == ethiopianMonth ? _self.ethiopianMonth : ethiopianMonth // ignore: cast_nullable_to_non_nullable
 as int,ethiopianDay: null == ethiopianDay ? _self.ethiopianDay : ethiopianDay // ignore: cast_nullable_to_non_nullable
 as int,gregorianDate: null == gregorianDate ? _self.gregorianDate : gregorianDate // ignore: cast_nullable_to_non_nullable

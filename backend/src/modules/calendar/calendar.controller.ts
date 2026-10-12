@@ -118,6 +118,8 @@ export class CalendarController {
     return this.calendarService.removeMedia(userId, noteId, mediaId);
   }
 
+
+
   // Reminder endpoints
   @Get('reminders/upcoming')
   @ApiOperation({ summary: 'Get upcoming reminders (next 24 hours)' })

@@ -50,7 +50,8 @@ Future<bool> executeCalendarSyncTask(Map<String, dynamic>? inputData) async {
     final syncService = CalendarSyncService(offlineRepo);
 
     // Perform sync
-    final success = await syncService.performSync();
+    final result = await syncService.performSync();
+    final success = result.isSuccess;
 
     // Clean up
     await db.close();

@@ -68,6 +68,7 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
 
   /// Create a new note (offline-first)
   Future<String> createNote({
+    String? id,
     required String userId,
     required int ethiopianYear,
     required int ethiopianMonth,
@@ -85,13 +86,14 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     String reminderTimezone = 'Africa/Addis_Ababa',
     DateTime? reminderNextOccurrence,
   }) async {
-    final id = _uuid.v4();
+    final noteId = id ?? _uuid.v4();
     final now = DateTime.now();
 
     await into(localCalendarNotes).insert(
       LocalCalendarNotesCompanion.insert(
-        id: id,
+        id: noteId,
         userId: userId,
+
         ethiopianYear: ethiopianYear,
         ethiopianMonth: ethiopianMonth,
         ethiopianDay: ethiopianDay,
@@ -113,7 +115,7 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
 
-    return id;
+    return noteId;
   }
 
   /// Update a note (offline-first)
@@ -197,6 +199,31 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
         .get();
   }
+
+  /// Get unsynced notes count
+  Future<int> getUnsyncedCount() async {
+    final list = await (select(localCalendarNotes)
+          ..where((tbl) => tbl.isSynced.equals(false)))
+        .get();
+    return list.length;
+  }
+
+  /// Watch unsynced notes count reactively
+  Stream<int> watchUnsyncedCount() {
+    return (select(localCalendarNotes)
+          ..where((tbl) => tbl.isSynced.equals(false)))
+        .watch()
+        .map((list) => list.length);
+  }
+
+  /// Watch unsynced notes reactively
+  Stream<List<LocalCalendarNoteData>> watchUnsyncedNotes() {
+    return (select(localCalendarNotes)
+          ..where((tbl) => tbl.isSynced.equals(false))
+          ..orderBy([(tbl) => OrderingTerm.asc(tbl.createdAt)]))
+        .watch();
+  }
+
 
   // ═══════════════════════════════════════════════════════════════
   // MEDIA CRUD
@@ -302,6 +329,32 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
       batch.insertAllOnConflictUpdate(localCalendarNotes, notes);
     });
   }
+
+  /// Batch upsert notes from server, strictly preserving locally pending edits
+  Future<void> batchUpsertNotesPreservingPending(
+    List<LocalCalendarNotesCompanion> notes,
+  ) async {
+    if (notes.isEmpty) return;
+    await transaction(() async {
+      // Find notes that are currently unsynced locally
+      final unsynced = await (select(localCalendarNotes)
+            ..where((tbl) => tbl.isSynced.equals(false)))
+          .get();
+      final unsyncedIds = unsynced.map((n) => n.id).toSet();
+
+      // Only upsert notes that do NOT have local pending changes
+      final safeToUpsert = notes
+          .where((note) => !unsyncedIds.contains(note.id.value))
+          .toList();
+
+      if (safeToUpsert.isNotEmpty) {
+        await batch((b) {
+          b.insertAllOnConflictUpdate(localCalendarNotes, safeToUpsert);
+        });
+      }
+    });
+  }
+
 
   /// Batch upsert media from server
   Future<void> batchUpsertMedia(

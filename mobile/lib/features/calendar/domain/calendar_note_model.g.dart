@@ -105,6 +105,7 @@ Map<String, dynamic> _$CalendarNoteMediaToJson(_CalendarNoteMedia instance) =>
 _CreateCalendarNoteDto _$CreateCalendarNoteDtoFromJson(
   Map<String, dynamic> json,
 ) => _CreateCalendarNoteDto(
+  id: json['id'] as String?,
   ethiopianYear: (json['ethiopianYear'] as num).toInt(),
   ethiopianMonth: (json['ethiopianMonth'] as num).toInt(),
   ethiopianDay: (json['ethiopianDay'] as num).toInt(),
@@ -127,6 +128,7 @@ _CreateCalendarNoteDto _$CreateCalendarNoteDtoFromJson(
 Map<String, dynamic> _$CreateCalendarNoteDtoToJson(
   _CreateCalendarNoteDto instance,
 ) => <String, dynamic>{
+  'id': instance.id,
   'ethiopianYear': instance.ethiopianYear,
   'ethiopianMonth': instance.ethiopianMonth,
   'ethiopianDay': instance.ethiopianDay,

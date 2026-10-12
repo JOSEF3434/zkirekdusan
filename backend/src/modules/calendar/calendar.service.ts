@@ -40,8 +40,30 @@ export class CalendarService {
 
   async create(userId: string, dto: CreateCalendarNoteDto) {
     validateReminderRule(dto);
+
+    // Idempotency: if client supplied an ID and it already exists, return existing
+    if (dto.id) {
+      const existing = await this.prisma.calendarNote.findFirst({
+        where: { id: dto.id, deletedAt: null },
+        include: {
+          media: {
+            include: {
+              file: true,
+            },
+            orderBy: {
+              order: 'asc',
+            },
+          },
+        },
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     const note = await this.prisma.calendarNote.create({
       data: {
+        ...(dto.id ? { id: dto.id } : {}),
         userId,
         ethiopianYear: dto.ethiopianYear,
         ethiopianMonth: dto.ethiopianMonth,
@@ -49,7 +71,9 @@ export class CalendarService {
         gregorianDate: new Date(dto.gregorianDate),
         title: dto.title,
         content: dto.content,
+        allowDownload: dto.allowDownload ?? false,
         hasReminder: dto.hasReminder ?? false,
+
         reminderDateTime: dto.reminderDateTime
           ? new Date(dto.reminderDateTime)
           : null,
@@ -187,7 +211,11 @@ export class CalendarService {
     if (dto.content !== undefined) {
       updateData.content = dto.content;
     }
+    if (dto.allowDownload !== undefined) {
+      updateData.allowDownload = dto.allowDownload;
+    }
     if (dto.hasReminder !== undefined) {
+
       updateData.hasReminder = dto.hasReminder;
       // Reset notification flag when reminder is updated
       updateData.reminderNotified = false;
