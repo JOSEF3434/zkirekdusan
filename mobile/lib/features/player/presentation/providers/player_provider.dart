@@ -289,7 +289,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       try {
         video = await _repository.getVideo(_videoId);
       } catch (repoErr) {
-        if (localFilePath != null) {
+        if (localFilePath != null || localFileUrl != null) {
           // Play in offline mode using cached download metadata
           video = VideoResponseDto(
             id: _videoId,

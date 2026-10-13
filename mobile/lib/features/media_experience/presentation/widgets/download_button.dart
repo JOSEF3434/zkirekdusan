@@ -66,6 +66,9 @@ class DownloadButton extends ConsumerWidget {
           title: video.title,
           thumbnailUrl: resolvedThumb,
           quality: '720p',
+          channelName: video.channelName ??
+              video.author.displayName ??
+              video.author.username,
         );
 
     ScaffoldMessenger.of(context).showSnackBar(

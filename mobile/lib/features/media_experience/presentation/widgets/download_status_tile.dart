@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/video_thumbnail_widget.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 
@@ -22,36 +23,42 @@ class DownloadStatusTile extends ConsumerWidget {
     final progress = state.progress[videoId] ?? 0.0;
     final isCompleted = metadata != null && !isDownloading && error == null;
 
-    final title = metadata?.title ?? 'Video $videoId';
-    final thumbnailUrl = metadata?.thumbnailUrl;
+    final resolvedMeta = metadata ?? state.activeTasks[videoId];
+    final title = resolvedMeta?.title ?? 'Video $videoId';
+    final thumbnailUrl = resolvedMeta?.thumbnailUrl;
 
     return ListTile(
-      leading: Container(
+      leading: SizedBox(
         width: 80,
         height: 45,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade900,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(4),
-          image: thumbnailUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(thumbnailUrl),
-                  fit: BoxFit.cover,
-                )
-              : null,
-        ),
-        child: isDownloading
-            ? Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 2,
-                    color: Colors.white,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              VideoThumbnailWidget(
+                thumbnailUrl: thumbnailUrl,
+                borderRadius: BorderRadius.circular(4),
+                playIconSize: 20,
+              ),
+              if (isDownloading)
+                Container(
+                  color: Colors.black54,
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        value: progress > 0 ? progress : null,
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-              )
-            : null,
+            ],
+          ),
+        ),
       ),
       title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Column(

@@ -15,6 +15,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/providers/database_provider.dart';
+import 'package:mobile/core/storage/download_settings.dart';
+export 'package:mobile/core/storage/download_settings.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/storage/video_source_resolver.dart';
 import 'package:mobile/core/storage/cache_manager.dart';
@@ -39,6 +41,9 @@ class DownloadMetadata {
   final int sizeBytes;
   final String? quality;
   final VideoDownloadStatus status;
+  final String? channelName;
+  final String? duration;
+  final DateTime? downloadedAt;
 
   DownloadMetadata({
     required this.videoId,
@@ -48,7 +53,36 @@ class DownloadMetadata {
     required this.sizeBytes,
     this.quality,
     this.status = VideoDownloadStatus.completed,
+    this.channelName,
+    this.duration,
+    this.downloadedAt,
   });
+
+  DownloadMetadata copyWith({
+    String? videoId,
+    String? title,
+    String? localPath,
+    String? thumbnailUrl,
+    int? sizeBytes,
+    String? quality,
+    VideoDownloadStatus? status,
+    String? channelName,
+    String? duration,
+    DateTime? downloadedAt,
+  }) {
+    return DownloadMetadata(
+      videoId: videoId ?? this.videoId,
+      title: title ?? this.title,
+      localPath: localPath ?? this.localPath,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      quality: quality ?? this.quality,
+      status: status ?? this.status,
+      channelName: channelName ?? this.channelName,
+      duration: duration ?? this.duration,
+      downloadedAt: downloadedAt ?? this.downloadedAt,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'videoId': videoId,
@@ -58,16 +92,24 @@ class DownloadMetadata {
         'sizeBytes': sizeBytes,
         'quality': quality,
         'status': status.name,
+        if (channelName != null) 'channelName': channelName,
+        if (duration != null) 'duration': duration,
+        if (downloadedAt != null) 'downloadedAt': downloadedAt!.toIso8601String(),
       };
 
   factory DownloadMetadata.fromJson(Map<String, dynamic> json) =>
       DownloadMetadata(
-        videoId: json['videoId'],
-        title: json['title'],
-        localPath: json['localPath'],
+        videoId: json['videoId'] ?? '',
+        title: json['title'] ?? 'Video',
+        localPath: json['localPath'] ?? '',
         thumbnailUrl: json['thumbnailUrl'],
         sizeBytes: json['sizeBytes'] ?? 0,
         quality: json['quality'],
+        channelName: json['channelName'],
+        duration: json['duration'],
+        downloadedAt: json['downloadedAt'] != null
+            ? DateTime.tryParse(json['downloadedAt'])
+            : null,
         status: VideoDownloadStatus.values.firstWhere(
           (s) => s.name == json['status'],
           orElse: () => VideoDownloadStatus.completed,
@@ -77,32 +119,40 @@ class DownloadMetadata {
 
 class DownloadState {
   final Map<String, DownloadMetadata> downloads;
+  final Map<String, DownloadMetadata> activeTasks;
   final Map<String, double> progress;
   final Map<String, String> errors;
   final Set<String> downloading;
   final Set<String> paused;
+  final Set<String> queued;
 
   const DownloadState({
     this.downloads = const {},
+    this.activeTasks = const {},
     this.progress = const {},
     this.errors = const {},
     this.downloading = const {},
     this.paused = const {},
+    this.queued = const {},
   });
 
   DownloadState copyWith({
     Map<String, DownloadMetadata>? downloads,
+    Map<String, DownloadMetadata>? activeTasks,
     Map<String, double>? progress,
     Map<String, String>? errors,
     Set<String>? downloading,
     Set<String>? paused,
+    Set<String>? queued,
   }) {
     return DownloadState(
       downloads: downloads ?? this.downloads,
+      activeTasks: activeTasks ?? this.activeTasks,
       progress: progress ?? this.progress,
       errors: errors ?? this.errors,
       downloading: downloading ?? this.downloading,
       paused: paused ?? this.paused,
+      queued: queued ?? this.queued,
     );
   }
 }
@@ -114,8 +164,10 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   final Dio _dio;
 
   final Map<String, CancelToken> _cancelTokens = {};
-  final Map<String, ({String url, String title, String? thumbnailUrl, String quality})>
+  final Map<String, ({String url, String title, String? thumbnailUrl, String quality, String? channelName})>
       _downloadTasks = {};
+  final List<({String videoId, String url, String title, String? thumbnailUrl, String quality, String? channelName})>
+      _webQueue = [];
 
   static const _kLegacyDownloadsKey = 'offline_downloads';
 
@@ -276,8 +328,10 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     String? thumbnailUrl,
     String quality = '720p',
     bool allowMobileData = false,
+    String? channelName,
+    DownloadStorageMode storageMode = DownloadStorageMode.inAppOnly,
   }) async {
-    if (state.downloading.contains(videoId)) return;
+    if (state.downloading.contains(videoId) || state.queued.contains(videoId)) return;
 
     if (kIsWeb) {
       await _startWebDownload(
@@ -286,6 +340,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         title: title,
         thumbnailUrl: thumbnailUrl,
         quality: quality,
+        channelName: channelName,
+        storageMode: storageMode,
       );
       return;
     }
@@ -335,16 +391,29 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         title: title,
         thumbnailUrl: thumbnailUrl,
         quality: quality,
+        channelName: channelName,
       );
 
       final cancelToken = CancelToken();
       _cancelTokens[videoId] = cancelToken;
+
+      final activeMeta = DownloadMetadata(
+        videoId: videoId,
+        title: title,
+        localPath: '',
+        thumbnailUrl: thumbnailUrl,
+        sizeBytes: 0,
+        quality: quality,
+        status: VideoDownloadStatus.downloading,
+        channelName: channelName,
+      );
 
       state = state.copyWith(
         downloading: {...state.downloading, videoId},
         paused: {...state.paused}..remove(videoId),
         progress: {...state.progress, videoId: 0.0},
         errors: {...state.errors}..remove(videoId),
+        activeTasks: {...state.activeTasks, videoId: activeMeta},
       );
 
       await _db.videosDao.upsertVideo(
@@ -353,6 +422,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           serverId: drift.Value(videoId),
           title: drift.Value(title),
           thumbnailUrl: drift.Value(thumbnailUrl),
+          creatorName: drift.Value(channelName),
           downloadStatus: const drift.Value('downloading'),
           selectedQuality: drift.Value(quality),
           lastAccessedAt: drift.Value(DateTime.now()),
@@ -416,6 +486,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           sizeBytes: length,
           quality: quality,
           status: VideoDownloadStatus.completed,
+          channelName: channelName,
+          downloadedAt: DateTime.now(),
         );
         await metadataFile.writeAsString(jsonEncode(metadata.toJson()));
 
@@ -433,6 +505,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           paused: {...state.paused}..remove(videoId),
           progress: {...state.progress, videoId: 1.0},
           downloads: {...state.downloads, videoId: metadata},
+          activeTasks: {...state.activeTasks}..remove(videoId),
         );
 
         // Sync legacy storage so player and other offline providers immediately find it
@@ -460,10 +533,20 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
   }
 
   void _handleDownloadError(String videoId, String error) {
+    final active = state.activeTasks[videoId];
+    final updatedActive = active != null
+        ? {
+            ...state.activeTasks,
+            videoId: active.copyWith(status: VideoDownloadStatus.failed),
+          }
+        : state.activeTasks;
+
     state = state.copyWith(
       downloading: {...state.downloading}..remove(videoId),
       paused: {...state.paused}..remove(videoId),
+      queued: {...state.queued}..remove(videoId),
       errors: {...state.errors, videoId: error},
+      activeTasks: updatedActive,
     );
     if (!kIsWeb) {
       _db.videosDao.updateDownloadStatus(
@@ -472,6 +555,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         error: error,
       );
     }
+    _processNextWebQueueItem();
   }
 
   Future<void> _startWebDownload({
@@ -480,6 +564,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     required String title,
     String? thumbnailUrl,
     String quality = '720p',
+    String? channelName,
+    DownloadStorageMode storageMode = DownloadStorageMode.inAppOnly,
   }) async {
     if (!_connectivity.state.isOnline) {
       state = state.copyWith(
@@ -488,6 +574,53 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       return;
     }
 
+    // If another web download is currently in progress, queue this task
+    if (state.downloading.isNotEmpty) {
+      final queuedMeta = DownloadMetadata(
+        videoId: videoId,
+        title: title,
+        localPath: '',
+        thumbnailUrl: thumbnailUrl,
+        sizeBytes: 0,
+        quality: quality,
+        status: VideoDownloadStatus.queued,
+        channelName: channelName,
+      );
+      _webQueue.add((
+        videoId: videoId,
+        url: url,
+        title: title,
+        thumbnailUrl: thumbnailUrl,
+        quality: quality,
+        channelName: channelName,
+      ));
+      state = state.copyWith(
+        queued: {...state.queued, videoId},
+        activeTasks: {...state.activeTasks, videoId: queuedMeta},
+      );
+      return;
+    }
+
+    await _executeWebDownload(
+      videoId: videoId,
+      url: url,
+      title: title,
+      thumbnailUrl: thumbnailUrl,
+      quality: quality,
+      channelName: channelName,
+      storageMode: storageMode,
+    );
+  }
+
+  Future<void> _executeWebDownload({
+    required String videoId,
+    required String url,
+    required String title,
+    String? thumbnailUrl,
+    String quality = '720p',
+    String? channelName,
+    DownloadStorageMode storageMode = DownloadStorageMode.inAppOnly,
+  }) async {
     try {
       final resolvedUrl = MediaUrlResolver.resolve(url);
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
@@ -511,11 +644,25 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         title: title,
         thumbnailUrl: thumbnailUrl,
         quality: quality,
+        channelName: channelName,
+      );
+
+      final activeMeta = DownloadMetadata(
+        videoId: videoId,
+        title: title,
+        localPath: '',
+        thumbnailUrl: thumbnailUrl,
+        sizeBytes: 0,
+        quality: quality,
+        status: VideoDownloadStatus.downloading,
+        channelName: channelName,
       );
 
       state = state.copyWith(
         downloading: {...state.downloading, videoId},
+        queued: {...state.queued}..remove(videoId),
         paused: {...state.paused}..remove(videoId),
+        activeTasks: {...state.activeTasks, videoId: activeMeta},
         progress: {...state.progress, videoId: 0.0},
         errors: {...state.errors}..remove(videoId),
       );
@@ -539,17 +686,40 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         throw Exception('Downloaded video content is empty (0 bytes).');
       }
 
-      String effectiveLocalPath = effectiveDownloadUrl;
       final sanitizedTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final filename = '$sanitizedTitle-$quality.mp4';
 
-      WebDownloadHelper.triggerBrowserDownload(
-        bytes: bytes,
-        filename: filename,
-        onBlobCreated: (blobUrl) {
+      // Determine local path based on storage mode.
+      // inAppOnly  → create blob for in-app playback, no file-save dialog.
+      // saveToFile → trigger browser file-save dialog only, no in-app blob kept.
+      // both       → blob for in-app playback AND file-save dialog.
+      String effectiveLocalPath = effectiveDownloadUrl;
+
+      switch (storageMode) {
+        case DownloadStorageMode.inAppOnly:
+          // Create blob silently – no browser download dialog.
+          final blobUrl = WebDownloadHelper.createBlobOnly(bytes: bytes);
           effectiveLocalPath = blobUrl;
-        },
-      );
+
+        case DownloadStorageMode.saveToFile:
+          // Trigger browser file-save; do NOT keep a blob in-app.
+          WebDownloadHelper.triggerBrowserSaveOnly(
+            bytes: bytes,
+            filename: filename,
+          );
+          // Use the remote URL as the effective path (online playback fallback).
+          effectiveLocalPath = effectiveDownloadUrl;
+
+        case DownloadStorageMode.both:
+          // Blob for in-app + file-save dialog.
+          WebDownloadHelper.triggerBrowserDownload(
+            bytes: bytes,
+            filename: filename,
+            onBlobCreated: (blobUrl) {
+              effectiveLocalPath = blobUrl;
+            },
+          );
+      }
 
       final metadata = DownloadMetadata(
         videoId: videoId,
@@ -559,14 +729,18 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         sizeBytes: bytes.length,
         quality: quality,
         status: VideoDownloadStatus.completed,
+        channelName: channelName,
+        downloadedAt: DateTime.now(),
       );
 
       final updatedDownloads = {...state.downloads, videoId: metadata};
+      final updatedActive = {...state.activeTasks}..remove(videoId);
       state = state.copyWith(
         downloading: {...state.downloading}..remove(videoId),
         paused: {...state.paused}..remove(videoId),
         progress: {...state.progress, videoId: 1.0},
         downloads: updatedDownloads,
+        activeTasks: updatedActive,
       );
 
       await _persistWebDownloads(updatedDownloads);
@@ -577,7 +751,24 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       _handleDownloadError(videoId, e.toString());
     } finally {
       _cancelTokens.remove(videoId);
+      _processNextWebQueueItem();
     }
+  }
+
+  void _processNextWebQueueItem() {
+    if (!kIsWeb) return;
+    if (state.downloading.isNotEmpty) return;
+    if (_webQueue.isEmpty) return;
+
+    final next = _webQueue.removeAt(0);
+    _executeWebDownload(
+      videoId: next.videoId,
+      url: next.url,
+      title: next.title,
+      thumbnailUrl: next.thumbnailUrl,
+      quality: next.quality,
+      channelName: next.channelName,
+    );
   }
 
   /// Pauses an active download, preserving partial file on disk
@@ -588,9 +779,18 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
       _cancelTokens.remove(videoId);
     }
 
+    final active = state.activeTasks[videoId];
+    final updatedActive = active != null
+        ? {
+            ...state.activeTasks,
+            videoId: active.copyWith(status: VideoDownloadStatus.paused),
+          }
+        : state.activeTasks;
+
     state = state.copyWith(
       downloading: {...state.downloading}..remove(videoId),
       paused: {...state.paused, videoId},
+      activeTasks: updatedActive,
     );
 
     if (!kIsWeb) {
@@ -611,6 +811,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         title: task.title,
         thumbnailUrl: task.thumbnailUrl,
         quality: task.quality,
+        channelName: task.channelName,
       );
     }
   }
@@ -624,6 +825,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     }
 
     _downloadTasks.remove(videoId);
+    _webQueue.removeWhere((item) => item.videoId == videoId);
 
     if (!kIsWeb) {
       try {
@@ -637,9 +839,11 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
 
     state = state.copyWith(
       downloading: {...state.downloading}..remove(videoId),
+      queued: {...state.queued}..remove(videoId),
       paused: {...state.paused}..remove(videoId),
       progress: {...state.progress}..remove(videoId),
       errors: {...state.errors}..remove(videoId),
+      activeTasks: {...state.activeTasks}..remove(videoId),
     );
 
     if (!kIsWeb) {
@@ -647,6 +851,8 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         videoId,
         'cancelled',
       );
+    } else {
+      _processNextWebQueueItem();
     }
   }
 
@@ -687,6 +893,7 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         ..remove(videoId);
       state = state.copyWith(
         downloads: newDownloads,
+        activeTasks: {...state.activeTasks}..remove(videoId),
         progress: {...state.progress}..remove(videoId),
         errors: {...state.errors}..remove(videoId),
       );
@@ -697,6 +904,67 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           key: _kLegacyDownloadsKey,
         );
       } catch (_) {}
+    } else {
+      state = state.copyWith(
+        activeTasks: {...state.activeTasks}..remove(videoId),
+        progress: {...state.progress}..remove(videoId),
+        errors: {...state.errors}..remove(videoId),
+      );
+    }
+  }
+
+  /// Safely enriches metadata (e.g. thumbnail, channelName) for an existing download
+  /// or active task without deleting or recreating the record.
+  Future<void> updateMetadata(
+    String videoId, {
+    String? thumbnailUrl,
+    String? channelName,
+    String? title,
+  }) async {
+    final existingDownload = state.downloads[videoId];
+    final existingActive = state.activeTasks[videoId];
+
+    if (existingDownload == null && existingActive == null) return;
+
+    Map<String, DownloadMetadata> newDownloads = state.downloads;
+    Map<String, DownloadMetadata> newActiveTasks = state.activeTasks;
+
+    if (existingDownload != null) {
+      final updated = existingDownload.copyWith(
+        title: title ?? existingDownload.title,
+        thumbnailUrl: thumbnailUrl ?? existingDownload.thumbnailUrl,
+        channelName: channelName ?? existingDownload.channelName,
+      );
+      newDownloads = {...state.downloads, videoId: updated};
+    }
+
+    if (existingActive != null) {
+      final updated = existingActive.copyWith(
+        title: title ?? existingActive.title,
+        thumbnailUrl: thumbnailUrl ?? existingActive.thumbnailUrl,
+        channelName: channelName ?? existingActive.channelName,
+      );
+      newActiveTasks = {...state.activeTasks, videoId: updated};
+    }
+
+    state = state.copyWith(
+      downloads: newDownloads,
+      activeTasks: newActiveTasks,
+    );
+
+    if (existingDownload != null) {
+      if (kIsWeb) {
+        await _persistWebDownloads(newDownloads);
+      } else {
+        await _db.videosDao.upsertVideo(
+          LocalVideosCompanion(
+            id: drift.Value(videoId),
+            title: drift.Value(newDownloads[videoId]!.title),
+            thumbnailUrl: drift.Value(newDownloads[videoId]!.thumbnailUrl),
+            creatorName: drift.Value(newDownloads[videoId]!.channelName),
+          ),
+        );
+      }
     }
   }
 

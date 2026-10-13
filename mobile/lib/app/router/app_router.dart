@@ -241,6 +241,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
+      GoRoute(
+        path: '/downloads',
+        redirect: (context, state) => '/library/downloads',
+      ),
 
       // Full-screen routes above the shell
       GoRoute(
@@ -270,6 +274,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/live/discover',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const LiveDiscoveryScreen(),
+      ),
+      GoRoute(
+        path: '/downloads',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) => '/library/downloads',
       ),
       GoRoute(
         path: '/video/:id',

@@ -4,10 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/library/presentation/widgets/web_downloads_view.dart';
 import 'package:mobile/features/media_experience/presentation/widgets/download_status_tile.dart';
 
 class DownloadsScreen extends ConsumerWidget {
   const DownloadsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) {
+      return const WebDownloadsView();
+    }
+    return const _AndroidDownloadsView();
+  }
+}
+
+class _AndroidDownloadsView extends ConsumerWidget {
+  const _AndroidDownloadsView();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,40 +52,6 @@ class DownloadsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // Web info banner
-          if (kIsWeb)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer
-                    .withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: theme.colorScheme.secondary.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 18,
-                    color: theme.colorScheme.secondary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      tr('downloads.web_info'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
           // Content
           Expanded(
             child: allIds.isEmpty
@@ -120,9 +99,7 @@ class DownloadsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              kIsWeb
-                  ? tr('downloads.empty_web_hint')
-                  : tr('downloads.empty_hint'),
+              tr('downloads.empty_hint'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
