@@ -61,6 +61,12 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   }
 
+  /// Get notes by a list of IDs
+  Future<List<LocalCalendarNoteData>> getNotesByIds(List<String> ids) {
+    if (ids.isEmpty) return Future.value([]);
+    return (select(localCalendarNotes)..where((tbl) => tbl.id.isIn(ids))).get();
+  }
+
   /// Insert or update a note
   Future<void> upsertNote(LocalCalendarNotesCompanion note) {
     return into(localCalendarNotes).insertOnConflictUpdate(note);

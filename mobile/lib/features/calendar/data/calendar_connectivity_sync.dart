@@ -4,25 +4,31 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/calendar/data/calendar_sync_service.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 
 final calendarConnectivitySyncProvider =
     Provider<CalendarConnectivitySync>((ref) {
-  final sync = CalendarConnectivitySync(ref.watch(calendarSyncServiceProvider));
+  final sync = CalendarConnectivitySync(
+    ref.watch(calendarSyncServiceProvider),
+    ref,
+  );
   ref.onDispose(() => sync.dispose());
   return sync;
 });
 
 class CalendarConnectivitySync with WidgetsBindingObserver {
   final CalendarSyncService _syncService;
+  final Ref _ref;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _wasOffline = false;
   bool _isSyncing = false;
   DateTime? _lastSyncAttempt;
 
-  CalendarConnectivitySync(this._syncService);
+  CalendarConnectivitySync(this._syncService, this._ref);
 
   /// Initialize connectivity and lifecycle monitoring and auto-sync
   Future<void> initialize() async {
@@ -119,6 +125,16 @@ class CalendarConnectivitySync with WidgetsBindingObserver {
       } else {
         developer.log(
           '⚠️ Auto-sync completed with issues: ${result.errorMessage}',
+          name: 'ConnectivitySync',
+        );
+      }
+      // On Web, Drift is a no-op so notes live only in _webCache.
+      // Invalidate the FutureProviders so the UI re-reads the populated cache.
+      if (kIsWeb && result.notesPulled > 0) {
+        _ref.invalidate(calendarNotesForMonthProvider);
+        _ref.invalidate(calendarNotesForDateProvider);
+        developer.log(
+          '🔄 Invalidated note providers after Web sync (${result.notesPulled} notes)',
           name: 'ConnectivitySync',
         );
       }

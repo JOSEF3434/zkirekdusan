@@ -2,10 +2,15 @@
 // Workmanager integration for background sync
 
 import 'dart:developer' as developer;
+import 'package:flutter/widgets.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/database/app_database.dart';
+import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/calendar/data/calendar_sync_service.dart';
 import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
-import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/features/calendar/data/calendar_repository.dart';
 import 'package:dio/dio.dart';
 
@@ -24,18 +29,101 @@ Future<bool> executeCalendarSyncTask(Map<String, dynamic>? inputData) async {
     );
 
     // Initialize dependencies in background isolate
+    WidgetsFlutterBinding.ensureInitialized();
+    final prefs = await SharedPreferences.getInstance();
+    const secureStorage = FlutterSecureStorage(aOptions: AndroidOptions());
+    final storage = StorageService(secureStorage, prefs);
     final db = AppDatabase();
+
+    final baseUrl = inputData?['apiBaseUrl'] as String? ?? Env.apiBaseUrl;
+    var accessToken = await storage.getToken(key: 'access_token') ??
+        inputData?['authToken'] as String?;
+    final refreshToken = await storage.getToken(key: 'refresh_token');
+
     final dio = Dio(
       BaseOptions(
-        baseUrl:
-            inputData?['apiBaseUrl'] as String? ?? 'http://localhost:3000',
+        baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          if (inputData?['authToken'] != null)
-            'Authorization': 'Bearer ${inputData!['authToken']}',
+          if (accessToken != null && accessToken.isNotEmpty)
+            'Authorization': 'Bearer $accessToken',
+        },
+      ),
+    );
+
+    // Silent token refresh interceptor for background execution
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (err, handler) async {
+          if (err.response?.statusCode == 401 &&
+              refreshToken != null &&
+              refreshToken.isNotEmpty) {
+            developer.log(
+              '🔄 Background sync received 401: attempting silent refresh',
+              name: 'BackgroundSync',
+            );
+            try {
+              final refreshDio = Dio(
+                BaseOptions(
+                  baseUrl: baseUrl,
+                  connectTimeout: const Duration(seconds: 30),
+                  receiveTimeout: const Duration(seconds: 30),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                ),
+              );
+              final refreshResponse = await refreshDio.post(
+                '/auth/refresh',
+                data: {'refreshToken': refreshToken},
+              );
+              final data = refreshResponse.data;
+              final Map<String, dynamic> body =
+                  (data is Map && data.containsKey('data'))
+                      ? data['data'] as Map<String, dynamic>
+                      : data as Map<String, dynamic>;
+              final newAccessToken = body['accessToken'] as String?;
+              final newRefreshToken = body['refreshToken'] as String?;
+
+              if (newAccessToken != null && newAccessToken.isNotEmpty) {
+                await storage.saveToken(newAccessToken, key: 'access_token');
+                if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+                  await storage.saveToken(
+                    newRefreshToken,
+                    key: 'refresh_token',
+                  );
+                }
+                dio.options.headers['Authorization'] =
+                    'Bearer $newAccessToken';
+
+                // Retry original request
+                final retryOpts = Options(
+                  method: err.requestOptions.method,
+                  headers: {
+                    ...err.requestOptions.headers,
+                    'Authorization': 'Bearer $newAccessToken',
+                  },
+                );
+                final retryResponse = await dio.request<dynamic>(
+                  err.requestOptions.path,
+                  data: err.requestOptions.data,
+                  queryParameters: err.requestOptions.queryParameters,
+                  options: retryOpts,
+                );
+                return handler.resolve(retryResponse);
+              }
+            } catch (refreshErr) {
+              developer.log(
+                '❌ Background silent refresh failed: $refreshErr',
+                name: 'BackgroundSync',
+              );
+            }
+          }
+          return handler.next(err);
         },
       ),
     );

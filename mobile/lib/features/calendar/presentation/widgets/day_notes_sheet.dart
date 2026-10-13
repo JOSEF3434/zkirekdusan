@@ -265,27 +265,43 @@ class _NoteListItem extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 4,
-          ),
-          title: note.title != null && note.title!.isNotEmpty
-              ? Text(
-                  note.title!,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          subtitle: note.content != null && note.content!.isNotEmpty
-              ? Text(
-                  note.content!,
-                  maxLines: note.title != null ? 2 : 3,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          trailing: PopupMenuButton<String>(
+        Builder(
+          builder: (context) {
+            final hasTitle = note.title != null && note.title!.trim().isNotEmpty;
+            final hasContent = note.content != null && note.content!.trim().isNotEmpty;
+            final String displayTitle;
+            final String? displaySubtitle;
+
+            if (hasTitle) {
+              displayTitle = note.title!;
+              displaySubtitle = hasContent ? note.content! : null;
+            } else if (hasContent) {
+              displayTitle = note.content!;
+              displaySubtitle = null;
+            } else {
+              displayTitle = ref.watch(trProvider)('calendar.note');
+              displaySubtitle = null;
+            }
+
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 4,
+              ),
+              title: Text(
+                displayTitle,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                maxLines: displaySubtitle != null ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: displaySubtitle != null
+                  ? Text(
+                      displaySubtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : null,
+              trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (action) => _handleAction(context, ref, action),
             itemBuilder: (context) {
@@ -347,7 +363,9 @@ class _NoteListItem extends ConsumerWidget {
             Navigator.of(context).pop(); // close sheet first
             context.push('/calendar/note/${note.id}');
           },
-        ),
+        );
+      },
+    ),
 
         // ── Scrollable media strip ──
         if (hasMedia)
@@ -359,8 +377,10 @@ class _NoteListItem extends ConsumerWidget {
               itemCount: note.media.length,
               itemBuilder: (context, index) {
                 final media = note.media[index];
-                final rawUrl = media.file?['url'] as String?;
+                final rawUrl = media.url ?? media.file?['url'] as String?;
                 final resolved = MediaUrlResolver.resolve(rawUrl);
+                final isVideo = (media.mimeType ?? '').startsWith('video/');
+                final isAudio = (media.mimeType ?? '').startsWith('audio/');
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
@@ -372,15 +392,36 @@ class _NoteListItem extends ConsumerWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: resolved != null
-                          ? AppNetworkImage(
-                              imageUrl: resolved,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                              errorWidget: (ctx, url, err) => _mediaTile(theme),
-                            )
-                          : _mediaTile(theme),
+                      child: Stack(
+                        children: [
+                          resolved != null && !isAudio
+                              ? AppNetworkImage(
+                                  imageUrl: resolved,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (ctx, url, err) =>
+                                      _mediaTile(theme),
+                                )
+                              : _mediaTile(
+                                  theme,
+                                  icon: isAudio
+                                      ? Icons.audiotrack
+                                      : Icons.attach_file,
+                                ),
+                          if (isVideo)
+                            Positioned.fill(
+                              child: Container(
+                                color: Colors.black26,
+                                child: const Icon(
+                                  Icons.play_circle_outline,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -391,15 +432,16 @@ class _NoteListItem extends ConsumerWidget {
     );
   }
 
-  Widget _mediaTile(ThemeData theme) => Container(
-    width: 80,
-    height: 80,
-    color: theme.colorScheme.surfaceContainerHighest,
-    child: Icon(
-      Icons.attach_file,
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-    ),
-  );
+  Widget _mediaTile(ThemeData theme, {IconData icon = Icons.attach_file}) =>
+      Container(
+        width: 80,
+        height: 80,
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: Icon(
+          icon,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+        ),
+      );
 
   Future<void> _handleAction(
     BuildContext context,
@@ -584,12 +626,12 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
 
   String? _getMediaUrl(dynamic item) {
     if (item is CalendarNoteMedia) {
-      return item.file?['url'] as String?;
+      return item.url ?? item.file?['url'] as String?;
     }
     if (item is Map) {
       final file = item['file'];
-      if (file is Map) return file['url'] as String?;
-      return item['url'] as String?;
+      if (file is Map) return (file['url'] ?? file['fileUrl']) as String?;
+      return (item['url'] ?? item['fileUrl']) as String?;
     }
     return null;
   }

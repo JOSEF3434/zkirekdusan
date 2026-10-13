@@ -121,7 +121,19 @@ class CalendarMediaService {
       case 'video/quicktime':
         return 'mov';
       case 'audio/mpeg':
+      case 'audio/mp3':
         return 'mp3';
+      case 'audio/mp4':
+      case 'audio/m4a':
+      case 'audio/x-m4a':
+        return 'm4a';
+      case 'audio/wav':
+      case 'audio/x-wav':
+        return 'wav';
+      case 'audio/aac':
+        return 'aac';
+      case 'audio/ogg':
+        return 'ogg';
       default:
         return '';
     }

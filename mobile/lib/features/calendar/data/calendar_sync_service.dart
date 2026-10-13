@@ -126,7 +126,7 @@ class CalendarSyncService {
         final yearsToSync = [
           currentEthiopianYear,
           currentEthiopianYear - 1,
-          currentEthiopianYear + 1,
+          currentEthiopianYear - 2,
         ];
 
         for (int i = 0; i < yearsToSync.length; i++) {

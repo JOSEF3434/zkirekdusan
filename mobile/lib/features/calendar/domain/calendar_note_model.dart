@@ -61,6 +61,22 @@ abstract class CalendarNoteMedia with _$CalendarNoteMedia {
       _$CalendarNoteMediaFromJson(json);
 }
 
+extension CalendarNoteMediaX on CalendarNoteMedia {
+  String? get url {
+    final f = file;
+    if (f != null && f['url'] != null) {
+      return f['url'] as String?;
+    }
+    return null;
+  }
+
+  String? get mimeType => file?['mimeType'] as String?;
+  String? get status => file?['status'] as String?;
+  String? get fileName =>
+      (file?['fileName'] ?? file?['originalName']) as String?;
+  int? get fileSize => (file?['size'] as num?)?.toInt();
+}
+
 @freezed
 abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
   const CreateCalendarNoteDto._();

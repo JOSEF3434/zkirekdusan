@@ -9,6 +9,7 @@ import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/data/calendar_media_upload_queue.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
@@ -291,6 +292,18 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
       // Upload media if any and note is newly created (editing uploads immediately)
       if (_selectedMediaPaths.isNotEmpty && widget.existingNote == null) {
+        if (!kIsWeb) {
+          try {
+            await ref
+                .read(calendarOfflineRepositoryProvider)
+                .pushUnsyncedNotes();
+          } catch (pushErr) {
+            developer.log(
+              '⚠️ pushUnsyncedNotes non-blocking warning: $pushErr',
+              name: 'AddNoteSheet',
+            );
+          }
+        }
         await ref
             .read(mediaUploadQueueProvider.notifier)
             .enqueueAll(localPaths: _selectedMediaPaths, noteId: note.id);
@@ -342,11 +355,13 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   }
 
   bool _isImageFile(String path) {
+    if (path.startsWith('blob:') || path.startsWith('data:image/')) return true;
     final extension = path.toLowerCase().split('.').last;
     return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(extension);
   }
 
   bool _isVideoFile(String path) {
+    if (path.startsWith('data:video/')) return true;
     final extension = path.toLowerCase().split('.').last;
     return [
       'mp4',
@@ -360,6 +375,7 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   }
 
   bool _isAudioFile(String path) {
+    if (path.startsWith('data:audio/')) return true;
     final extension = path.toLowerCase().split('.').last;
     return [
       'mp3',
@@ -394,8 +410,14 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
 
   Widget _buildImagePreview(String path, ThemeData theme, String fileName) {
     if (kIsWeb) {
-      // On web, we can't use Image.file with a local path. Show a placeholder.
-      return _buildFileIcon(Icons.image, fileName, theme);
+      return Image.network(
+        path,
+        width: 120,
+        height: 120,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildFileIcon(Icons.broken_image, fileName, theme),
+      );
     } else {
       try {
         return Image.file(

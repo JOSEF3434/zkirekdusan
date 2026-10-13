@@ -7,6 +7,7 @@ import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/database/daos/calendar_notes_dao.dart';
@@ -56,18 +57,53 @@ class CalendarOfflineRepository {
   final _uuid = const Uuid();
   Future<CalendarPushResult>? _inFlightPush;
 
+  /// In-memory cache for Web where Drift uses no-op safe executor
+  final Map<String, CalendarNoteModel> _webCache = {};
+
   CalendarOfflineRepository(this._dao, this._syncQueue, this._remoteRepo);
 
   // ═══════════════════════════════════════════════════════════════
   // READ OPERATIONS (Local First - Instantaneous & Offline-Safe)
   // ═══════════════════════════════════════════════════════════════
 
-  /// Get notes for a specific date (authoritative local database)
+  /// Get notes for a specific date (authoritative local database or Web cache)
   Future<List<CalendarNoteModel>> getNotesForDate({
     required int year,
     required int month,
     required int day,
   }) async {
+    if (kIsWeb) {
+      final cached = _webCache.values
+          .where(
+            (n) =>
+                n.ethiopianYear == year &&
+                n.ethiopianMonth == month &&
+                n.ethiopianDay == day &&
+                n.deletedAt == null,
+          )
+          .toList();
+      if (cached.isNotEmpty) {
+        return cached;
+      }
+      try {
+        final remote = await _remoteRepo.getNotes(
+          year: year,
+          month: month,
+          day: day,
+        );
+        for (final n in remote) {
+          _webCache[n.id] = n;
+        }
+        return remote.where((n) => n.deletedAt == null).toList();
+      } catch (e) {
+        developer.log(
+          'Web getNotesForDate fallback error: $e',
+          name: 'CalendarOfflineRepository',
+        );
+        return cached;
+      }
+    }
+
     final localNotes = await _dao.getNotesForDate(
       year: year,
       month: month,
@@ -82,11 +118,49 @@ class CalendarOfflineRepository {
     return results;
   }
 
-  /// Get notes for a specific month (authoritative local database)
+  /// Get notes for a specific month (authoritative local database or Web cache)
   Future<List<CalendarNoteModel>> getNotesForMonth({
     required int year,
     required int month,
   }) async {
+    if (kIsWeb) {
+      var cached = _webCache.values
+          .where(
+            (n) =>
+                n.ethiopianYear == year &&
+                n.ethiopianMonth == month &&
+                n.deletedAt == null,
+          )
+          .toList();
+      if (cached.isNotEmpty) {
+        cached.sort((a, b) {
+          final dayCmp = a.ethiopianDay.compareTo(b.ethiopianDay);
+          if (dayCmp != 0) return dayCmp;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        return cached;
+      }
+      try {
+        final remote = await _remoteRepo.getNotes(year: year, month: month);
+        for (final n in remote) {
+          _webCache[n.id] = n;
+        }
+        cached = remote.where((n) => n.deletedAt == null).toList();
+        cached.sort((a, b) {
+          final dayCmp = a.ethiopianDay.compareTo(b.ethiopianDay);
+          if (dayCmp != 0) return dayCmp;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        return cached;
+      } catch (e) {
+        developer.log(
+          'Web getNotesForMonth fallback error: $e',
+          name: 'CalendarOfflineRepository',
+        );
+        return cached;
+      }
+    }
+
     final localNotes = await _dao.getNotesForMonth(year: year, month: month);
 
     final results = <CalendarNoteModel>[];
@@ -99,6 +173,23 @@ class CalendarOfflineRepository {
 
   /// Get note by ID (local first, remote fallback)
   Future<CalendarNoteModel?> getNoteById(String id) async {
+    if (kIsWeb) {
+      final cached = _webCache[id];
+      if (cached != null) return cached;
+      try {
+        final serverNote = await _remoteRepo.getNote(id);
+        _webCache[serverNote.id] = serverNote;
+        return serverNote;
+      } catch (e) {
+        developer.log(
+          'Web remote getNoteById failed: $e',
+          name: 'CalendarOfflineRepository',
+          error: e,
+        );
+        return null;
+      }
+    }
+
     // 1. Try local cache first
     final localNote = await _dao.getNoteById(id);
     if (localNote != null) {
@@ -135,6 +226,24 @@ class CalendarOfflineRepository {
           lastSyncedAt: Value(DateTime.now()),
         ),
       );
+      if (serverNote.media.isNotEmpty) {
+        final mediaCompanions = serverNote.media.map((m) {
+          return LocalCalendarNoteMediaCompanion.insert(
+            id: m.id,
+            noteId: serverNote.id,
+            fileId: m.fileId,
+            order: m.order,
+            caption: Value(m.caption),
+            fileUrl: Value(m.url),
+            fileName: Value(m.fileName),
+            mimeType: Value(m.mimeType),
+            fileSize: Value(m.fileSize),
+            createdAt: m.createdAt,
+            isSynced: const Value(true),
+          );
+        }).toList();
+        await _dao.batchUpsertMedia(mediaCompanions);
+      }
       return serverNote;
     } catch (e) {
       developer.log(
@@ -172,6 +281,64 @@ class CalendarOfflineRepository {
   }) async {
     final noteId = _uuid.v4();
     final now = DateTime.now();
+
+    if (kIsWeb) {
+      final dto = CreateCalendarNoteDto(
+        id: noteId,
+        ethiopianYear: ethiopianYear,
+        ethiopianMonth: ethiopianMonth,
+        ethiopianDay: ethiopianDay,
+        gregorianDate: gregorianDate.toIso8601String(),
+        title: title,
+        content: content,
+        hasReminder: hasReminder,
+        reminderDateTime: reminderDateTime?.toIso8601String(),
+        reminderRepeat: reminderRepeat,
+        reminderEthiopianMonth: reminderEthiopianMonth,
+        reminderEthiopianDay: reminderEthiopianDay,
+        reminderHour: reminderHour,
+        reminderMinute: reminderMinute,
+        reminderTimezone: reminderTimezone,
+        allowDownload: allowDownload,
+      );
+      try {
+        final serverNote = await _remoteRepo.createNote(dto);
+        _webCache[serverNote.id] = serverNote;
+        return serverNote;
+      } catch (e) {
+        developer.log(
+          'Web createNote remote error: $e',
+          name: 'CalendarOfflineRepository',
+          error: e,
+        );
+        final localModel = CalendarNoteModel(
+          id: noteId,
+          userId: userId,
+          ethiopianYear: ethiopianYear,
+          ethiopianMonth: ethiopianMonth,
+          ethiopianDay: ethiopianDay,
+          gregorianDate: gregorianDate,
+          title: title,
+          content: content,
+          hasReminder: hasReminder,
+          reminderDateTime: reminderDateTime,
+          reminderNotified: false,
+          reminderRepeat: reminderRepeat,
+          reminderEthiopianMonth: reminderEthiopianMonth,
+          reminderEthiopianDay: reminderEthiopianDay,
+          reminderHour: reminderHour,
+          reminderMinute: reminderMinute,
+          reminderTimezone: reminderTimezone,
+          reminderNextOccurrence: reminderNextOccurrence,
+          media: const [],
+          allowDownload: allowDownload,
+          createdAt: now,
+          updatedAt: now,
+        );
+        _webCache[noteId] = localModel;
+        rethrow;
+      }
+    }
 
     // 1. Immediately persist to local database with isSynced = false
     await _dao.createNote(
@@ -268,6 +435,34 @@ class CalendarOfflineRepository {
     DateTime? reminderNextOccurrence,
     bool? allowDownload,
   }) async {
+    if (kIsWeb) {
+      final dto = UpdateCalendarNoteDto(
+        title: title,
+        content: content,
+        hasReminder: hasReminder,
+        reminderDateTime: reminderDateTime?.toIso8601String(),
+        reminderRepeat: reminderRepeat,
+        reminderEthiopianMonth: reminderEthiopianMonth,
+        reminderEthiopianDay: reminderEthiopianDay,
+        reminderHour: reminderHour,
+        reminderMinute: reminderMinute,
+        reminderTimezone: reminderTimezone,
+        allowDownload: allowDownload,
+      );
+      try {
+        final serverNote = await _remoteRepo.updateNote(id, dto);
+        _webCache[serverNote.id] = serverNote;
+        return serverNote;
+      } catch (e) {
+        developer.log(
+          'Web updateNote remote error: $e',
+          name: 'CalendarOfflineRepository',
+          error: e,
+        );
+        rethrow;
+      }
+    }
+
     // 1. Immediately persist to local database with isSynced = false
     await _dao.updateNote(
       id,
@@ -339,6 +534,21 @@ class CalendarOfflineRepository {
 
   /// Delete a note (marks deleted locally immediately, enqueues sync)
   Future<void> deleteNote(String id) async {
+    if (kIsWeb) {
+      _webCache.remove(id);
+      try {
+        await _remoteRepo.deleteNote(id);
+      } catch (e) {
+        developer.log(
+          'Web deleteNote remote error: $e',
+          name: 'CalendarOfflineRepository',
+          error: e,
+        );
+        rethrow;
+      }
+      return;
+    }
+
     // 1. Mark deleted in local database immediately
     await _dao.deleteNote(id);
 
@@ -354,7 +564,7 @@ class CalendarOfflineRepository {
     unawaited(pushUnsyncedNotes());
   }
 
-  /// Add media to note (offline-first)
+  /// Add media to note (offline-first, with Web cache support)
   Future<void> addMedia({
     required String noteId,
     required String fileId,
@@ -365,7 +575,37 @@ class CalendarOfflineRepository {
     String? mimeType,
     int? fileSize,
   }) async {
-    final mediaId = await _dao.addMedia(
+    final mediaId = _uuid.v4();
+    final now = DateTime.now();
+
+    if (kIsWeb) {
+      final note = _webCache[noteId];
+      if (note != null) {
+        final newMedia = CalendarNoteMedia(
+          id: mediaId,
+          noteId: noteId,
+          fileId: fileId,
+          order: order,
+          caption: caption,
+          file: fileUrl != null
+              ? {
+                  'id': fileId,
+                  'url': fileUrl,
+                  'fileName': fileName,
+                  'mimeType': mimeType,
+                  'size': fileSize,
+                }
+              : null,
+          createdAt: now,
+        );
+        _webCache[noteId] = note.copyWith(
+          media: [...note.media, newMedia],
+        );
+      }
+      return;
+    }
+
+    await _dao.addMedia(
       noteId: noteId,
       fileId: fileId,
       order: order,
@@ -391,6 +631,18 @@ class CalendarOfflineRepository {
 
   /// Remove media from note (local-only by mediaId)
   Future<void> removeMedia(String mediaId) async {
+    if (kIsWeb) {
+      for (final entry in _webCache.entries) {
+        if (entry.value.media.any((m) => m.id == mediaId)) {
+          _webCache[entry.key] = entry.value.copyWith(
+            media: entry.value.media.where((m) => m.id != mediaId).toList(),
+          );
+          break;
+        }
+      }
+      return;
+    }
+
     await _dao.deleteMedia(mediaId);
 
     await _enqueueSyncOperation(
@@ -407,7 +659,16 @@ class CalendarOfflineRepository {
     required String mediaId,
   }) async {
     await _remoteRepo.removeNoteMedia(noteId: noteId, mediaId: mediaId);
-    await _dao.deleteMedia(mediaId);
+    if (kIsWeb) {
+      final note = _webCache[noteId];
+      if (note != null) {
+        _webCache[noteId] = note.copyWith(
+          media: note.media.where((m) => m.id != mediaId).toList(),
+        );
+      }
+    } else {
+      await _dao.deleteMedia(mediaId);
+    }
   }
 
   /// Update caption/order of a specific media item on a note.
@@ -423,6 +684,22 @@ class CalendarOfflineRepository {
       caption: caption,
       order: order,
     );
+    if (kIsWeb) {
+      final note = _webCache[noteId];
+      if (note != null) {
+        _webCache[noteId] = note.copyWith(
+          media: note.media.map((m) {
+            if (m.id == mediaId) {
+              return m.copyWith(
+                caption: caption ?? m.caption,
+                order: order ?? m.order,
+              );
+            }
+            return m;
+          }).toList(),
+        );
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -430,40 +707,92 @@ class CalendarOfflineRepository {
   // ═══════════════════════════════════════════════════════════════
 
   /// Sync notes from server to local database while preserving local pending edits
+  /// and reconciling note content and media attachments
   Future<int> syncNotesFromServer({int? year, int? month}) async {
     try {
       final remoteNotes = await _remoteRepo.getNotes(year: year, month: month);
 
-      final companions = remoteNotes.map((note) {
-        return LocalCalendarNotesCompanion.insert(
-          id: note.id,
-          userId: note.userId,
-          ethiopianYear: note.ethiopianYear,
-          ethiopianMonth: note.ethiopianMonth,
-          ethiopianDay: note.ethiopianDay,
-          gregorianDate: note.gregorianDate,
-          title: Value(note.title),
-          content: Value(note.content),
-          hasReminder: Value(note.hasReminder),
-          reminderDateTime: Value(note.reminderDateTime),
-          reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
-          reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
-          reminderEthiopianDay: Value(note.reminderEthiopianDay),
-          reminderHour: Value(note.reminderHour),
-          reminderMinute: Value(note.reminderMinute),
-          reminderTimezone: Value(note.reminderTimezone),
-          reminderNextOccurrence: Value(note.reminderNextOccurrence),
-          createdAt: note.createdAt,
-          updatedAt: note.updatedAt,
-          deletedAt: Value(note.deletedAt),
-          isSynced: const Value(true),
-          lastSyncedAt: Value(DateTime.now()),
+      if (kIsWeb) {
+        for (final note in remoteNotes) {
+          _webCache[note.id] = note;
+        }
+        return remoteNotes.length;
+      }
+
+      // Query existing local notes for intelligent reconciliation
+      final remoteIds = remoteNotes.map((n) => n.id).toList();
+      final existingLocalNotes = await _dao.getNotesByIds(remoteIds);
+      final localMap = {for (final l in existingLocalNotes) l.id: l};
+
+      final companions = <LocalCalendarNotesCompanion>[];
+      final mediaCompanions = <LocalCalendarNoteMediaCompanion>[];
+
+      for (final note in remoteNotes) {
+        final local = localMap[note.id];
+        if (local != null) {
+          // Strictly preserve locally pending edits from being overwritten
+          if (!local.isSynced) continue;
+          // Skip if local note has more recent edits than server timestamp
+          if (local.updatedAt.isAfter(note.updatedAt)) continue;
+        }
+
+        // Reconcile content & title: NEVER overwrite non-null local content with null from server
+        final effectiveContent = note.content ?? local?.content;
+        final effectiveTitle = note.title ?? local?.title;
+
+        companions.add(
+          LocalCalendarNotesCompanion.insert(
+            id: note.id,
+            userId: note.userId,
+            ethiopianYear: note.ethiopianYear,
+            ethiopianMonth: note.ethiopianMonth,
+            ethiopianDay: note.ethiopianDay,
+            gregorianDate: note.gregorianDate,
+            title: Value(effectiveTitle),
+            content: Value(effectiveContent),
+            hasReminder: Value(note.hasReminder),
+            reminderDateTime: Value(note.reminderDateTime),
+            reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
+            reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
+            reminderEthiopianDay: Value(note.reminderEthiopianDay),
+            reminderHour: Value(note.reminderHour),
+            reminderMinute: Value(note.reminderMinute),
+            reminderTimezone: Value(note.reminderTimezone),
+            reminderNextOccurrence: Value(note.reminderNextOccurrence),
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            deletedAt: Value(note.deletedAt),
+            isSynced: const Value(true),
+            lastSyncedAt: Value(DateTime.now()),
+          ),
         );
-      }).toList();
+
+        // Reconcile media attachments from server
+        for (final m in note.media) {
+          mediaCompanions.add(
+            LocalCalendarNoteMediaCompanion.insert(
+              id: m.id,
+              noteId: note.id,
+              fileId: m.fileId,
+              order: m.order,
+              caption: Value(m.caption),
+              fileUrl: Value(m.url),
+              fileName: Value(m.fileName),
+              mimeType: Value(m.mimeType),
+              fileSize: Value(m.fileSize),
+              createdAt: m.createdAt,
+              isSynced: const Value(true),
+              isPendingDelete: const Value(false),
+            ),
+          );
+        }
+      }
 
       if (companions.isNotEmpty) {
-        // Strictly preserve locally pending edits from being overwritten
         await _dao.batchUpsertNotesPreservingPending(companions);
+      }
+      if (mediaCompanions.isNotEmpty) {
+        await _dao.batchUpsertMedia(mediaCompanions);
       }
       return remoteNotes.length;
     } catch (e) {

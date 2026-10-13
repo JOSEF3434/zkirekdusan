@@ -15,10 +15,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
-class RegisterDeviceTokenDto {
+export class RegisterDeviceTokenDto {
   @IsString() token!: string;
   @IsIn(['ANDROID', 'IOS', 'WEB']) platform!: string;
   @IsString() @IsOptional() deviceId?: string;
+  @IsString() @IsOptional() locale?: string;
 }
 
 @ApiTags('Device Tokens')

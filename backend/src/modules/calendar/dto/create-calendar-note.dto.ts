@@ -7,8 +7,12 @@ import {
   IsDateString,
   IsBoolean,
   IsEnum,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AddNoteMediaDto } from './add-note-media.dto.js';
 
 export enum CalendarReminderRepeat {
   NONE = 'NONE',
@@ -119,5 +123,15 @@ export class CreateCalendarNoteDto {
   @IsOptional()
   @IsBoolean()
   allowDownload?: boolean;
+
+  @ApiPropertyOptional({
+    type: [AddNoteMediaDto],
+    description: 'Optional initial media attachments to associate with the note',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddNoteMediaDto)
+  media?: AddNoteMediaDto[];
 }
 

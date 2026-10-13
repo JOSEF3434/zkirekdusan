@@ -318,7 +318,7 @@ class _CalendarNoteDetailScreenState
                 itemCount: note.media.length,
                 itemBuilder: (context, index) {
                   final media = note.media[index];
-                  final rawUrl = media.file?['url'] as String?;
+                  final rawUrl = media.url ?? media.file?['url'] as String?;
                   final resolved = MediaUrlResolver.resolve(rawUrl);
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -636,12 +636,12 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
 
   String? _getMediaUrl(dynamic item) {
     if (item is CalendarNoteMedia) {
-      return item.file?['url'] as String?;
+      return item.url ?? item.file?['url'] as String?;
     }
     if (item is Map) {
       final file = item['file'];
-      if (file is Map) return file['url'] as String?;
-      return item['url'] as String?;
+      if (file is Map) return (file['url'] ?? file['fileUrl']) as String?;
+      return (item['url'] ?? item['fileUrl']) as String?;
     }
     return null;
   }

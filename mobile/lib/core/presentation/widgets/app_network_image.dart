@@ -44,7 +44,7 @@ class AppNetworkImage extends StatelessWidget {
   /// Returns [NetworkImage] on Web and [CachedNetworkImageProvider] on native mobile platforms.
   static ImageProvider provider(String url) {
     if (kIsWeb) {
-      return NetworkImage(url);
+      return NetworkImage(url, headers: const {});
     }
     return CachedNetworkImageProvider(url);
   }
@@ -74,7 +74,7 @@ class AppNetworkImage extends StatelessWidget {
 
     if (kIsWeb) {
       if (imageBuilder != null) {
-        imageContent = imageBuilder!(context, NetworkImage(imageUrl));
+        imageContent = imageBuilder!(context, NetworkImage(imageUrl, headers: const {}));
       } else {
         imageContent = Image.network(
           imageUrl,
@@ -86,6 +86,11 @@ class AppNetworkImage extends StatelessWidget {
           colorBlendMode: colorBlendMode,
           cacheWidth: memCacheWidth,
           cacheHeight: memCacheHeight,
+          // Setting headers forces crossOrigin="anonymous" on the underlying
+          // <img> element in Flutter Web, which is required for Cloudinary and
+          // other external CDN images that would otherwise fail with a CORS
+          // canvas taint error.
+          headers: const {},
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             final ph = placeholder ?? defaultPlaceholder;

@@ -1,10 +1,12 @@
 // lib/features/calendar/presentation/providers/calendar_sync_provider.dart
 // Providers for sync status and manual sync triggers
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/calendar/data/calendar_sync_service.dart';
 import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
 import 'package:mobile/core/providers/database_provider.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 
 /// Provider for last sync timestamp
 final lastSyncTimeProvider = StateProvider<DateTime?>((ref) => null);
@@ -25,6 +27,12 @@ final manualSyncProvider = Provider<Future<CalendarSyncResult> Function()>((ref)
 
       if (result.isSuccess) {
         lastSyncTime.state = DateTime.now();
+        // On Web, FutureProviders must be invalidated to re-read the
+        // now-populated _webCache (Drift is a no-op on Web).
+        if (kIsWeb && result.notesPulled > 0) {
+          ref.invalidate(calendarNotesForMonthProvider);
+          ref.invalidate(calendarNotesForDateProvider);
+        }
       }
 
       return result;
@@ -47,6 +55,10 @@ final quickSyncProvider = Provider<Future<CalendarSyncResult> Function()>((ref) 
 
       if (result.isSuccess) {
         lastSyncTime.state = DateTime.now();
+        if (kIsWeb && result.notesPulled > 0) {
+          ref.invalidate(calendarNotesForMonthProvider);
+          ref.invalidate(calendarNotesForDateProvider);
+        }
       }
 
       return result;

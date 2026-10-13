@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/calendar/data/calendar_media_service.dart';
 import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
@@ -165,6 +166,35 @@ class MediaUploadQueueNotifier extends StateNotifier<List<UploadQueueItem>> {
               fileId: fileId,
               order: item.order,
             );
+          } on DioException catch (dioErr) {
+            if (dioErr.response?.statusCode == 404) {
+              developer.log(
+                'Note ${item.noteId} not yet on server (404), pushing unsynced notes and retrying...',
+                name: 'MediaUploadQueue',
+              );
+              try {
+                await _ref
+                    .read(calendarOfflineRepositoryProvider)
+                    .pushUnsyncedNotes();
+                await _mediaService.addMediaToNote(
+                  noteId: item.noteId,
+                  fileId: fileId,
+                  order: item.order,
+                );
+              } catch (retryErr) {
+                developer.log(
+                  '⚠️ Retry addMediaToNote failed: $retryErr',
+                  name: 'MediaUploadQueue',
+                  error: retryErr,
+                );
+              }
+            } else {
+              developer.log(
+                '⚠️ Remote addMediaToNote DioException: $dioErr',
+                name: 'MediaUploadQueue',
+                error: dioErr,
+              );
+            }
           } catch (e) {
             developer.log(
               '⚠️ Remote addMediaToNote warning: $e',

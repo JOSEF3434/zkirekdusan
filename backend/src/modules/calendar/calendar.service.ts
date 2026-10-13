@@ -61,6 +61,21 @@ export class CalendarService {
       }
     }
 
+    if (dto.media && dto.media.length > 0) {
+      for (const m of dto.media) {
+        const file = await this.prisma.file.findFirst({
+          where: {
+            id: m.fileId,
+            uploadedById: userId,
+            deletedAt: null,
+          },
+        });
+        if (!file) {
+          throw new NotFoundException(`File ${m.fileId} not found`);
+        }
+      }
+    }
+
     const note = await this.prisma.calendarNote.create({
       data: {
         ...(dto.id ? { id: dto.id } : {}),
@@ -87,6 +102,17 @@ export class CalendarService {
         reminderNextOccurrence: dto.reminderDateTime
           ? new Date(dto.reminderDateTime)
           : null,
+        ...(dto.media && dto.media.length > 0
+          ? {
+              media: {
+                create: dto.media.map((m) => ({
+                  fileId: m.fileId,
+                  order: m.order,
+                  caption: m.caption,
+                })),
+              },
+            }
+          : {}),
       },
       include: {
         media: {
