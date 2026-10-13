@@ -1,9 +1,7 @@
-// lib/features/library/presentation/widgets/web_downloads_view.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/storage/download_service.dart';
-import 'package:mobile/core/storage/download_settings.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/presentation/widgets/web_download_card.dart';
 
@@ -263,22 +261,21 @@ class WebDownloadsView extends ConsumerWidget {
     return ListView.separated(
       padding: const EdgeInsets.only(top: 4, bottom: 40),
       itemCount: ids.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final videoId = ids[index];
         final metadata =
             state.downloads[videoId] ?? state.activeTasks[videoId];
-        return SizedBox(
-          height: 110,
-          child: WebDownloadCard(
-            key: ValueKey(videoId),
-            videoId: videoId,
-            metadata: metadata,
-          ),
+        return WebDownloadCard(
+          key: ValueKey(videoId),
+          videoId: videoId,
+          metadata: metadata,
+          isListView: true,
         );
       },
     );
   }
+
 
   // ── Empty state ────────────────────────────────────────────────────────────
 

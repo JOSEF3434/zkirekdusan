@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/storage/download_settings.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_section_card.dart';
@@ -124,6 +125,277 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
 
               const SizedBox(height: 16),
 
+              // ── Download Management ─────────────────────────────────
+              Consumer(
+                builder: (context, ref, _) {
+                  final settings = ref.watch(downloadSettingsProvider);
+                  final notifier = ref.read(downloadSettingsProvider.notifier);
+                  final theme = Theme.of(context);
+
+                  return AdminSectionCard(
+                    title: 'Download Management',
+                    subtitle: 'Control where and how media is stored on user devices',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ─── Storage Mode ────────────────────────────
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primaryContainer
+                                      .withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.storage_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Download Storage Mode',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Where downloaded media is stored',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Column(
+                            children: DownloadStorageMode.values.map((mode) {
+                              final isSelected = settings.storageMode == mode;
+                              final (IconData icon, String label, String desc) = switch (mode) {
+                                DownloadStorageMode.inAppOnly => (
+                                    Icons.cloud_done_outlined,
+                                    'In-App Only (Default)',
+                                    'Videos cached inside the app. Fast offline playback, no device file saved.',
+                                  ),
+                                DownloadStorageMode.saveToFile => (
+                                    Icons.save_alt_rounded,
+                                    'Save to File',
+                                    'Triggers OS download dialog. File saved to device\'s Downloads folder.',
+                                  ),
+                                DownloadStorageMode.both => (
+                                    Icons.sync_alt_rounded,
+                                    'Both (In-App + File)',
+                                    'Cached in-app AND a copy saved to the device file system.',
+                                  ),
+                              };
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => notifier.setStorageMode(mode),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? theme.colorScheme.primaryContainer
+                                              .withValues(alpha: 0.35)
+                                          : theme.colorScheme
+                                              .surfaceContainerHighest
+                                              .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? theme.colorScheme.primary
+                                                .withValues(alpha: 0.6)
+                                            : theme.colorScheme.outlineVariant
+                                                .withValues(alpha: 0.3),
+                                        width: isSelected ? 1.5 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          icon,
+                                          size: 20,
+                                          color: isSelected
+                                              ? theme.colorScheme.primary
+                                              : theme.colorScheme
+                                                  .onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                label,
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.bold
+                                                      : FontWeight.w500,
+                                                  color: isSelected
+                                                      ? theme.colorScheme
+                                                          .primary
+                                                      : null,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                desc,
+                                                style: theme
+                                                    .textTheme.bodySmall
+                                                    ?.copyWith(
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
+                                                  height: 1.35,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        AnimatedSwitcher(
+                                          duration: const Duration(
+                                              milliseconds: 200),
+                                          child: isSelected
+                                              ? Icon(
+                                                  Icons.radio_button_checked_rounded,
+                                                  key: const ValueKey('on'),
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  size: 20,
+                                                )
+                                              : Icon(
+                                                  Icons.radio_button_unchecked_rounded,
+                                                  key: const ValueKey('off'),
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant
+                                                      .withValues(alpha: 0.5),
+                                                  size: 20,
+                                                ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+
+                        const Divider(height: 1),
+
+                        // ─── Max Concurrent Downloads ────────────────────
+                        ListTile(
+                          leading: const Icon(
+                              Icons.swap_vert_circle_outlined),
+                          title: const Text('Max Simultaneous Downloads'),
+                          subtitle: Text(
+                              '${settings.maxConcurrent} download${settings.maxConcurrent == 1 ? '' : 's'} at a time'),
+                          trailing: SizedBox(
+                            width: 130,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  iconSize: 20,
+                                  onPressed: settings.maxConcurrent > 1
+                                      ? () => notifier.setMaxConcurrent(
+                                          settings.maxConcurrent - 1)
+                                      : null,
+                                ),
+                                Text(
+                                  '${settings.maxConcurrent}',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  iconSize: 20,
+                                  onPressed: settings.maxConcurrent < 5
+                                      ? () => notifier.setMaxConcurrent(
+                                          settings.maxConcurrent + 1)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const Divider(height: 1),
+
+                        // ─── Auto-download on Wi-Fi ─────────────────────────
+                        SwitchListTile(
+                          secondary: const Icon(
+                              Icons.wifi_rounded),
+                          title: const Text(
+                              'Auto-Download on Wi-Fi'),
+                          subtitle: const Text(
+                              'When enabled, newly published videos are automatically downloaded for offline access when connected to Wi-Fi.'),
+                          value: settings.autoDownloadOnWifi,
+                          activeThumbColor: theme.colorScheme.primary,
+                          onChanged: (val) =>
+                              notifier.setAutoDownloadOnWifi(val),
+                        ),
+
+                        // Status chip row
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                          child: Wrap(
+                            spacing: 8,
+                            children: [
+                              _AdminChip(
+                                icon: Icons.storage_rounded,
+                                label: switch (settings.storageMode) {
+                                  DownloadStorageMode.inAppOnly =>
+                                    'In-App Only',
+                                  DownloadStorageMode.saveToFile =>
+                                    'Save to File',
+                                  DownloadStorageMode.both => 'In-App + File',
+                                },
+                                color: theme.colorScheme.primary,
+                              ),
+                              _AdminChip(
+                                icon: Icons.swap_vert_circle_outlined,
+                                label: 'Max ${settings.maxConcurrent} concurrent',
+                                color: Colors.teal,
+                              ),
+                              if (settings.autoDownloadOnWifi)
+                                _AdminChip(
+                                  icon: Icons.wifi_rounded,
+                                  label: 'Auto-DL on Wi-Fi',
+                                  color: Colors.green,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+
               AdminSectionCard(
                 title: 'Platform Information & Health',
                 subtitle: 'Runtime build info and connected services',
@@ -157,3 +429,43 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
   }
 }
 
+// ─── _AdminChip ───────────────────────────────────────────────────────────────
+
+class _AdminChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _AdminChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
