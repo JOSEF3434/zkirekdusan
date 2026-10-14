@@ -442,12 +442,36 @@ export class VideosService {
   async getWatchHistory(userId: string, page = 1, limit = 20) {
     const result = await this.repo.getWatchHistory(userId, page, limit);
     return {
-      data: result.data.map((item) => ({
-        ...item.video,
-        watchedAt: (item as any).watchedAt,
-        watchedSeconds: (item as any).watchedSeconds,
-        watchedPercent: (item as any).watchedPercent,
-      })),
+      data: result.data.map((item) => {
+        const v = item.video as any;
+        let thumb = v.thumbnailUrl;
+        if (!thumb && (v.hlsUrl || v.sourceFile?.url)) {
+          const videoUrl = v.sourceFile?.url || v.hlsUrl;
+          if (videoUrl && videoUrl.includes('res.cloudinary.com')) {
+            const match = videoUrl.match(
+              /\/video\/upload\/(?:[^\/]+\/)?(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/,
+            );
+            if (match && match[1]) {
+              const cleanPublicId = match[1].replace(
+                /\.(mp4|m3u8|mov|webm)$/,
+                '',
+              );
+              const cloudName =
+                videoUrl.split('res.cloudinary.com/')[1]?.split('/')[0] ||
+                'jhgt6bn6';
+              thumb = `https://res.cloudinary.com/${cloudName}/video/upload/so_1,q_auto,f_jpg/${cleanPublicId}.jpg`;
+            }
+          }
+        }
+        return {
+          ...v,
+          thumbnailUrl: thumb,
+          sourceFileUrl: v.sourceFile?.url,
+          watchedAt: (item as any).watchedAt,
+          watchedSeconds: (item as any).watchedSeconds,
+          watchedPercent: (item as any).watchedPercent,
+        };
+      }),
       total: result.total,
       page,
       limit,
@@ -465,7 +489,31 @@ export class VideosService {
   }
 
   async getLikedVideos(userId: string, page = 1, limit = 20) {
-    return this.repo.getLikedVideos(userId, page, limit);
+    const result = await this.repo.getLikedVideos(userId, page, limit);
+    return {
+      data: result.data.map((v: any) => {
+        let thumb = v.thumbnailUrl;
+        if (!thumb && (v.sourceFile?.url || v.hlsUrl)) {
+          const videoTarget = v.sourceFile?.url || v.hlsUrl;
+          if (videoTarget && videoTarget.includes('cloudinary.com')) {
+            const matches = videoTarget.match(
+              /https:\/\/res\.cloudinary\.com\/([^/]+)\/video\/upload\/(?:(?:[a-zA-Z0-9_,]+)\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/,
+            );
+            if (matches) {
+              thumb = `https://res.cloudinary.com/${matches[1]}/video/upload/so_1,q_auto,f_jpg/${matches[2]}.jpg`;
+            }
+          }
+        }
+        return {
+          ...v,
+          thumbnailUrl: thumb,
+          sourceFileUrl: v.sourceFile?.url,
+        };
+      }),
+      total: result.total,
+      page,
+      limit,
+    };
   }
 
   async getWatchProgress(videoId: string, userId: string) {

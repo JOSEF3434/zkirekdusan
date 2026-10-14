@@ -133,15 +133,17 @@ class MediaUrlResolver {
     return 'https://res.cloudinary.com/${parsed.cloudName}/image/upload/${transforms.join(',')}/${parsed.publicId}';
   }
 
-  /// Converts a Cloudinary video URL to an auto-generated thumbnail snapshot.
+  /// Converts a Cloudinary video URL to an auto-generated thumbnail snapshot at the 1st second (so_1).
   static String? toCloudinaryVideoThumbnail(String url) {
-    final parsed = parseCloudinaryUrl(url);
+    final resolved = resolve(url);
+    if (resolved == null) return null;
+    final parsed = parseCloudinaryUrl(resolved);
     if (parsed == null) return null;
-    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/so_1,w_800,h_450,c_fill,q_auto,f_jpg/${parsed.publicId}.jpg';
+    return 'https://res.cloudinary.com/${parsed.cloudName}/video/upload/so_1,q_auto,f_jpg/${parsed.publicId}.jpg';
   }
 
   /// Resolves the best available thumbnail URL.
-  /// If no custom thumbnail was provided, automatically extracts a snapshot
+  /// If no custom thumbnail was provided, automatically extracts a 1st second snapshot (so_1)
   /// from the video stream or rendition URLs (e.g. via Cloudinary).
   static String? resolveThumbnail({
     String? thumbnailUrl,
@@ -152,18 +154,21 @@ class MediaUrlResolver {
     final direct = resolve(thumbnailUrl);
     if (direct != null && direct.isNotEmpty) return direct;
 
-    if (videoUrl != null && isCloudinary(videoUrl)) {
-      final thumb = toCloudinaryVideoThumbnail(videoUrl);
+    final resolvedVideo = resolve(videoUrl);
+    if (resolvedVideo != null && isCloudinary(resolvedVideo)) {
+      final thumb = toCloudinaryVideoThumbnail(resolvedVideo);
       if (thumb != null) return thumb;
     }
-    if (hlsUrl != null && isCloudinary(hlsUrl)) {
-      final thumb = toCloudinaryVideoThumbnail(hlsUrl);
+    final resolvedHls = resolve(hlsUrl);
+    if (resolvedHls != null && isCloudinary(resolvedHls)) {
+      final thumb = toCloudinaryVideoThumbnail(resolvedHls);
       if (thumb != null) return thumb;
     }
     if (renditionUrls != null) {
       for (final r in renditionUrls) {
-        if (isCloudinary(r)) {
-          final thumb = toCloudinaryVideoThumbnail(r);
+        final resolvedR = resolve(r);
+        if (resolvedR != null && isCloudinary(resolvedR)) {
+          final thumb = toCloudinaryVideoThumbnail(resolvedR);
           if (thumb != null) return thumb;
         }
       }

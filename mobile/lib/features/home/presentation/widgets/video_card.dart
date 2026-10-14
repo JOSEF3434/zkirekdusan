@@ -77,6 +77,7 @@ class VideoCard extends StatelessWidget {
                 children: [
                   VideoThumbnailWidget(
                     thumbnailUrl: video.thumbnailUrl,
+                    videoUrl: video.sourceFileUrl ?? video.hlsUrl,
                     hlsUrl: video.hlsUrl,
                     renditionUrls:
                         video.renditions.map((r) => r.url).toList(),

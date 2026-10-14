@@ -38,6 +38,7 @@ class DownloadStatusTile extends ConsumerWidget {
             children: [
               VideoThumbnailWidget(
                 thumbnailUrl: thumbnailUrl,
+                videoUrl: resolvedMeta?.localPath,
                 borderRadius: BorderRadius.circular(4),
                 playIconSize: 20,
               ),

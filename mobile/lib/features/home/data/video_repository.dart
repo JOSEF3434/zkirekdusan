@@ -283,7 +283,8 @@ class VideoRepository {
             visibility: 'PUBLIC',
             duration: v.duration,
             thumbnailUrl: v.thumbnailUrl,
-            hlsUrl: v.localFilePath ?? v.hlsUrl,
+            hlsUrl: v.localFilePath ?? v.hlsUrl ?? v.videoUrl,
+            sourceFileUrl: v.videoUrl,
             dashUrl: v.dashUrl,
             author: PostAuthorDto(
               id: v.creatorId ?? '',

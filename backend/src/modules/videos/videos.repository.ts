@@ -361,16 +361,7 @@ export class VideosRepository {
         where: { userId },
         include: {
           video: {
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              thumbnailUrl: true,
-              duration: true,
-              status: true,
-              visibility: true,
-              videoChannel: { select: { id: true, name: true, handle: true } },
-            },
+            include: VIDEO_INCLUDE,
           },
         },
         skip,
@@ -421,17 +412,7 @@ export class VideosRepository {
         where: { userId, isLike: true },
         include: {
           video: {
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              thumbnailUrl: true,
-              duration: true,
-              status: true,
-              viewsCount: true,
-              createdAt: true,
-              videoChannel: { select: { id: true, name: true, handle: true } },
-            },
+            include: VIDEO_INCLUDE,
           },
         },
         skip,
