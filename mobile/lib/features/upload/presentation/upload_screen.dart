@@ -6,8 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/upload/presentation/providers/upload_provider.dart';
-import 'package:mobile/features/upload/domain/group_channel_model.dart';
-import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
@@ -20,31 +18,57 @@ class UploadScreen extends ConsumerWidget {
     final state = ref.watch(uploadProvider);
     final tr = ref.watch(trProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          state.step == UploadStep.fillDetails
-              ? tr('video.details')
-              : state.step == UploadStep.uploading
-              ? tr('upload.uploading')
-              : state.step == UploadStep.processing
-              ? tr('upload.processing')
-              : tr('shell.upload_video'),
-          style: const TextStyle(fontWeight: FontWeight.w600),
+    // If no channel is selected yet, redirect to channel selector
+    if (state.selectedChannel == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.pushReplacement('/creator/upload');
+        }
+      });
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () {
-            if (state.step == UploadStep.uploading ||
-                state.step == UploadStep.processing) {
-              _confirmCancel(context, ref);
-            } else {
-              context.pop();
-            }
-          },
+      );
+    }
+
+    return PopScope(
+      canPop: state.step != UploadStep.uploading &&
+          state.step != UploadStep.processing,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          ref.read(uploadProvider.notifier).cancelUpload();
+        } else {
+          _confirmCancel(context, ref);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            state.step == UploadStep.fillDetails
+                ? tr('video.details')
+                : state.step == UploadStep.uploading
+                ? tr('upload.uploading')
+                : state.step == UploadStep.processing
+                ? tr('upload.processing')
+                : tr('shell.upload_video'),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              if (state.step == UploadStep.uploading ||
+                  state.step == UploadStep.processing) {
+                _confirmCancel(context, ref);
+              } else {
+                ref.read(uploadProvider.notifier).cancelUpload();
+                context.pop();
+              }
+            },
+          ),
         ),
+        body: _buildBody(context, ref, state),
       ),
-      body: _buildBody(context, ref, state),
     );
   }
 
@@ -79,7 +103,7 @@ class UploadScreen extends ConsumerWidget {
       case UploadStep.selectVideo:
         return const _VideoPickerWidget();
       case UploadStep.selectChannel:
-        return _ChannelSelectorWidget();
+        return const SizedBox.shrink();
       case UploadStep.fillDetails:
         return const _UploadFormWidget();
       case UploadStep.uploading:
@@ -109,6 +133,7 @@ class _VideoPickerWidget extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final tr = ref.watch(trProvider);
+    final uploadState = ref.watch(uploadProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -118,6 +143,65 @@ class _VideoPickerWidget extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (uploadState.selectedChannel != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.6,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.tv,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          uploadState.selectedChannel!.name,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => context.push('/creator/upload'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: Text(
+                            'Change',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               Container(
                 width: 120,
                 height: 120,
@@ -175,260 +259,6 @@ class _VideoPickerWidget extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// STEP 2: CHANNEL SELECTOR
-// ─────────────────────────────────────────────
-
-class _ChannelSelectorWidget extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<_ChannelSelectorWidget> createState() =>
-      _ChannelSelectorWidgetState();
-}
-
-class _ChannelSelectorWidgetState
-    extends ConsumerState<_ChannelSelectorWidget> {
-  List<GroupDto>? _groups;
-  Map<String, List<VideoChannelDto>> _channels = {};
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final repo = ref.read(uploadRepositoryProvider);
-      final groups = await repo.getMyGroups();
-
-      final Map<String, List<VideoChannelDto>> channels = {};
-      for (final g in groups) {
-        if (g.status == 'ACTIVE') {
-          try {
-            channels[g.id] = await repo.getGroupChannels(g.id);
-          } catch (_) {
-            channels[g.id] = [];
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _groups = groups;
-          _channels = channels;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        String message = 'Unable to connect to the server. Please try again.';
-        if (e.toString().contains('500')) {
-          message =
-              'Server encountered an issue loading channels. Please retry.';
-        } else if (e.toString().contains('401') ||
-            e.toString().contains('403')) {
-          message =
-              'You do not have permission to view channels or your session has expired.';
-        }
-        setState(() {
-          _error = message;
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = ref.watch(trProvider);
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                tr('upload.load_channels_failed'),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _isLoading = true;
-                    _error = null;
-                  });
-                  _loadData();
-                },
-                icon: const Icon(Icons.refresh),
-                label: Text(tr('common.retry')),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_groups == null || _groups!.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.tv_off_rounded, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                tr('upload.no_channels_title'),
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(tr('upload.no_channels_desc'), textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => context.pop(),
-                child: Text(tr('upload.go_back')),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Future<void> handleSelectChannel(GroupDto group) async {
-      final groupChannels = _channels[group.id] ?? [];
-      VideoChannelDto channel;
-      if (groupChannels.isNotEmpty) {
-        channel = groupChannels.first;
-      } else {
-        try {
-          final repo = ref.read(uploadRepositoryProvider);
-          final fetched = await repo.getGroupChannels(group.id);
-          if (fetched.isNotEmpty) {
-            channel = fetched.first;
-          } else {
-            channel = VideoChannelDto(
-              id: group.id,
-              groupId: group.id,
-              name: group.name,
-              type: 'PUBLIC',
-              uploadPermission: 'MEMBER',
-            );
-          }
-        } catch (_) {
-          channel = VideoChannelDto(
-            id: group.id,
-            groupId: group.id,
-            name: group.name,
-            type: 'PUBLIC',
-            uploadPermission: 'MEMBER',
-          );
-        }
-      }
-
-      ref.read(uploadProvider.notifier).selectChannel(group, channel);
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _groups!.length,
-      itemBuilder: (context, index) {
-        final group = _groups![index];
-        final isPending = group.status == 'PENDING_APPROVAL';
-        final theme = Theme.of(context);
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          elevation: 1,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: isPending ? null : () => handleSelectChannel(group),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: isPending
-                        ? Colors.orange.withValues(alpha: 0.15)
-                        : theme.colorScheme.primaryContainer,
-                    child: isPending
-                        ? const Icon(
-                            Icons.lock_outline,
-                            color: Colors.orange,
-                            size: 22,
-                          )
-                        : Text(
-                            group.name.isNotEmpty
-                                ? group.name.substring(0, 1).toUpperCase()
-                                : 'C',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          group.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (isPending) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('upload.pending_approval'),
-                            style: const TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (!isPending)
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -565,10 +395,8 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                       ),
                       TextButton.icon(
                         onPressed: () {
-                          // Change channel
-                          ref
-                              .read(uploadProvider.notifier)
-                              .selectVideo(uploadState.file!);
+                          // Change channel via modern channel selector
+                          context.push('/creator/upload');
                         },
                         icon: const Icon(Icons.edit, size: 14),
                         label: const Text(
@@ -1031,6 +859,7 @@ class _UploadCompletedWidget extends ConsumerWidget {
                   child: FilledButton.icon(
                     onPressed: () {
                       ref.invalidate(videoFeedProvider);
+                      ref.read(uploadProvider.notifier).cancelUpload();
                       context.pushReplacement('/video/$videoId');
                     },
                     icon: const Icon(Icons.play_arrow_rounded),
@@ -1047,6 +876,7 @@ class _UploadCompletedWidget extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () {
                     ref.invalidate(videoFeedProvider);
+                    ref.read(uploadProvider.notifier).cancelUpload();
                     context.pop();
                   },
                   icon: const Icon(Icons.home_rounded),

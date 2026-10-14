@@ -77,7 +77,7 @@ class UploadState {
 }
 
 final uploadProvider =
-    StateNotifierProvider.autoDispose<UploadNotifier, UploadState>((ref) {
+    StateNotifierProvider<UploadNotifier, UploadState>((ref) {
       return UploadNotifier(
         ref.watch(uploadRepositoryProvider),
         ref.watch(playlistRepositoryProvider),
@@ -103,11 +103,11 @@ class UploadNotifier extends StateNotifier<UploadState> {
   }
 
   void selectVideo(XFile file) {
-    final nextStep = state.selectedChannel != null
-        ? UploadStep.fillDetails
-        : UploadStep.selectChannel;
-
-    state = state.copyWith(file: file, step: nextStep, clearError: true);
+    state = state.copyWith(
+      file: file,
+      step: UploadStep.fillDetails,
+      clearError: true,
+    );
   }
 
   void selectThumbnail(XFile? file) {
@@ -118,18 +118,27 @@ class UploadNotifier extends StateNotifier<UploadState> {
     state = state.copyWith(
       selectedGroup: group,
       selectedChannel: channel,
-      step: UploadStep.fillDetails,
+      step: state.file != null ? UploadStep.fillDetails : UploadStep.selectVideo,
       clearError: true,
     );
   }
 
   void preselectChannel(GroupDto group, VideoChannelDto channel) {
-    state = const UploadState().copyWith(
-      selectedGroup: group,
-      selectedChannel: channel,
-      step: UploadStep.selectVideo,
-      clearError: true,
-    );
+    if (state.file != null) {
+      state = state.copyWith(
+        selectedGroup: group,
+        selectedChannel: channel,
+        step: UploadStep.fillDetails,
+        clearError: true,
+      );
+    } else {
+      state = const UploadState().copyWith(
+        selectedGroup: group,
+        selectedChannel: channel,
+        step: UploadStep.selectVideo,
+        clearError: true,
+      );
+    }
   }
 
   void submitDetails(UploadVideoFormData data) {

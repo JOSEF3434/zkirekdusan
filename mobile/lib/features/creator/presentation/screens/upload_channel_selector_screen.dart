@@ -129,10 +129,18 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
           .read(uploadChannelsProvider(initialGroupId).notifier)
           .resolveChannel(item);
 
+      final currentUploadState = ref.read(uploadProvider);
+      final isChangingChannel =
+          currentUploadState.file != null || currentUploadState.selectedChannel != null;
+
       ref.read(uploadProvider.notifier).preselectChannel(groupDto, channelDto);
 
       if (context.mounted) {
-        context.push('/upload');
+        if (isChangingChannel && Navigator.of(context).canPop()) {
+          context.pop();
+        } else {
+          context.push('/upload');
+        }
       }
     }
 

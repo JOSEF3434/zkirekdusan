@@ -120,7 +120,7 @@ class _ProfilePostsListState extends ConsumerState<ProfilePostsList> {
               if (widget.isMyProfile) ...[
                 const SizedBox(height: 18),
                 FilledButton.icon(
-                  onPressed: () => context.push('/upload'),
+                  onPressed: () => context.push('/creator/upload'),
                   icon: const Icon(Icons.add_circle_outline, size: 18),
                   label: Consumer(
                     builder: (_, ref, _) => Text(
