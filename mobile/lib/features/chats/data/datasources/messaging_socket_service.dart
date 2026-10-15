@@ -26,6 +26,7 @@ class MessagingSocketService {
   final _messageUpdatedController = StreamController<MessageModel>.broadcast();
   final _messageDeletedController = StreamController<Map<String, String>>.broadcast();
   final _typingController = StreamController<Map<String, dynamic>>.broadcast();
+  final _activityController = StreamController<Map<String, dynamic>>.broadcast();
   final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
   final _reactionController = StreamController<Map<String, dynamic>>.broadcast();
   final _readReceiptController = StreamController<Map<String, dynamic>>.broadcast();
@@ -38,6 +39,7 @@ class MessagingSocketService {
   Stream<MessageModel> get messageUpdated => _messageUpdatedController.stream;
   Stream<Map<String, String>> get messageDeleted => _messageDeletedController.stream;
   Stream<Map<String, dynamic>> get typing => _typingController.stream;
+  Stream<Map<String, dynamic>> get activity => _activityController.stream;
   Stream<Map<String, dynamic>> get presence => _presenceController.stream;
   Stream<Map<String, dynamic>> get reaction => _reactionController.stream;
   Stream<Map<String, dynamic>> get readReceipt => _readReceiptController.stream;
@@ -153,6 +155,20 @@ class MessagingSocketService {
       }
     });
 
+    // Activity indicators
+    _socket!.on('activity:update', (data) {
+      if (data is Map<String, dynamic>) {
+        _activityController.add(data);
+        if (data['activity'] == 'typing') {
+          _typingController.add({
+            'conversationId': data['conversationId'],
+            'userId': data['userId'],
+            'isTyping': data['isActive'] == true,
+          });
+        }
+      }
+    });
+
     // Typing indicators
     _socket!.on('typing:start', (data) {
       if (data is Map<String, dynamic>) {
@@ -235,23 +251,58 @@ class MessagingSocketService {
     }
   }
 
-  // Send typing indicator
-  void sendTypingStart(String conversationId) {
+  // Activity indicators
+  void sendActivityStart(String conversationId, String activity) {
     if (_socket != null && _isConnected) {
-      _socket!.emit('typing:start', {'conversationId': conversationId});
+      _socket!.emit('activity:start', {
+        'conversationId': conversationId,
+        'activity': activity,
+      });
     }
   }
 
-  void sendTypingStop(String conversationId) {
+  void sendActivityStop(String conversationId, {String? activity}) {
     if (_socket != null && _isConnected) {
-      _socket!.emit('typing:stop', {'conversationId': conversationId});
+      final payload = <String, dynamic>{'conversationId': conversationId};
+      if (activity != null) {
+        payload['activity'] = activity;
+      }
+      _socket!.emit('activity:stop', payload);
     }
+  }
+
+  // Send typing indicator
+  void sendTypingStart(String conversationId) {
+    sendActivityStart(conversationId, 'typing');
+  }
+
+  void sendTypingStop(String conversationId) {
+    sendActivityStop(conversationId, activity: 'typing');
   }
 
   // Mark message as read
   void markAsRead(String conversationId, String messageId) {
     if (_socket != null && _isConnected) {
       _socket!.emit('message:read', {
+        'conversationId': conversationId,
+        'messageId': messageId,
+      });
+    }
+  }
+
+  // Mark conversation as read
+  void markConversationAsRead(String conversationId) {
+    if (_socket != null && _isConnected) {
+      _socket!.emit('conversation:read', {
+        'conversationId': conversationId,
+      });
+    }
+  }
+
+  // Mark message as delivered
+  void markDelivered(String conversationId, String messageId) {
+    if (_socket != null && _isConnected) {
+      _socket!.emit('message:delivered', {
         'conversationId': conversationId,
         'messageId': messageId,
       });
@@ -294,6 +345,7 @@ class MessagingSocketService {
     _messageUpdatedController.close();
     _messageDeletedController.close();
     _typingController.close();
+    _activityController.close();
     _presenceController.close();
     _reactionController.close();
     _readReceiptController.close();

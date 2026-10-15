@@ -65,11 +65,48 @@ export class MessagesService {
       senderId,
     );
 
+    // Immediately mark message as delivered to any other conversation members currently online
+    const onlineMemberIds = (conversation.members ?? [])
+      .map((m: any) => m.userId)
+      .filter(
+        (uid: string) =>
+          uid !== senderId && this.messagingGateway.isUserOnline(uid),
+      );
+
+    if (onlineMemberIds.length > 0) {
+      await Promise.all(
+        onlineMemberIds.map((uid: string) =>
+          this.messagesRepository
+            .markDelivered(message.id, uid)
+            .catch(() => {}),
+        ),
+      );
+      if (!message.deliveries) {
+        message.deliveries = [];
+      }
+      for (const uid of onlineMemberIds) {
+        message.deliveries.push({ userId: uid });
+      }
+    }
+
     const messageDto = this.mapToDto(message);
     const memberIds = conversation.members
       ? conversation.members.map((m: any) => m.userId)
       : [];
     this.messagingGateway.emitNewMessage(conversationId, messageDto, memberIds);
+
+    for (const uid of onlineMemberIds) {
+      this.messagingGateway.emitDeliveryReceipt(
+        conversationId,
+        {
+          messageId: message.id,
+          conversationId,
+          userId: uid,
+          deliveredAt: new Date(),
+        },
+        [senderId],
+      );
+    }
 
     return messageDto;
   }
@@ -93,41 +130,48 @@ export class MessagesService {
       throw new ForbiddenException('You are not a member of this conversation');
     }
 
+    // Mark all undelivered messages from others as delivered and unread as read before querying
+    const newlyDeliveredIds = await this.messagesRepository
+      .markBulkDelivered(conversationId, userId)
+      .catch(() => [] as string[]);
+    const newlyReadIds = await this.messagesRepository
+      .markBulkAsRead(conversationId, userId)
+      .catch(() => [] as string[]);
+    await this.messagesRepository
+      .resetUnreadCount(conversationId, userId)
+      .catch(() => {});
+
     const result = await this.messagesRepository.findByConversation(
       conversationId,
       cursor,
       limit,
     );
 
-    // Mark all unread messages from other users in this conversation as read
-    await this.messagesRepository
-      .markBulkAsRead(conversationId, userId)
-      .catch(() => {});
-    await this.messagesRepository
-      .resetUnreadCount(conversationId, userId)
-      .catch(() => {});
-
-    // Broadcast read receipts to conversation and members for newly read messages
-    const newlyReadMessages = result.data.filter(
-      (m: any) =>
-        m.senderId !== userId &&
-        !(m.reads ?? []).some((r: any) => r.userId === userId),
-    );
-    if (newlyReadMessages.length > 0) {
-      const memberIds = conversation.members?.map((m: any) => m.userId) ?? [];
-      for (const msg of newlyReadMessages) {
-        const payload = {
-          messageId: msg.id,
+    // Broadcast receipts to conversation and members
+    const memberIds = conversation.members?.map((m: any) => m.userId) ?? [];
+    for (const msgId of newlyDeliveredIds) {
+      this.messagingGateway.emitDeliveryReceipt(
+        conversationId,
+        {
+          messageId: msgId,
+          conversationId,
+          userId,
+          deliveredAt: new Date(),
+        },
+        memberIds,
+      );
+    }
+    for (const msgId of newlyReadIds) {
+      this.messagingGateway.emitReadReceipt(
+        conversationId,
+        {
+          messageId: msgId,
           conversationId,
           userId,
           readAt: new Date(),
-        };
-        this.messagingGateway.emitReadReceipt(
-          conversationId,
-          payload,
-          memberIds,
-        );
-      }
+        },
+        memberIds,
+      );
     }
 
     return {
@@ -214,13 +258,27 @@ export class MessagesService {
     messageId: string,
     userId: string,
     dto: AddReactionDto,
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ success: boolean; reactions?: any[] }> {
     const message = await this.messagesRepository.findById(messageId);
     if (!message) {
       throw new NotFoundException('Message not found');
     }
 
     await this.messagesRepository.addReaction(messageId, userId, dto.emoji);
+    const rawReactions =
+      await this.messagesRepository.getMessageReactions(messageId);
+    const reactionMap = new Map<string, string[]>();
+    for (const r of rawReactions) {
+      if (!reactionMap.has(r.emoji)) reactionMap.set(r.emoji, []);
+      reactionMap.get(r.emoji)!.push(r.userId);
+    }
+    const reactions = Array.from(reactionMap.entries()).map(
+      ([emoji, userIds]) => ({
+        emoji,
+        count: userIds.length,
+        userIds,
+      }),
+    );
 
     const payload = {
       messageId,
@@ -228,6 +286,7 @@ export class MessagesService {
       userId,
       emoji: dto.emoji,
       action: 'add',
+      reactions,
     };
     const memberIds =
       (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
@@ -237,20 +296,34 @@ export class MessagesService {
       memberIds,
     );
 
-    return { success: true };
+    return { success: true, reactions };
   }
 
   async removeReaction(
     messageId: string,
     userId: string,
     emoji: string,
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ success: boolean; reactions?: any[] }> {
     const message = await this.messagesRepository.findById(messageId);
     if (!message) {
       throw new NotFoundException('Message not found');
     }
 
     await this.messagesRepository.removeReaction(messageId, userId, emoji);
+    const rawReactions =
+      await this.messagesRepository.getMessageReactions(messageId);
+    const reactionMap = new Map<string, string[]>();
+    for (const r of rawReactions) {
+      if (!reactionMap.has(r.emoji)) reactionMap.set(r.emoji, []);
+      reactionMap.get(r.emoji)!.push(r.userId);
+    }
+    const reactions = Array.from(reactionMap.entries()).map(
+      ([emoji, userIds]) => ({
+        emoji,
+        count: userIds.length,
+        userIds,
+      }),
+    );
 
     const payload = {
       messageId,
@@ -258,6 +331,7 @@ export class MessagesService {
       userId,
       emoji,
       action: 'remove',
+      reactions,
     };
     const memberIds =
       (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
@@ -267,10 +341,65 @@ export class MessagesService {
       memberIds,
     );
 
+    return { success: true, reactions };
+  }
+
+  // ── Delivery & Read receipts ───────────────────────────────────────────────
+
+  async markDelivered(
+    messageId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
+    const message = await this.messagesRepository.findById(messageId);
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    await this.messagesRepository.markDelivered(messageId, userId);
+    const payload = {
+      messageId,
+      conversationId: message.conversationId,
+      userId,
+      deliveredAt: new Date(),
+    };
+    const memberIds =
+      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitDeliveryReceipt(
+      message.conversationId,
+      payload,
+      memberIds,
+    );
     return { success: true };
   }
 
-  // ── Mark as read ───────────────────────────────────────────────────────────
+  async markBulkDelivered(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ success: boolean; count: number }> {
+    const newlyDeliveredIds = await this.messagesRepository.markBulkDelivered(
+      conversationId,
+      userId,
+    );
+    if (newlyDeliveredIds.length > 0) {
+      const conversation =
+        await this.conversationsRepository.findById(conversationId);
+      const memberIds =
+        conversation?.members?.map((m: any) => m.userId) ?? [];
+      for (const msgId of newlyDeliveredIds) {
+        this.messagingGateway.emitDeliveryReceipt(
+          conversationId,
+          {
+            messageId: msgId,
+            conversationId,
+            userId,
+            deliveredAt: new Date(),
+          },
+          memberIds,
+        );
+      }
+    }
+    return { success: true, count: newlyDeliveredIds.length };
+  }
 
   async markAsRead(
     messageId: string,
@@ -288,7 +417,13 @@ export class MessagesService {
       userId,
       readAt: new Date(),
     };
-    this.messagingGateway.emitReadReceipt(message.conversationId, payload);
+    const memberIds =
+      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitReadReceipt(
+      message.conversationId,
+      payload,
+      memberIds,
+    );
     return { success: true };
   }
 

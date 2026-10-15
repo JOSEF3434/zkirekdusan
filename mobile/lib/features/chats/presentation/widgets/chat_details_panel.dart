@@ -179,6 +179,9 @@ class _DirectDetailsPanel extends StatelessWidget {
     final avatarUrl = other.avatarUrl;
     final isOnline = other.isOnline;
     final lastSeen = other.lastSeen;
+    final targetIdentifier = (other.username.isNotEmpty && !other.username.contains(' '))
+        ? other.username
+        : other.userId;
 
     return Container(
       color: bg,
@@ -192,23 +195,37 @@ class _DirectDetailsPanel extends StatelessWidget {
                 children: [
                   const SizedBox(height: 20),
                   // Large avatar
-                  _LargeAvatar(
-                    name: name,
-                    avatarUrl: avatarUrl,
-                    isOnline: isOnline,
-                    isDark: isDark,
+                  GestureDetector(
+                    onTap: () {
+                      if (targetIdentifier.isNotEmpty) {
+                        context.push('/profile/user/$targetIdentifier');
+                      }
+                    },
+                    child: _LargeAvatar(
+                      name: name,
+                      avatarUrl: avatarUrl,
+                      isOnline: isOnline,
+                      isDark: isDark,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   // Name
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                      letterSpacing: -0.3,
+                  GestureDetector(
+                    onTap: () {
+                      if (targetIdentifier.isNotEmpty) {
+                        context.push('/profile/user/$targetIdentifier');
+                      }
+                    },
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                        letterSpacing: -0.3,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   // Online/last seen
@@ -261,6 +278,11 @@ class _DirectDetailsPanel extends StatelessWidget {
                     title: '@${other.username}',
                     subtitle: 'Username',
                     isDark: isDark,
+                    onTap: () {
+                      if (targetIdentifier.isNotEmpty) {
+                        context.push('/profile/user/$targetIdentifier');
+                      }
+                    },
                   ),
                   Divider(height: 1, color: dividerColor),
                   const SizedBox(height: 8),
@@ -738,6 +760,7 @@ class _InfoRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool isDark;
+  final VoidCallback? onTap;
 
   const _InfoRow({
     required this.icon,
@@ -745,11 +768,13 @@ class _InfoRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.isDark,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      onTap: onTap,
       leading: Container(
         width: 36,
         height: 36,
@@ -854,6 +879,14 @@ class _MemberRow extends StatelessWidget {
         ListTile(
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          onTap: () {
+            final identifier = (member.username.isNotEmpty && !member.username.contains(' '))
+                ? member.username
+                : member.userId;
+            if (identifier.isNotEmpty) {
+              context.push('/profile/user/$identifier');
+            }
+          },
           leading: Stack(
             clipBehavior: Clip.none,
             children: [

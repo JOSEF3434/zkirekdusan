@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/voice_message_player.dart';
@@ -128,31 +129,43 @@ class MessageBubble extends StatelessWidget {
                 if (!isMe && showAvatar)
                   Padding(
                     padding: const EdgeInsets.only(right: 8, bottom: 2),
-                    child: CircleAvatar(
-                      radius: 15,
-                      backgroundColor: const Color(
-                        0xFF00C6FF,
-                      ).withValues(alpha: 0.2),
-                      backgroundImage: message.sender.avatarUrl != null
-                          ? CachedNetworkImageProvider(
-                              message.sender.avatarUrl!,
-                            )
-                          : null,
-                      child: message.sender.avatarUrl == null
-                          ? Text(
-                              (message.sender.displayName ??
-                                      message.sender.username ??
-                                      'U')
-                                  .characters
-                                  .first
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF00C6FF),
-                              ),
-                            )
-                          : null,
+                    child: GestureDetector(
+                      onTap: () {
+                        final identifier = (message.sender.username != null &&
+                                message.sender.username!.isNotEmpty &&
+                                !message.sender.username!.contains(' '))
+                            ? message.sender.username!
+                            : message.sender.id;
+                        if (identifier.isNotEmpty) {
+                          context.push('/profile/user/$identifier');
+                        }
+                      },
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundColor: const Color(
+                          0xFF00C6FF,
+                        ).withValues(alpha: 0.2),
+                        backgroundImage: message.sender.avatarUrl != null
+                            ? CachedNetworkImageProvider(
+                                message.sender.avatarUrl!,
+                              )
+                            : null,
+                        child: message.sender.avatarUrl == null
+                            ? Text(
+                                (message.sender.displayName ??
+                                        message.sender.username ??
+                                        'U')
+                                    .characters
+                                    .first
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00C6FF),
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
                   )
                 else if (!isMe && !showAvatar)
@@ -172,12 +185,24 @@ class MessageBubble extends StatelessWidget {
                           message.sender.displayName != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 10, bottom: 3),
-                          child: Text(
-                            message.sender.displayName!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _getSenderColor(message.sender.id),
+                          child: GestureDetector(
+                            onTap: () {
+                              final identifier = (message.sender.username != null &&
+                                      message.sender.username!.isNotEmpty &&
+                                      !message.sender.username!.contains(' '))
+                                  ? message.sender.username!
+                                  : message.sender.id;
+                              if (identifier.isNotEmpty) {
+                                context.push('/profile/user/$identifier');
+                              }
+                            },
+                            child: Text(
+                              message.sender.displayName!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _getSenderColor(message.sender.id),
+                              ),
                             ),
                           ),
                         ),

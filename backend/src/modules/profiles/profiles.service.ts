@@ -20,10 +20,13 @@ export class ProfilesService {
     username: string,
     viewerId?: string,
   ): Promise<ProfileResponseDto> {
-    const profile = await this.profilesRepository.findByUsername(username);
+    let profile = await this.profilesRepository.findByUsername(username);
+    if (!profile) {
+      profile = await this.profilesRepository.findByUserId(username);
+    }
     if (!profile) {
       throw new NotFoundException(
-        `Profile for username '${username}' not found`,
+        `Profile for '${username}' not found`,
       );
     }
 

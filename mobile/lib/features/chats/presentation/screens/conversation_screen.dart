@@ -136,6 +136,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final typingUsers = ref.watch(
       typingIndicatorProvider(widget.conversationId),
     );
+    final activeActivities = ref.watch(
+      chatActivityProvider(widget.conversationId),
+    );
     final tr = ref.watch(trProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOffline = ref.watch(connectivityProvider).isOffline;
@@ -221,8 +224,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ),
         title: InkWell(
           onTap: () {
-            if (otherMember?.username != null) {
-              context.push('/profile/user/${otherMember!.username}');
+            if (otherMember != null) {
+              final target = (otherMember.username.isNotEmpty && !otherMember.username.contains(' '))
+                  ? otherMember.username
+                  : otherMember.userId;
+              if (target.isNotEmpty) {
+                context.push('/profile/user/$target');
+              }
             } else if (conversation?.groupId != null) {
               context.push('/groups/${conversation!.groupId}');
             }
@@ -306,7 +314,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 1),
-                    if (typingUsers.isNotEmpty)
+                    if (activeActivities.isNotEmpty)
+                      Text(
+                        _formatActivityText(activeActivities.values.first, tr),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF00C6FF),
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    else if (typingUsers.isNotEmpty)
                       Text(
                         tr('chat.typing'),
                         style: const TextStyle(
@@ -830,11 +848,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               ),
             ),
 
-            // Typing indicator bubble when other user is typing
-            if (typingUsers.isNotEmpty)
+            // Typing / Activity indicator bubble when other user is active
+            if (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
               Align(
                 alignment: Alignment.centerLeft,
-                child: _buildTypingStatusBanner(isDark),
+                child: _buildTypingStatusBanner(
+                  isDark,
+                  text: activeActivities.isNotEmpty
+                      ? _formatActivityText(activeActivities.values.first, tr)
+                      : tr('chat.typing'),
+                ),
               ),
 
             // Message Composer
@@ -871,6 +894,26 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  String _formatActivityText(String activity, String Function(String) tr) {
+    switch (activity) {
+      case 'typing':
+        return tr('chat.typing');
+      case 'recording_audio':
+        return 'recording audio...';
+      case 'uploading_photo':
+        return 'sending photo...';
+      case 'uploading_video':
+        return 'sending video...';
+      case 'uploading_audio':
+        return 'sending audio...';
+      case 'uploading_file':
+      case 'uploading_media':
+        return 'sending file...';
+      default:
+        return 'active...';
+    }
+  }
+
   String _formatLastSeen(String lastSeen) {
     try {
       final lastSeenDate = DateTime.parse(lastSeen);
@@ -898,8 +941,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   ) {
     switch (action) {
       case 'view_profile':
-        if (otherMember?.username != null) {
-          context.push('/profile/user/${otherMember!.username}');
+        if (otherMember != null) {
+          final target = (otherMember.username.isNotEmpty && !otherMember.username.contains(' '))
+              ? otherMember.username
+              : otherMember.userId;
+          if (target.isNotEmpty) {
+            context.push('/profile/user/$target');
+          }
         } else if (conversation?.groupId != null) {
           context.push('/groups/${conversation!.groupId}');
         }
@@ -1072,7 +1120,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         );
   }
 
-  Widget _buildTypingStatusBanner(bool isDark) {
+  Widget _buildTypingStatusBanner(bool isDark, {String? text}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       margin: const EdgeInsets.only(left: 16, bottom: 6),
@@ -1092,29 +1140,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'typing a message',
-            style: TextStyle(
+            text ?? 'typing a message...',
+            style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF00C6FF),
               fontStyle: FontStyle.italic,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(width: 2),
-          Text(
-            '...',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF00C6FF),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(width: 6),
-          Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
+          const SizedBox(width: 6),
+          const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
         ],
       ),
     );

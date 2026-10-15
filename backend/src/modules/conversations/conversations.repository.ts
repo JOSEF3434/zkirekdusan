@@ -1,6 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
+const CONVERSATION_MEMBER_USER_SELECT = {
+  id: true,
+  username: true,
+  presence: {
+    select: {
+      status: true,
+      lastSeenAt: true,
+    },
+  },
+  profile: {
+    select: {
+      displayName: true,
+      avatar: {
+        select: {
+          url: true,
+        },
+      },
+    },
+  },
+} as const;
+
 @Injectable()
 export class ConversationsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -19,20 +40,7 @@ export class ConversationsRepository {
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                    avatar: {
-                      select: {
-                        url: true,
-                      },
-                    },
-                  },
-                },
-              },
+              select: CONVERSATION_MEMBER_USER_SELECT,
             },
           },
         },
@@ -60,20 +68,7 @@ export class ConversationsRepository {
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                    avatar: {
-                      select: {
-                        url: true,
-                      },
-                    },
-                  },
-                },
-              },
+              select: CONVERSATION_MEMBER_USER_SELECT,
             },
           },
         },
@@ -93,20 +88,7 @@ export class ConversationsRepository {
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                    avatar: {
-                      select: {
-                        url: true,
-                      },
-                    },
-                  },
-                },
-              },
+              select: CONVERSATION_MEMBER_USER_SELECT,
             },
           },
         },
@@ -170,20 +152,7 @@ export class ConversationsRepository {
         members: {
           include: {
             user: {
-              select: {
-                id: true,
-                username: true,
-                profile: {
-                  select: {
-                    displayName: true,
-                    avatar: {
-                      select: {
-                        url: true,
-                      },
-                    },
-                  },
-                },
-              },
+              select: CONVERSATION_MEMBER_USER_SELECT,
             },
           },
         },
@@ -274,6 +243,31 @@ export class ConversationsRepository {
         unreadCount: 0,
       },
     });
+  }
+
+  async markAllMessagesAsRead(
+    conversationId: string,
+    userId: string,
+  ): Promise<string[]> {
+    const unread = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        deletedForEveryoneAt: null,
+        reads: { none: { userId } },
+        senderId: { not: userId },
+      },
+      select: { id: true },
+    });
+
+    if (unread.length > 0) {
+      await this.prisma.messageRead.createMany({
+        data: unread.map((m) => ({ messageId: m.id, userId })),
+        skipDuplicates: true,
+      });
+    }
+
+    await this.resetUnreadCount(conversationId, userId);
+    return unread.map((m) => m.id);
   }
 
   async getAllUsersSortedNewest(excludeUserId?: string) {

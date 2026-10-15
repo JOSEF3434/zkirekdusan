@@ -33,6 +33,8 @@ class ChatDiscoveryNotifier
   final String? _currentUserId;
   StreamSubscription? _messageSubscription;
   StreamSubscription? _presenceSubscription;
+  StreamSubscription? _readReceiptSubscription;
+  StreamSubscription? _deliveryReceiptSubscription;
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
 
@@ -150,6 +152,8 @@ class ChatDiscoveryNotifier
         );
         if (index != -1) {
           final conv = conversations[index];
+          final isDelivered = message.deliveredTo.isNotEmpty;
+          final isSeen = message.readBy.isNotEmpty;
           conversations[index] = conv.copyWith(
             lastMessageAt: message.createdAt,
             lastMessage: MessagePreviewModel(
@@ -158,6 +162,8 @@ class ChatDiscoveryNotifier
               type: message.type,
               senderName: message.sender.displayName ?? message.sender.username,
               isMe: message.sender.id == _currentUserId,
+              isDelivered: isDelivered,
+              isSeen: isSeen,
             ),
           );
 
@@ -192,10 +198,106 @@ class ChatDiscoveryNotifier
       });
     });
 
+    _readReceiptSubscription = _socketService.readReceipt.listen((data) {
+      if (!mounted) return;
+      final conversationId = data['conversationId'] as String?;
+      final messageId = data['messageId'] as String?;
+      final userId = data['userId'] as String?;
+      if (conversationId == null && messageId == null) return;
+
+      state.whenData((discovery) {
+        if (!mounted) return;
+        bool changed = false;
+        final conversations = discovery.conversations.map((conv) {
+          if ((conversationId != null && conv.id == conversationId) ||
+              (messageId != null && conv.lastMessage?.id == messageId)) {
+            var updatedConv = conv;
+            // If the current user read messages in this conversation, reset our unread count
+            if (userId == _currentUserId) {
+              final memberIndex = updatedConv.members.indexWhere(
+                (m) => m.userId == _currentUserId,
+              );
+              if (memberIndex != -1 && updatedConv.members[memberIndex].unreadCount > 0) {
+                final members = [...updatedConv.members];
+                members[memberIndex] = members[memberIndex].copyWith(unreadCount: 0);
+                updatedConv = updatedConv.copyWith(members: members);
+                changed = true;
+              }
+            }
+
+            // If last message was sent by me, mark it seen and delivered
+            if (updatedConv.lastMessage != null && updatedConv.lastMessage!.isMe == true) {
+              if (updatedConv.lastMessage!.isSeen != true || updatedConv.lastMessage!.isDelivered != true) {
+                updatedConv = updatedConv.copyWith(
+                  lastMessage: updatedConv.lastMessage!.copyWith(
+                    isSeen: true,
+                    isDelivered: true,
+                  ),
+                );
+                changed = true;
+              }
+            }
+            return updatedConv;
+          }
+          return conv;
+        }).toList();
+
+        if (changed) {
+          state = AsyncValue.data(
+            ChatDiscoveryModel(
+              conversations: conversations,
+              publicGroups: discovery.publicGroups,
+              myPrivateGroups: discovery.myPrivateGroups,
+              allUsers: discovery.allUsers,
+            ),
+          );
+        }
+      });
+    });
+
+    _deliveryReceiptSubscription = _socketService.deliveryReceipt.listen((data) {
+      if (!mounted) return;
+      final conversationId = data['conversationId'] as String?;
+      final messageId = data['messageId'] as String?;
+      if (conversationId == null && messageId == null) return;
+
+      state.whenData((discovery) {
+        if (!mounted) return;
+        bool changed = false;
+        final conversations = discovery.conversations.map((conv) {
+          if ((conversationId != null && conv.id == conversationId) ||
+              (messageId != null && conv.lastMessage?.id == messageId)) {
+            if (conv.lastMessage != null &&
+                conv.lastMessage!.isMe == true &&
+                conv.lastMessage!.isDelivered != true &&
+                conv.lastMessage!.isSeen != true) {
+              changed = true;
+              return conv.copyWith(
+                lastMessage: conv.lastMessage!.copyWith(isDelivered: true),
+              );
+            }
+          }
+          return conv;
+        }).toList();
+
+        if (changed) {
+          state = AsyncValue.data(
+            ChatDiscoveryModel(
+              conversations: conversations,
+              publicGroups: discovery.publicGroups,
+              myPrivateGroups: discovery.myPrivateGroups,
+              allUsers: discovery.allUsers,
+            ),
+          );
+        }
+      });
+    });
+
     _presenceSubscription = _socketService.presence.listen((data) {
       if (!mounted) return;
       final userId = data['userId'] as String?;
       final status = data['status'] as String?;
+      final lastSeen = data['lastSeen'] as String?;
       if (userId == null || status == null) return;
       final isOnline = status.toUpperCase() == 'ONLINE';
 
@@ -206,9 +308,14 @@ class ChatDiscoveryNotifier
         final convs = discovery.conversations.map((conv) {
           bool convChanged = false;
           final members = conv.members.map((m) {
-            if (m.userId == userId && m.isOnline != isOnline) {
-              convChanged = true;
-              return m.copyWith(isOnline: isOnline);
+            if (m.userId == userId) {
+              if (m.isOnline != isOnline || (lastSeen != null && m.lastSeen != lastSeen)) {
+                convChanged = true;
+                return m.copyWith(
+                  isOnline: isOnline,
+                  lastSeen: lastSeen ?? m.lastSeen,
+                );
+              }
             }
             return m;
           }).toList();
@@ -221,9 +328,15 @@ class ChatDiscoveryNotifier
         }).toList();
 
         final users = discovery.allUsers.map((u) {
-          if (u.id == userId && u.isOnline != isOnline) {
-            changed = true;
-            return u.copyWith(isOnline: isOnline);
+          if (u.id == userId) {
+            final newLastSeenAt = lastSeen != null ? DateTime.tryParse(lastSeen) : u.lastSeenAt;
+            if (u.isOnline != isOnline || (lastSeen != null && u.lastSeenAt != newLastSeenAt)) {
+              changed = true;
+              return u.copyWith(
+                isOnline: isOnline,
+                lastSeenAt: newLastSeenAt,
+              );
+            }
           }
           return u;
         }).toList();
@@ -251,6 +364,7 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> markAsRead(String conversationId) async {
+    _socketService.markConversationAsRead(conversationId);
     await _repository.markConversationAsRead(conversationId);
     if (!mounted) return;
     state.whenData((discovery) {
@@ -413,6 +527,8 @@ class ChatDiscoveryNotifier
     _discoveryRequest = null;
     _messageSubscription?.cancel();
     _presenceSubscription?.cancel();
+    _readReceiptSubscription?.cancel();
+    _deliveryReceiptSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
   }

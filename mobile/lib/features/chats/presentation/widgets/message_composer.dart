@@ -45,6 +45,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   bool _showEmojiPicker = false;
   bool _isSending = false;
   Timer? _typingTimer;
+  DateTime? _lastTypingSentTime;
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
 
@@ -77,9 +78,19 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _sendTypingIndicator() {
-    _typingTimer?.cancel();
-    ref.read(typingIndicatorProvider(widget.conversationId).notifier).startTyping();
+    final now = DateTime.now();
+    if (_lastTypingSentTime == null ||
+        now.difference(_lastTypingSentTime!) > const Duration(seconds: 2)) {
+      _lastTypingSentTime = now;
+      ref
+          .read(chatActivityProvider(widget.conversationId).notifier)
+          .startActivity('typing');
+      ref
+          .read(typingIndicatorProvider(widget.conversationId).notifier)
+          .startTyping();
+    }
 
+    _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 3), () {
       _stopTypingIndicator();
     });
@@ -87,7 +98,13 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 
   void _stopTypingIndicator() {
     _typingTimer?.cancel();
-    ref.read(typingIndicatorProvider(widget.conversationId).notifier).stopTyping();
+    _lastTypingSentTime = null;
+    ref
+        .read(chatActivityProvider(widget.conversationId).notifier)
+        .stopActivity(activity: 'typing');
+    ref
+        .read(typingIndicatorProvider(widget.conversationId).notifier)
+        .stopTyping();
   }
 
   @override
@@ -713,6 +730,16 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       String filePath, String fileName, String mimeType, {int? durationSeconds}) async {
     setState(() => _isSending = true);
 
+    final isAudio = mimeType.startsWith('audio/');
+    final activityType = isAudio
+        ? 'uploading_audio'
+        : (mimeType.startsWith('image/')
+            ? 'uploading_photo'
+            : (mimeType.startsWith('video/')
+                ? 'uploading_video'
+                : 'uploading_file'));
+    ref.read(chatActivityProvider(widget.conversationId).notifier).startActivity(activityType);
+
     try {
       final repository = ref.read(chatRepositoryProvider);
       final uploadResult = await repository.uploadChatMedia(
@@ -724,7 +751,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 
       final fileId = uploadResult['id'] as String;
       final serverUrl = (uploadResult['url'] as String?) ?? filePath;
-      final isAudio = mimeType.startsWith('audio/');
 
       final initialAttachments = [
         MessageAttachmentModel(
@@ -758,6 +784,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     } catch (e) {
       _showError('Failed to send media: $e');
     } finally {
+      ref.read(chatActivityProvider(widget.conversationId).notifier).stopActivity(activity: activityType);
       if (mounted) {
         setState(() => _isSending = false);
       }
@@ -794,6 +821,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         path: filePath,
       );
 
+      ref.read(chatActivityProvider(widget.conversationId).notifier).startActivity('recording_audio');
+
       setState(() {
         _isRecording = true;
         _recordingDuration = Duration.zero;
@@ -814,6 +843,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
 
+    ref.read(chatActivityProvider(widget.conversationId).notifier).stopActivity(activity: 'recording_audio');
     final recordedDuration = _recordingDuration;
     try {
       final path = await _audioRecorder.stop();
@@ -839,6 +869,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _cancelRecording() async {
+    ref.read(chatActivityProvider(widget.conversationId).notifier).stopActivity(activity: 'recording_audio');
     await _audioRecorder.stop();
     _recordingTimer?.cancel();
     setState(() {

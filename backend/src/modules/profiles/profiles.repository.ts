@@ -8,7 +8,7 @@ export class ProfilesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByUserId(userId: string) {
-    return this.prisma.profile.findUnique({
+    let profile = await this.prisma.profile.findUnique({
       where: { userId },
       include: {
         user: { select: { id: true, username: true, email: true } },
@@ -16,16 +16,63 @@ export class ProfilesRepository {
         cover: { select: { url: true } },
       },
     });
+
+    if (!profile) {
+      // Check if user exists; if so, create default profile record
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true },
+      });
+      if (user) {
+        await this.prisma.profile.create({
+          data: {
+            userId: user.id,
+            displayName: user.username ?? 'User',
+          },
+        });
+        profile = await this.prisma.profile.findUnique({
+          where: { userId },
+          include: {
+            user: { select: { id: true, username: true, email: true } },
+            avatar: { select: { url: true } },
+            cover: { select: { url: true } },
+          },
+        });
+      }
+    }
+
+    return profile;
   }
 
-  async findByUsername(username: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
+  async findByUsername(usernameOrId: string) {
+    // 1. Check if directly a valid user by username (case-insensitive) or by id
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: usernameOrId, mode: 'insensitive' } },
+          { id: usernameOrId },
+        ],
+      },
       select: { id: true },
     });
 
-    if (!user) return null;
-    return this.findByUserId(user.id);
+    if (user) {
+      return this.findByUserId(user.id);
+    }
+
+    // 2. Also check if usernameOrId matches profile displayName as a fallback
+    const profile = await this.prisma.profile.findFirst({
+      where: {
+        displayName: { equals: usernameOrId, mode: 'insensitive' },
+      },
+      select: { userId: true },
+    });
+
+    if (profile) {
+      return this.findByUserId(profile.userId);
+    }
+
+    return null;
   }
 
   async update(userId: string, data: UpdateProfileDto) {

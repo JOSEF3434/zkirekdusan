@@ -243,7 +243,7 @@ export class MessagesRepository {
     });
   }
 
-  async markBulkAsRead(conversationId: string, userId: string) {
+  async markBulkAsRead(conversationId: string, userId: string): Promise<string[]> {
     // Get all unread messages in conversation
     const unread = await this.prisma.message.findMany({
       where: {
@@ -254,11 +254,12 @@ export class MessagesRepository {
       },
       select: { id: true },
     });
-    if (unread.length === 0) return;
+    if (unread.length === 0) return [];
     await this.prisma.messageRead.createMany({
       data: unread.map((m) => ({ messageId: m.id, userId })),
       skipDuplicates: true,
     });
+    return unread.map((m) => m.id);
   }
 
   async markDelivered(messageId: string, userId: string) {
@@ -266,6 +267,31 @@ export class MessagesRepository {
       where: { messageId_userId: { messageId, userId } },
       create: { messageId, userId },
       update: {},
+    });
+  }
+
+  async markBulkDelivered(conversationId: string, userId: string): Promise<string[]> {
+    const undelivered = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        deletedForEveryoneAt: null,
+        deliveries: { none: { userId } },
+        senderId: { not: userId },
+      },
+      select: { id: true },
+    });
+    if (undelivered.length === 0) return [];
+    await this.prisma.messageDelivery.createMany({
+      data: undelivered.map((m) => ({ messageId: m.id, userId })),
+      skipDuplicates: true,
+    });
+    return undelivered.map((m) => m.id);
+  }
+
+  async getMessageReactions(messageId: string) {
+    return this.prisma.messageReaction.findMany({
+      where: { messageId },
+      select: { emoji: true, userId: true },
     });
   }
 

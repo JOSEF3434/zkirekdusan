@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
@@ -51,6 +52,7 @@ class ChatMessagesNotifier
   StreamSubscription? _deletedMessageSub;
   StreamSubscription? _reactionSub;
   StreamSubscription? _readReceiptSub;
+  StreamSubscription? _deliveryReceiptSub;
 
   ChatMessagesNotifier(
     this.conversationId,
@@ -138,22 +140,38 @@ class ChatMessagesNotifier
         final currentUserId = _ref.read(authProvider).user?.id;
         state.whenData((messages) {
           if (!mounted) return;
-          // Avoid duplicates
-          if (!messages.any((m) => m.id == message.id)) {
-            var newMsg = message;
-            // If from peer and current user has this conversation open, mark read immediately
-            if (currentUserId != null && message.sender.id != currentUserId) {
-              _socketService.markAsRead(conversationId, message.id);
-              _repository.markAsRead(message.id);
-              if (!newMsg.readBy.contains(currentUserId)) {
-                newMsg = newMsg.copyWith(
-                  readBy: [...newMsg.readBy, currentUserId],
-                );
-              }
-            }
-            if (!mounted) return;
-            state = AsyncValue.data([...messages, newMsg]);
+          // Avoid duplicates if already in list by server ID
+          if (messages.any((m) => m.id == message.id)) return;
+
+          // Check if this incoming message matches a pending optimistic message by current user
+          final pendingIndex = messages.indexWhere(
+            (m) =>
+                m.id.startsWith('temp_') &&
+                m.sender.id == message.sender.id &&
+                (m.content == message.content ||
+                    (m.content == null && message.content == null)),
+          );
+
+          if (pendingIndex != -1) {
+            final updated = [...messages];
+            updated[pendingIndex] = message;
+            state = AsyncValue.data(updated);
+            return;
           }
+
+          var newMsg = message;
+          // If from peer and current user has this conversation open, mark delivered and read
+          if (currentUserId != null && message.sender.id != currentUserId) {
+            _socketService.markDelivered(conversationId, message.id);
+            _socketService.markAsRead(conversationId, message.id);
+            _repository.markAsRead(message.id);
+            if (!newMsg.readBy.contains(currentUserId)) {
+              newMsg = newMsg.copyWith(
+                readBy: [...newMsg.readBy, currentUserId],
+              );
+            }
+          }
+          state = AsyncValue.data([...messages, newMsg]);
         });
       }
     });
@@ -196,8 +214,9 @@ class ChatMessagesNotifier
       final emoji = data['emoji'] as String?;
       final userId = data['userId'] as String?;
       final action = data['action'] as String? ?? 'add';
+      final rawReactions = data['reactions'];
 
-      if (messageId == null || emoji == null || userId == null) return;
+      if (messageId == null) return;
 
       state.whenData((messages) {
         if (!mounted) return;
@@ -205,15 +224,34 @@ class ChatMessagesNotifier
         if (index == -1) return;
 
         final message = messages[index];
+
+        // If authoritative consolidated reactions list is supplied by backend
+        if (rawReactions != null && rawReactions is List) {
+          final parsedReactions = rawReactions
+              .map((r) {
+                if (r is Map<String, dynamic>) {
+                  return MessageReactionModel.fromJson(r);
+                }
+                return null;
+              })
+              .whereType<MessageReactionModel>()
+              .toList();
+
+          final updatedMessages = [...messages];
+          updatedMessages[index] = message.copyWith(reactions: parsedReactions);
+          state = AsyncValue.data(updatedMessages);
+          return;
+        }
+
+        if (emoji == null || userId == null) return;
         final reactions = List<MessageReactionModel>.from(message.reactions);
-        final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
 
         if (action == 'remove') {
+          final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
           if (existingIndex != -1) {
             final existing = reactions[existingIndex];
-            final updatedUserIds = existing.userIds
-                .where((id) => id != userId)
-                .toList();
+            final updatedUserIds =
+                existing.userIds.where((id) => id != userId).toList();
             if (updatedUserIds.isEmpty) {
               reactions.removeAt(existingIndex);
             } else {
@@ -225,6 +263,24 @@ class ChatMessagesNotifier
           }
         } else {
           // action == 'add'
+          // Remove any previous reaction from this user on this message
+          for (int i = reactions.length - 1; i >= 0; i--) {
+            if (reactions[i].emoji != emoji &&
+                reactions[i].userIds.contains(userId)) {
+              final newIds =
+                  reactions[i].userIds.where((id) => id != userId).toList();
+              if (newIds.isEmpty) {
+                reactions.removeAt(i);
+              } else {
+                reactions[i] = reactions[i].copyWith(
+                  count: newIds.length,
+                  userIds: newIds,
+                );
+              }
+            }
+          }
+
+          final existingIndex = reactions.indexWhere((r) => r.emoji == emoji);
           if (existingIndex != -1) {
             final existing = reactions[existingIndex];
             if (!existing.userIds.contains(userId)) {
@@ -245,6 +301,31 @@ class ChatMessagesNotifier
         updatedMessages[index] = message.copyWith(reactions: reactions);
         if (!mounted) return;
         state = AsyncValue.data(updatedMessages);
+      });
+    });
+
+    // Real-time delivery receipt updates
+    _deliveryReceiptSub = _socketService.deliveryReceipt.listen((data) {
+      if (!mounted) return;
+      final messageId = data['messageId'] as String?;
+      final userId = data['userId'] as String?;
+      if (messageId == null || userId == null) return;
+
+      state.whenData((messages) {
+        if (!mounted) return;
+        final index = messages.indexWhere((m) => m.id == messageId);
+        if (index == -1) return;
+
+        final message = messages[index];
+        if (!message.deliveredTo.contains(userId)) {
+          final updatedDeliveredTo = [...message.deliveredTo, userId];
+          final updatedMessages = [...messages];
+          updatedMessages[index] = message.copyWith(
+            deliveredTo: updatedDeliveredTo,
+          );
+          if (!mounted) return;
+          state = AsyncValue.data(updatedMessages);
+        }
       });
     });
 
@@ -280,29 +361,72 @@ class ChatMessagesNotifier
     List<MessageAttachmentModel>? initialAttachments,
     MessageVoiceNoteModel? voiceNote,
   }) async {
-    final message = await _repository.sendMessage(
+    final tempId = 'temp_${const Uuid().v4()}';
+    final currentUser = _ref.read(authProvider).user;
+    final now = DateTime.now();
+
+    // 1. Instantly display optimistic message with sending clock icon
+    final optimisticMessage = MessageModel(
+      id: tempId,
       conversationId: conversationId,
+      sender: MessageSenderModel(
+        id: currentUser?.id ?? '',
+        username: currentUser?.username ?? 'me',
+        displayName: currentUser?.displayIdentifier ?? 'Me',
+        avatarUrl: null,
+      ),
       content: content,
-      replyToId: replyToId,
-      attachmentIds: attachmentIds,
       type: type,
-      initialAttachments: initialAttachments,
+      replyToId: replyToId,
+      attachments: initialAttachments ?? [],
       voiceNote: voiceNote,
+      readBy: [],
+      deliveredTo: [],
+      createdAt: now,
+      updatedAt: now,
     );
 
-    // Optimistically add or update in list
     state.whenData((messages) {
-      final existingIndex = messages.indexWhere((m) => m.id == message.id);
-      if (existingIndex != -1) {
-        final updated = [...messages];
-        updated[existingIndex] = message;
-        state = AsyncValue.data(updated);
-      } else {
-        state = AsyncValue.data([...messages, message]);
-      }
+      if (!mounted) return;
+      state = AsyncValue.data([...messages, optimisticMessage]);
     });
 
-    return message;
+    try {
+      final message = await _repository.sendMessage(
+        conversationId: conversationId,
+        content: content,
+        replyToId: replyToId,
+        attachmentIds: attachmentIds,
+        type: type,
+        clientId: tempId,
+        initialAttachments: initialAttachments,
+        voiceNote: voiceNote,
+      );
+
+      // 2. Reconcile optimistic message with server message
+      state.whenData((messages) {
+        if (!mounted) return;
+        final tempIndex = messages.indexWhere((m) => m.id == tempId);
+        if (tempIndex != -1) {
+          final updated = [...messages];
+          updated[tempIndex] = message;
+          state = AsyncValue.data(updated);
+        } else {
+          final existingIndex = messages.indexWhere((m) => m.id == message.id);
+          if (existingIndex != -1) {
+            final updated = [...messages];
+            updated[existingIndex] = message;
+            state = AsyncValue.data(updated);
+          } else {
+            state = AsyncValue.data([...messages, message]);
+          }
+        }
+      });
+
+      return message;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> editMessage(String messageId, String content) async {
@@ -462,36 +586,45 @@ class ChatMessagesNotifier
       state = AsyncValue.data(updatedMessages);
     });
 
-    // 2. Emit socket event and sync with backend API
+    // 2. Emit socket event or sync with backend API (deduplicate: socket handles broadcast & DB persistence)
     for (final oldEmoji in reactionsToRemove) {
-      _socketService.removeReaction(
-        messageId,
-        oldEmoji,
-        conversationId: conversationId,
-      );
-      try {
-        await _repository.removeReaction(messageId: messageId, emoji: oldEmoji);
-      } catch (_) {}
+      if (_socketService.isConnected) {
+        _socketService.removeReaction(
+          messageId,
+          oldEmoji,
+          conversationId: conversationId,
+        );
+      } else {
+        try {
+          await _repository.removeReaction(messageId: messageId, emoji: oldEmoji);
+        } catch (_) {}
+      }
     }
 
     if (isRemove) {
-      _socketService.removeReaction(
-        messageId,
-        emoji,
-        conversationId: conversationId,
-      );
-      try {
-        await _repository.removeReaction(messageId: messageId, emoji: emoji);
-      } catch (_) {}
+      if (_socketService.isConnected) {
+        _socketService.removeReaction(
+          messageId,
+          emoji,
+          conversationId: conversationId,
+        );
+      } else {
+        try {
+          await _repository.removeReaction(messageId: messageId, emoji: emoji);
+        } catch (_) {}
+      }
     } else {
-      _socketService.sendReaction(
-        messageId,
-        emoji,
-        conversationId: conversationId,
-      );
-      try {
-        await _repository.addReaction(messageId: messageId, emoji: emoji);
-      } catch (_) {}
+      if (_socketService.isConnected) {
+        _socketService.sendReaction(
+          messageId,
+          emoji,
+          conversationId: conversationId,
+        );
+      } else {
+        try {
+          await _repository.addReaction(messageId: messageId, emoji: emoji);
+        } catch (_) {}
+      }
     }
   }
 
@@ -526,14 +659,17 @@ class ChatMessagesNotifier
       }
     });
 
-    _socketService.removeReaction(
-      messageId,
-      emoji,
-      conversationId: conversationId,
-    );
-    try {
-      await _repository.removeReaction(messageId: messageId, emoji: emoji);
-    } catch (_) {}
+    if (_socketService.isConnected) {
+      _socketService.removeReaction(
+        messageId,
+        emoji,
+        conversationId: conversationId,
+      );
+    } else {
+      try {
+        await _repository.removeReaction(messageId: messageId, emoji: emoji);
+      } catch (_) {}
+    }
   }
 
   void markAsRead(String messageId) {
@@ -569,6 +705,86 @@ class ChatMessagesNotifier
     _deletedMessageSub?.cancel();
     _reactionSub?.cancel();
     _readReceiptSub?.cancel();
+    _deliveryReceiptSub?.cancel();
+    super.dispose();
+  }
+}
+
+// Activity indicator provider (typing, recording audio, uploading media, etc.)
+final chatActivityProvider =
+    StateNotifierProvider.family<
+      ChatActivityNotifier,
+      Map<String, String>,
+      String
+    >((ref, conversationId) {
+      final socketService = ref.watch(messagingSocketServiceProvider);
+      return ChatActivityNotifier(conversationId, socketService, ref);
+    });
+
+class ChatActivityNotifier extends StateNotifier<Map<String, String>> {
+  final String conversationId;
+  final MessagingSocketService _socketService;
+  final Ref _ref;
+  StreamSubscription? _activitySub;
+  final Map<String, Timer> _userTimers = {};
+
+  ChatActivityNotifier(this.conversationId, this._socketService, this._ref)
+      : super({}) {
+    _setupActivityListener();
+  }
+
+  void _setupActivityListener() {
+    _activitySub = _socketService.activity.listen((data) {
+      if (!mounted) return;
+      if (data['conversationId'] == conversationId) {
+        final userId = data['userId'] as String?;
+        final activity = data['activity'] as String?;
+        final isActive = data['isActive'] as bool? ?? false;
+        if (userId == null) return;
+
+        final currentUserId = _ref.read(authProvider).user?.id;
+        if (userId == currentUserId) return; // Don't show activity for oneself
+
+        if (isActive && activity != null) {
+          state = {...state, userId: activity};
+          _resetActivityTimer(userId);
+        } else {
+          _userTimers[userId]?.cancel();
+          _userTimers.remove(userId);
+          final updated = Map<String, String>.from(state);
+          updated.remove(userId);
+          state = updated;
+        }
+      }
+    });
+  }
+
+  void _resetActivityTimer(String userId) {
+    _userTimers[userId]?.cancel();
+    _userTimers[userId] = Timer(const Duration(seconds: 6), () {
+      if (!mounted) return;
+      _userTimers.remove(userId);
+      final updated = Map<String, String>.from(state);
+      updated.remove(userId);
+      state = updated;
+    });
+  }
+
+  void startActivity(String activity) {
+    _socketService.sendActivityStart(conversationId, activity);
+  }
+
+  void stopActivity({String? activity}) {
+    _socketService.sendActivityStop(conversationId, activity: activity);
+  }
+
+  @override
+  void dispose() {
+    _activitySub?.cancel();
+    for (final timer in _userTimers.values) {
+      timer.cancel();
+    }
+    _userTimers.clear();
     super.dispose();
   }
 }

@@ -18,6 +18,12 @@ export class ConversationMemberDto {
   })
   avatarUrl?: string | null;
 
+  @ApiPropertyOptional({ example: false })
+  isOnline?: boolean;
+
+  @ApiPropertyOptional({ example: '2024-01-15T10:00:00.000Z', nullable: true })
+  lastSeen?: string | null;
+
   @ApiProperty({ example: 0 })
   unreadCount!: number;
 

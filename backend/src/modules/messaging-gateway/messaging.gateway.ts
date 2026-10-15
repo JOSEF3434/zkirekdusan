@@ -27,10 +27,15 @@ export const WS_EVENTS = {
   SEND_MESSAGE: 'message:send',
   TYPING_START: 'typing:start',
   TYPING_STOP: 'typing:stop',
+  ACTIVITY_START: 'activity:start',
+  ACTIVITY_STOP: 'activity:stop',
   ADD_REACTION: 'reaction:add',
   REMOVE_REACTION: 'reaction:remove',
   MARK_READ: 'message:read',
+  CONVERSATION_READ: 'conversation:read',
+  MESSAGE_DELIVERED: 'message:delivered',
   PRESENCE_UPDATE: 'presence:update',
+  PRESENCE_QUERY: 'presence:query',
 
   // Call signaling – Client → Server
   CALL_INITIATE: 'call:initiate',
@@ -46,7 +51,9 @@ export const WS_EVENTS = {
   REACTION_NEW: 'reaction:new',
   REACTION_REMOVED: 'reaction:removed',
   TYPING_INDICATOR: 'typing:indicator',
+  ACTIVITY_UPDATE: 'activity:update',
   READ_RECEIPT: 'message:receipt',
+  DELIVERY_RECEIPT: 'message:delivered',
   PRESENCE_CHANGED: 'presence:changed',
   ERROR: 'error',
 
@@ -77,6 +84,7 @@ export class MessagingGateway
   private readonly logger = new Logger(MessagingGateway.name);
   private readonly userSocketMap = new Map<string, Set<string>>(); // userId → socketIds
   private readonly socketUserMap = new Map<string, string>(); // socketId → userId
+  private readonly activityTimers = new Map<string, NodeJS.Timeout>(); // conversationId:userId -> timer
 
   constructor(
     private readonly jwtService: JwtService,
@@ -133,6 +141,23 @@ export class MessagingGateway
   async handleDisconnect(client: Socket) {
     const userId = this.socketUserMap.get(client.id);
     if (userId) {
+      // Clear any pending activity timers for this user
+      for (const [key, timer] of this.activityTimers.entries()) {
+        if (key.endsWith(`:${userId}`)) {
+          clearTimeout(timer);
+          this.activityTimers.delete(key);
+          const conversationId = key.split(':')[0];
+          this.server
+            .to(`conversation:${conversationId}`)
+            .emit('activity:update', {
+              userId,
+              conversationId,
+              activity: 'typing',
+              isActive: false,
+            });
+        }
+      }
+
       client.leave(`user:${userId}`);
       const sockets = this.userSocketMap.get(userId);
       sockets?.delete(client.id);
@@ -220,28 +245,117 @@ export class MessagingGateway
     }
   }
 
-  // ── Typing Indicators ─────────────────────────────────────────────────────
+  // ── Activity & Typing Indicators ─────────────────────────────────────────
+
+  @SubscribeMessage(WS_EVENTS.ACTIVITY_START)
+  async handleActivityStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversationId: string; activity: string },
+  ) {
+    const userId = (client as any).userId as string;
+    if (!userId || !data?.conversationId) return;
+
+    // Verify membership
+    const conversation = await this.conversationsRepository.findById(
+      data.conversationId,
+    );
+    if (!conversation) return;
+    const isMember = conversation.members?.some((m: any) => m.userId === userId);
+    if (!isMember) return;
+
+    const key = `${data.conversationId}:${userId}`;
+    if (this.activityTimers.has(key)) {
+      clearTimeout(this.activityTimers.get(key)!);
+    }
+
+    const payload = {
+      userId,
+      conversationId: data.conversationId,
+      activity: data.activity || 'typing',
+      isActive: true,
+    };
+
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
+    if (payload.activity === 'typing') {
+      client
+        .to(`conversation:${data.conversationId}`)
+        .emit(WS_EVENTS.TYPING_INDICATOR, {
+          userId,
+          conversationId: data.conversationId,
+          isTyping: true,
+        });
+    }
+
+    // Auto-expire after 6s to prevent stuck indicators
+    const timer = setTimeout(() => {
+      this.activityTimers.delete(key);
+      const stopPayload = {
+        userId,
+        conversationId: data.conversationId,
+        activity: data.activity || 'typing',
+        isActive: false,
+      };
+      this.server
+        .to(`conversation:${data.conversationId}`)
+        .emit(WS_EVENTS.ACTIVITY_UPDATE, stopPayload);
+      if (payload.activity === 'typing') {
+        this.server
+          .to(`conversation:${data.conversationId}`)
+          .emit(WS_EVENTS.TYPING_INDICATOR, {
+            userId,
+            conversationId: data.conversationId,
+            isTyping: false,
+          });
+      }
+    }, 6000);
+
+    this.activityTimers.set(key, timer);
+  }
+
+  @SubscribeMessage(WS_EVENTS.ACTIVITY_STOP)
+  async handleActivityStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversationId: string; activity?: string },
+  ) {
+    const userId = (client as any).userId as string;
+    if (!userId || !data?.conversationId) return;
+
+    const key = `${data.conversationId}:${userId}`;
+    if (this.activityTimers.has(key)) {
+      clearTimeout(this.activityTimers.get(key)!);
+      this.activityTimers.delete(key);
+    }
+
+    const payload = {
+      userId,
+      conversationId: data.conversationId,
+      activity: data.activity || 'typing',
+      isActive: false,
+    };
+
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
+    client
+      .to(`conversation:${data.conversationId}`)
+      .emit(WS_EVENTS.TYPING_INDICATOR, {
+        userId,
+        conversationId: data.conversationId,
+        isTyping: false,
+      });
+  }
 
   @SubscribeMessage(WS_EVENTS.TYPING_START)
   handleTypingStart(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
-    const userId = (client as any).userId as string;
-    const payload = {
-      userId,
+    return this.handleActivityStart(client, {
       conversationId: data.conversationId,
-      isTyping: true,
-    };
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.TYPING_INDICATOR, payload);
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit('typing:start', payload);
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit('typing:indicator', payload);
+      activity: 'typing',
+    });
   }
 
   @SubscribeMessage(WS_EVENTS.TYPING_STOP)
@@ -249,21 +363,10 @@ export class MessagingGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { conversationId: string },
   ) {
-    const userId = (client as any).userId as string;
-    const payload = {
-      userId,
+    return this.handleActivityStop(client, {
       conversationId: data.conversationId,
-      isTyping: false,
-    };
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.TYPING_INDICATOR, payload);
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit('typing:stop', payload);
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit('typing:indicator', payload);
+      activity: 'typing',
+    });
   }
 
   // ── Reactions ─────────────────────────────────────────────────────────────
@@ -276,21 +379,12 @@ export class MessagingGateway
   ) {
     const userId = (client as any).userId as string;
     try {
-      await this.messagesService.addReaction(data.messageId, userId, {
-        emoji: data.emoji,
-      });
-      const payload = {
-        messageId: data.messageId,
-        conversationId: data.conversationId,
+      const res = await this.messagesService.addReaction(
+        data.messageId,
         userId,
-        emoji: data.emoji,
-        action: 'add',
-      };
-      const conversation = await this.conversationsRepository.findById(
-        data.conversationId,
+        { emoji: data.emoji },
       );
-      const memberIds = conversation?.members?.map((m: any) => m.userId) ?? [];
-      this.emitReaction(data.conversationId, payload, memberIds);
+      return res;
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
@@ -304,29 +398,18 @@ export class MessagingGateway
   ) {
     const userId = (client as any).userId as string;
     try {
-      await this.messagesService.removeReaction(
+      const res = await this.messagesService.removeReaction(
         data.messageId,
         userId,
         data.emoji,
       );
-      const payload = {
-        messageId: data.messageId,
-        conversationId: data.conversationId,
-        userId,
-        emoji: data.emoji,
-        action: 'remove',
-      };
-      const conversation = await this.conversationsRepository.findById(
-        data.conversationId,
-      );
-      const memberIds = conversation?.members?.map((m: any) => m.userId) ?? [];
-      this.emitReactionRemoved(data.conversationId, payload, memberIds);
+      return res;
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
   }
 
-  // ── Mark as Read ──────────────────────────────────────────────────────────
+  // ── Mark as Read & Delivered ──────────────────────────────────────────────
 
   @SubscribeMessage(WS_EVENTS.MARK_READ)
   async handleMarkRead(
@@ -336,36 +419,77 @@ export class MessagingGateway
     const userId = (client as any).userId as string;
     try {
       await this.messagesService.markAsRead(data.messageId, userId);
-      const payload = {
-        messageId: data.messageId,
-        conversationId: data.conversationId,
-        userId,
-        readAt: new Date(),
-      };
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.READ_RECEIPT, payload);
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit('message:read', payload);
-
-      // Broadcast directly to members so read state updates live anywhere
-      const conversation = await this.conversationsRepository.findById(
-        data.conversationId,
-      );
-      if (conversation?.members) {
-        for (const m of conversation.members) {
-          this.server
-            .to(`user:${(m as any).userId}`)
-            .emit(WS_EVENTS.READ_RECEIPT, payload);
-          this.server
-            .to(`user:${(m as any).userId}`)
-            .emit('message:read', payload);
-        }
-      }
+      return { success: true };
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
     }
+  }
+
+  @SubscribeMessage(WS_EVENTS.CONVERSATION_READ)
+  async handleConversationRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversationId: string },
+  ) {
+    const userId = (client as any).userId as string;
+    if (!userId || !data?.conversationId) return;
+    try {
+      const newlyReadIds =
+        await this.conversationsRepository.markAllMessagesAsRead(
+          data.conversationId,
+          userId,
+        );
+      const conversation =
+        await this.conversationsRepository.findById(data.conversationId);
+      const memberIds =
+        conversation?.members?.map((m: any) => m.userId) ?? [];
+      for (const msgId of newlyReadIds) {
+        const payload = {
+          messageId: msgId,
+          conversationId: data.conversationId,
+          userId,
+          readAt: new Date(),
+        };
+        this.emitReadReceipt(data.conversationId, payload, memberIds);
+      }
+      return { success: true, count: newlyReadIds.length };
+    } catch (err: any) {
+      client.emit(WS_EVENTS.ERROR, { message: err.message });
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.MESSAGE_DELIVERED)
+  async handleMarkDelivered(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId?: string; conversationId: string },
+  ) {
+    const userId = (client as any).userId as string;
+    if (!userId || !data?.conversationId) return;
+    try {
+      if (data.messageId) {
+        await this.messagesService.markDelivered(data.messageId, userId);
+      } else {
+        await this.messagesService.markBulkDelivered(
+          data.conversationId,
+          userId,
+        );
+      }
+      return { success: true };
+    } catch (err: any) {
+      client.emit(WS_EVENTS.ERROR, { message: err.message });
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.PRESENCE_QUERY)
+  handlePresenceQuery(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userIds: string[] },
+  ) {
+    if (!Array.isArray(data?.userIds)) return;
+    const statuses = data.userIds.map((uid) => ({
+      userId: uid,
+      isOnline: this.isUserOnline(uid),
+    }));
+    client.emit('presence:query_response', { statuses });
   }
 
   // ── Call Signaling ────────────────────────────────────────────────────────
@@ -530,15 +654,13 @@ export class MessagingGateway
     message: any,
     memberUserIds?: string[],
   ) {
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.MESSAGE_NEW, message);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.MESSAGE_NEW, message);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.MESSAGE_NEW, message);
   }
 
   /** Broadcast a read receipt to conversation room and to members */
@@ -547,19 +669,29 @@ export class MessagingGateway
     payload: any,
     memberUserIds?: string[],
   ) {
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.READ_RECEIPT, payload);
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit('message:read', payload);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.READ_RECEIPT, payload);
-        this.server.to(`user:${userId}`).emit('message:read', payload);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.READ_RECEIPT, payload);
+    target.emit('message:read', payload);
+  }
+
+  /** Broadcast delivery receipt to conversation room and to members */
+  emitDeliveryReceipt(
+    conversationId: string,
+    payload: any,
+    memberUserIds?: string[],
+  ) {
+    const target = this.server.to(`conversation:${conversationId}`);
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        target.to(`user:${userId}`);
+      }
+    }
+    target.emit('message:delivered', payload);
   }
 
   /** Broadcast a message update to a conversation room (used by MessagesService internally) */
@@ -568,17 +700,13 @@ export class MessagingGateway
     message: any,
     memberUserIds?: string[],
   ) {
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.MESSAGE_UPDATED, message);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server
-          .to(`user:${userId}`)
-          .emit(WS_EVENTS.MESSAGE_UPDATED, message);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.MESSAGE_UPDATED, message);
   }
 
   emitMessageDeleted(
@@ -587,38 +715,25 @@ export class MessagingGateway
     memberUserIds?: string[],
   ) {
     const payload = { conversationId, messageId };
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.MESSAGE_DELETED, payload);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server
-          .to(`user:${userId}`)
-          .emit(WS_EVENTS.MESSAGE_DELETED, payload);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.MESSAGE_DELETED, payload);
   }
 
   /** Broadcast reaction added to conversation room and to members directly */
   emitReaction(conversationId: string, payload: any, memberUserIds?: string[]) {
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.REACTION_NEW, payload);
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit('reaction:added', payload);
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit('reaction:updated', payload);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server.to(`user:${userId}`).emit(WS_EVENTS.REACTION_NEW, payload);
-        this.server.to(`user:${userId}`).emit('reaction:added', payload);
-        this.server.to(`user:${userId}`).emit('reaction:updated', payload);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.REACTION_NEW, payload);
+    target.emit('reaction:updated', payload);
   }
 
   /** Broadcast reaction removed to conversation room and to members directly */
@@ -627,25 +742,14 @@ export class MessagingGateway
     payload: any,
     memberUserIds?: string[],
   ) {
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit(WS_EVENTS.REACTION_REMOVED, payload);
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit('reaction:removed', payload);
-    this.server
-      .to(`conversation:${conversationId}`)
-      .emit('reaction:updated', payload);
-
+    const target = this.server.to(`conversation:${conversationId}`);
     if (memberUserIds && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        this.server
-          .to(`user:${userId}`)
-          .emit(WS_EVENTS.REACTION_REMOVED, payload);
-        this.server.to(`user:${userId}`).emit('reaction:removed', payload);
-        this.server.to(`user:${userId}`).emit('reaction:updated', payload);
+        target.to(`user:${userId}`);
       }
     }
+    target.emit(WS_EVENTS.REACTION_REMOVED, payload);
+    target.emit('reaction:updated', payload);
   }
 
   /** Check if a user is currently online */

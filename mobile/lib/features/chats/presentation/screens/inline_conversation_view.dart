@@ -159,6 +159,8 @@ class InlineConversationViewState
     final currentUserId = ref.watch(authProvider).user?.id;
     final typingUsers =
         ref.watch(typingIndicatorProvider(widget.conversationId));
+    final activeActivities =
+        ref.watch(chatActivityProvider(widget.conversationId));
 
     final singleConvAsync =
         ref.watch(singleConversationProvider(widget.conversationId));
@@ -220,6 +222,7 @@ class InlineConversationViewState
           isGroup: isGroup,
           memberCount: conversation?.members.length ?? 0,
           typingUsers: typingUsers,
+          activeActivities: activeActivities,
           lastSeen: otherMember?.lastSeen,
           isDark: isDark,
           isDetailsPanelOpen: widget.isDetailsPanelOpen,
@@ -235,8 +238,13 @@ class InlineConversationViewState
             isVideo: true,
           ),
           onViewProfile: () {
-            if (otherMember?.username != null) {
-              context.push('/profile/user/${otherMember!.username}');
+            if (otherMember != null) {
+              final target = (otherMember.username.isNotEmpty && !otherMember.username.contains(' '))
+                  ? otherMember.username
+                  : otherMember.userId;
+              if (target.isNotEmpty) {
+                context.push('/profile/user/$target');
+              }
             } else if (conversation?.groupId != null) {
               context.push('/groups/${conversation!.groupId}');
             }
@@ -463,6 +471,50 @@ class InlineConversationViewState
           ),
         ),
 
+        // ── Activity Indicator Banner ─────────────────────────────────────────
+        if (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              margin: const EdgeInsets.only(left: 16, bottom: 6),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E232E) : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.06),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    activeActivities.isNotEmpty
+                        ? _formatInlineActivity(activeActivities.values.first)
+                        : 'typing a message...',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF00C6FF),
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
+                ],
+              ),
+            ),
+          ),
+
         // ── Composer ──────────────────────────────────────────────────────────
         MessageComposer(
           conversationId: widget.conversationId,
@@ -530,6 +582,26 @@ class InlineConversationViewState
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _formatInlineActivity(String activity) {
+    switch (activity) {
+      case 'typing':
+        return 'typing...';
+      case 'recording_audio':
+        return 'recording audio...';
+      case 'uploading_photo':
+        return 'sending photo...';
+      case 'uploading_video':
+        return 'sending video...';
+      case 'uploading_audio':
+        return 'sending audio...';
+      case 'uploading_file':
+      case 'uploading_media':
+        return 'sending file...';
+      default:
+        return 'active...';
+    }
+  }
 
   Future<void> _showInviteLinkDialog(String groupId) async {
     try {
@@ -669,6 +741,7 @@ class _InlineHeader extends StatelessWidget {
   final bool isGroup;
   final int memberCount;
   final Map<String, bool> typingUsers;
+  final Map<String, String> activeActivities;
   final String? lastSeen;
   final bool isDark;
   final bool isDetailsPanelOpen;
@@ -688,6 +761,7 @@ class _InlineHeader extends StatelessWidget {
     required this.isGroup,
     required this.memberCount,
     required this.typingUsers,
+    required this.activeActivities,
     required this.lastSeen,
     required this.isDark,
     required this.isDetailsPanelOpen,
@@ -701,6 +775,26 @@ class _InlineHeader extends StatelessWidget {
     required this.onClearChat,
   });
 
+  String _formatActivity(String activity) {
+    switch (activity) {
+      case 'typing':
+        return 'typing...';
+      case 'recording_audio':
+        return 'recording audio...';
+      case 'uploading_photo':
+        return 'sending photo...';
+      case 'uploading_video':
+        return 'sending video...';
+      case 'uploading_audio':
+        return 'sending audio...';
+      case 'uploading_file':
+      case 'uploading_media':
+        return 'sending file...';
+      default:
+        return 'active...';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final headerBg = isDark ? const Color(0xFF131822) : Colors.white;
@@ -710,7 +804,10 @@ class _InlineHeader extends StatelessWidget {
 
     String subtitleText;
     Color subtitleColor;
-    if (typingUsers.isNotEmpty) {
+    if (activeActivities.isNotEmpty) {
+      subtitleText = _formatActivity(activeActivities.values.first);
+      subtitleColor = const Color(0xFF00C6FF);
+    } else if (typingUsers.isNotEmpty) {
       subtitleText = 'typing...';
       subtitleColor = const Color(0xFF00C6FF);
     } else if (isOnline && !isGroup) {

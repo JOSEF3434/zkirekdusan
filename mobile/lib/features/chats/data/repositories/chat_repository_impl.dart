@@ -307,8 +307,8 @@ class ChatRepositoryImpl implements ChatRepository {
     MessageVoiceNoteModel? voiceNote,
   }) async {
     final now = DateTime.now();
-    final effectiveClientId = clientId ?? const Uuid().v4();
-    final localId = const Uuid().v4();
+    final effectiveClientId = clientId ?? 'temp_${const Uuid().v4()}';
+    final localId = 'temp_${const Uuid().v4()}';
 
     final currentUser = _ref.read(authProvider).user;
     final senderId = currentUser?.id ?? 'unknown_user';

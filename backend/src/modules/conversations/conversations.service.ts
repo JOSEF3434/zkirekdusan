@@ -3,9 +3,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConversationsRepository } from './conversations.repository.js';
 import { UsersRepository } from '../users/users.repository.js';
+import { MessagingGateway } from '../messaging-gateway/messaging.gateway.js';
 import { ConversationResponseDto } from './dto/conversation-response.dto.js';
 import {
   ChatDiscoveryResponseDto,
@@ -13,11 +16,15 @@ import {
   ChatUserItemDto,
 } from './dto/chat-discovery-response.dto.js';
 
+interface IMessagingGateway extends MessagingGateway {}
+
 @Injectable()
 export class ConversationsService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly usersRepository: UsersRepository,
+    @Inject(forwardRef(() => MessagingGateway))
+    private readonly messagingGateway: IMessagingGateway,
   ) {}
 
   async createDirectConversation(
@@ -210,7 +217,25 @@ export class ConversationsService {
   }
 
   async markAsRead(conversationId: string, userId: string): Promise<void> {
-    await this.conversationsRepository.resetUnreadCount(conversationId, userId);
+    const newlyReadIds =
+      await this.conversationsRepository.markAllMessagesAsRead(
+        conversationId,
+        userId,
+      );
+    const conversation =
+      await this.conversationsRepository.findById(conversationId);
+    const memberIds =
+      conversation?.members?.map((m: any) => m.userId) ?? [];
+
+    for (const msgId of newlyReadIds) {
+      const payload = {
+        messageId: msgId,
+        conversationId,
+        userId,
+        readAt: new Date(),
+      };
+      this.messagingGateway.emitReadReceipt(conversationId, payload, memberIds);
+    }
   }
 
   private mapToDto(conv: any, currentUserId: string): ConversationResponseDto {
@@ -266,15 +291,30 @@ export class ConversationsService {
       lastMessageSnippet: latestMsg?.content ?? null,
       lastMessageAt: conv.lastMessageAt ?? latestMsg?.createdAt ?? null,
       lastMessage,
-      members: (conv.members ?? []).map((m: any) => ({
-        userId: m.user?.id ?? m.userId ?? '',
-        username: m.user?.username ?? m.user?.profile?.displayName ?? '',
-        displayName: m.user?.profile?.displayName ?? m.user?.username ?? 'User',
-        avatarUrl: m.user?.profile?.avatar?.url ?? null,
-        unreadCount: m.unreadCount ?? 0,
-        isMuted: m.isMuted ?? false,
-        isPinned: m.isPinned ?? false,
-      })),
+      members: (conv.members ?? []).map((m: any) => {
+        const memberUserId = m.user?.id ?? m.userId ?? '';
+        const isOnline =
+          m.user?.presence?.status === 'ONLINE' ||
+          this.messagingGateway.isUserOnline(memberUserId);
+        const lastSeen =
+          m.user?.presence?.lastSeenAt?.toISOString() ??
+          (m.user?.lastLoginAt
+            ? new Date(m.user.lastLoginAt).toISOString()
+            : null);
+
+        return {
+          userId: memberUserId,
+          username: m.user?.username ?? '',
+          displayName:
+            m.user?.profile?.displayName ?? m.user?.username ?? 'User',
+          avatarUrl: m.user?.profile?.avatar?.url ?? null,
+          isOnline,
+          lastSeen,
+          unreadCount: m.unreadCount ?? 0,
+          isMuted: m.isMuted ?? false,
+          isPinned: m.isPinned ?? false,
+        };
+      }),
       metadata: conv.group
         ? {
             groupName: conv.group.name,
