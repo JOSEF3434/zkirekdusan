@@ -23,8 +23,9 @@ This document provides comprehensive documentation for the Zikire Kdusan REST AP
 13. [Discovery & Search](#discovery--search)
 14. [Notifications](#notifications)
 15. [Admin & Moderation](#admin--moderation)
-16. [Error Handling](#error-handling)
-17. [Rate Limiting](#rate-limiting)
+16. [Auth Policy Management](#auth-policy-management)
+17. [Error Handling](#error-handling)
+18. [Rate Limiting](#rate-limiting)
 
 ---
 
@@ -2261,27 +2262,50 @@ tags: ["tech", "tips"]
 
 ## Ethiopian Calendar
 
+> **Updated October 15, 2026:** The Calendar API was substantially extended. The controller lives at `backend/src/modules/calendar/calendar.controller.ts` and routes under `/calendar/notes`. Note creation/editing is restricted to `SUPER_ADMIN` role; reading is open to all authenticated users.
+
 ### Create Calendar Note
 
-**Endpoint**: `POST /calendar/notes` 🔒
+**Endpoint**: `POST /calendar/notes` 🔒 (SUPER_ADMIN only)
 
-**Description**: Create a note on the Ethiopian calendar.
+**Description**: Create a note on an Ethiopian calendar date. Supports one-time and recurring reminders and optional media attachments.
 
 **Request Body**:
 ```json
 {
+  "ethiopianYear": 2017,
+  "ethiopianMonth": 1,
+  "ethiopianDay": 15,
+  "gregorianDate": "2024-09-22T00:00:00.000Z",
   "title": "መስቀል በዓል",
-  "content": "የመስቀል በዓል ቀን",
-  "date": "2026-01-27",
-  "calendarType": "ETHIOPIAN"
+  "content": "The Finding of the True Cross",
+  "hasReminder": true,
+  "reminderDateTime": "2024-09-22T08:00:00.000Z",
+  "reminderRepeat": "YEARLY",
+  "reminderEthiopianMonth": 1,
+  "reminderEthiopianDay": 15,
+  "reminderHour": 8,
+  "reminderMinute": 0,
+  "reminderTimezone": "Africa/Addis_Ababa",
+  "allowDownload": false,
+  "media": []
 }
 ```
 
 **Fields**:
-- `title` - Required
-- `content` - Optional, additional details
-- `date` - Required, ISO date format
-- `calendarType` - `ETHIOPIAN` or `GREGORIAN`
+- `ethiopianYear`, `ethiopianMonth`, `ethiopianDay` - Required; Ethiopian calendar coordinates
+- `gregorianDate` - Required; ISO datetime of the equivalent Gregorian date
+- `title` - Optional, note heading
+- `content` - Optional, note body
+- `hasReminder` - Optional boolean, enables reminder
+- `reminderDateTime` - Optional; ISO datetime for the first/only notification
+- `reminderRepeat` - Optional; `NONE` (default), `MONTHLY`, `YEARLY`
+- `reminderEthiopianMonth`, `reminderEthiopianDay` - Recurrence anchor (required when `reminderRepeat` ≠ `NONE`)
+- `reminderHour`, `reminderMinute` - Time of day for recurrence
+- `reminderTimezone` - IANA timezone string (default: `Africa/Addis_Ababa`)
+- `allowDownload` - Optional boolean; controls whether attached media can be downloaded
+- `media` - Optional array of `{ fileId, order, caption }` objects
+- `id` - Optional client-supplied UUID for idempotency
 
 **Response** (201 Created):
 ```json
@@ -2289,10 +2313,14 @@ tags: ["tech", "tips"]
   "success": true,
   "data": {
     "id": "note_123",
+    "ethiopianYear": 2017,
+    "ethiopianMonth": 1,
+    "ethiopianDay": 15,
+    "gregorianDate": "2024-09-22T00:00:00.000Z",
     "title": "መስቀል በዓል",
-    "content": "የመስቀል በዓል ቀን",
-    "date": "2026-01-27",
-    "calendarType": "ETHIOPIAN",
+    "hasReminder": true,
+    "reminderRepeat": "YEARLY",
+    "allowDownload": false,
     "createdAt": "2026-09-25T10:30:00Z"
   }
 }
@@ -2304,12 +2332,12 @@ tags: ["tech", "tips"]
 
 **Endpoint**: `GET /calendar/notes` 🔒
 
-**Description**: Get user's calendar notes.
+**Description**: Get calendar notes with optional filters.
 
 **Query Parameters**:
-- `startDate` - Filter from date (ISO format)
-- `endDate` - Filter to date (ISO format)
-- `calendarType` - `ETHIOPIAN` or `GREGORIAN`
+- `ethiopianYear` - Filter by year
+- `ethiopianMonth` - Filter by month (1–13)
+- `userId` - Filter by owner
 
 **Response** (200 OK):
 ```json
@@ -2318,17 +2346,15 @@ tags: ["tech", "tips"]
   "data": [
     {
       "id": "note_123",
+      "ethiopianYear": 2017,
+      "ethiopianMonth": 1,
+      "ethiopianDay": 15,
+      "gregorianDate": "2024-09-22T00:00:00.000Z",
       "title": "መስቀል በዓል",
-      "content": "የመስቀል በዓል ቀን",
-      "date": "2026-01-27",
-      "calendarType": "ETHIOPIAN",
-      "reminders": [
-        {
-          "id": "reminder_123",
-          "time": "09:00:00",
-          "enabled": true
-        }
-      ]
+      "hasReminder": true,
+      "reminderRepeat": "YEARLY",
+      "allowDownload": false,
+      "media": []
     }
   ]
 }
@@ -2336,44 +2362,33 @@ tags: ["tech", "tips"]
 
 ---
 
-### Create Reminder
+### Get Calendar Note
 
-**Endpoint**: `POST /calendar/notes/:noteId/reminders` 🔒
+**Endpoint**: `GET /calendar/notes/:id` 🔒
 
-**Description**: Add a reminder to a calendar note.
+**Description**: Get a specific calendar note by ID.
 
-**Request Body**:
-```json
-{
-  "time": "09:00:00",
-  "recurring": false
-}
-```
+**Response** (200 OK): Single note object (same structure as list item above).
 
-**Response** (201 Created):
-```json
-{
-  "success": true,
-  "data": {
-    "id": "reminder_123",
-    "noteId": "note_123",
-    "time": "09:00:00",
-    "recurring": false,
-    "enabled": true,
-    "createdAt": "2026-09-25T10:30:00Z"
-  }
-}
-```
+---
 
-**Note**: Reminders work offline (triggered by local device)
+### Update Calendar Note
+
+**Endpoint**: `PATCH /calendar/notes/:id` 🔒 (SUPER_ADMIN only)
+
+**Description**: Update an existing calendar note.
+
+**Request Body**: Partial `CreateCalendarNoteDto` — any updatable field.
+
+**Response** (200 OK): Updated note object.
 
 ---
 
 ### Delete Calendar Note
 
-**Endpoint**: `DELETE /calendar/notes/:noteId` 🔒
+**Endpoint**: `DELETE /calendar/notes/:id` 🔒 (SUPER_ADMIN only)
 
-**Description**: Delete a calendar note and its reminders.
+**Description**: Soft-delete a calendar note.
 
 **Response** (200 OK):
 ```json
@@ -2382,6 +2397,65 @@ tags: ["tech", "tips"]
   "message": "Calendar note deleted"
 }
 ```
+
+---
+
+### Add Media to Note
+
+**Endpoint**: `POST /calendar/notes/:noteId/media` 🔒 (SUPER_ADMIN only)
+
+**Description**: Attach a media file to a calendar note.
+
+**Request Body**:
+```json
+{
+  "fileId": "file_abc123",
+  "order": 1,
+  "caption": "Festival photo"
+}
+```
+
+**Response** (201 Created): Created media attachment object.
+
+---
+
+### Update Note Media
+
+**Endpoint**: `PATCH /calendar/notes/:noteId/media/:mediaId` 🔒 (SUPER_ADMIN only)
+
+**Description**: Update the order or caption of a media attachment.
+
+**Request Body**: `{ "order": 2, "caption": "Updated caption" }` (both optional)
+
+---
+
+### Remove Note Media
+
+**Endpoint**: `DELETE /calendar/notes/:noteId/media/:mediaId` 🔒 (SUPER_ADMIN only)
+
+**Description**: Remove a media attachment from a note.
+
+---
+
+### Get Upcoming Reminders
+
+**Endpoint**: `GET /calendar/notes/reminders/upcoming` 🔒
+
+**Description**: Get reminders due within the next 24 hours for the authenticated user.
+
+**Response** (200 OK): Array of notes that have `hasReminder: true` and `reminderNextOccurrence` within 24 hours.
+
+---
+
+### Mark Reminder as Notified
+
+**Endpoint**: `PATCH /calendar/notes/:id/reminder/mark-notified` 🔒
+
+**Description**: Mark a note's reminder as notified. For recurring reminders the backend advances `reminderNextOccurrence` to the next occurrence automatically.
+
+**Response** (200 OK): Updated note object with new `reminderNextOccurrence`.
+
+---
 
 ---
 
@@ -2779,6 +2853,171 @@ tags: ["tech", "tips"]
 
 ---
 
+---
+
+## Auth Policy Management
+
+> **Added October 9, 2026.** All endpoints are under `/auth-policy`. Admin endpoints require the `auth.login-policy.view` or `auth.login-policy.manage` permission.
+
+### Get Public Login Policy Config
+
+**Endpoint**: `GET /auth-policy/config` 🔓
+
+**Description**: Returns the current login identifier requirements for the login form. Safe to call without authentication.
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "activePolicy": "SINGLE_IDENTIFIER",
+    "allowEmail": true,
+    "allowPhone": true,
+    "allowUsername": true,
+    "dualCombination": null
+  }
+}
+```
+
+---
+
+### Get Full Login Policy (Admin)
+
+**Endpoint**: `GET /auth-policy` 🔒
+
+**Required Permission**: `auth.login-policy.view`
+
+**Description**: Returns the full policy record including admin metadata.
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "policy_123",
+    "activePolicy": "SINGLE_IDENTIFIER",
+    "allowEmail": true,
+    "allowPhone": true,
+    "allowUsername": true,
+    "dualCombination": null,
+    "isLocked": false,
+    "updatedAt": "2026-10-09T14:00:00Z"
+  }
+}
+```
+
+---
+
+### Check Policy Impact (Admin)
+
+**Endpoint**: `GET /auth-policy/impact-check` 🔒
+
+**Required Permission**: `auth.login-policy.view`
+
+**Description**: Returns how many existing active users would be locked out by a proposed policy change.
+
+**Query Parameters**:
+- `activePolicy` - Proposed policy: `SINGLE_IDENTIFIER`, `DUAL_IDENTIFIER`, `ALL_IDENTIFIERS`
+- `dualCombination` - Required when `activePolicy = DUAL_IDENTIFIER`: `EMAIL_PHONE`, `EMAIL_USERNAME`, `PHONE_USERNAME`
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "affectedCount": 42,
+    "totalActiveUsers": 1500
+  }
+}
+```
+
+---
+
+### Update Login Policy (Admin)
+
+**Endpoint**: `PUT /auth-policy` 🔒
+
+**Required Permission**: `auth.login-policy.manage`
+
+**Description**: Atomically updates the active login policy. Validates admin self-lockout protection. Writes an audit log entry. Invalidates Redis and local cache across all cluster instances.
+
+**Request Body**:
+```json
+{
+  "activePolicy": "DUAL_IDENTIFIER",
+  "dualCombination": "EMAIL_PHONE",
+  "allowEmail": true,
+  "allowPhone": true,
+  "allowUsername": false,
+  "reason": "Strengthening login security",
+  "acknowledgeUserImpact": true
+}
+```
+
+**Fields**:
+- `activePolicy` - Required; `SINGLE_IDENTIFIER`, `DUAL_IDENTIFIER`, or `ALL_IDENTIFIERS`
+- `dualCombination` - Required when `activePolicy = DUAL_IDENTIFIER`
+- `allowEmail`, `allowPhone`, `allowUsername` - For `SINGLE_IDENTIFIER` mode; controls which identifiers are accepted
+- `reason` - Optional; recorded in audit log (max 500 chars)
+- `acknowledgeUserImpact` - Required `true` if any active users would be locked out
+
+**Response** (200 OK): Updated full policy object.
+
+**Errors**:
+- `400` - Validation error, self-lockout risk, or user impact not acknowledged
+- `403` - Policy is locked or insufficient permissions
+
+---
+
+### Emergency Policy Reset (Admin)
+
+**Endpoint**: `POST /auth-policy/emergency-reset` 🔒
+
+**Required Permission**: `auth.login-policy.manage`
+
+**Description**: Resets the policy to `SINGLE_IDENTIFIER` with all identifiers enabled. Unlocks a locked policy. SUPER_ADMIN use only.
+
+**Response** (200 OK): Reset policy object.
+
+---
+
+### Get Policy Audit Logs (Admin)
+
+**Endpoint**: `GET /auth-policy/audit-logs` 🔒
+
+**Required Permission**: `auth.login-policy.view`
+
+**Description**: Returns paginated history of all policy changes with before/after snapshots, actor info, IP, and reason.
+
+**Query Parameters**:
+- `page` - Page number (default: 1)
+- `limit` - Items per page (default: 30)
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "log_123",
+        "actorId": "user_admin",
+        "before": { "activePolicy": "SINGLE_IDENTIFIER" },
+        "after": { "activePolicy": "DUAL_IDENTIFIER", "dualCombination": "EMAIL_PHONE" },
+        "reason": "Strengthening login security",
+        "ipAddress": "192.168.1.1",
+        "createdAt": "2026-10-09T14:00:00Z"
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "limit": 30
+  }
+}
+```
+
+---
+
 ## Error Handling
 
 ### HTTP Status Codes
@@ -2910,8 +3149,16 @@ Retry-After: 42
 
 ---
 
-**Document Version**: 1.0  
+**Document Version**: 1.1  
 **API Version**: v1  
-**Last Updated**: Based on implementation audit September 2026
+**Last Updated**: October 15, 2026
+
+**Changes since September 2026 audit:**
+- Added Auth Policy Management section (`/auth-policy/*` — 5 new endpoints)
+- Replaced stale Ethiopian Calendar section with accurate endpoints from `calendar.controller.ts`
+- Added `allowDownload`, reminder recurrence fields to `POST /calendar/notes`
+- Added media management endpoints (`POST/PATCH/DELETE /calendar/notes/:noteId/media/*`)
+- Added reminder management endpoints (`GET reminders/upcoming`, `PATCH mark-notified`)
+- Updated Table of Contents
 
 **Note**: This documentation reflects the actual API implementation discovered during the code audit. For the most up-to-date API documentation, refer to the Swagger UI at `/api/docs` when the backend is running.

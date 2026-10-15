@@ -6,7 +6,10 @@ import { ConversationsModule } from '../conversations/conversations.module.js';
 import { MessagingGatewayModule } from '../messaging-gateway/messaging-gateway.module.js';
 
 @Module({
-  imports: [ConversationsModule, forwardRef(() => MessagingGatewayModule)],
+  imports: [
+    forwardRef(() => ConversationsModule),
+    forwardRef(() => MessagingGatewayModule),
+  ],
   controllers: [MessagesController],
   providers: [MessagesService, MessagesRepository],
   exports: [MessagesService, MessagesRepository],

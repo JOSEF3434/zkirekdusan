@@ -563,6 +563,8 @@ Group roles apply only within specific groups and control what members can do wi
 - uploads.create
 - uploads.delete
 - analytics.read
+- auth.login-policy.view *(added October 2026 — view active login policy and audit logs)*
+- auth.login-policy.manage *(added October 2026 — update login policy and perform emergency reset)*
 
 ### Permission Hierarchy
 
@@ -594,7 +596,9 @@ Group roles apply only within specific groups and control what members can do wi
 | Approve groups | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Manage users | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Assign roles | ❌ | ❌ | ❌ | ✅ | ✅ |
-| System settings | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Manage auth login policy | ❌ | ❌ | ❌ | ✅ | ✅ |
+| View auth login policy | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Emergency policy reset | ❌ | ❌ | ❌ | ❌ | ✅ |
 | View audit logs | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Ban users | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Stop live streams | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -798,4 +802,4 @@ A: Contact platform support for global role changes. For group roles, contact yo
 
 ---
 
-*Last updated: September 2026 - Based on verified implementation audit*
+*Last updated: October 15, 2026 — Added auth policy permissions (`auth.login-policy.view`, `auth.login-policy.manage`) verified in `auth-policy.controller.ts`*

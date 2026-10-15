@@ -37,6 +37,7 @@ This document provides a comprehensive overview of all features discovered durin
 | **Email Registration** | ✅ | All | Mobile, Web | Yes | Email must be unique |
 | **Phone Registration** | ✅ | All | Mobile, Web | Yes | E.164 format required |
 | **Username Registration** | ✅ | All | Mobile, Web | Yes | Username optional, must be unique |
+| **Login Policy Configuration** | ✅ | ADMIN+ | Backend | Yes | Admin can restrict login identifier type |
 | **Multi-identifier Login** | ✅ | All | Mobile, Web | Yes | Can log in with email, phone, or username |
 | **JWT Access Tokens** | ✅ | All | Mobile, Web | Yes | 15-minute expiration |
 | **Refresh Tokens** | ✅ | All | Mobile, Web | Yes | 7-day expiration, auto-rotation |
@@ -50,8 +51,8 @@ This document provides a comprehensive overview of all features discovered durin
 | **Phone Verification** | 🟡 | All | Backend | Yes | Fields exist, enforcement not implemented |
 | **Password Reset** | 🟡 | All | Backend | Yes | Admin endpoint exists, user flow incomplete |
 | **Two-Factor Authentication** | ❌ | All | N/A | N/A | Not implemented |
-| **Biometric App Lock** | 🟡 | All | Mobile | No | UI references exist, implementation not verified |
-| **PIN App Lock** | 🟡 | All | Mobile | No | UI references exist, implementation not verified |
+| **Biometric App Lock** | ✅ | All | Mobile | No | Implemented: biometric service + auto-lock on background |
+| **PIN App Lock** | ✅ | All | Mobile | No | Implemented: 4-6 digit PIN, setup and validation screens |
 
 ---
 
@@ -266,6 +267,7 @@ This document provides a comprehensive overview of all features discovered durin
 | **Manual Sync** | ✅ | All | Mobile | Yes | Pull to refresh |
 | **Note Editing** | ✅ | All | Mobile | No | Modify existing notes |
 | **Note Deletion** | ✅ | All | Mobile | No | Soft delete |
+| **Note Media Download Control** | ✅ | All | Mobile | No | `allowDownload` flag per calendar note |
 | **13-Month Support** | ✅ | All | Mobile | No | Includes Pagumen |
 
 ---
@@ -393,20 +395,22 @@ This document provides a comprehensive overview of all features discovered durin
 
 ## Feature Summary by Implementation Status
 
-### ✅ Fully Implemented Features (150+)
-- Complete authentication system with JWT
+### ✅ Fully Implemented Features (160+)
+- Complete authentication system with JWT and configurable login policy
 - User profiles and social following
 - Groups with comprehensive role system
 - Video upload and streaming
 - Live streaming with Cloudinary integration
 - Real-time chat with Socket.IO
-- Ethiopian calendar with reminders
+- Ethiopian calendar with notes, reminders, media attachments, and download control
 - Notifications and push messaging
 - Downloads and offline support
 - Admin panel with moderation tools
 - Search and discovery
 - Social posts, stories, and reels
 - Messaging platform
+- App Lock (biometric, PIN, pattern) with auto-lock lifecycle
+- Auth Policy management with audit logging
 
 ### 🟡 Partially Implemented Features (40+)
 - Email/phone verification (fields exist, not enforced)
@@ -496,4 +500,23 @@ This document provides a comprehensive overview of all features discovered durin
 
 ---
 
-*Last updated: September 2026 - Based on comprehensive platform audit*
+---
+
+## Authentication Policy Management
+
+| Feature | Status | User Role | Platform | Internet Required | Limitations |
+|---------|--------|-----------|----------|-------------------|-------------|
+| **Login Policy Configuration** | ✅ | ADMIN+ | Backend | Yes | Singleton record, admin-managed |
+| **Single Identifier Policy** | ✅ | ADMIN+ | Backend | Yes | Choose email, phone, or username |
+| **Dual Identifier Policy** | ✅ | ADMIN+ | Backend | Yes | Require two of: email/phone/username |
+| **All Identifiers Policy** | ✅ | ADMIN+ | Backend | Yes | Require all three identifiers |
+| **Policy Impact Check** | ✅ | ADMIN+ | Backend | Yes | Count affected active users before applying |
+| **Admin Self-Lockout Protection** | ✅ | N/A | Backend | Yes | Prevents admin losing own access |
+| **Policy Audit Log** | ✅ | ADMIN+ | Backend | Yes | Immutable before/after snapshot with actor |
+| **Emergency Policy Reset** | ✅ | ADMIN+ | Backend | Yes | SUPER_ADMIN can reset to safe defaults |
+| **Cluster Cache Invalidation** | ✅ | N/A | Backend | Yes | Redis + local cache invalidated on update |
+| **Public Policy Config Endpoint** | ✅ | Public | Backend | Yes | Login form discovers required identifiers |
+
+---
+
+*Last updated: October 15, 2026 — Updated to reflect changes since September 2026 audit*

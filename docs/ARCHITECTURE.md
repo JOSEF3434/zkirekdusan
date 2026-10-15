@@ -238,6 +238,7 @@ The NestJS backend is organized into **7 phases** of feature development:
 
 #### **Phase 1: Foundation** (Authentication & Core)
 - `AuthModule` - Login, registration, JWT issuance
+- `AuthPolicyModule` - Configurable login policy (identifier requirements), audit logging, cache invalidation *(added October 2026)*
 - `UsersModule` - User CRUD operations
 - `RolesModule` - Role management
 - `SessionsModule` - Session tracking
@@ -2144,7 +2145,7 @@ export class HealthController {
 - **Caching**: Redis for sessions, cache, queues, and pub/sub
 - **Media**: Cloudinary for video/image storage and live streaming
 - **Real-time**: Socket.IO for WebSocket communication
-- **Authentication**: JWT with bcrypt, RBAC/PBAC authorization
+- **Authentication**: JWT with bcrypt, RBAC/PBAC authorization, configurable login policy
 - **Offline**: SQLite (Drift) with 15-minute background sync
 
 **Key architectural strengths**:
@@ -2157,6 +2158,9 @@ export class HealthController {
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: Based on implementation audit September 2026  
+**Document Version**: 1.1  
+**Last Updated**: October 15, 2026  
 **Related Documentation**: API.md, DATABASE.md, REALTIME_AND_LIVE.md, DEVELOPMENT.md, DEPLOYMENT.md
+
+**Changes since September 2026 audit:**
+- Added `AuthPolicyModule` to Phase 1 Foundation modules (53rd module)

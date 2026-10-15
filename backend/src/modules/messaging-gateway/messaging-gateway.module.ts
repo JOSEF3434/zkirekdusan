@@ -10,7 +10,7 @@ import { PresenceModule } from '../presence/presence.module.js';
 @Module({
   imports: [
     forwardRef(() => MessagesModule),
-    ConversationsModule,
+    forwardRef(() => ConversationsModule),
     PresenceModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

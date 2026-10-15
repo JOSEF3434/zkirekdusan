@@ -624,7 +624,7 @@ async handleStreamStarted(streamId: string) {
       // Send notifications to followers
       await this.notificationsService.sendLiveNotifications(streamId);
       
-      // Mark as notified
+      // Mark as notified (notifiedLiveAt added migration 20260924130000_add_notified_live_at)
       await this.prisma.liveStream.update({
         where: { id: streamId },
         data: { notifiedLiveAt: new Date() },
@@ -1308,9 +1308,13 @@ Zikire Kdusan's real-time architecture provides:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: Based on implementation audit September 2026  
+**Document Version**: 1.1  
+**Last Updated**: October 15, 2026  
 **Related Documentation**: ARCHITECTURE.md, API.md, DATABASE.md
+
+**Changes since September 2026 audit:**
+- `notifiedLiveAt` field on `LiveStream` now documented with its migration reference
+- Composite index `(status, startedAt)` on `live_streams` noted for poller efficiency
 
 For implementation details, see:
 - `backend/src/modules/live-gateway/live.gateway.ts`

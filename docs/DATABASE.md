@@ -1181,7 +1181,9 @@ model LiveStream {
   startedAt DateTime?
   endedAt   DateTime?
 
-  notifiedLiveAt DateTime?
+  notifiedLiveAt DateTime?  // Set when "went live" notifications are dispatched (2-min delay)
+
+  scheduledAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1579,9 +1581,11 @@ model SavedPost {
 
 ## Ethiopian Calendar Models
 
+> **Updated October 15, 2026:** The calendar models were substantially extended by four migrations between September 8–12, 2026 and a further field on October 12, 2026. The schema below reflects the current production state.
+
 ### CalendarNote
 
-Notes on Ethiopian calendar dates.
+Notes attached to specific Ethiopian calendar dates. The model was added in migration `20260908000000_add_calendar_notes` and extended by three subsequent migrations.
 
 ```prisma
 model CalendarNote {
@@ -1590,71 +1594,198 @@ model CalendarNote {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title   String
+  ethiopianYear  Int
+  ethiopianMonth Int
+  ethiopianDay   Int
+  gregorianDate  DateTime
+
+  title   String?
   content String?
 
-  date         DateTime
-  calendarType CalendarType @default(ETHIOPIAN)
+  // Reminder system (added 20260908120000_add_calendar_reminders)
+  hasReminder      Boolean   @default(false)
+  reminderDateTime DateTime?
+  reminderNotified Boolean   @default(false)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Recurring reminders (added 20260909120000_add_calendar_recurring_reminders)
+  reminderRepeat          CalendarReminderRepeat @default(NONE)
+  reminderEthiopianMonth  Int?
+  reminderEthiopianDay    Int?
+  reminderHour            Int?
+  reminderMinute          Int?
+  reminderTimezone        String                 @default("Africa/Addis_Ababa")
+  reminderNextOccurrence  DateTime?
 
-  reminders CalendarReminder[]
+  // Media download control (added 20261012150000_add_calendar_note_allow_download)
+  allowDownload Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  media CalendarNoteMedia[]
 
   @@index([userId])
-  @@index([date])
+  @@index([ethiopianYear, ethiopianMonth])
+  @@index([gregorianDate])
+  @@index([deletedAt])
+  @@index([userId, hasReminder, reminderNextOccurrence])
+  // Partial index on reminder fields (hasReminder=true AND reminderNotified=false)
   @@map("calendar_notes")
 }
 ```
 
-**Enums**:
+**Field Details:**
+
+| Field | Type | Added | Description |
+|-------|------|-------|-------------|
+| `ethiopianYear` | Int | v1 | Ethiopian calendar year |
+| `ethiopianMonth` | Int | v1 | Month (1–13, includes Pagumen) |
+| `ethiopianDay` | Int | v1 | Day (1–30) |
+| `gregorianDate` | DateTime | v1 | Equivalent Gregorian date |
+| `title`, `content` | String? | v1 | Note text |
+| `deletedAt` | DateTime? | v1 | Soft delete timestamp |
+| `hasReminder` | Boolean | v2 | Reminder enabled flag |
+| `reminderDateTime` | DateTime? | v2 | Next notification timestamp |
+| `reminderNotified` | Boolean | v2 | Whether notification was sent |
+| `reminderRepeat` | Enum | v3 | Recurrence: `NONE`, `MONTHLY`, `YEARLY` |
+| `reminderEthiopianMonth` | Int? | v3 | Recurrence anchor: Ethiopian month |
+| `reminderEthiopianDay` | Int? | v3 | Recurrence anchor: Ethiopian day |
+| `reminderHour` | Int? | v3 | Time of day: hour (0–23) |
+| `reminderMinute` | Int? | v3 | Time of day: minute (0–59) |
+| `reminderTimezone` | String | v3 | IANA timezone, default `Africa/Addis_Ababa` |
+| `reminderNextOccurrence` | DateTime? | v3 | Computed next occurrence (auto-managed) |
+| `allowDownload` | Boolean | v4 | Controls whether note media can be downloaded |
+
+---
+
+### CalendarNoteMedia
+
+Media attachments on calendar notes (added migration `20260908000000_add_calendar_notes`).
+
 ```prisma
-enum CalendarType {
-  ETHIOPIAN
-  GREGORIAN
+model CalendarNoteMedia {
+  id      String  @id @default(uuid())
+  noteId  String
+  fileId  String
+  order   Int
+  caption String?
+
+  note CalendarNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  file File         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
+  @@index([fileId])
+  @@map("calendar_note_media")
 }
 ```
 
 ---
 
-### CalendarReminder
-
-Reminders for calendar notes.
+### CalendarReminderRepeat (Enum)
 
 ```prisma
-model CalendarReminder {
-  id String @id @default(uuid())
+enum CalendarReminderRepeat {
+  NONE     // One-time reminder only
+  MONTHLY  // Repeat on the same Ethiopian day every month
+  YEARLY   // Repeat on the same Ethiopian date every year
+}
+```
 
-  calendarNoteId String
-  calendarNote   CalendarNote @relation(fields: [calendarNoteId], references: [id], onDelete: Cascade)
+**How Recurring Reminders Work**:
+1. User creates a note with `reminderRepeat: MONTHLY` or `YEARLY` and supplies `reminderEthiopianMonth`, `reminderEthiopianDay`, `reminderHour`, `reminderMinute`.
+2. Backend (or mobile client) computes the absolute `reminderNextOccurrence` timestamp from the Ethiopian calendar coordinates.
+3. When the reminder fires, `reminderNotified` is set to `true` and `reminderNextOccurrence` is advanced to the following occurrence.
+4. A partial index `(userId, hasReminder, reminderNextOccurrence)` optimises the poller query that fetches due reminders.
+5. The timezone default is `Africa/Addis_Ababa` but can be overridden per note.
 
-  time String
+---
 
-  repeat  CalendarReminderRepeat @default(NONE)
-  enabled Boolean                @default(true)
+## Auth Policy Models
+
+> **Added October 9, 2026** via migration `20261009160000_add_auth_login_policy`.
+
+### LoginPolicy
+
+Singleton settings table that governs which login identifiers (email, phone, username) the platform accepts.
+
+```prisma
+model LoginPolicy {
+  id             String                    @id @default(uuid())
+  activePolicy   LoginPolicyType           @default(SINGLE_IDENTIFIER)
+  allowEmail     Boolean                   @default(true)
+  allowPhone     Boolean                   @default(true)
+  allowUsername  Boolean                   @default(true)
+  dualCombination DualIdentifierCombination?
+  isLocked       Boolean                   @default(false)
+  description    String?
+  lastModifiedById String?
+  lastModifiedBy   User?  @relation(fields: [lastModifiedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([calendarNoteId])
-  @@map("calendar_reminders")
+  @@map("login_policies")
 }
 ```
 
-**Enums**:
+**Design Notes**:
+- There is exactly **one row** in this table. The service creates it on first startup (`onModuleInit`).
+- `isLocked` prevents further changes until a SUPER_ADMIN unlocks the record or performs an emergency reset.
+- Changes are cached in Redis (30-second TTL) and a local in-process cache for fast hot-path reads during login.
+
+---
+
+### LoginPolicyAuditLog
+
+Immutable audit trail for every login policy change.
+
 ```prisma
-enum CalendarReminderRepeat {
-  NONE
-  MONTHLY
-  YEARLY
+model LoginPolicyAuditLog {
+  id        String  @id @default(uuid())
+  actorId   String?
+  actor     User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  before    Json?   // Snapshot of policy before change
+  after     Json?   // Snapshot of policy after change
+  reason    String?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("login_policy_audit_logs")
 }
 ```
 
-**How Reminders Work**:
-- Stored in database
-- Synced to mobile device
-- Triggered by local alarm (work offline)
-- Independent of server
+---
+
+### LoginPolicyType (Enum)
+
+```prisma
+enum LoginPolicyType {
+  SINGLE_IDENTIFIER  // Login with any one enabled identifier
+  DUAL_IDENTIFIER    // Must supply exactly two specific identifiers
+  ALL_IDENTIFIERS    // Must supply email, phone, AND username
+}
+```
+
+---
+
+### DualIdentifierCombination (Enum)
+
+```prisma
+enum DualIdentifierCombination {
+  EMAIL_PHONE     // Require email + phone
+  EMAIL_USERNAME  // Require email + username
+  PHONE_USERNAME  // Require phone + username
+}
+```
 
 ---
 
@@ -1941,8 +2072,11 @@ enum ReportTargetType { USER, GROUP, POST, COMMENT, VIDEO, MESSAGE }
 enum ActionType { WARN_USER, REMOVE_CONTENT, SUSPEND_USER, BAN_USER, DISMISS_REPORT }
 
 // Calendar
-enum CalendarType { ETHIOPIAN, GREGORIAN }
 enum CalendarReminderRepeat { NONE, MONTHLY, YEARLY }
+
+// Auth Policy (added October 9, 2026)
+enum LoginPolicyType { SINGLE_IDENTIFIER, DUAL_IDENTIFIER, ALL_IDENTIFIERS }
+enum DualIdentifierCombination { EMAIL_PHONE, EMAIL_USERNAME, PHONE_USERNAME }
 
 // Notifications
 enum NotificationType { MESSAGE, MENTION, REACTION, GROUP_INVITE, GROUP_JOIN_REQUEST, GROUP_APPROVE, SYSTEM }
@@ -2142,15 +2276,21 @@ prisma/migrations/
 ├── 20260903140000_add_message_client_id/
 │   └── migration.sql
 ├── 20260908000000_add_calendar_notes/
-│   └── migration.sql
+│   └── migration.sql          ← CalendarNote + CalendarNoteMedia tables
 ├── 20260908120000_add_calendar_reminders/
-│   └── migration.sql
+│   └── migration.sql          ← hasReminder / reminderDateTime / reminderNotified
 ├── 20260909120000_add_calendar_recurring_reminders/
-│   └── migration.sql
+│   └── migration.sql          ← reminderRepeat, timezone, next occurrence, index
 ├── 20260924130000_add_notified_live_at/
-│   └── migration.sql
+│   └── migration.sql          ← notifiedLiveAt on live_streams + composite index
+├── 20261009160000_add_auth_login_policy/
+│   └── migration.sql          ← login_policies + login_policy_audit_logs + enums
+├── 20261012150000_add_calendar_note_allow_download/
+│   └── migration.sql          ← allowDownload on calendar_notes
 └── migration_lock.toml
 ```
+
+**Total migrations: 10** (was 8 as of September 25, 2026)
 
 **Each migration contains**:
 - Timestamp (YYYYMMDDHHMMSS)
@@ -2261,8 +2401,16 @@ The Zikire Kdusan database schema is designed to support a comprehensive video s
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: Based on schema audit September 2026  
+**Document Version**: 1.1  
+**Last Updated**: October 15, 2026 (Updated from September 2026 audit)  
 **Related Documentation**: ARCHITECTURE.md, API.md, DEVELOPMENT.md
 
 For schema source, see: `backend/prisma/schema.prisma`
+
+**Changes since September 2026 audit:**
+- Added `CalendarNote`, `CalendarNoteMedia` models (migration 20260908000000)
+- Added reminder fields to `CalendarNote` (migrations 20260908120000, 20260909120000)
+- Added `allowDownload` to `CalendarNote` (migration 20261012150000)
+- Added `notifiedLiveAt` + composite index to `LiveStream` (migration 20260924130000)
+- Added `LoginPolicy`, `LoginPolicyAuditLog` models and `LoginPolicyType`, `DualIdentifierCombination` enums (migration 20261009160000)
+- Migration count updated from 8 to 10

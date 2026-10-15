@@ -1076,7 +1076,7 @@ Zikire Kdusan includes integrated Ethiopian calendar support with:
 - **Watch history** - Clear or disable watch history
 
 **Security Settings:**
-- **App lock** - PIN or biometric lock for app access
+- **App lock** - PIN, pattern, or biometric lock for app access. Requires unlock on foreground after background. Configure in Settings → Security → App Lock.
 - **Change password** - Update your password
 - **Active sessions** - View devices logged into your account
 - **Two-factor authentication** - Coming soon
@@ -1179,4 +1179,4 @@ If you encounter inappropriate content:
 
 ---
 
-*Last updated: Based on platform audit conducted September 2026*
+*Last updated: October 15, 2026 (Updated from September 2026 audit — app lock confirmed implemented, calendar note download control added)*
