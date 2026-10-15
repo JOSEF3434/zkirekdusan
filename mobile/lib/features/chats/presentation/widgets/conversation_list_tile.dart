@@ -27,7 +27,11 @@ class UnifiedChatListTile extends ConsumerWidget {
     final typingUsers = item.conversationId != null
         ? ref.watch(typingIndicatorProvider(item.conversationId!))
         : const <String, bool>{};
+    final activeActivities = item.conversationId != null
+        ? ref.watch(chatActivityProvider(item.conversationId!))
+        : const <String, String>{};
     final isSomeoneTyping = typingUsers.isNotEmpty;
+    final hasSomeoneActive = activeActivities.isNotEmpty;
     final isGroup = item.type == UnifiedChatType.publicGroup ||
         item.type == UnifiedChatType.privateGroup ||
         (item.conversation != null && item.conversation!.groupId != null);
@@ -70,24 +74,7 @@ class UnifiedChatListTile extends ConsumerWidget {
                     Positioned(
                       right: 1,
                       bottom: 1,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF0F141C) : Colors.white,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: _OnlineDot(isDark: isDark),
                     ),
                 ],
               ),
@@ -193,42 +180,23 @@ class UnifiedChatListTile extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: isSomeoneTyping
-                              ? const Row(
-                                  children: [
-                                    Text(
-                                      'typing',
+                          child: hasSomeoneActive
+                              ? _buildActivityRow(activeActivities.values.first, isDark)
+                              : isSomeoneTyping
+                                  ? _buildTypingRow(isDark)
+                                  : Text(
+                                      item.subtitle ?? 'Tap to chat',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Color(0xFF00C6FF),
-                                        fontStyle: FontStyle.italic,
-                                        fontWeight: FontWeight.w600,
+                                        color: hasUnread
+                                            ? (isDark ? Colors.white : Colors.black87)
+                                            : Colors.grey[500],
+                                        fontWeight:
+                                            hasUnread ? FontWeight.w500 : FontWeight.normal,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    SizedBox(width: 2),
-                                    Text(
-                                      '...',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF00C6FF),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  item.subtitle ?? 'Tap to chat',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: hasUnread
-                                        ? (isDark ? Colors.white : Colors.black87)
-                                        : Colors.grey[500],
-                                    fontWeight:
-                                        hasUnread ? FontWeight.w500 : FontWeight.normal,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
                         ),
                         const SizedBox(width: 8),
 
@@ -272,6 +240,81 @@ class UnifiedChatListTile extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTypingRow(bool isDark) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF00C6FF)),
+        const SizedBox(width: 4),
+        const Text(
+          'typing',
+          style: TextStyle(
+            fontSize: 14,
+            color: Color(0xFF00C6FF),
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 2),
+        const Text(
+          '...',
+          style: TextStyle(
+            fontSize: 14,
+            color: Color(0xFF00C6FF),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActivityRow(String activity, bool isDark) {
+    final IconData icon;
+    final String label;
+    switch (activity) {
+      case 'recording_audio':
+        icon = Icons.mic_rounded;
+        label = 'recording audio...';
+        break;
+      case 'uploading_photo':
+        icon = Icons.image_rounded;
+        label = 'sending photo...';
+        break;
+      case 'uploading_video':
+        icon = Icons.videocam_rounded;
+        label = 'sending video...';
+        break;
+      case 'uploading_audio':
+        icon = Icons.audiotrack_rounded;
+        label = 'sending audio...';
+        break;
+      case 'uploading_file':
+      case 'uploading_media':
+        icon = Icons.insert_drive_file_rounded;
+        label = 'sending file...';
+        break;
+      default:
+        icon = Icons.edit_note_rounded;
+        label = 'active...';
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF00C6FF)),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF00C6FF),
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -368,6 +411,68 @@ class UnifiedChatListTile extends ConsumerWidget {
     } else {
       return DateFormat('MM/dd/yy').format(timestamp);
     }
+  }
+}
+
+/// Animated pulsing online dot widget
+class _OnlineDot extends StatefulWidget {
+  final bool isDark;
+  const _OnlineDot({required this.isDark});
+
+  @override
+  State<_OnlineDot> createState() => _OnlineDotState();
+}
+
+class _OnlineDotState extends State<_OnlineDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseAnim,
+      builder: (context, child) => Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: Color.lerp(
+            const Color(0xFF10B981),
+            const Color(0xFF34D399),
+            _pulseAnim.value,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: widget.isDark ? const Color(0xFF0F141C) : Colors.white,
+            width: 2.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: _pulseAnim.value * 0.6),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -12,9 +12,10 @@
 
 This documentation package provides comprehensive coverage of Zikire Kdusan (StreamHub), a full-stack video streaming and social platform built with Flutter mobile/web frontend and NestJS backend.
 
-**Total Documentation:** 14 documents covering 300,000+ words  
+**Total Documentation:** 15 documents covering 300,000+ words  
 **Coverage:** User guides, technical architecture, API reference, development workflows  
-**Verification Status:** All documentation verified against actual implementation
+**Verification Status:** All documentation verified against actual implementation  
+**Last Updated:** October 15, 2026 (documentation update — new features since September 2026 baseline)
 
 ---
 
@@ -728,6 +729,7 @@ Before deploying to production or allowing public access, address these **P0 Cri
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | September 25, 2026 | Initial comprehensive documentation package |
+| 1.1.0 | October 15, 2026 | Documentation update: Auth Policy module, Calendar notes/reminders/media, App Lock confirmed, 2 new migrations |
 
 ### Contributing to Documentation
 

@@ -35,6 +35,7 @@ class ChatDiscoveryNotifier
   StreamSubscription? _presenceSubscription;
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _deliveryReceiptSubscription;
+  StreamSubscription? _presenceQuerySubscription;
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
 
@@ -45,6 +46,7 @@ class ChatDiscoveryNotifier
   ) : super(const AsyncValue.loading()) {
     loadDiscovery();
     _setupRealtimeUpdates();
+    _setupPresenceQuerySubscription();
     _setupPeriodicRefresh();
   }
 
@@ -94,6 +96,8 @@ class ChatDiscoveryNotifier
           state.valueOrNull == null ||
           state.valueOrNull!.conversations.isEmpty) {
         state = AsyncValue.data(discovery);
+        // After fresh data, query live presence for all known users
+        _queryPresenceForAll(discovery);
       }
     } catch (e) {
       if (!mounted) return;
@@ -356,6 +360,32 @@ class ChatDiscoveryNotifier
     });
   }
 
+  /// Bulk-query live presence for every user in the current discovery state.
+  void _queryPresenceForAll(ChatDiscoveryModel discovery) {
+    final ids = <String>{};
+    for (final conv in discovery.conversations) {
+      for (final m in conv.members) {
+        if (m.userId.isNotEmpty) ids.add(m.userId);
+      }
+    }
+    for (final u in discovery.allUsers) {
+      if (u.id.isNotEmpty) ids.add(u.id);
+    }
+    if (ids.isNotEmpty) {
+      _socketService.queryPresence(ids.toList());
+    }
+  }
+
+  /// Subscribe to bulk presence query responses so we can refresh
+  /// the local presence map whenever we fire a query.
+  void _setupPresenceQuerySubscription() {
+    _presenceQuerySubscription = _socketService.presenceQueryResponse.listen((_) {
+      // The individual presence events emitted by the socket service
+      // will be handled by _presenceSubscription automatically.
+      // Nothing extra needed here, but we keep the subscription open.
+    });
+  }
+
   void _setupPeriodicRefresh() {
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (!mounted) return;
@@ -529,6 +559,7 @@ class ChatDiscoveryNotifier
     _presenceSubscription?.cancel();
     _readReceiptSubscription?.cancel();
     _deliveryReceiptSubscription?.cancel();
+    _presenceQuerySubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
   }

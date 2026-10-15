@@ -28,6 +28,7 @@ class MessagingSocketService {
   final _typingController = StreamController<Map<String, dynamic>>.broadcast();
   final _activityController = StreamController<Map<String, dynamic>>.broadcast();
   final _presenceController = StreamController<Map<String, dynamic>>.broadcast();
+  final _presenceQueryResponseController = StreamController<List<Map<String, dynamic>>>.broadcast();
   final _reactionController = StreamController<Map<String, dynamic>>.broadcast();
   final _readReceiptController = StreamController<Map<String, dynamic>>.broadcast();
   final _deliveryReceiptController = StreamController<Map<String, dynamic>>.broadcast();
@@ -41,6 +42,7 @@ class MessagingSocketService {
   Stream<Map<String, dynamic>> get typing => _typingController.stream;
   Stream<Map<String, dynamic>> get activity => _activityController.stream;
   Stream<Map<String, dynamic>> get presence => _presenceController.stream;
+  Stream<List<Map<String, dynamic>>> get presenceQueryResponse => _presenceQueryResponseController.stream;
   Stream<Map<String, dynamic>> get reaction => _reactionController.stream;
   Stream<Map<String, dynamic>> get readReceipt => _readReceiptController.stream;
   Stream<Map<String, dynamic>> get deliveryReceipt => _deliveryReceiptController.stream;
@@ -205,6 +207,31 @@ class MessagingSocketService {
       _presenceController.add({...data as Map<String, dynamic>, 'status': 'offline'});
     });
 
+    // Presence query response – bulk online status on startup
+    _socket!.on('presence:query_response', (data) {
+      if (data is Map<String, dynamic>) {
+        final statuses = data['statuses'];
+        if (statuses is List) {
+          final result = statuses
+              .whereType<Map<String, dynamic>>()
+              .toList();
+          _presenceQueryResponseController.add(result);
+          // Also push each as individual presence events so
+          // existing listeners pick them up immediately.
+          for (final s in result) {
+            final uid = s['userId'] as String?;
+            final online = s['isOnline'] as bool? ?? false;
+            if (uid != null) {
+              _presenceController.add({
+                'userId': uid,
+                'status': online ? 'online' : 'offline',
+              });
+            }
+          }
+        }
+      }
+    });
+
     // Reactions
     _socket!.on('reaction:new', (data) {
       _reactionController.add({...data as Map<String, dynamic>, 'action': 'add'});
@@ -339,6 +366,13 @@ class MessagingSocketService {
     _logger.i('MessagingSocket: Disconnected and disposed');
   }
 
+  /// Query presence status for a list of user IDs.
+  /// The server responds with a `presence:query_response` event.
+  void queryPresence(List<String> userIds) {
+    if (_socket == null || !_isConnected || userIds.isEmpty) return;
+    _socket!.emit('presence:query', {'userIds': userIds});
+  }
+
   void dispose() {
     disconnect();
     _messageReceivedController.close();
@@ -347,6 +381,7 @@ class MessagingSocketService {
     _typingController.close();
     _activityController.close();
     _presenceController.close();
+    _presenceQueryResponseController.close();
     _reactionController.close();
     _readReceiptController.close();
     _deliveryReceiptController.close();

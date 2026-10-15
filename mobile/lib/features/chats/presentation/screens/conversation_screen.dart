@@ -26,7 +26,8 @@ class ConversationScreen extends ConsumerStatefulWidget {
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends ConsumerState<ConversationScreen> {
+class _ConversationScreenState extends ConsumerState<ConversationScreen>
+    with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
@@ -34,6 +35,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   bool _hasInitialScrolled = false;
   int _lastMessageCount = 0;
+
+  // Animation controller for the typing bounce dots
+  late AnimationController _dotAnimController;
+  late List<Animation<double>> _dotAnimations;
 
   void _scrollToMessage(String messageId, List<MessageModel> messageList) {
     final index = messageList.indexWhere((m) => m.id == messageId);
@@ -71,6 +76,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+
+    // Bouncing dots animation (3 dots staggered 200 ms each)
+    _dotAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+    _dotAnimations = List.generate(3, (i) {
+      final start = i * 0.2;
+      return Tween<double>(begin: 0, end: -6).animate(
+        CurvedAnimation(
+          parent: _dotAnimController,
+          curve: Interval(start, start + 0.4, curve: Curves.easeInOut),
+        ),
+      );
+    });
 
     // Mark conversation as read when opening
     Future.microtask(() {
@@ -125,6 +145,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void dispose() {
     _scrollController.dispose();
     _composerFocusNode.dispose();
+    _dotAnimController.dispose();
     super.dispose();
   }
 
@@ -315,25 +336,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ),
                     const SizedBox(height: 1),
                     if (activeActivities.isNotEmpty)
-                      Text(
-                        _formatActivityText(activeActivities.values.first, tr),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF00C6FF),
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
+                      _buildAppBarActivity(activeActivities.values.first, tr)
                     else if (typingUsers.isNotEmpty)
-                      Text(
-                        tr('chat.typing'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF00C6FF),
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
+                      _buildAppBarTypingRow()
                     else if (isOnline && !isGroup)
                       Text(
                         tr('chat.online'),
@@ -849,16 +854,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
 
             // Typing / Activity indicator bubble when other user is active
-            if (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _buildTypingStatusBanner(
-                  isDark,
-                  text: activeActivities.isNotEmpty
-                      ? _formatActivityText(activeActivities.values.first, tr)
-                      : tr('chat.typing'),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SizeTransition(
+                  sizeFactor: anim,
+                  alignment: Alignment.topCenter,
+                  child: child,
                 ),
               ),
+              child: (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildAnimatedActivityBubble(
+                        isDark,
+                        activityKey: activeActivities.isNotEmpty
+                            ? activeActivities.values.first
+                            : 'typing',
+                        text: activeActivities.isNotEmpty
+                            ? _formatActivityText(activeActivities.values.first, tr)
+                            : tr('chat.typing'),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
 
             // Message Composer
             MessageComposer(
@@ -912,6 +932,140 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       default:
         return 'active...';
     }
+  }
+
+  IconData _activityIcon(String activity) {
+    switch (activity) {
+      case 'recording_audio':
+        return Icons.mic_rounded;
+      case 'uploading_photo':
+        return Icons.image_rounded;
+      case 'uploading_video':
+        return Icons.videocam_rounded;
+      case 'uploading_audio':
+        return Icons.audiotrack_rounded;
+      case 'uploading_file':
+      case 'uploading_media':
+        return Icons.insert_drive_file_rounded;
+      case 'typing':
+      default:
+        return Icons.edit_note_rounded;
+    }
+  }
+
+  /// Animated bouncing dots row shown in the AppBar subtitle when typing
+  Widget _buildAppBarTypingRow() {
+    return AnimatedBuilder(
+      animation: _dotAnimController,
+      builder: (context, child) => Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          ...List.generate(3, (i) {
+            return Transform.translate(
+              offset: Offset(0, _dotAnimations[i].value),
+              child: Container(
+                width: 4,
+                height: 4,
+                margin: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00C6FF),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Activity label with icon in AppBar subtitle
+  Widget _buildAppBarActivity(String activity, String Function(String) tr) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(_activityIcon(activity), size: 12, color: const Color(0xFF00C6FF)),
+        const SizedBox(width: 4),
+        Text(
+          _formatActivityText(activity, tr),
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF00C6FF),
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Animated bubble shown above the composer with bouncing dots
+  Widget _buildAnimatedActivityBubble(
+    bool isDark, {
+    required String activityKey,
+    required String text,
+  }) {
+    return Container(
+      key: ValueKey(activityKey),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      margin: const EdgeInsets.only(left: 16, bottom: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E232E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_activityIcon(activityKey), size: 14, color: const Color(0xFF00C6FF)),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF00C6FF),
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Animated bouncing dots
+          AnimatedBuilder(
+            animation: _dotAnimController,
+            builder: (context, child) => Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(3, (i) {
+                return Transform.translate(
+                  offset: Offset(0, _dotAnimations[i].value),
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF00C6FF),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatLastSeen(String lastSeen) {
@@ -1119,43 +1273,5 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           myAvatarUrl: null,
         );
   }
-
-  Widget _buildTypingStatusBanner(bool isDark, {String? text}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      margin: const EdgeInsets.only(left: 16, bottom: 6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E232E) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text ?? 'typing a message...',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF00C6FF),
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
-        ],
-      ),
-    );
-  }
 }
+
