@@ -78,8 +78,9 @@ class MessagingSocketService {
       _socket = io.io(
         socketUrl,
         io.OptionBuilder()
-            .setTransports(['websocket'])
+            .setTransports(['websocket', 'polling'])
             .setAuth({'token': token})
+            .setQuery({'token': token})
             .setExtraHeaders({'Authorization': 'Bearer $token'})
             .enableAutoConnect()
             .enableReconnection()

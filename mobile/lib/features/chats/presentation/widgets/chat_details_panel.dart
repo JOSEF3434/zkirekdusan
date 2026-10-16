@@ -36,14 +36,10 @@ class ChatDetailsPanel extends ConsumerWidget {
     final discoveryAsync = ref.watch(chatDiscoveryProvider);
     final currentUserId = ref.watch(authProvider).user?.id;
 
-    ConversationModel? conversation = singleConvAsync.value;
-    if (conversation == null) {
-      discoveryAsync.whenData((d) {
-        try {
-          conversation = d.conversations.firstWhere((c) => c.id == conversationId);
-        } catch (_) {}
-      });
-    }
+    final liveConv = discoveryAsync.value?.conversations
+        .where((c) => c.id == conversationId)
+        .firstOrNull;
+    ConversationModel? conversation = liveConv ?? singleConvAsync.value;
 
     if (conversation == null) {
       if (singleConvAsync.hasError) {
@@ -52,17 +48,17 @@ class ChatDetailsPanel extends ConsumerWidget {
       return _buildLoading(bg, isDark, dividerColor);
     }
 
-    final isDirect = conversation!.type == 'DIRECT';
+    final isDirect = conversation.type == 'DIRECT';
 
     if (isDirect) {
-      final other = conversation!.members.firstWhere(
+      final other = conversation.members.firstWhere(
         (m) => m.userId != currentUserId,
-        orElse: () => conversation!.members.isNotEmpty
-            ? conversation!.members.first
+        orElse: () => conversation.members.isNotEmpty
+            ? conversation.members.first
             : const ConversationMemberModel(userId: '', username: ''),
       );
       return _DirectDetailsPanel(
-        conversation: conversation!,
+        conversation: conversation,
         other: other,
         isDark: isDark,
         bg: bg,
@@ -73,7 +69,7 @@ class ChatDetailsPanel extends ConsumerWidget {
       );
     } else {
       return _GroupDetailsPanel(
-        conversation: conversation!,
+        conversation: conversation,
         currentUserId: currentUserId,
         isDark: isDark,
         bg: bg,
@@ -177,8 +173,14 @@ class _DirectDetailsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = other.displayName ?? other.username;
     final avatarUrl = other.avatarUrl;
-    final isOnline = other.isOnline;
-    final lastSeen = other.lastSeen;
+    final liveOnline = other.userId.isNotEmpty
+        ? ref.watch(userOnlineStatusProvider(other.userId))
+        : null;
+    final isOnline = liveOnline ?? other.isOnline;
+    final liveLastSeen = other.userId.isNotEmpty
+        ? ref.watch(userLastSeenStatusProvider(other.userId))
+        : null;
+    final lastSeen = liveLastSeen ?? other.lastSeen;
     final targetIdentifier = (other.username.isNotEmpty && !other.username.contains(' '))
         ? other.username
         : other.userId;

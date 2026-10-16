@@ -164,21 +164,16 @@ class InlineConversationViewState
 
     final singleConvAsync =
         ref.watch(singleConversationProvider(widget.conversationId));
-    ConversationModel? conversation = singleConvAsync.value;
-    if (conversation == null) {
-      discoveryAsync.whenData((discovery) {
-        try {
-          conversation = discovery.conversations
-              .firstWhere((c) => c.id == widget.conversationId);
-        } catch (_) {}
-      });
-    }
+    final liveConv = discoveryAsync.value?.conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    ConversationModel? conversation = liveConv ?? singleConvAsync.value;
 
     final otherMember = conversation?.type == 'DIRECT'
         ? conversation?.members.firstWhere(
             (m) => m.userId != currentUserId,
-            orElse: () => conversation!.members.isNotEmpty
-                ? conversation!.members.first
+            orElse: () => conversation.members.isNotEmpty
+                ? conversation.members.first
                 : const ConversationMemberModel(userId: '', username: ''),
           )
         : null;
@@ -188,11 +183,11 @@ class InlineConversationViewState
     final listItem = chatList.where((i) =>
         i.conversationId == widget.conversationId ||
         i.id == widget.conversationId ||
-        (conversation?.groupId != null && i.targetGroupId == conversation!.groupId) ||
-        (otherMember?.userId != null && i.targetUserId == otherMember!.userId)).firstOrNull;
+        (conversation?.groupId != null && i.targetGroupId == conversation?.groupId) ||
+        (otherMember?.userId != null && i.targetUserId == otherMember?.userId)).firstOrNull;
 
     final displayName = (conversation?.title != null && conversation!.title!.isNotEmpty)
-        ? conversation!.title!
+        ? conversation.title!
         : (otherMember?.displayName ??
             otherMember?.username ??
             listItem?.title ??
@@ -202,15 +197,24 @@ class InlineConversationViewState
         conversation?.metadata?.groupAvatar ??
         listItem?.avatarUrl;
 
-    final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
+    final otherUserId = otherMember?.userId ?? '';
+    final liveOnline = otherUserId.isNotEmpty
+        ? ref.watch(userOnlineStatusProvider(otherUserId))
+        : null;
+    final isOnline = liveOnline ?? otherMember?.isOnline ?? listItem?.isOnline ?? false;
+    final liveLastSeen = otherUserId.isNotEmpty
+        ? ref.watch(userLastSeenStatusProvider(otherUserId))
+        : null;
+    final lastSeen = liveLastSeen ?? otherMember?.lastSeen;
     final isGroup = conversation?.type != 'DIRECT' && conversation != null;
     final pinnedMessagesAsync = ref.watch(pinnedMessagesProvider(widget.conversationId));
     final currentUserRole = ref.watch(authProvider).user?.role;
     final isGlobalAdmin = currentUserRole == 'ADMIN' || currentUserRole == 'SUPER_ADMIN';
     final isGroupOwnerOrAdmin = !isGroup ||
         isGlobalAdmin ||
-        (conversation?.groupId != null &&
-            discoveryAsync.value?.myPrivateGroups.any((g) => g.id == conversation!.groupId) == true);
+        (conversation.groupId != null &&
+            discoveryAsync.value != null &&
+            discoveryAsync.value!.myPrivateGroups.any((g) => g.id == conversation.groupId));
 
     return Column(
       children: [
@@ -223,7 +227,7 @@ class InlineConversationViewState
           memberCount: conversation?.members.length ?? 0,
           typingUsers: typingUsers,
           activeActivities: activeActivities,
-          lastSeen: otherMember?.lastSeen,
+          lastSeen: lastSeen,
           isDark: isDark,
           isDetailsPanelOpen: widget.isDetailsPanelOpen,
           onToggleDetails: widget.onToggleDetails,
@@ -254,7 +258,7 @@ class InlineConversationViewState
             if (conversation != null) {
               ref
                   .read(conversationsProvider.notifier)
-                  .muteConversation(conversation!.id);
+                  .muteConversation(conversation.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Notifications muted')),
               );

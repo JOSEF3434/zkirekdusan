@@ -32,8 +32,10 @@ class Env {
 
   static String get apiBaseUrl {
     // Allow explicit override via .env for CI / staging
-    final envOverride = dotenv.env['API_BASE_URL'];
-    if (envOverride != null && envOverride.isNotEmpty) return envOverride;
+    if (dotenv.isInitialized) {
+      final envOverride = dotenv.env['API_BASE_URL'];
+      if (envOverride != null && envOverride.isNotEmpty) return envOverride;
+    }
 
     // Release builds always use production
     if (kReleaseMode) return _productionUrl;
@@ -45,11 +47,14 @@ class Env {
     return _localUrl;
   }
 
-  static String get appName => dotenv.env['APP_NAME'] ?? 'ዝክረ ክዱሳን';
+  static String get appName =>
+      dotenv.isInitialized ? (dotenv.env['APP_NAME'] ?? 'ዝክረ ክዱሳን') : 'ዝክረ ክዱሳን';
 
   static String get rtmpServerUrl {
-    final envOverride = dotenv.env['RTMP_SERVER_URL'];
-    if (envOverride != null && envOverride.isNotEmpty) return envOverride;
+    if (dotenv.isInitialized) {
+      final envOverride = dotenv.env['RTMP_SERVER_URL'];
+      if (envOverride != null && envOverride.isNotEmpty) return envOverride;
+    }
 
     return 'rtmp://live.cloudinary.com/streams';
   }

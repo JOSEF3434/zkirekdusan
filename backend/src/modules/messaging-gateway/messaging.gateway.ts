@@ -85,6 +85,7 @@ export class MessagingGateway
   private readonly userSocketMap = new Map<string, Set<string>>(); // userId → socketIds
   private readonly socketUserMap = new Map<string, string>(); // socketId → userId
   private readonly activityTimers = new Map<string, NodeJS.Timeout>(); // conversationId:userId -> timer
+  private readonly disconnectTimers = new Map<string, NodeJS.Timeout>(); // userId -> grace period timer
 
   constructor(
     private readonly jwtService: JwtService,
@@ -110,6 +111,15 @@ export class MessagingGateway
         return;
       }
 
+      // If user had a pending disconnect grace timer, cancel it immediately
+      if (this.disconnectTimers.has(userId)) {
+        clearTimeout(this.disconnectTimers.get(userId));
+        this.disconnectTimers.delete(userId);
+        this.logger.log(
+          `[Presence] Cancelled offline grace timer for user ${userId} on reconnect`,
+        );
+      }
+
       // Register socket
       if (!this.userSocketMap.has(userId)) {
         this.userSocketMap.set(userId, new Set());
@@ -123,7 +133,10 @@ export class MessagingGateway
       // Join individual user room so server can emit directly to user:${userId}
       await client.join(`user:${userId}`);
 
-      this.logger.log(`Client connected: ${client.id} (user: ${userId})`);
+      const totalSockets = this.userSocketMap.get(userId)!.size;
+      this.logger.log(
+        `[Presence] Client connected: ${client.id} (user: ${userId}) - active sockets: ${totalSockets}`,
+      );
 
       // Update DB presence
       await this.presenceService.setStatus(userId, PresenceStatus.ONLINE);
@@ -134,8 +147,7 @@ export class MessagingGateway
         status: PresenceStatus.ONLINE,
       });
 
-      // Send newly connected client a snapshot of who is currently online
-      // so they don't need to poll – eliminates the connect-race window.
+      // Send newly connected client an immediate snapshot of who is currently online
       const onlineUserIds = Array.from(this.userSocketMap.keys());
       if (onlineUserIds.length > 0) {
         const snapshot = onlineUserIds.map((uid) => ({
@@ -145,8 +157,10 @@ export class MessagingGateway
         }));
         client.emit('presence:snapshot', { statuses: snapshot });
       }
-
-    } catch {
+    } catch (err: any) {
+      this.logger.error(
+        `[Presence] Connection error for client ${client.id}: ${err.message}`,
+      );
       client.disconnect(true);
     }
   }
@@ -174,21 +188,45 @@ export class MessagingGateway
       client.leave(`user:${userId}`);
       const sockets = this.userSocketMap.get(userId);
       sockets?.delete(client.id);
-      if (!sockets?.size) {
+      this.socketUserMap.delete(client.id);
+
+      const remainingSockets = sockets?.size ?? 0;
+      this.logger.log(
+        `[Presence] Client disconnected: ${client.id} (user: ${userId}) - remaining sockets: ${remainingSockets}`,
+      );
+
+      if (remainingSockets === 0) {
         this.userSocketMap.delete(userId);
 
-        // Update DB presence
-        await this.presenceService.setOffline(userId).catch(() => {});
+        // Cancel any existing grace timer
+        if (this.disconnectTimers.has(userId)) {
+          clearTimeout(this.disconnectTimers.get(userId));
+        }
 
-        this.server.emit(WS_EVENTS.PRESENCE_CHANGED, {
-          userId,
-          status: PresenceStatus.OFFLINE,
-          lastSeenAt: new Date(),
-        });
+        // Grace period (4 seconds) to prevent transient network/reconnect flickering
+        const timer = setTimeout(async () => {
+          this.disconnectTimers.delete(userId);
+          if (this.isUserOnline(userId)) {
+            return;
+          }
+
+          this.logger.log(
+            `[Presence] Grace period expired for user ${userId} -> broadcasting OFFLINE`,
+          );
+          await this.presenceService.setOffline(userId).catch(() => {});
+
+          this.server.emit(WS_EVENTS.PRESENCE_CHANGED, {
+            userId,
+            status: PresenceStatus.OFFLINE,
+            lastSeenAt: new Date().toISOString(),
+          });
+        }, 4000);
+
+        this.disconnectTimers.set(userId, timer);
       }
-      this.socketUserMap.delete(client.id);
+    } else {
+      this.logger.log(`[Presence] Unauthenticated client disconnected: ${client.id}`);
     }
-    this.logger.log(`Client disconnected: ${client.id}`);
   }
 
   // ── Join / Leave Conversation Room ────────────────────────────────────────
@@ -498,10 +536,14 @@ export class MessagingGateway
     @MessageBody() data: { userIds: string[] },
   ) {
     if (!Array.isArray(data?.userIds)) return;
-    const statuses = data.userIds.map((uid) => ({
-      userId: uid,
-      isOnline: this.isUserOnline(uid),
-    }));
+    const statuses = data.userIds.map((uid) => {
+      const isOnline = this.isUserOnline(uid);
+      return {
+        userId: uid,
+        isOnline,
+        status: isOnline ? PresenceStatus.ONLINE : PresenceStatus.OFFLINE,
+      };
+    });
     client.emit('presence:query_response', { statuses });
   }
 
@@ -645,18 +687,52 @@ export class MessagingGateway
 
   private authenticateSocket(client: Socket): string | null {
     try {
-      const token =
-        client.handshake.auth?.token ||
-        client.handshake.headers.authorization?.replace('Bearer ', '');
+      const authHeader = client.handshake.headers?.authorization;
+      let token: string | undefined;
 
-      if (!token) return null;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      } else if (authHeader) {
+        token = authHeader;
+      }
 
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
+      if (!token) {
+        token =
+          (client.handshake.auth?.token as string | undefined) ||
+          (client.handshake.query?.token as string | undefined);
+      }
 
-      return payload.sub as string;
-    } catch {
+      if (!token) {
+        this.logger.warn(
+          `[GatewayAuth] Socket ${client.id} rejected: no token provided in headers, auth, or query`,
+        );
+        return null;
+      }
+
+      const secret =
+        this.configService.get<string>('JWT_ACCESS_SECRET') ||
+        this.configService.get<string>('JWT_SECRET');
+
+      if (!secret) {
+        this.logger.error(
+          '[GatewayAuth] Configuration error: Neither JWT_ACCESS_SECRET nor JWT_SECRET is set',
+        );
+        return null;
+      }
+
+      const payload = this.jwtService.verify(token, { secret });
+      const userId = payload.sub as string;
+      if (!userId) {
+        this.logger.warn(
+          `[GatewayAuth] Socket ${client.id} token verified but missing sub claim`,
+        );
+        return null;
+      }
+      return userId;
+    } catch (err: any) {
+      this.logger.warn(
+        `[GatewayAuth] Socket ${client.id} authentication failed: ${err.message}`,
+      );
       return null;
     }
   }

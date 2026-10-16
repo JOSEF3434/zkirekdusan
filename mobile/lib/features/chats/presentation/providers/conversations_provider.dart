@@ -9,6 +9,50 @@ import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
+/// In-memory reactive map for live user presence (userId -> isOnline)
+final livePresenceMapProvider = StateProvider<Map<String, bool>>((ref) => {});
+
+/// In-memory reactive map for live user last seen (userId -> ISO string)
+final liveLastSeenMapProvider = StateProvider<Map<String, String?>>((ref) => {});
+
+/// Instant, single source of truth for a user's online state
+final userOnlineStatusProvider = Provider.family<bool, String>((ref, userId) {
+  if (userId.isEmpty) return false;
+  final map = ref.watch(livePresenceMapProvider);
+  if (map.containsKey(userId)) return map[userId]!;
+  final discovery = ref.watch(chatDiscoveryProvider).value;
+  if (discovery != null) {
+    for (final c in discovery.conversations) {
+      for (final m in c.members) {
+        if (m.userId == userId) return m.isOnline;
+      }
+    }
+    for (final u in discovery.allUsers) {
+      if (u.id == userId) return u.isOnline;
+    }
+  }
+  return false;
+});
+
+/// Instant, single source of truth for a user's last seen status
+final userLastSeenStatusProvider = Provider.family<String?, String>((ref, userId) {
+  if (userId.isEmpty) return null;
+  final map = ref.watch(liveLastSeenMapProvider);
+  if (map.containsKey(userId)) return map[userId];
+  final discovery = ref.watch(chatDiscoveryProvider).value;
+  if (discovery != null) {
+    for (final c in discovery.conversations) {
+      for (final m in c.members) {
+        if (m.userId == userId) return m.lastSeen;
+      }
+    }
+    for (final u in discovery.allUsers) {
+      if (u.id == userId) return u.lastSeenAt?.toIso8601String();
+    }
+  }
+  return null;
+});
+
 final chatDiscoveryProvider =
     StateNotifierProvider<
       ChatDiscoveryNotifier,
@@ -23,6 +67,7 @@ final chatDiscoveryProvider =
         repository,
         socketService,
         currentUserId,
+        ref,
       );
     });
 
@@ -31,6 +76,7 @@ class ChatDiscoveryNotifier
   final ChatRepository _repository;
   final MessagingSocketService _socketService;
   final String? _currentUserId;
+  final Ref? _ref;
   StreamSubscription? _messageSubscription;
   StreamSubscription? _presenceSubscription;
   StreamSubscription? _readReceiptSubscription;
@@ -47,8 +93,9 @@ class ChatDiscoveryNotifier
   ChatDiscoveryNotifier(
     this._repository,
     this._socketService,
-    this._currentUserId,
-  ) : super(const AsyncValue.loading()) {
+    this._currentUserId, [
+    this._ref,
+  ]) : super(const AsyncValue.loading()) {
     loadDiscovery();
     _setupRealtimeUpdates();
     _setupPresenceQuerySubscription();
@@ -59,6 +106,26 @@ class ChatDiscoveryNotifier
   /// This guarantees presence events are never lost to API/cache overwrites.
   void _setDiscoveryState(ChatDiscoveryModel nextState) {
     if (!mounted) return;
+
+    // Sync live presence state with reactive map
+    if (_ref != null) {
+      final currentMap = _ref.read(livePresenceMapProvider);
+      final updatedMap = Map<String, bool>.from(currentMap);
+      for (final conv in nextState.conversations) {
+        for (final m in conv.members) {
+          if (!updatedMap.containsKey(m.userId)) {
+            updatedMap[m.userId] = _presenceOnline[m.userId] ?? m.isOnline;
+          }
+        }
+      }
+      for (final u in nextState.allUsers) {
+        if (!updatedMap.containsKey(u.id)) {
+          updatedMap[u.id] = _presenceOnline[u.id] ?? u.isOnline;
+        }
+      }
+      _ref.read(livePresenceMapProvider.notifier).state = updatedMap;
+    }
+
     if (_presenceOnline.isEmpty) {
       state = AsyncValue.data(nextState);
       return;
@@ -221,7 +288,7 @@ class ChatDiscoveryNotifier
           }
 
           if (!mounted) return;
-          state = AsyncValue.data(
+          _setDiscoveryState(
             ChatDiscoveryModel(
               conversations: conversations,
               publicGroups: discovery.publicGroups,
@@ -281,7 +348,7 @@ class ChatDiscoveryNotifier
         }).toList();
 
         if (changed) {
-          state = AsyncValue.data(
+          _setDiscoveryState(
             ChatDiscoveryModel(
               conversations: conversations,
               publicGroups: discovery.publicGroups,
@@ -319,7 +386,7 @@ class ChatDiscoveryNotifier
         }).toList();
 
         if (changed) {
-          state = AsyncValue.data(
+          _setDiscoveryState(
             ChatDiscoveryModel(
               conversations: conversations,
               publicGroups: discovery.publicGroups,
@@ -345,6 +412,19 @@ class ChatDiscoveryNotifier
       if (lastSeen != null) _presenceLastSeen[userId] = lastSeen;
       if (!isOnline && lastSeen == null) {
         _presenceLastSeen[userId] = DateTime.now().toIso8601String();
+      }
+
+      // Sync with reactive Riverpod providers so UI rebuilds instantly
+      if (_ref != null) {
+        _ref.read(livePresenceMapProvider.notifier).update(
+          (m) => {...m, userId: isOnline},
+        );
+        final effLastSeen = _presenceLastSeen[userId];
+        if (effLastSeen != null) {
+          _ref.read(liveLastSeenMapProvider.notifier).update(
+            (m) => {...m, userId: effLastSeen},
+          );
+        }
       }
 
       // Now apply to current state if data is available
@@ -476,7 +556,7 @@ class ChatDiscoveryNotifier
             members: members,
           );
           if (!mounted) return;
-          state = AsyncValue.data(
+          _setDiscoveryState(
             ChatDiscoveryModel(
               conversations: conversations,
               publicGroups: discovery.publicGroups,
@@ -543,7 +623,7 @@ class ChatDiscoveryNotifier
         convs[idx] = conv;
       }
       if (!mounted) return;
-      state = AsyncValue.data(
+      _setDiscoveryState(
         ChatDiscoveryModel(
           conversations: convs,
           publicGroups: discovery.publicGroups,

@@ -168,22 +168,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     final singleConvAsync = ref.watch(
       singleConversationProvider(widget.conversationId),
     );
-    ConversationModel? conversation = singleConvAsync.value;
-    if (conversation == null) {
-      discoveryAsync.whenData((discovery) {
-        try {
-          conversation = discovery.conversations.firstWhere(
-            (c) => c.id == widget.conversationId,
-          );
-        } catch (_) {}
-      });
-    }
+    final liveConv = discoveryAsync.value?.conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    ConversationModel? conversation = liveConv ?? singleConvAsync.value;
 
     final otherMember = conversation?.type == 'DIRECT'
         ? conversation?.members.firstWhere(
             (m) => m.userId != currentUserId,
-            orElse: () => conversation!.members.isNotEmpty
-                ? conversation!.members.first
+            orElse: () => conversation.members.isNotEmpty
+                ? conversation.members.first
                 : const ConversationMemberModel(userId: '', username: ''),
           )
         : null;
@@ -195,15 +189,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
               i.conversationId == widget.conversationId ||
               i.id == widget.conversationId ||
               (conversation?.groupId != null &&
-                  i.targetGroupId == conversation!.groupId) ||
+                  i.targetGroupId == conversation?.groupId) ||
               (otherMember?.userId != null &&
-                  i.targetUserId == otherMember!.userId),
+                  i.targetUserId == otherMember?.userId),
         )
         .firstOrNull;
 
     final displayName =
         (conversation?.title != null && conversation!.title!.isNotEmpty)
-        ? conversation!.title!
+        ? conversation.title!
         : (otherMember?.displayName ??
               otherMember?.username ??
               listItem?.title ??
@@ -215,7 +209,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
         listItem?.avatarUrl;
     final resolvedAvatarUrl = MediaUrlResolver.resolve(headerAvatarUrl);
 
-    final isOnline = otherMember?.isOnline ?? listItem?.isOnline ?? false;
+    final otherUserId = otherMember?.userId ?? '';
+    final liveOnline = otherUserId.isNotEmpty
+        ? ref.watch(userOnlineStatusProvider(otherUserId))
+        : null;
+    final isOnline = liveOnline ?? otherMember?.isOnline ?? listItem?.isOnline ?? false;
+    final liveLastSeen = otherUserId.isNotEmpty
+        ? ref.watch(userLastSeenStatusProvider(otherUserId))
+        : null;
+    final lastSeen = liveLastSeen ?? otherMember?.lastSeen;
     final isGroup = conversation?.type != 'DIRECT' && conversation != null;
     final pinnedMessagesAsync = ref.watch(
       pinnedMessagesProvider(widget.conversationId),
@@ -226,11 +228,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     final isGroupOwnerOrAdmin =
         !isGroup ||
         isGlobalAdmin ||
-        (conversation?.groupId != null &&
-            discoveryAsync.value?.myPrivateGroups.any(
-                  (g) => g.id == conversation!.groupId,
-                ) ==
-                true);
+        (conversation.groupId != null &&
+            discoveryAsync.value != null &&
+            discoveryAsync.value!.myPrivateGroups.any(
+                  (g) => g.id == conversation.groupId,
+                ));
 
     return Scaffold(
       backgroundColor: isDark
@@ -296,13 +298,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                       _buildAppBarTypingRow()
                     else if (isGroup)
                       Text(
-                        '${conversation?.members.length ?? 0} members',
+                        '${conversation.members.length} members',
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       )
                     else
                       OnlineStatusChip(
                         isOnline: isOnline,
-                        lastSeen: otherMember?.lastSeen,
+                        lastSeen: lastSeen,
                       ),
                   ],
                 ),

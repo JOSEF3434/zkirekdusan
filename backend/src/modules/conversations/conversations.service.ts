@@ -72,7 +72,9 @@ export class ConversationsService {
         ]);
 
       const formattedUsers: ChatUserItemDto[] = allUsers.map((u) => {
-        const isOnline = u.presence?.status === 'ONLINE';
+        const isOnline =
+          u.presence?.status === 'ONLINE' ||
+          this.messagingGateway.isUserOnline(u.id);
         return {
           id: u.id,
           username: u.username,
