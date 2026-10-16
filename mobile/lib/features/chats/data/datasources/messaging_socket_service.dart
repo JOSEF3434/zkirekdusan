@@ -32,6 +32,7 @@ class MessagingSocketService {
   final _reactionController = StreamController<Map<String, dynamic>>.broadcast();
   final _readReceiptController = StreamController<Map<String, dynamic>>.broadcast();
   final _deliveryReceiptController = StreamController<Map<String, dynamic>>.broadcast();
+  final _connectionStatusController = StreamController<bool>.broadcast();
 
   final Set<String> _joinedConversations = {};
 
@@ -46,6 +47,7 @@ class MessagingSocketService {
   Stream<Map<String, dynamic>> get reaction => _reactionController.stream;
   Stream<Map<String, dynamic>> get readReceipt => _readReceiptController.stream;
   Stream<Map<String, dynamic>> get deliveryReceipt => _deliveryReceiptController.stream;
+  Stream<bool> get connectionStatus => _connectionStatusController.stream;
 
   MessagingSocketService(this._apiClient, this._ref);
 
@@ -96,6 +98,7 @@ class MessagingSocketService {
   void _setupSocketListeners() {
     _socket!.onConnect((_) {
       _isConnected = true;
+      _connectionStatusController.add(true);
       _logger.i('MessagingSocket: Connected to /chat');
       // Re-join any tracked conversations
       for (final id in _joinedConversations) {
@@ -104,6 +107,8 @@ class MessagingSocketService {
     });
 
     _socket!.on('reconnect', (_) {
+      _isConnected = true;
+      _connectionStatusController.add(true);
       _logger.i('MessagingSocket: Reconnected, re-joining ${_joinedConversations.length} rooms');
       for (final id in _joinedConversations) {
         _socket!.emit('conversation:join', {'conversationId': id});
@@ -112,6 +117,7 @@ class MessagingSocketService {
 
     _socket!.onDisconnect((_) {
       _isConnected = false;
+      _connectionStatusController.add(false);
       _logger.w('MessagingSocket: Disconnected');
     });
 
@@ -385,5 +391,6 @@ class MessagingSocketService {
     _reactionController.close();
     _readReceiptController.close();
     _deliveryReceiptController.close();
+    _connectionStatusController.close();
   }
 }

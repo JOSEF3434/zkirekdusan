@@ -68,15 +68,16 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _loadDiscovery() async {
-    // 1. Immediately hydrate state with local cached conversations from Drift (no network delay!)
+    // 1. Immediately hydrate state with local cached conversations from Drift
     try {
       final cached = await _repository.getCachedConversations();
       if (!mounted) return;
-      state = AsyncValue.data(
-        ChatDiscoveryModel(
-          conversations: cached,
-        ),
-      );
+      final cachedModel = ChatDiscoveryModel(conversations: cached);
+      state = AsyncValue.data(cachedModel);
+      // Query presence even from cache — other users may already be online
+      if (cached.isNotEmpty) {
+        _queryPresenceForAll(cachedModel);
+      }
     } catch (_) {
       if (!mounted) return;
       if (state.valueOrNull == null) {
@@ -96,13 +97,12 @@ class ChatDiscoveryNotifier
           state.valueOrNull == null ||
           state.valueOrNull!.conversations.isEmpty) {
         state = AsyncValue.data(discovery);
-        // After fresh data, query live presence for all known users
+        // Query presence again with the full server data
         _queryPresenceForAll(discovery);
       }
     } catch (e) {
       if (!mounted) return;
       if (state.valueOrNull == null) {
-        // Fallback to local cached conversations
         final cached = await _repository.getCachedConversations();
         if (!mounted) return;
         state = AsyncValue.data(ChatDiscoveryModel(conversations: cached));
@@ -387,9 +387,28 @@ class ChatDiscoveryNotifier
   }
 
   void _setupPeriodicRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Refresh conversations every 30s AND re-query presence every 15s so that
+    // online indicators recover quickly after a socket reconnect or missed event.
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
-      refreshDiscovery();
+      final discovery = state.valueOrNull;
+      if (discovery != null) {
+        _queryPresenceForAll(discovery);
+      }
+    });
+
+    // Also listen for socket reconnects and re-query presence immediately
+    _socketService.connectionStatus.listen((connected) {
+      if (!mounted) return;
+      if (connected) {
+        final discovery = state.valueOrNull;
+        if (discovery != null) {
+          // Small delay to allow socket handshake to complete
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) _queryPresenceForAll(discovery);
+          });
+        }
+      }
     });
   }
 
