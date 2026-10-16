@@ -39,6 +39,11 @@ class ChatDiscoveryNotifier
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
 
+  /// In-memory presence truth — updated by every socket presence event.
+  /// Applied to state on every state write so API/cache overwrites never win.
+  final Map<String, bool> _presenceOnline = {};
+  final Map<String, String?> _presenceLastSeen = {};
+
   ChatDiscoveryNotifier(
     this._repository,
     this._socketService,
@@ -48,6 +53,41 @@ class ChatDiscoveryNotifier
     _setupRealtimeUpdates();
     _setupPresenceQuerySubscription();
     _setupPeriodicRefresh();
+  }
+
+  /// Write [nextState] to [state] after merging any in-memory presence overrides.
+  /// This guarantees presence events are never lost to API/cache overwrites.
+  void _setDiscoveryState(ChatDiscoveryModel nextState) {
+    if (!mounted) return;
+    if (_presenceOnline.isEmpty) {
+      state = AsyncValue.data(nextState);
+      return;
+    }
+    // Merge cached presence into conversations
+    final convs = nextState.conversations.map((conv) {
+      bool changed = false;
+      final members = conv.members.map((m) {
+        final online = _presenceOnline[m.userId];
+        final lastSeen = _presenceLastSeen[m.userId];
+        if (online != null && (m.isOnline != online || (lastSeen != null && m.lastSeen != lastSeen))) {
+          changed = true;
+          return m.copyWith(isOnline: online, lastSeen: lastSeen ?? m.lastSeen);
+        }
+        return m;
+      }).toList();
+      return changed ? conv.copyWith(members: members) : conv;
+    }).toList();
+    // Merge into allUsers
+    final users = nextState.allUsers.map((u) {
+      final online = _presenceOnline[u.id];
+      final lastSeen = _presenceLastSeen[u.id];
+      final newLastSeenAt = lastSeen != null ? DateTime.tryParse(lastSeen) : null;
+      if (online != null && (u.isOnline != online || (newLastSeenAt != null && u.lastSeenAt != newLastSeenAt))) {
+        return u.copyWith(isOnline: online, lastSeenAt: newLastSeenAt ?? u.lastSeenAt);
+      }
+      return u;
+    }).toList();
+    state = AsyncValue.data(nextState.copyWith(conversations: convs, allUsers: users));
   }
 
   Future<void> loadDiscovery() async {
@@ -68,24 +108,19 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _loadDiscovery() async {
-    // 1. Immediately hydrate state with local cached conversations from Drift
+    // 1. Immediately hydrate state from Drift cache
     try {
       final cached = await _repository.getCachedConversations();
       if (!mounted) return;
       final cachedModel = ChatDiscoveryModel(conversations: cached);
-      state = AsyncValue.data(cachedModel);
-      // Query presence even from cache — other users may already be online
-      if (cached.isNotEmpty) {
-        _queryPresenceForAll(cachedModel);
-      }
+      _setDiscoveryState(cachedModel);
+      if (cached.isNotEmpty) _queryPresenceForAll(cachedModel);
     } catch (_) {
       if (!mounted) return;
-      if (state.valueOrNull == null) {
-        state = const AsyncValue.data(ChatDiscoveryModel());
-      }
+      if (state.valueOrNull == null) _setDiscoveryState(const ChatDiscoveryModel());
     }
 
-    // 2. Refresh from server in background with timeout
+    // 2. Refresh from server
     try {
       final discovery = await _repository
           .getChatDiscovery()
@@ -96,8 +131,7 @@ class ChatDiscoveryNotifier
           discovery.publicGroups.isNotEmpty ||
           state.valueOrNull == null ||
           state.valueOrNull!.conversations.isEmpty) {
-        state = AsyncValue.data(discovery);
-        // Query presence again with the full server data
+        _setDiscoveryState(discovery);
         _queryPresenceForAll(discovery);
       }
     } catch (e) {
@@ -105,7 +139,7 @@ class ChatDiscoveryNotifier
       if (state.valueOrNull == null) {
         final cached = await _repository.getCachedConversations();
         if (!mounted) return;
-        state = AsyncValue.data(ChatDiscoveryModel(conversations: cached));
+        _setDiscoveryState(ChatDiscoveryModel(conversations: cached));
       }
     }
   }
@@ -135,12 +169,12 @@ class ChatDiscoveryNotifier
           discovery.allUsers.isNotEmpty ||
           discovery.publicGroups.isNotEmpty ||
           prev == null) {
-        state = AsyncValue.data(discovery);
+        _setDiscoveryState(discovery);
       }
     } catch (e) {
       if (!mounted) return;
       if (prev != null) {
-        state = AsyncValue.data(prev);
+        _setDiscoveryState(prev);
       }
     }
   }
@@ -305,58 +339,65 @@ class ChatDiscoveryNotifier
       if (userId == null || status == null) return;
       final isOnline = status.toUpperCase() == 'ONLINE';
 
-      state.whenData((discovery) {
-        if (!mounted) return;
-        bool changed = false;
+      // Always update the in-memory presence cache first.
+      // This ensures events received while state is loading are not lost.
+      _presenceOnline[userId] = isOnline;
+      if (lastSeen != null) _presenceLastSeen[userId] = lastSeen;
+      if (!isOnline && lastSeen == null) {
+        _presenceLastSeen[userId] = DateTime.now().toIso8601String();
+      }
 
-        final convs = discovery.conversations.map((conv) {
-          bool convChanged = false;
-          final members = conv.members.map((m) {
-            if (m.userId == userId) {
-              if (m.isOnline != isOnline || (lastSeen != null && m.lastSeen != lastSeen)) {
-                convChanged = true;
-                return m.copyWith(
-                  isOnline: isOnline,
-                  lastSeen: lastSeen ?? m.lastSeen,
-                );
-              }
-            }
-            return m;
-          }).toList();
+      // Now apply to current state if data is available
+      final discovery = state.valueOrNull;
+      if (discovery == null || !mounted) return;
 
-          if (convChanged) {
-            changed = true;
-            return conv.copyWith(members: members);
-          }
-          return conv;
-        }).toList();
+      bool changed = false;
 
-        final users = discovery.allUsers.map((u) {
-          if (u.id == userId) {
-            final newLastSeenAt = lastSeen != null ? DateTime.tryParse(lastSeen) : u.lastSeenAt;
-            if (u.isOnline != isOnline || (lastSeen != null && u.lastSeenAt != newLastSeenAt)) {
-              changed = true;
-              return u.copyWith(
+      final convs = discovery.conversations.map((conv) {
+        bool convChanged = false;
+        final members = conv.members.map((m) {
+          if (m.userId == userId) {
+            final cachedLastSeen = _presenceLastSeen[userId];
+            if (m.isOnline != isOnline || (cachedLastSeen != null && m.lastSeen != cachedLastSeen)) {
+              convChanged = true;
+              return m.copyWith(
                 isOnline: isOnline,
-                lastSeenAt: newLastSeenAt,
+                lastSeen: cachedLastSeen ?? m.lastSeen,
               );
             }
           }
-          return u;
+          return m;
         }).toList();
-
-        if (changed) {
-          if (!mounted) return;
-          state = AsyncValue.data(
-            ChatDiscoveryModel(
-              conversations: convs,
-              publicGroups: discovery.publicGroups,
-              myPrivateGroups: discovery.myPrivateGroups,
-              allUsers: users,
-            ),
-          );
+        if (convChanged) {
+          changed = true;
+          return conv.copyWith(members: members);
         }
-      });
+        return conv;
+      }).toList();
+
+      final users = discovery.allUsers.map((u) {
+        if (u.id == userId) {
+          final cachedLastSeen = _presenceLastSeen[u.id];
+          final newLastSeenAt = cachedLastSeen != null ? DateTime.tryParse(cachedLastSeen) : u.lastSeenAt;
+          if (u.isOnline != isOnline || (newLastSeenAt != null && u.lastSeenAt != newLastSeenAt)) {
+            changed = true;
+            return u.copyWith(isOnline: isOnline, lastSeenAt: newLastSeenAt);
+          }
+        }
+        return u;
+      }).toList();
+
+      if (changed) {
+        if (!mounted) return;
+        state = AsyncValue.data(
+          ChatDiscoveryModel(
+            conversations: convs,
+            publicGroups: discovery.publicGroups,
+            myPrivateGroups: discovery.myPrivateGroups,
+            allUsers: users,
+          ),
+        );
+      }
     });
   }
 
@@ -387,28 +428,32 @@ class ChatDiscoveryNotifier
   }
 
   void _setupPeriodicRefresh() {
-    // Refresh conversations every 30s AND re-query presence every 15s so that
-    // online indicators recover quickly after a socket reconnect or missed event.
-    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    // Re-query presence every 20s to recover from missed events
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
       final discovery = state.valueOrNull;
-      if (discovery != null) {
-        _queryPresenceForAll(discovery);
-      }
+      if (discovery != null) _queryPresenceForAll(discovery);
     });
 
-    // Also listen for socket reconnects and re-query presence immediately
+    // On socket connect/reconnect, wait for discovery data then query presence
     _socketService.connectionStatus.listen((connected) {
-      if (!mounted) return;
-      if (connected) {
-        final discovery = state.valueOrNull;
-        if (discovery != null) {
-          // Small delay to allow socket handshake to complete
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) _queryPresenceForAll(discovery);
-          });
-        }
-      }
+      if (!mounted || !connected) return;
+      _retryPresenceQueryWhenReady();
+    });
+  }
+
+  /// Polls until discovery data is available, then fires presence query.
+  /// Gives up after 30 seconds to avoid an infinite loop.
+  void _retryPresenceQueryWhenReady({int attempt = 0}) {
+    if (!mounted) return;
+    final discovery = state.valueOrNull;
+    if (discovery != null) {
+      _queryPresenceForAll(discovery);
+      return;
+    }
+    if (attempt > 30) return; // max 30s
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) _retryPresenceQueryWhenReady(attempt: attempt + 1);
     });
   }
 

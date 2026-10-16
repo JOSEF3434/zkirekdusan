@@ -222,8 +222,6 @@ class MessagingSocketService {
               .whereType<Map<String, dynamic>>()
               .toList();
           _presenceQueryResponseController.add(result);
-          // Also push each as individual presence events so
-          // existing listeners pick them up immediately.
           for (final s in result) {
             final uid = s['userId'] as String?;
             final online = s['isOnline'] as bool? ?? false;
@@ -232,6 +230,28 @@ class MessagingSocketService {
                 'userId': uid,
                 'status': online ? 'online' : 'offline',
               });
+            }
+          }
+        }
+      }
+    });
+
+    // Presence snapshot pushed by server on connect – who is currently online.
+    // Treat each entry exactly like a presence:changed event.
+    _socket!.on('presence:snapshot', (data) {
+      if (data is Map<String, dynamic>) {
+        final statuses = data['statuses'];
+        if (statuses is List) {
+          for (final s in statuses) {
+            if (s is Map<String, dynamic>) {
+              final uid = s['userId'] as String?;
+              final online = s['isOnline'] as bool? ?? true; // snapshot only contains online users
+              if (uid != null) {
+                _presenceController.add({
+                  'userId': uid,
+                  'status': online ? 'online' : 'offline',
+                });
+              }
             }
           }
         }

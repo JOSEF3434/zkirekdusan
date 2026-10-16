@@ -128,11 +128,24 @@ export class MessagingGateway
       // Update DB presence
       await this.presenceService.setStatus(userId, PresenceStatus.ONLINE);
 
-      // Notify others of online presence
+      // Notify all OTHER clients that this user is now online
       this.server.emit(WS_EVENTS.PRESENCE_CHANGED, {
         userId,
         status: PresenceStatus.ONLINE,
       });
+
+      // Send newly connected client a snapshot of who is currently online
+      // so they don't need to poll – eliminates the connect-race window.
+      const onlineUserIds = Array.from(this.userSocketMap.keys());
+      if (onlineUserIds.length > 0) {
+        const snapshot = onlineUserIds.map((uid) => ({
+          userId: uid,
+          isOnline: true,
+          status: PresenceStatus.ONLINE,
+        }));
+        client.emit('presence:snapshot', { statuses: snapshot });
+      }
+
     } catch {
       client.disconnect(true);
     }

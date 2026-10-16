@@ -145,6 +145,20 @@ class ChatDiscoveryModel {
           [],
     );
   }
+
+  ChatDiscoveryModel copyWith({
+    List<ConversationModel>? conversations,
+    List<ChatGroupItem>? publicGroups,
+    List<ChatGroupItem>? myPrivateGroups,
+    List<ChatUserItem>? allUsers,
+  }) {
+    return ChatDiscoveryModel(
+      conversations: conversations ?? this.conversations,
+      publicGroups: publicGroups ?? this.publicGroups,
+      myPrivateGroups: myPrivateGroups ?? this.myPrivateGroups,
+      allUsers: allUsers ?? this.allUsers,
+    );
+  }
 }
 
 enum UnifiedChatType { conversation, user, publicGroup, privateGroup }
