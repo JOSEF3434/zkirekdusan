@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/message_bubble.dart';
@@ -16,6 +15,8 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/calls/services/call_service.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/features/chats/presentation/widgets/online_aware_avatar.dart';
+
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -258,62 +259,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
           },
           child: Row(
             children: [
-              // Avatar with Online indicator (matching Screenshot 2)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 19,
-                    backgroundColor: const Color(
-                      0xFF00C6FF,
-                    ).withValues(alpha: 0.2),
-                    backgroundImage:
-                        (resolvedAvatarUrl != null &&
-                            resolvedAvatarUrl.isNotEmpty)
-                        ? CachedNetworkImageProvider(resolvedAvatarUrl)
-                        : null,
-                    child:
-                        (resolvedAvatarUrl == null || resolvedAvatarUrl.isEmpty)
-                        ? Text(
-                            displayName.isNotEmpty
-                                ? displayName[0].toUpperCase()
-                                : 'C',
-                            style: const TextStyle(
-                              color: Color(0xFF00C6FF),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          )
-                        : null,
-                  ),
-                  if (isOnline && !isGroup)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0xFF131822)
-                                : Colors.white,
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF10B981,
-                              ).withValues(alpha: 0.6),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+              // ── Avatar with Telegram-style online ring ──────────────
+              OnlineAwareAvatar(
+                name: displayName,
+                avatarUrl: resolvedAvatarUrl,
+                isOnline: isOnline && !isGroup,
+                size: 36,
+                showDotBadge: false,
+                showRing: true,
+                backgroundHighlightColor:
+                    isDark ? const Color(0xFF131822) : Colors.white,
               ),
               const SizedBox(width: 10),
 
@@ -339,29 +294,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                       _buildAppBarActivity(activeActivities.values.first, tr)
                     else if (typingUsers.isNotEmpty)
                       _buildAppBarTypingRow()
-                    else if (isOnline && !isGroup)
-                      Text(
-                        tr('chat.online'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
                     else if (isGroup)
                       Text(
                         '${conversation?.members.length ?? 0} members',
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       )
-                    else if (otherMember?.lastSeen != null)
-                      Text(
-                        'last seen ${_formatLastSeen(otherMember!.lastSeen!)}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                      )
                     else
-                      Text(
-                        'Offline',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      OnlineStatusChip(
+                        isOnline: isOnline,
+                        lastSeen: otherMember?.lastSeen,
                       ),
                   ],
                 ),
@@ -860,7 +801,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                 opacity: anim,
                 child: SizeTransition(
                   sizeFactor: anim,
-                  alignment: Alignment.topCenter,
                   child: child,
                 ),
               ),
@@ -1066,26 +1006,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
         ],
       ),
     );
-  }
-
-  String _formatLastSeen(String lastSeen) {
-    try {
-      final lastSeenDate = DateTime.parse(lastSeen);
-      final now = DateTime.now();
-      final diff = now.difference(lastSeenDate);
-
-      if (diff.inMinutes < 1) {
-        return 'just now';
-      } else if (diff.inMinutes < 60) {
-        return '${diff.inMinutes}m ago';
-      } else if (diff.inHours < 24) {
-        return '${diff.inHours}h ago';
-      } else {
-        return '${diff.inDays}d ago';
-      }
-    } catch (_) {
-      return lastSeen;
-    }
   }
 
   void _handleMenuAction(

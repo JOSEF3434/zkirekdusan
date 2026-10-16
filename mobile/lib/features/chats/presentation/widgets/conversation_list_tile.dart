@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
+import 'package:mobile/features/chats/presentation/widgets/online_aware_avatar.dart';
 
 class UnifiedChatListTile extends ConsumerWidget {
   final UnifiedChatItem item;
@@ -65,18 +65,9 @@ class UnifiedChatListTile extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              // Avatar with Online Badge / Group Badge
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _buildAvatar(item.title, item.avatarUrl, isGroup, isPrivate, isDark),
-                  if (item.isOnline && !isGroup)
-                    Positioned(
-                      right: 1,
-                      bottom: 1,
-                      child: _OnlineDot(isDark: isDark),
-                    ),
-                ],
+              // ── Avatar (Telegram-style online ring) ──────────────────
+              _buildGroupAwareAvatar(
+                item, isGroup, isPrivate, isDark,
               ),
               const SizedBox(width: 14),
 
@@ -318,77 +309,32 @@ class UnifiedChatListTile extends ConsumerWidget {
     );
   }
 
-  Widget _buildAvatar(
-    String name,
-    String? avatarUrl,
+  /// For groups/private-groups show a special icon avatar;
+  /// for DMs delegate to [OnlineAwareAvatar].
+  Widget _buildGroupAwareAvatar(
+    UnifiedChatItem item,
     bool isGroup,
     bool isPrivate,
     bool isDark,
   ) {
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
-      return Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          image: DecorationImage(
-            image: CachedNetworkImageProvider(avatarUrl),
-            fit: BoxFit.cover,
-          ),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.05),
-            width: 1,
-          ),
-        ),
+    if (isGroup) {
+      return _GroupAvatar(
+        name: item.title,
+        avatarUrl: item.avatarUrl,
+        isPrivate: isPrivate,
+        size: 50,
+        isDark: isDark,
       );
     }
-
-    // Default Gradient Avatars
-    final gradients = [
-      [const Color(0xFF00C6FF), const Color(0xFF0072FF)],
-      [const Color(0xFFF857A6), const Color(0xFFFF5858)],
-      [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],
-      [const Color(0xFF43E97B), const Color(0xFF38F9D7)],
-      [const Color(0xFFFA709A), const Color(0xFFFEE140)],
-      [const Color(0xFF667EEA), const Color(0xFF764BA2)],
-    ];
-    final gradientIndex = name.hashCode.abs() % gradients.length;
-    final gradient = gradients[gradientIndex];
-
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: isPrivate
-            ? const Icon(Icons.lock_rounded, color: Colors.white, size: 22)
-            : isGroup
-                ? const Icon(Icons.groups_rounded, color: Colors.white, size: 24)
-                : Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-      ),
+    return OnlineAwareAvatar(
+      name: item.title,
+      avatarUrl: item.avatarUrl,
+      isOnline: item.isOnline,
+      size: 50,
+      showDotBadge: true,
+      showRing: false,
+      backgroundHighlightColor:
+          isDark ? const Color(0xFF0E1621) : Colors.white,
     );
   }
 
@@ -414,66 +360,72 @@ class UnifiedChatListTile extends ConsumerWidget {
   }
 }
 
-/// Animated pulsing online dot widget
-class _OnlineDot extends StatefulWidget {
+
+// ── Group Avatar (static — no online ring) ────────────────────────────────────
+class _GroupAvatar extends StatelessWidget {
+  final String name;
+  final String? avatarUrl;
+  final bool isPrivate;
+  final double size;
   final bool isDark;
-  const _OnlineDot({required this.isDark});
 
-  @override
-  State<_OnlineDot> createState() => _OnlineDotState();
-}
-
-class _OnlineDotState extends State<_OnlineDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
+  const _GroupAvatar({
+    required this.name,
+    this.avatarUrl,
+    required this.isPrivate,
+    required this.size,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pulseAnim,
-      builder: (context, child) => Container(
-        width: 14,
-        height: 14,
+    const gradients = [
+      [Color(0xFF00C6FF), Color(0xFF0072FF)],
+      [Color(0xFFF857A6), Color(0xFFFF5858)],
+      [Color(0xFF4FACFE), Color(0xFF00F2FE)],
+      [Color(0xFF43E97B), Color(0xFF38F9D7)],
+      [Color(0xFFFA709A), Color(0xFFFEE140)],
+      [Color(0xFF667EEA), Color(0xFF764BA2)],
+    ];
+    final idx = name.hashCode.abs() % gradients.length;
+
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          avatarUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stack) => _iconAvatar(gradients[idx]),
+        ),
+      );
+    }
+    return _iconAvatar(gradients[idx]);
+  }
+
+  Widget _iconAvatar(List<Color> g) => Container(
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          color: Color.lerp(
-            const Color(0xFF10B981),
-            const Color(0xFF34D399),
-            _pulseAnim.value,
-          ),
           shape: BoxShape.circle,
-          border: Border.all(
-            color: widget.isDark ? const Color(0xFF0F141C) : Colors.white,
-            width: 2.5,
+          gradient: LinearGradient(
+            colors: g,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF10B981).withValues(alpha: _pulseAnim.value * 0.6),
-              blurRadius: 6,
+              color: g[0].withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-      ),
-    );
-  }
+        alignment: Alignment.center,
+        child: isPrivate
+            ? const Icon(Icons.lock_rounded, color: Colors.white, size: 22)
+            : const Icon(Icons.groups_rounded, color: Colors.white, size: 24),
+      );
 }
 
 // Alias for backward compatibility
