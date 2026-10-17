@@ -7,6 +7,8 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
+import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
+import 'package:mobile/features/chats/presentation/widgets/chat_activity_indicator.dart';
 import 'package:mobile/features/chats/presentation/widgets/shared_media_tabs_view.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 
@@ -184,6 +186,12 @@ class _DirectDetailsPanel extends StatelessWidget {
     final targetIdentifier = (other.username.isNotEmpty && !other.username.contains(' '))
         ? other.username
         : other.userId;
+    final activeActivities = ref.watch(chatActivityProvider(conversation.id));
+    final typingUsers = ref.watch(typingIndicatorProvider(conversation.id));
+    final isSomeoneActive = activeActivities.isNotEmpty || typingUsers.isNotEmpty;
+    final currentActivity = activeActivities.isNotEmpty
+        ? activeActivities.values.first
+        : 'typing';
 
     return Container(
       color: bg,
@@ -230,21 +238,29 @@ class _DirectDetailsPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // Online/last seen
-                  Text(
-                    isOnline
-                        ? 'Online'
-                        : lastSeen != null
-                            ? 'last seen ${_fmtSeen(lastSeen)}'
-                            : 'Offline',
-                    style: TextStyle(
+                  // Online/last seen or active activity
+                  if (isSomeoneActive)
+                    ChatActivityRow(
+                      activity: currentActivity,
                       fontSize: 13,
-                      color: isOnline
-                          ? const Color(0xFF10B981)
-                          : Colors.grey[500],
-                      fontWeight: FontWeight.w500,
+                      iconSize: 14,
+                      isDark: isDark,
+                    )
+                  else
+                    Text(
+                      isOnline
+                          ? 'Online'
+                          : lastSeen != null
+                              ? 'last seen ${_fmtSeen(lastSeen)}'
+                              : 'Offline',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isOnline
+                            ? const Color(0xFF10B981)
+                            : Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 20),
                   // Action buttons row (Message / Mute / More)
                   _ActionButtonsRow(

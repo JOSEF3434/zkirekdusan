@@ -18,6 +18,7 @@ import 'package:mobile/features/chats/presentation/providers/conversations_provi
 import 'package:mobile/features/chats/presentation/widgets/date_separator.dart';
 import 'package:mobile/features/chats/presentation/widgets/message_bubble.dart';
 import 'package:mobile/features/chats/presentation/widgets/message_composer.dart';
+import 'package:mobile/features/chats/presentation/widgets/chat_activity_indicator.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
 
@@ -476,48 +477,24 @@ class InlineConversationViewState
         ),
 
         // ── Activity Indicator Banner ─────────────────────────────────────────
-        if (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              margin: const EdgeInsets.only(left: 16, bottom: 6),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E232E) : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    activeActivities.isNotEmpty
-                        ? _formatInlineActivity(activeActivities.values.first)
-                        : 'typing a message...',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF00C6FF),
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF00C6FF)),
-                ],
-              ),
-            ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SizeTransition(sizeFactor: anim, child: child),
           ),
+          child: (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
+              ? Align(
+                  alignment: Alignment.centerLeft,
+                  child: ChatActivityBubble(
+                    activity: activeActivities.isNotEmpty
+                        ? activeActivities.values.first
+                        : 'typing',
+                    isDark: isDark,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
 
         // ── Composer ──────────────────────────────────────────────────────────
         MessageComposer(
@@ -586,26 +563,6 @@ class InlineConversationViewState
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-
-  String _formatInlineActivity(String activity) {
-    switch (activity) {
-      case 'typing':
-        return 'typing...';
-      case 'recording_audio':
-        return 'recording audio...';
-      case 'uploading_photo':
-        return 'sending photo...';
-      case 'uploading_video':
-        return 'sending video...';
-      case 'uploading_audio':
-        return 'sending audio...';
-      case 'uploading_file':
-      case 'uploading_media':
-        return 'sending file...';
-      default:
-        return 'active...';
-    }
-  }
 
   Future<void> _showInviteLinkDialog(String groupId) async {
     try {
@@ -780,23 +737,7 @@ class _InlineHeader extends StatelessWidget {
   });
 
   String _formatActivity(String activity) {
-    switch (activity) {
-      case 'typing':
-        return 'typing...';
-      case 'recording_audio':
-        return 'recording audio...';
-      case 'uploading_photo':
-        return 'sending photo...';
-      case 'uploading_video':
-        return 'sending video...';
-      case 'uploading_audio':
-        return 'sending audio...';
-      case 'uploading_file':
-      case 'uploading_media':
-        return 'sending file...';
-      default:
-        return 'active...';
-    }
+    return ChatActivityHelper.getLabel(activity, includeEllipsis: false);
   }
 
   @override
@@ -908,17 +849,24 @@ class _InlineHeader extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            subtitleText,
-                            style: TextStyle(
+                          if (activeActivities.isNotEmpty || typingUsers.isNotEmpty)
+                            ChatActivityRow(
+                              activity: activeActivities.isNotEmpty
+                                  ? activeActivities.values.first
+                                  : 'typing',
                               fontSize: 12,
-                              color: subtitleColor,
-                              fontStyle: typingUsers.isNotEmpty
-                                  ? FontStyle.italic
-                                  : FontStyle.normal,
-                              fontWeight: FontWeight.w500,
+                              iconSize: 13,
+                              isDark: isDark,
+                            )
+                          else
+                            Text(
+                              subtitleText,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: subtitleColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),

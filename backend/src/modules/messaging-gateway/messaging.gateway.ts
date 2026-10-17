@@ -326,17 +326,19 @@ export class MessagingGateway
       isActive: true,
     };
 
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
+    const target = client.to(`conversation:${data.conversationId}`);
+    for (const member of conversation.members || []) {
+      if (member.userId && member.userId !== userId) {
+        target.to(`user:${member.userId}`);
+      }
+    }
+    target.emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
     if (payload.activity === 'typing') {
-      client
-        .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.TYPING_INDICATOR, {
-          userId,
-          conversationId: data.conversationId,
-          isTyping: true,
-        });
+      target.emit(WS_EVENTS.TYPING_INDICATOR, {
+        userId,
+        conversationId: data.conversationId,
+        isTyping: true,
+      });
     }
 
     // Auto-expire after 6s to prevent stuck indicators
@@ -348,17 +350,19 @@ export class MessagingGateway
         activity: data.activity || 'typing',
         isActive: false,
       };
-      this.server
-        .to(`conversation:${data.conversationId}`)
-        .emit(WS_EVENTS.ACTIVITY_UPDATE, stopPayload);
+      const stopTarget = this.server.to(`conversation:${data.conversationId}`);
+      for (const member of conversation.members || []) {
+        if (member.userId && member.userId !== userId) {
+          stopTarget.to(`user:${member.userId}`);
+        }
+      }
+      stopTarget.emit(WS_EVENTS.ACTIVITY_UPDATE, stopPayload);
       if (payload.activity === 'typing') {
-        this.server
-          .to(`conversation:${data.conversationId}`)
-          .emit(WS_EVENTS.TYPING_INDICATOR, {
-            userId,
-            conversationId: data.conversationId,
-            isTyping: false,
-          });
+        stopTarget.emit(WS_EVENTS.TYPING_INDICATOR, {
+          userId,
+          conversationId: data.conversationId,
+          isTyping: false,
+        });
       }
     }, 6000);
 
@@ -386,16 +390,23 @@ export class MessagingGateway
       isActive: false,
     };
 
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
-    client
-      .to(`conversation:${data.conversationId}`)
-      .emit(WS_EVENTS.TYPING_INDICATOR, {
-        userId,
-        conversationId: data.conversationId,
-        isTyping: false,
-      });
+    const conversation = await this.conversationsRepository.findById(
+      data.conversationId,
+    );
+    const target = client.to(`conversation:${data.conversationId}`);
+    if (conversation?.members) {
+      for (const member of conversation.members) {
+        if (member.userId && member.userId !== userId) {
+          target.to(`user:${member.userId}`);
+        }
+      }
+    }
+    target.emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
+    target.emit(WS_EVENTS.TYPING_INDICATOR, {
+      userId,
+      conversationId: data.conversationId,
+      isTyping: false,
+    });
   }
 
   @SubscribeMessage(WS_EVENTS.TYPING_START)

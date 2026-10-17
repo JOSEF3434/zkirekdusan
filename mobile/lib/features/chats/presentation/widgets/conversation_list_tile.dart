@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/online_aware_avatar.dart';
+import 'package:mobile/features/chats/presentation/widgets/chat_activity_indicator.dart';
 
 class UnifiedChatListTile extends ConsumerWidget {
   final UnifiedChatItem item;
@@ -235,77 +236,20 @@ class UnifiedChatListTile extends ConsumerWidget {
   }
 
   Widget _buildTypingRow(bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF00C6FF)),
-        const SizedBox(width: 4),
-        const Text(
-          'typing',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF00C6FF),
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(width: 2),
-        const Text(
-          '...',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF00C6FF),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+    return ChatActivityRow(
+      activity: 'typing',
+      fontSize: 13,
+      iconSize: 14,
+      isDark: isDark,
     );
   }
 
   Widget _buildActivityRow(String activity, bool isDark) {
-    final IconData icon;
-    final String label;
-    switch (activity) {
-      case 'recording_audio':
-        icon = Icons.mic_rounded;
-        label = 'recording audio...';
-        break;
-      case 'uploading_photo':
-        icon = Icons.image_rounded;
-        label = 'sending photo...';
-        break;
-      case 'uploading_video':
-        icon = Icons.videocam_rounded;
-        label = 'sending video...';
-        break;
-      case 'uploading_audio':
-        icon = Icons.audiotrack_rounded;
-        label = 'sending audio...';
-        break;
-      case 'uploading_file':
-      case 'uploading_media':
-        icon = Icons.insert_drive_file_rounded;
-        label = 'sending file...';
-        break;
-      default:
-        icon = Icons.edit_note_rounded;
-        label = 'active...';
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFF00C6FF)),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF00C6FF),
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+    return ChatActivityRow(
+      activity: activity,
+      fontSize: 13,
+      iconSize: 14,
+      isDark: isDark,
     );
   }
 
