@@ -3,11 +3,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:mobile/app/env/env.dart';
+import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
 
 final callServiceProvider = Provider<CallService>((ref) {
@@ -22,6 +22,7 @@ class CallService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
+  MediaStream? _screenStream;
 
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
@@ -66,22 +67,32 @@ class CallService {
   Future<void> _connectSignalingSocket() async {
     if (_socket != null && _socket!.connected) return;
 
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'access_token');
+    final storage = _ref.read(storageServiceProvider);
+    final token = await storage.getToken(key: 'access_token');
     if (token == null) {
       debugPrint('[CallService] No auth token found');
       return;
     }
 
-    final baseUrl = Env.apiBaseUrl.replaceFirst('/api', '');
+    String baseUrl = Env.apiBaseUrl;
+    if (baseUrl.endsWith('/api')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 4);
+    } else if (baseUrl.endsWith('/api/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 5);
+    }
+    final socketUrl = baseUrl.endsWith('/') ? '${baseUrl}chat' : '$baseUrl/chat';
+
     _socket = io.io(
-      '$baseUrl/chat',
+      socketUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling'])
           .setAuth({'token': token})
+          .setQuery({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
-          .disableAutoConnect()
+          .enableAutoConnect()
           .enableReconnection()
+          .setReconnectionAttempts(999999)
+          .setReconnectionDelay(1000)
           .build(),
     );
 
@@ -95,18 +106,23 @@ class CallService {
       if (data == null || data is! Map) return;
       final map = Map<String, dynamic>.from(data);
 
-      // If already in a call, reject automatically
+      final callerId = map['callerId']?.toString() ?? '';
+      final conversationId = map['conversationId']?.toString() ?? '';
+      if (callerId.isEmpty || conversationId.isEmpty) {
+        debugPrint('[CallService] Invalid call:incoming - missing callerId or conversationId');
+        return;
+      }
+
+      // If already in an active call, reject automatically
       if (state.isActive) {
         _socket?.emit('call:reject', {
-          'callerId': map['callerId'],
-          'conversationId': map['conversationId'],
+          'callerId': callerId,
+          'conversationId': conversationId,
           'reason': 'busy',
         });
         return;
       }
 
-      final callerId = map['callerId'] as String;
-      final conversationId = map['conversationId'] as String;
       final callType = map['callType'] as String? ?? 'audio';
       final callerName = map['callerName'] as String? ?? 'Caller';
       final callerAvatar = map['callerAvatar'] as String?;
@@ -141,12 +157,16 @@ class CallService {
       _notifier.setConnecting();
 
       try {
-        final answer = RTCSessionDescription(
-          answerMap['sdp'] as String,
-          answerMap['type'] as String,
-        );
-        await _peerConnection?.setRemoteDescription(answer);
-        _onCallConnected();
+        final sdp = answerMap['sdp']?.toString();
+        final type = answerMap['type']?.toString();
+        if (sdp != null && type != null) {
+          final answer = RTCSessionDescription(sdp, type);
+          await _peerConnection?.setRemoteDescription(answer);
+          _onCallConnected();
+        } else {
+          debugPrint('[CallService] Missing SDP in call:answered');
+          hangUp();
+        }
       } catch (e) {
         debugPrint('[CallService] Error setting remote description: $e');
         hangUp();
@@ -156,7 +176,9 @@ class CallService {
     // Handle Call Rejected
     _socket!.on('call:rejected', (data) {
       debugPrint('[CallService] Received call:rejected: $data');
-      final reason = data is Map ? (data['reason'] as String? ?? 'declined') : 'declined';
+      _callTimeoutTimer?.cancel();
+      final reason =
+          data is Map ? (data['reason'] as String? ?? 'declined') : 'declined';
       _cleanupPeerConnection();
       _notifier.setEnded(reason: reason);
     });
@@ -164,6 +186,7 @@ class CallService {
     // Handle Call Ended / Hangup
     _socket!.on('call:ended', (_) {
       debugPrint('[CallService] Received call:ended');
+      _callTimeoutTimer?.cancel();
       _cleanupPeerConnection();
       _notifier.setEnded(reason: 'hangup');
     });
@@ -172,15 +195,38 @@ class CallService {
     _socket!.on('call:ice', (data) async {
       if (data == null || data is! Map) return;
       final candidateMap = Map<String, dynamic>.from(data['candidate'] ?? {});
+      final candidateStr = candidateMap['candidate']?.toString();
+      if (candidateStr == null || candidateStr.isEmpty) return;
       try {
         final candidate = RTCIceCandidate(
-          candidateMap['candidate'],
-          candidateMap['sdpMid'],
-          candidateMap['sdpMLineIndex'],
+          candidateStr,
+          candidateMap['sdpMid']?.toString(),
+          candidateMap['sdpMLineIndex'] as int?,
         );
         await _peerConnection?.addCandidate(candidate);
       } catch (e) {
         debugPrint('[CallService] Error adding ICE candidate: $e');
+      }
+    });
+
+    // Handle Real-time Reactions
+    _socket!.on('call:reaction', (data) {
+      if (data != null && data is Map) {
+        final emoji = data['emoji'] as String?;
+        if (emoji != null && emoji.isNotEmpty) {
+          _notifier.setReaction(emoji);
+        }
+      }
+    });
+
+    // Handle Remote Media State
+    _socket!.on('call:media-state', (data) {
+      if (data != null && data is Map) {
+        _notifier.setRemoteMediaState(
+          isMuted: data['isMuted'] as bool?,
+          isVideoEnabled: data['isVideoEnabled'] as bool?,
+          isScreenSharing: data['isScreenSharing'] as bool?,
+        );
       }
     });
 
@@ -199,20 +245,7 @@ class CallService {
   }) async {
     await init();
 
-    // Check permissions
-    final micStatus = await Permission.microphone.request();
-    if (!micStatus.isGranted) {
-      _notifier.setEnded(reason: 'Microphone permission denied');
-      return;
-    }
-    if (isVideo) {
-      final camStatus = await Permission.camera.request();
-      if (!camStatus.isGranted) {
-        _notifier.setEnded(reason: 'Camera permission denied');
-        return;
-      }
-    }
-
+    // Set state immediately so CallScreen doesn't show blank/User
     _notifier.setCalling(
       conversationId: conversationId,
       remoteUserId: targetUserId,
@@ -221,6 +254,22 @@ class CallService {
       isVideoCall: isVideo,
     );
 
+    // Check permissions on native platforms
+    if (!kIsWeb) {
+      final micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) {
+        _notifier.setEnded(reason: 'Microphone permission denied');
+        return;
+      }
+      if (isVideo) {
+        final camStatus = await Permission.camera.request();
+        if (!camStatus.isGranted) {
+          _notifier.setEnded(reason: 'Camera permission denied');
+          return;
+        }
+      }
+    }
+
     try {
       // 1. Create Media Stream
       _localStream = await _getUserMedia(isVideo: isVideo);
@@ -228,16 +277,22 @@ class CallService {
 
       // 2. Create Peer Connection
       _peerConnection = await createPeerConnection(_iceServers);
-      _registerPeerConnectionListeners(targetUserId: targetUserId, conversationId: conversationId);
+      _registerPeerConnectionListeners(
+        targetUserId: targetUserId,
+        conversationId: conversationId,
+      );
 
       // 3. Add Local Tracks
-      _localStream?.getTracks().forEach((track) {
-        _peerConnection?.addTrack(track, _localStream!);
-      });
+      if (_localStream != null) {
+        for (final track in _localStream!.getTracks()) {
+          await _peerConnection?.addTrack(track, _localStream!);
+        }
+      }
 
       // 4. Create Offer
-      final offer = await _peerConnection!.createOffer(_offerAnswerConstraints);
-      await _peerConnection!.setLocalDescription(offer);
+      final offer = await _peerConnection?.createOffer(_offerAnswerConstraints);
+      if (offer == null) throw Exception('Failed to create WebRTC offer');
+      await _peerConnection?.setLocalDescription(offer);
 
       // 5. Send Offer via Signaling Socket
       _socket?.emit('call:initiate', {
@@ -268,7 +323,7 @@ class CallService {
   Future<void> acceptCall() async {
     final curState = state;
     final offerData = curState.incomingOffer;
-    final callerId = curState.callerId;
+    final callerId = curState.callerId ?? curState.remoteUserId;
     final conversationId = curState.conversationId;
     final isVideo = curState.isVideoCall;
 
@@ -281,17 +336,19 @@ class CallService {
     _notifier.setConnecting();
 
     try {
-      // Check permissions
-      final micStatus = await Permission.microphone.request();
-      if (!micStatus.isGranted) {
-        rejectCall(reason: 'Microphone permission denied');
-        return;
-      }
-      if (isVideo) {
-        final camStatus = await Permission.camera.request();
-        if (!camStatus.isGranted) {
-          rejectCall(reason: 'Camera permission denied');
+      // Check permissions on native platforms
+      if (!kIsWeb) {
+        final micStatus = await Permission.microphone.request();
+        if (!micStatus.isGranted) {
+          rejectCall(reason: 'Microphone permission denied');
           return;
+        }
+        if (isVideo) {
+          final camStatus = await Permission.camera.request();
+          if (!camStatus.isGranted) {
+            rejectCall(reason: 'Camera permission denied');
+            return;
+          }
         }
       }
 
@@ -301,23 +358,32 @@ class CallService {
 
       // 2. Create Peer Connection
       _peerConnection = await createPeerConnection(_iceServers);
-      _registerPeerConnectionListeners(targetUserId: callerId, conversationId: conversationId);
+      _registerPeerConnectionListeners(
+        targetUserId: callerId,
+        conversationId: conversationId,
+      );
 
       // 3. Add Local Tracks
-      _localStream?.getTracks().forEach((track) {
-        _peerConnection?.addTrack(track, _localStream!);
-      });
+      if (_localStream != null) {
+        for (final track in _localStream!.getTracks()) {
+          await _peerConnection?.addTrack(track, _localStream!);
+        }
+      }
 
       // 4. Set Remote Description (Caller's Offer)
-      final offer = RTCSessionDescription(
-        offerData['sdp'] as String,
-        offerData['type'] as String,
-      );
-      await _peerConnection!.setRemoteDescription(offer);
+      final sdp = offerData['sdp']?.toString();
+      final type = offerData['type']?.toString();
+      if (sdp == null || type == null) {
+        throw Exception('Invalid offer SDP in incoming offer');
+      }
+      final offer = RTCSessionDescription(sdp, type);
+      await _peerConnection?.setRemoteDescription(offer);
 
       // 5. Create & Set Local Answer
-      final answer = await _peerConnection!.createAnswer(_offerAnswerConstraints);
-      await _peerConnection!.setLocalDescription(answer);
+      final answer =
+          await _peerConnection?.createAnswer(_offerAnswerConstraints);
+      if (answer == null) throw Exception('Failed to create WebRTC answer');
+      await _peerConnection?.setLocalDescription(answer);
 
       // 6. Send Answer to Caller
       _socket?.emit('call:accept', {
@@ -335,6 +401,7 @@ class CallService {
 
   // ─── Reject Incoming Call ──────────────────────────────────────────────────
   void rejectCall({String reason = 'declined'}) {
+    _callTimeoutTimer?.cancel();
     final callerId = state.callerId ?? state.remoteUserId;
     final conversationId = state.conversationId;
 
@@ -352,6 +419,7 @@ class CallService {
 
   // ─── Hang Up Active / Outgoing Call ────────────────────────────────────────
   void hangUp() {
+    _callTimeoutTimer?.cancel();
     final targetUserId = state.remoteUserId ?? state.callerId;
     final conversationId = state.conversationId;
 
@@ -375,19 +443,31 @@ class CallService {
         'autoGainControl': true,
       },
       'video': isVideo
-          ? {
-              'mandatory': {
-                'minWidth': '640',
-                'minHeight': '480',
-                'minFrameRate': '30',
-              },
-              'facingMode': 'user',
-              'optional': [],
-            }
+          ? (kIsWeb
+              ? {'facingMode': 'user'}
+              : {
+                  'mandatory': {
+                    'minWidth': '640',
+                    'minHeight': '480',
+                    'minFrameRate': '30',
+                  },
+                  'facingMode': 'user',
+                  'optional': [],
+                })
           : false,
     };
 
-    return await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    try {
+      return await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    } catch (e) {
+      debugPrint(
+        '[CallService] getUserMedia with constraints failed ($e), falling back to basic constraints',
+      );
+      return await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': isVideo,
+      });
+    }
   }
 
   void _registerPeerConnectionListeners({
@@ -395,6 +475,7 @@ class CallService {
     required String conversationId,
   }) {
     _peerConnection?.onIceCandidate = (RTCIceCandidate candidate) {
+      if (candidate.candidate == null) return;
       _socket?.emit('call:ice-candidate', {
         'targetUserId': targetUserId,
         'conversationId': conversationId,
@@ -417,7 +498,8 @@ class CallService {
       debugPrint('[CallService] PeerConnection state: $state');
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         _onCallConnected();
-      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+      } else if (state ==
+              RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
         hangUp();
@@ -442,14 +524,16 @@ class CallService {
         final currentEnabled = audioTracks.first.enabled;
         audioTracks.first.enabled = !currentEnabled;
         _notifier.toggleMute();
+        sendMediaState(isMuted: !currentEnabled);
       }
     }
   }
 
   void toggleSpeaker() {
     _notifier.toggleSpeaker();
-    // In mobile WebRTC, audio output routing can be switched
-    Helper.setSpeakerphoneOn(state.isSpeakerOn);
+    if (!kIsWeb) {
+      Helper.setSpeakerphoneOn(state.isSpeakerOn);
+    }
   }
 
   void toggleVideo() {
@@ -459,6 +543,7 @@ class CallService {
         final currentEnabled = videoTracks.first.enabled;
         videoTracks.first.enabled = !currentEnabled;
         _notifier.toggleVideo();
+        sendMediaState(isVideoEnabled: !currentEnabled);
       }
     }
   }
@@ -467,10 +552,102 @@ class CallService {
     if (_localStream != null) {
       final videoTracks = _localStream!.getVideoTracks();
       if (videoTracks.isNotEmpty) {
-        Helper.switchCamera(videoTracks.first);
+        if (!kIsWeb) {
+          Helper.switchCamera(videoTracks.first);
+        }
         _notifier.toggleCamera();
       }
     }
+  }
+
+  // ─── Screen Sharing ────────────────────────────────────────────────────────
+  Future<bool> startScreenShare() async {
+    try {
+      _screenStream = await navigator.mediaDevices.getDisplayMedia({
+        'video': true,
+        'audio': false,
+      });
+      final screenTrack = _screenStream!.getVideoTracks().first;
+
+      final senders = await _peerConnection?.getSenders();
+      final videoSender = senders?.firstWhere(
+        (s) => s.track?.kind == 'video',
+        orElse: () => throw Exception('No video sender found'),
+      );
+      await videoSender?.replaceTrack(screenTrack);
+      localRenderer.srcObject = _screenStream;
+      _notifier.setRemoteMediaState(isScreenSharing: true);
+      sendMediaState(isScreenSharing: true);
+
+      screenTrack.onEnded = () {
+        stopScreenShare();
+      };
+      return true;
+    } catch (e) {
+      debugPrint('[CallService] Screen share error: $e');
+      return false;
+    }
+  }
+
+  Future<void> stopScreenShare() async {
+    try {
+      if (_screenStream != null) {
+        _screenStream!.getTracks().forEach((track) => track.stop());
+        _screenStream!.dispose();
+        _screenStream = null;
+      }
+
+      if (_localStream != null) {
+        final cameraTrack = _localStream!.getVideoTracks().firstOrNull;
+        if (cameraTrack != null) {
+          final senders = await _peerConnection?.getSenders();
+          final videoSender = senders?.firstWhere(
+            (s) => s.track?.kind == 'video',
+            orElse: () => throw Exception('No video sender found'),
+          );
+          await videoSender?.replaceTrack(cameraTrack);
+          localRenderer.srcObject = _localStream;
+        }
+      }
+
+      _notifier.setRemoteMediaState(isScreenSharing: false);
+      sendMediaState(isScreenSharing: false);
+    } catch (e) {
+      debugPrint('[CallService] Stop screen share error: $e');
+    }
+  }
+
+  // ─── Signaling Relays ──────────────────────────────────────────────────────
+  void sendReaction(String emoji, {String? action}) {
+    final targetUserId = state.remoteUserId ?? state.callerId;
+    final conversationId = state.conversationId;
+    if (targetUserId == null || conversationId == null) return;
+
+    _notifier.setReaction(emoji);
+    _socket?.emit('call:reaction', {
+      'targetUserId': targetUserId,
+      'conversationId': conversationId,
+      'emoji': emoji,
+      'action': action,
+    });
+  }
+
+  void sendMediaState({
+    bool? isMuted,
+    bool? isVideoEnabled,
+    bool? isScreenSharing,
+  }) {
+    final targetUserId = state.remoteUserId ?? state.callerId;
+    final conversationId = state.conversationId;
+    if (targetUserId == null || conversationId == null) return;
+
+    _socket?.emit('call:media-state', {
+      'targetUserId': targetUserId,
+      'conversationId': conversationId,
+      'isMuted': isMuted ?? state.isMuted,
+      'isVideoEnabled': isVideoEnabled ?? state.isVideoEnabled,
+      'isScreenSharing': isScreenSharing ?? state.isScreenSharing,
+    });
   }
 
   // ─── Cleanup ───────────────────────────────────────────────────────────────
@@ -481,6 +658,12 @@ class CallService {
     _callTimeoutTimer = null;
 
     try {
+      if (_screenStream != null) {
+        _screenStream!.getTracks().forEach((track) => track.stop());
+        _screenStream!.dispose();
+        _screenStream = null;
+      }
+
       _localStream?.getTracks().forEach((track) => track.stop());
       _localStream?.dispose();
       _localStream = null;

@@ -9,6 +9,7 @@ import 'package:mobile/features/chats/presentation/providers/chat_socket_lifecyc
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
 import 'package:mobile/core/presentation/widgets/floating_mini_player.dart';
 import 'package:mobile/core/presentation/widgets/app_activity_tracker.dart';
+import 'package:mobile/features/calls/presentation/widgets/floating_call_overlay.dart';
 
 class StreamHubApp extends ConsumerWidget {
   const StreamHubApp({super.key});
@@ -34,6 +35,7 @@ class StreamHubApp extends ConsumerWidget {
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
         // AppActivityTracker sits at the very root of the widget tree.
         // It intercepts pointer-down events (not continuous scroll/drag frames)
         // and forwards them to AppLockNotifier.recordActivity().
@@ -42,8 +44,9 @@ class StreamHubApp extends ConsumerWidget {
         return AppActivityTracker(
           child: Stack(
             children: [
-              child!,
+              child,
               const FloatingMiniPlayer(),
+              const FloatingCallOverlay(),
             ],
           ),
         );

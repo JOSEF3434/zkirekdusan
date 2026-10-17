@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
@@ -41,23 +43,270 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     final callService = ref.watch(callServiceProvider);
     final tr = ref.watch(trProvider);
 
-    // If caller cancels or call changes status, pop
+    // If caller cancels or call changes status, pop or navigate home
     ref.listen<CallState>(callStateProvider, (previous, next) {
       if (next.status == CallStatus.ended || next.status == CallStatus.idle) {
-        if (mounted && Navigator.canPop(context)) {
-          context.pop();
+        if (mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            ref.read(routerProvider).go('/home');
+          }
         }
       } else if (next.status == CallStatus.connected ||
           next.status == CallStatus.connecting) {
         if (mounted) {
-          context.pushReplacement('/call/active');
+          ref.read(routerProvider).pushReplacement('/call/active');
         }
       }
     });
 
     final displayName = callState.remoteDisplayName ?? 'Unknown Caller';
-    final avatarUrl = callState.remoteAvatarUrl;
+    final resolvedAvatar = callState.remoteAvatarUrl != null
+        ? MediaUrlResolver.resolve(callState.remoteAvatarUrl)
+        : null;
+    final avatarUrl = resolvedAvatar ?? callState.remoteAvatarUrl;
     final isVideo = callState.isVideoCall;
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
+
+    Widget mainCard = Stack(
+      children: [
+        // Background Layer: Blurred Avatar or Gradient
+        Positioned.fill(
+          child: Stack(
+            children: [
+              if (avatarUrl != null && avatarUrl.isNotEmpty)
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: avatarUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) =>
+                        Container(color: const Color(0xFF0F141C)),
+                  ),
+                )
+              else
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0, -0.2),
+                      radius: 1.2,
+                      colors: [Color(0xFF1E293B), Color(0xFF090D16)],
+                    ),
+                  ),
+                ),
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Main Content
+        SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 36),
+
+              // Call Type Badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isVideo
+                          ? Icons.videocam_rounded
+                          : Icons.phone_in_talk_rounded,
+                      color: const Color(0xFF00C6FF),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isVideo
+                          ? tr('calls.incoming_video')
+                          : tr('calls.incoming_audio'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // Center Ripple Waves + Avatar
+              Center(
+                child: SizedBox(
+                  width: 260,
+                  height: 260,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Ripple 1
+                      AnimatedBuilder(
+                        animation: _rippleController,
+                        builder: (context, child) {
+                          final progress = _rippleController.value;
+                          return Container(
+                            width: 140 + (120 * progress),
+                            height: 140 + (120 * progress),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF00C6FF)
+                                    .withValues(alpha: (1.0 - progress) * 0.5),
+                                width: 2,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      // Ripple 2
+                      AnimatedBuilder(
+                        animation: _rippleController,
+                        builder: (context, child) {
+                          final progress =
+                              (_rippleController.value + 0.5) % 1.0;
+                          return Container(
+                            width: 140 + (120 * progress),
+                            height: 140 + (120 * progress),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF00C6FF)
+                                    .withValues(alpha: (1.0 - progress) * 0.4),
+                                width: 1.5,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      // Avatar
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00C6FF)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: ClipOval(
+                          child: avatarUrl != null && avatarUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) =>
+                                      _buildFallbackAvatar(displayName),
+                                )
+                              : _buildFallbackAvatar(displayName),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              Text(
+                displayName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Zikre Kedusan',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 15,
+                ),
+              ),
+
+              const Spacer(flex: 2),
+
+              // Bottom Action Buttons: Decline (Red) & Accept (Green)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 48,
+                  vertical: 36,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Decline Button
+                    _ActionColumn(
+                      icon: Icons.call_end_rounded,
+                      color: const Color(0xFFEF4444),
+                      label: tr('calls.decline'),
+                      onTap: () {
+                        callService.rejectCall();
+                        if (mounted) {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            ref.read(routerProvider).go('/home');
+                          }
+                        }
+                      },
+                    ),
+
+                    // Accept Button
+                    _ActionColumn(
+                      icon: isVideo
+                          ? Icons.videocam_rounded
+                          : Icons.call_rounded,
+                      color: const Color(0xFF10B981),
+                      label: tr('calls.accept'),
+                      onTap: () async {
+                        await callService.acceptCall();
+                        if (!mounted) return;
+                        ref.read(routerProvider).pushReplacement('/call/active');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
 
     return PopScope(
       canPop: true,
@@ -68,242 +317,30 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0D1117),
-        body: Stack(
-          children: [
-            // Background Layer: Blurred Avatar or Gradient
-            Positioned.fill(
-              child: Stack(
-                children: [
-                  if (avatarUrl != null && avatarUrl.isNotEmpty)
-                    Positioned.fill(
-                      child: CachedNetworkImage(
-                        imageUrl: avatarUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) =>
-                            Container(color: const Color(0xFF0F141C)),
-                      ),
-                    )
-                  else
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment(0, -0.2),
-                          radius: 1.2,
-                          colors: [Color(0xFF1E293B), Color(0xFF090D16)],
-                        ),
-                      ),
+        body: isDesktop
+            ? Center(
+                child: Container(
+                  width: 480,
+                  height: 720,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1.5,
                     ),
-                  Positioned.fill(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
-                      child: Container(
+                    boxShadow: [
+                      BoxShadow(
                         color: Colors.black.withValues(alpha: 0.65),
+                        blurRadius: 36,
+                        offset: const Offset(0, 12),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-
-            // Main Content
-            SafeArea(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-
-                  // Call Type Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isVideo
-                              ? Icons.videocam_rounded
-                              : Icons.phone_in_talk_rounded,
-                          color: const Color(0xFF00C6FF),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isVideo
-                              ? tr('calls.incoming_video')
-                              : tr('calls.incoming_audio'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Center Ripple Waves + Avatar
-                  Center(
-                    child: SizedBox(
-                      width: 260,
-                      height: 260,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Ripple 1
-                          AnimatedBuilder(
-                            animation: _rippleController,
-                            builder: (context, child) {
-                              final progress = _rippleController.value;
-                              return Container(
-                                width: 140 + (120 * progress),
-                                height: 140 + (120 * progress),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFF00C6FF,
-                                    ).withValues(alpha: (1.0 - progress) * 0.5),
-                                    width: 2,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          // Ripple 2
-                          AnimatedBuilder(
-                            animation: _rippleController,
-                            builder: (context, child) {
-                              final progress =
-                                  (_rippleController.value + 0.5) % 1.0;
-                              return Container(
-                                width: 140 + (120 * progress),
-                                height: 140 + (120 * progress),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFF00C6FF,
-                                    ).withValues(alpha: (1.0 - progress) * 0.4),
-                                    width: 1.5,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          // Avatar
-                          Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF00C6FF), Color(0xFF0072FF)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF00C6FF,
-                                  ).withValues(alpha: 0.4),
-                                  blurRadius: 30,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: ClipOval(
-                              child: avatarUrl != null && avatarUrl.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: avatarUrl,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (context, url, error) =>
-                                          _buildFallbackAvatar(displayName),
-                                    )
-                                  : _buildFallbackAvatar(displayName),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Zikre Kidusan Call',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  const Spacer(flex: 2),
-
-                  // Bottom Action Buttons: Decline (Red) & Accept (Green)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 36,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Decline Button
-                        _ActionColumn(
-                          icon: Icons.call_end_rounded,
-                          color: const Color(0xFFEF4444),
-                          label: tr('calls.decline'),
-                          onTap: () {
-                            callService.rejectCall();
-                            if (mounted && Navigator.canPop(context)) {
-                              context.pop();
-                            }
-                          },
-                        ),
-
-                        // Accept Button
-                        _ActionColumn(
-                          icon: isVideo
-                              ? Icons.videocam_rounded
-                              : Icons.call_rounded,
-                          color: const Color(0xFF10B981),
-                          label: tr('calls.accept'),
-                          onTap: () async {
-                            await callService.acceptCall();
-                            if (!context.mounted) return;
-                            context.pushReplacement('/call/active');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+                  child: mainCard,
+                ),
+              )
+            : mainCard,
       ),
     );
   }

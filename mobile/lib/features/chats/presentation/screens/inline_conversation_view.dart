@@ -20,6 +20,8 @@ import 'package:mobile/features/chats/presentation/widgets/message_bubble.dart';
 import 'package:mobile/features/chats/presentation/widgets/message_composer.dart';
 import 'package:mobile/features/chats/presentation/widgets/chat_activity_indicator.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
+import 'package:mobile/features/calls/providers/call_state_provider.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
 
 /// Callback signature for toggling the details panel.
@@ -676,11 +678,25 @@ class InlineConversationViewState
       return;
     }
     final currentUser = ref.read(authProvider).user;
-    final myDisplayName =
-        currentUser?.displayIdentifier ?? 'Caller';
-    final targetDisplayName =
-        otherMember.displayName ?? otherMember.username;
+    final myProfile = ref.read(profileProvider).profile;
+    final myDisplayName = myProfile?.displayName ??
+        currentUser?.displayIdentifier ??
+        'Caller';
+    final myAvatarUrl = myProfile?.avatarUrl;
+    final targetDisplayName = (otherMember.displayName != null &&
+            otherMember.displayName!.isNotEmpty)
+        ? otherMember.displayName!
+        : otherMember.username;
     final targetAvatarUrl = otherMember.avatarUrl;
+
+    // Immediately set calling state so CallScreen renders with real contact data
+    ref.read(callStateProvider.notifier).setCalling(
+          conversationId: widget.conversationId,
+          remoteUserId: otherMember.userId,
+          remoteDisplayName: targetDisplayName,
+          remoteAvatarUrl: targetAvatarUrl,
+          isVideoCall: isVideo,
+        );
 
     context.push('/call/active');
 
@@ -691,7 +707,7 @@ class InlineConversationViewState
           targetAvatarUrl: targetAvatarUrl,
           isVideo: isVideo,
           myDisplayName: myDisplayName,
-          myAvatarUrl: null,
+          myAvatarUrl: myAvatarUrl,
         );
   }
 }

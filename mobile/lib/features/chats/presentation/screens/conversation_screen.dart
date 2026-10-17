@@ -12,6 +12,8 @@ import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/pinned_messages_bar.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
+import 'package:mobile/features/calls/providers/call_state_provider.dart';
 import 'package:mobile/features/calls/services/call_service.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
@@ -1005,24 +1007,38 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
     }
 
     final currentUser = ref.read(authProvider).user;
-    final myDisplayName = currentUser?.displayIdentifier ?? 'Caller';
-    final targetDisplayName = otherMember.displayName ?? otherMember.username;
+    final myProfile = ref.read(profileProvider).profile;
+    final myDisplayName = myProfile?.displayName ??
+        currentUser?.displayIdentifier ??
+        'Caller';
+    final myAvatarUrl = myProfile?.avatarUrl;
+    final targetDisplayName = (otherMember.displayName != null &&
+            otherMember.displayName!.isNotEmpty)
+        ? otherMember.displayName!
+        : otherMember.username;
     final targetAvatarUrl = otherMember.avatarUrl;
+
+    // Immediately set calling state so CallScreen renders with real contact data
+    ref.read(callStateProvider.notifier).setCalling(
+          conversationId: widget.conversationId,
+          remoteUserId: otherMember.userId,
+          remoteDisplayName: targetDisplayName,
+          remoteAvatarUrl: targetAvatarUrl,
+          isVideoCall: isVideo,
+        );
 
     // Navigate to active call screen
     context.push('/call/active');
 
     // Initiate WebRTC call via CallService
-    await ref
-        .read(callServiceProvider)
-        .initiateCall(
+    await ref.read(callServiceProvider).initiateCall(
           targetUserId: otherMember.userId,
           conversationId: widget.conversationId,
           targetDisplayName: targetDisplayName,
           targetAvatarUrl: targetAvatarUrl,
           isVideo: isVideo,
           myDisplayName: myDisplayName,
-          myAvatarUrl: null,
+          myAvatarUrl: myAvatarUrl,
         );
   }
 }

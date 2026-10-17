@@ -43,6 +43,8 @@ export const WS_EVENTS = {
   CALL_REJECT: 'call:reject',
   CALL_HANGUP: 'call:hangup',
   CALL_ICE_CANDIDATE: 'call:ice-candidate',
+  CALL_REACTION: 'call:reaction',
+  CALL_MEDIA_STATE: 'call:media-state',
 
   // Server → Client
   MESSAGE_NEW: 'message:new',
@@ -63,6 +65,8 @@ export const WS_EVENTS = {
   CALL_REJECTED: 'call:rejected',
   CALL_ENDED: 'call:ended',
   CALL_ICE: 'call:ice',
+  CALL_REACTION_RECEIVED: 'call:reaction',
+  CALL_MEDIA_STATE_RECEIVED: 'call:media-state',
 } as const;
 
 // Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
@@ -690,6 +694,66 @@ export class MessagingGateway
       this.server.to(socketId).emit(WS_EVENTS.CALL_ICE, {
         conversationId: data.conversationId,
         candidate: data.candidate,
+      });
+    }
+  }
+
+  /**
+   * Either party → Server: send in-call reaction or gesture
+   * Payload: { targetUserId, conversationId, emoji, action?: string }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_REACTION)
+  handleCallReaction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      targetUserId: string;
+      conversationId: string;
+      emoji: string;
+      action?: string;
+    },
+  ) {
+    const senderId = (client as any).userId as string;
+    const targetSockets = this.userSocketMap.get(data.targetUserId);
+    if (!targetSockets) return;
+
+    for (const socketId of targetSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_REACTION_RECEIVED, {
+        senderId,
+        conversationId: data.conversationId,
+        emoji: data.emoji,
+        action: data.action,
+      });
+    }
+  }
+
+  /**
+   * Either party → Server: notify peer of media state changes (mute, video toggle, screen share)
+   * Payload: { targetUserId, conversationId, isMuted?: boolean, isVideoEnabled?: boolean, isScreenSharing?: boolean }
+   */
+  @SubscribeMessage(WS_EVENTS.CALL_MEDIA_STATE)
+  handleCallMediaState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      targetUserId: string;
+      conversationId: string;
+      isMuted?: boolean;
+      isVideoEnabled?: boolean;
+      isScreenSharing?: boolean;
+    },
+  ) {
+    const senderId = (client as any).userId as string;
+    const targetSockets = this.userSocketMap.get(data.targetUserId);
+    if (!targetSockets) return;
+
+    for (const socketId of targetSockets) {
+      this.server.to(socketId).emit(WS_EVENTS.CALL_MEDIA_STATE_RECEIVED, {
+        senderId,
+        conversationId: data.conversationId,
+        isMuted: data.isMuted,
+        isVideoEnabled: data.isVideoEnabled,
+        isScreenSharing: data.isScreenSharing,
       });
     }
   }

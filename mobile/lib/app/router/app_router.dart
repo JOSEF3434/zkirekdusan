@@ -153,6 +153,17 @@ class RouterNotifier extends ChangeNotifier {
       return '/call/incoming';
     }
 
+    // If on /call/incoming but call is no longer ringing, redirect away to /home
+    if (location == '/call/incoming' &&
+        callState.status != CallStatus.ringing) {
+      return '/home';
+    }
+
+    // If on /call/active but call is ended or idle, redirect away to /home
+    if (location == '/call/active' && !callState.isActive && !callState.isCollapsed) {
+      return '/home';
+    }
+
     // 0. Hold on splash screen route until minimum splash loading time and animations complete
     if (isSplashRoute && !splashCompleted) {
       return null;
