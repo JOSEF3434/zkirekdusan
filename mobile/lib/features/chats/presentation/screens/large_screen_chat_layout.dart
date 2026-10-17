@@ -1,17 +1,16 @@
 // lib/features/chats/presentation/screens/large_screen_chat_layout.dart
 //
-// Telegram-style four-panel layout for tablet/desktop (≥ 600px wide).
+// Responsive multi-panel chat layout.
 //
-//  ┌─────────────────────────────────────────────────────────────────────┐
-//  │  Chat List (resizable)  │  Conversation (flex)  │  Info (resizable) │
-//  └─────────────────────────────────────────────────────────────────────┘
+//  ≥ 900px  → Large:  [Chat List] | [Conversation] | [Info panel (toggleable)]
+//  600–900px → Medium: [Chat List] | [Conversation]  (info via toggle/sheet)
+//  < 600px  → Small:  Mobile-like page stack:
+//              Page 0: Friend/Chat list
+//              Page 1: Message bubble (back → list)
+//              Page 2: Info panel     (back → messages)
 //
-// The chat list is always visible. Selecting a conversation renders it
-// inline in the center panel (no navigation). The info/details panel is
-// OPEN BY DEFAULT and toggled via the ℹ button. All panels are resizable
-// via drag handles. The stories strip is collapsed into a compact avatar
-// cluster next to the search bar (Telegram Desktop Screenshot 1) and
-// expands into a full strip (Screenshot 2) with "Your Story" first.
+// Info panel defaults to CLOSED (false). Toggle via ℹ️ button in header.
+// All large-screen panels are resizable via drag handles.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,8 +53,12 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
   String? _selectedTargetGroupId;
 
   /// Whether the right info/details panel is open.
-  /// Defaults to TRUE – open by default like Telegram Desktop.
-  bool _isDetailsPanelOpen = true;
+  /// Defaults to FALSE – closed by default (toggle via ℹ️ button).
+  bool _isDetailsPanelOpen = false;
+
+  /// Mobile-like navigation index for small/medium screens:
+  /// 0 = friend list, 1 = message bubble, 2 = info page
+  int _mobilePageIndex = 0;
 
   /// Resizable panel widths.
   double _listPanelWidth = _kListPanelDefaultWidth;
@@ -72,7 +75,7 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
   }
 
   // ── Handle list-item tap ────────────────────────────────────────────────────
-  Future<void> _handleItemTap(UnifiedChatItem item) async {
+  Future<void> _handleItemTap(UnifiedChatItem item, {bool isMobile = false}) async {
     final notifier = ref.read(chatDiscoveryProvider.notifier);
 
     // Immediately highlight the tapped item
@@ -134,8 +137,12 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
         _selectedConversationId = convId;
         _selectedTargetUserId = item.targetUserId;
         _selectedTargetGroupId = item.targetGroupId;
-        // Open details panel when selecting a new conversation (default open)
-        _isDetailsPanelOpen = true;
+        // Info panel stays closed by default (user opens it via ℹ️ toggle)
+        _isDetailsPanelOpen = false;
+        // On mobile/medium, navigate to message bubble page
+        if (isMobile) {
+          _mobilePageIndex = 1;
+        }
       });
     }
   }
@@ -144,9 +151,49 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
     setState(() => _isDetailsPanelOpen = !_isDetailsPanelOpen);
   }
 
+  // Mobile nav: go to info page
+  void _goToInfoPage() {
+    setState(() {
+      _isDetailsPanelOpen = true;
+      _mobilePageIndex = 2;
+    });
+  }
+
+  // Mobile nav: go back to messages
+  void _goBackToMessages() {
+    setState(() {
+      _isDetailsPanelOpen = false;
+      _mobilePageIndex = 1;
+    });
+  }
+
+  // Mobile nav: go back to friend list
+  void _goBackToList() {
+    setState(() {
+      _mobilePageIndex = 0;
+      _isDetailsPanelOpen = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        if (width >= 900) {
+          return _buildLargeLayout(context, isDark);
+        } else if (width >= 600) {
+          return _buildMediumLayout(context, isDark);
+        } else {
+          return _buildSmallLayout(context, isDark);
+        }
+      },
+    );
+  }
+
+  // ── Large screen (≥900px): 3-panel ───────────────────────────────────────────
+  Widget _buildLargeLayout(BuildContext context, bool isDark) {
     final listBg = isDark ? const Color(0xFF0E1621) : Colors.white;
     final dividerColor = isDark
         ? Colors.white.withValues(alpha: 0.06)
@@ -156,12 +203,11 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
         : Colors.black.withValues(alpha: 0.04);
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0B0E14)
-          : const Color(0xFFF0F2F5),
+      backgroundColor:
+          isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
       body: Row(
         children: [
-          // ── LEFT: Chat list panel (resizable) ────────────────────────────
+          // LEFT: Chat list panel
           SizedBox(
             width: _listPanelWidth,
             child: _ChatListPanel(
@@ -175,8 +221,6 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
               searchController: _searchController,
             ),
           ),
-
-          // ── Drag handle between list and center ───────────────────────────
           _ResizeDivider(
             color: dragHandleColor,
             onDelta: (dx) {
@@ -188,8 +232,7 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
               });
             },
           ),
-
-          // ── CENTER: Conversation panel ────────────────────────────────────
+          // CENTER: Conversation panel
           Expanded(
             child: _selectedConversationId == null
                 ? _PlaceholderPanel(isDark: isDark)
@@ -200,8 +243,7 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
                     isDetailsPanelOpen: _isDetailsPanelOpen,
                   ),
           ),
-
-          // ── RIGHT: Details panel (animated, resizable) ────────────────────
+          // RIGHT: Details panel (closed by default, animated)
           AnimatedSize(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
@@ -209,17 +251,15 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
                 ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Drag handle on the left edge of details panel
                       _ResizeDivider(
                         color: dragHandleColor,
                         onDelta: (dx) {
                           setState(() {
-                            // Dragging right shrinks the panel, left grows it
-                            _detailsPanelWidth = (_detailsPanelWidth - dx)
-                                .clamp(
-                                  _kDetailsPanelMinWidth,
-                                  _kDetailsPanelMaxWidth,
-                                );
+                            _detailsPanelWidth =
+                                (_detailsPanelWidth - dx).clamp(
+                              _kDetailsPanelMinWidth,
+                              _kDetailsPanelMaxWidth,
+                            );
                           });
                         },
                       ),
@@ -230,9 +270,8 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
                           onClose: () =>
                               setState(() => _isDetailsPanelOpen = false),
                           onJumpToMessage: (messageId) {
-                            _inlineConvKey.currentState?.scrollToMessage(
-                              messageId,
-                            );
+                            _inlineConvKey.currentState
+                                ?.scrollToMessage(messageId);
                           },
                         ),
                       ),
@@ -241,6 +280,170 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Medium screen (600–900px): 2-panel, info via slide-in ─────────────────────
+  Widget _buildMediumLayout(BuildContext context, bool isDark) {
+    final listBg = isDark ? const Color(0xFF0E1621) : Colors.white;
+    final dividerColor = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.06);
+    final dragHandleColor = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : Colors.black.withValues(alpha: 0.04);
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        transitionBuilder: (child, anim) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+        child: _mobilePageIndex == 2 && _selectedConversationId != null
+            // Info page (full screen on medium)
+            ? Scaffold(
+                key: const ValueKey('info_page'),
+                backgroundColor:
+                    isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
+                body: ChatDetailsPanel(
+                  conversationId: _selectedConversationId!,
+                  onClose: _goBackToMessages,
+                  onJumpToMessage: (messageId) {
+                    _goBackToMessages();
+                    Future.delayed(
+                      const Duration(milliseconds: 350),
+                      () => _inlineConvKey.currentState
+                          ?.scrollToMessage(messageId),
+                    );
+                  },
+                  showBackButton: true,
+                  onBack: _goBackToMessages,
+                ),
+              )
+            // 2-column: list + conversation
+            : Row(
+                key: const ValueKey('two_panel'),
+                children: [
+                  SizedBox(
+                    width: _listPanelWidth.clamp(220.0, 320.0),
+                    child: _ChatListPanel(
+                      isDark: isDark,
+                      listBg: listBg,
+                      dividerColor: dividerColor,
+                      selectedConversationId: _selectedConversationId,
+                      selectedTargetUserId: _selectedTargetUserId,
+                      selectedTargetGroupId: _selectedTargetGroupId,
+                      onItemTap: (item) => _handleItemTap(item),
+                      searchController: _searchController,
+                    ),
+                  ),
+                  _ResizeDivider(
+                    color: dragHandleColor,
+                    onDelta: (dx) {
+                      setState(() {
+                        _listPanelWidth = (_listPanelWidth + dx)
+                            .clamp(_kListPanelMinWidth, 320.0);
+                      });
+                    },
+                  ),
+                  Expanded(
+                    child: _selectedConversationId == null
+                        ? _PlaceholderPanel(isDark: isDark)
+                        : InlineConversationView(
+                            key: _inlineConvKey,
+                            conversationId: _selectedConversationId!,
+                            onToggleDetails: _goToInfoPage,
+                            isDetailsPanelOpen: false,
+                          ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // ── Small screen (<600px): mobile-like page stack ─────────────────────────────
+  Widget _buildSmallLayout(BuildContext context, bool isDark) {
+    final listBg = isDark ? const Color(0xFF0E1621) : Colors.white;
+    final dividerColor = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.06);
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.white,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, anim) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+        child: _mobilePageIndex == 2 && _selectedConversationId != null
+            // PAGE 2: Info panel (full screen)
+            ? Scaffold(
+                key: const ValueKey('info_full'),
+                backgroundColor:
+                    isDark ? const Color(0xFF0B0E14) : const Color(0xFFF0F2F5),
+                body: ChatDetailsPanel(
+                  conversationId: _selectedConversationId!,
+                  onClose: _goBackToMessages,
+                  onJumpToMessage: (messageId) {
+                    _goBackToMessages();
+                    Future.delayed(
+                      const Duration(milliseconds: 350),
+                      () => _inlineConvKey.currentState
+                          ?.scrollToMessage(messageId),
+                    );
+                  },
+                  showBackButton: true,
+                  onBack: _goBackToMessages,
+                ),
+              )
+            : _mobilePageIndex == 1 && _selectedConversationId != null
+                // PAGE 1: Message bubble with back→list and info access
+                ? Scaffold(
+                    key: const ValueKey('messages'),
+                    backgroundColor: isDark
+                        ? const Color(0xFF0B0E14)
+                        : const Color(0xFFF7F9FC),
+                    body: Column(
+                      children: [
+                        Expanded(
+                          child: InlineConversationView(
+                            key: _inlineConvKey,
+                            conversationId: _selectedConversationId!,
+                            onToggleDetails: _goToInfoPage,
+                            isDetailsPanelOpen: false,
+                            onBackToList: _goBackToList,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                // PAGE 0: Friend/Chat list
+                : Scaffold(
+                    key: const ValueKey('chat_list'),
+                    backgroundColor: listBg,
+                    body: _ChatListPanel(
+                      isDark: isDark,
+                      listBg: listBg,
+                      dividerColor: dividerColor,
+                      selectedConversationId: _selectedConversationId,
+                      selectedTargetUserId: _selectedTargetUserId,
+                      selectedTargetGroupId: _selectedTargetGroupId,
+                      onItemTap: (item) => _handleItemTap(item, isMobile: true),
+                      searchController: _searchController,
+                    ),
+                  ),
       ),
     );
   }

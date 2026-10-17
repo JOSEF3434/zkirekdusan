@@ -18,12 +18,18 @@ class ChatDetailsPanel extends ConsumerWidget {
   final String conversationId;
   final VoidCallback onClose;
   final Function(String messageId)? onJumpToMessage;
+  /// When true, shows a back-arrow instead of close-X in the header.
+  final bool showBackButton;
+  /// Called when the back-arrow is tapped (requires showBackButton=true).
+  final VoidCallback? onBack;
 
   const ChatDetailsPanel({
     super.key,
     required this.conversationId,
     required this.onClose,
     this.onJumpToMessage,
+    this.showBackButton = false,
+    this.onBack,
   });
 
   @override
@@ -68,6 +74,8 @@ class ChatDetailsPanel extends ConsumerWidget {
         onClose: onClose,
         ref: ref,
         onJumpToMessage: onJumpToMessage,
+        showBackButton: showBackButton,
+        onBack: onBack,
       );
     } else {
       return _GroupDetailsPanel(
@@ -80,6 +88,8 @@ class ChatDetailsPanel extends ConsumerWidget {
         ref: ref,
         context: context,
         onJumpToMessage: onJumpToMessage,
+        showBackButton: showBackButton,
+        onBack: onBack,
       );
     }
   }
@@ -89,7 +99,12 @@ class ChatDetailsPanel extends ConsumerWidget {
       color: bg,
       child: Column(
         children: [
-          _PanelHeader(onClose: onClose, isDark: isDark),
+          _PanelHeader(
+            onClose: onClose,
+            isDark: isDark,
+            showBackButton: showBackButton,
+            onBack: onBack,
+          ),
           const Expanded(
             child: Center(
               child: CircularProgressIndicator(
@@ -107,7 +122,12 @@ class ChatDetailsPanel extends ConsumerWidget {
       color: bg,
       child: Column(
         children: [
-          _PanelHeader(onClose: onClose, isDark: isDark),
+          _PanelHeader(
+            onClose: onClose,
+            isDark: isDark,
+            showBackButton: showBackButton,
+            onBack: onBack,
+          ),
           Expanded(
             child: Center(
               child: Padding(
@@ -159,6 +179,8 @@ class _DirectDetailsPanel extends StatelessWidget {
   final VoidCallback onClose;
   final WidgetRef ref;
   final Function(String messageId)? onJumpToMessage;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   const _DirectDetailsPanel({
     required this.conversation,
@@ -169,6 +191,8 @@ class _DirectDetailsPanel extends StatelessWidget {
     required this.onClose,
     required this.ref,
     this.onJumpToMessage,
+    this.showBackButton = false,
+    this.onBack,
   });
 
   @override
@@ -197,7 +221,12 @@ class _DirectDetailsPanel extends StatelessWidget {
       color: bg,
       child: Column(
         children: [
-          _PanelHeader(onClose: onClose, isDark: isDark),
+          _PanelHeader(
+            onClose: onClose,
+            isDark: isDark,
+            showBackButton: showBackButton,
+            onBack: onBack,
+          ),
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -364,6 +393,8 @@ class _GroupDetailsPanel extends StatelessWidget {
   final WidgetRef ref;
   final BuildContext context;
   final Function(String messageId)? onJumpToMessage;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   const _GroupDetailsPanel({
     required this.conversation,
@@ -375,6 +406,8 @@ class _GroupDetailsPanel extends StatelessWidget {
     required this.ref,
     required this.context,
     this.onJumpToMessage,
+    this.showBackButton = false,
+    this.onBack,
   });
 
   @override
@@ -390,7 +423,12 @@ class _GroupDetailsPanel extends StatelessWidget {
       color: bg,
       child: Column(
         children: [
-          _PanelHeader(onClose: onClose, isDark: isDark),
+          _PanelHeader(
+            onClose: onClose,
+            isDark: isDark,
+            showBackButton: showBackButton,
+            onBack: onBack,
+          ),
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -567,8 +605,15 @@ class _GroupDetailsPanel extends StatelessWidget {
 class _PanelHeader extends StatelessWidget {
   final VoidCallback onClose;
   final bool isDark;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
-  const _PanelHeader({required this.onClose, required this.isDark});
+  const _PanelHeader({
+    required this.onClose,
+    required this.isDark,
+    this.showBackButton = false,
+    this.onBack,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -588,7 +633,20 @@ class _PanelHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 8),
+          if (showBackButton)
+            IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.7)
+                    : Colors.black54,
+                size: 20,
+              ),
+              onPressed: onBack ?? onClose,
+              tooltip: 'Back',
+            )
+          else
+            const SizedBox(width: 8),
           Text(
             'Info',
             style: TextStyle(
@@ -598,16 +656,17 @@ class _PanelHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          IconButton(
-            icon: Icon(
-              Icons.close_rounded,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.7)
-                  : Colors.black54,
+          if (!showBackButton)
+            IconButton(
+              icon: Icon(
+                Icons.close_rounded,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.7)
+                    : Colors.black54,
+              ),
+              onPressed: onClose,
+              tooltip: 'Close',
             ),
-            onPressed: onClose,
-            tooltip: 'Close',
-          ),
         ],
       ),
     );

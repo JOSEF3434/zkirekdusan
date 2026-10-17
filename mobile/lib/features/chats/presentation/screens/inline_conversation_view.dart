@@ -34,11 +34,15 @@ class InlineConversationView extends ConsumerStatefulWidget {
   /// Whether the details panel is currently open (to show icon state).
   final bool isDetailsPanelOpen;
 
+  /// Optional back arrow to return to friend list (small/medium screens).
+  final VoidCallback? onBackToList;
+
   const InlineConversationView({
     super.key,
     required this.conversationId,
     required this.onToggleDetails,
     required this.isDetailsPanelOpen,
+    this.onBackToList,
   });
 
   @override
@@ -273,6 +277,7 @@ class InlineConversationViewState
               const SnackBar(content: Text('Chat history cleared')),
             );
           },
+          onBackToList: widget.onBackToList,
         ),
 
         // ── Telegram-Style Pinned Messages Top Bar ────────────────────────────
@@ -714,6 +719,8 @@ class _InlineHeader extends StatelessWidget {
   final VoidCallback onMute;
   final VoidCallback? onInviteLink;
   final VoidCallback onClearChat;
+  /// Optional: back arrow to return to friend list (small/medium screens)
+  final VoidCallback? onBackToList;
 
   const _InlineHeader({
     required this.displayName,
@@ -734,6 +741,7 @@ class _InlineHeader extends StatelessWidget {
     required this.onMute,
     required this.onInviteLink,
     required this.onClearChat,
+    this.onBackToList,
   });
 
   String _formatActivity(String activity) {
@@ -780,6 +788,21 @@ class _InlineHeader extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
+                  // Back button (small/medium screens)
+                  if (onBackToList != null)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
+                      tooltip: 'Back to chats',
+                      onPressed: onBackToList,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.black54,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   // Avatar
                   Stack(
                     clipBehavior: Clip.none,
