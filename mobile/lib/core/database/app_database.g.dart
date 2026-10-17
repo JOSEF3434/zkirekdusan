@@ -10552,6 +10552,1395 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }
 }
 
+class $LocalDownloadedBooksTable extends LocalDownloadedBooks
+    with TableInfo<$LocalDownloadedBooksTable, LocalDownloadedBookData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalDownloadedBooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleAmMeta = const VerificationMeta(
+    'titleAm',
+  );
+  @override
+  late final GeneratedColumn<String> titleAm = GeneratedColumn<String>(
+    'title_am',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coverUrlMeta = const VerificationMeta(
+    'coverUrl',
+  );
+  @override
+  late final GeneratedColumn<String> coverUrl = GeneratedColumn<String>(
+    'cover_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  @override
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+    'author',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryNameMeta = const VerificationMeta(
+    'categoryName',
+  );
+  @override
+  late final GeneratedColumn<String> categoryName = GeneratedColumn<String>(
+    'category_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _formatMeta = const VerificationMeta('format');
+  @override
+  late final GeneratedColumn<String> format = GeneratedColumn<String>(
+    'format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageCountMeta = const VerificationMeta(
+    'pageCount',
+  );
+  @override
+  late final GeneratedColumn<int> pageCount = GeneratedColumn<int>(
+    'page_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('queued'),
+  );
+  static const VerificationMeta _progressMeta = const VerificationMeta(
+    'progress',
+  );
+  @override
+  late final GeneratedColumn<double> progress = GeneratedColumn<double>(
+    'progress',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _expectedBytesMeta = const VerificationMeta(
+    'expectedBytes',
+  );
+  @override
+  late final GeneratedColumn<int> expectedBytes = GeneratedColumn<int>(
+    'expected_bytes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _downloadedBytesMeta = const VerificationMeta(
+    'downloadedBytes',
+  );
+  @override
+  late final GeneratedColumn<int> downloadedBytes = GeneratedColumn<int>(
+    'downloaded_bytes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _localContentPathMeta = const VerificationMeta(
+    'localContentPath',
+  );
+  @override
+  late final GeneratedColumn<String> localContentPath = GeneratedColumn<String>(
+    'local_content_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _localCoverPathMeta = const VerificationMeta(
+    'localCoverPath',
+  );
+  @override
+  late final GeneratedColumn<String> localCoverPath = GeneratedColumn<String>(
+    'local_cover_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentChecksumMeta = const VerificationMeta(
+    'contentChecksum',
+  );
+  @override
+  late final GeneratedColumn<String> contentChecksum = GeneratedColumn<String>(
+    'content_checksum',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentVersionMeta = const VerificationMeta(
+    'contentVersion',
+  );
+  @override
+  late final GeneratedColumn<String> contentVersion = GeneratedColumn<String>(
+    'content_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _downloadedAtMeta = const VerificationMeta(
+    'downloadedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> downloadedAt = GeneratedColumn<DateTime>(
+    'downloaded_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastVerifiedAtMeta = const VerificationMeta(
+    'lastVerifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastVerifiedAt =
+      GeneratedColumn<DateTime>(
+        'last_verified_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastOpenedAtMeta = const VerificationMeta(
+    'lastOpenedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastOpenedAt = GeneratedColumn<DateTime>(
+    'last_opened_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    bookId,
+    userId,
+    title,
+    titleAm,
+    coverUrl,
+    author,
+    categoryName,
+    format,
+    pageCount,
+    status,
+    progress,
+    expectedBytes,
+    downloadedBytes,
+    localContentPath,
+    localCoverPath,
+    contentChecksum,
+    contentVersion,
+    lastError,
+    retryCount,
+    downloadedAt,
+    lastVerifiedAt,
+    lastOpenedAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_downloaded_books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalDownloadedBookData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('title_am')) {
+      context.handle(
+        _titleAmMeta,
+        titleAm.isAcceptableOrUnknown(data['title_am']!, _titleAmMeta),
+      );
+    }
+    if (data.containsKey('cover_url')) {
+      context.handle(
+        _coverUrlMeta,
+        coverUrl.isAcceptableOrUnknown(data['cover_url']!, _coverUrlMeta),
+      );
+    }
+    if (data.containsKey('author')) {
+      context.handle(
+        _authorMeta,
+        author.isAcceptableOrUnknown(data['author']!, _authorMeta),
+      );
+    }
+    if (data.containsKey('category_name')) {
+      context.handle(
+        _categoryNameMeta,
+        categoryName.isAcceptableOrUnknown(
+          data['category_name']!,
+          _categoryNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('format')) {
+      context.handle(
+        _formatMeta,
+        format.isAcceptableOrUnknown(data['format']!, _formatMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_formatMeta);
+    }
+    if (data.containsKey('page_count')) {
+      context.handle(
+        _pageCountMeta,
+        pageCount.isAcceptableOrUnknown(data['page_count']!, _pageCountMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('progress')) {
+      context.handle(
+        _progressMeta,
+        progress.isAcceptableOrUnknown(data['progress']!, _progressMeta),
+      );
+    }
+    if (data.containsKey('expected_bytes')) {
+      context.handle(
+        _expectedBytesMeta,
+        expectedBytes.isAcceptableOrUnknown(
+          data['expected_bytes']!,
+          _expectedBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('downloaded_bytes')) {
+      context.handle(
+        _downloadedBytesMeta,
+        downloadedBytes.isAcceptableOrUnknown(
+          data['downloaded_bytes']!,
+          _downloadedBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('local_content_path')) {
+      context.handle(
+        _localContentPathMeta,
+        localContentPath.isAcceptableOrUnknown(
+          data['local_content_path']!,
+          _localContentPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('local_cover_path')) {
+      context.handle(
+        _localCoverPathMeta,
+        localCoverPath.isAcceptableOrUnknown(
+          data['local_cover_path']!,
+          _localCoverPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content_checksum')) {
+      context.handle(
+        _contentChecksumMeta,
+        contentChecksum.isAcceptableOrUnknown(
+          data['content_checksum']!,
+          _contentChecksumMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content_version')) {
+      context.handle(
+        _contentVersionMeta,
+        contentVersion.isAcceptableOrUnknown(
+          data['content_version']!,
+          _contentVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('downloaded_at')) {
+      context.handle(
+        _downloadedAtMeta,
+        downloadedAt.isAcceptableOrUnknown(
+          data['downloaded_at']!,
+          _downloadedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_verified_at')) {
+      context.handle(
+        _lastVerifiedAtMeta,
+        lastVerifiedAt.isAcceptableOrUnknown(
+          data['last_verified_at']!,
+          _lastVerifiedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_opened_at')) {
+      context.handle(
+        _lastOpenedAtMeta,
+        lastOpenedAt.isAcceptableOrUnknown(
+          data['last_opened_at']!,
+          _lastOpenedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, userId};
+  @override
+  LocalDownloadedBookData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalDownloadedBookData(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      titleAm: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title_am'],
+      ),
+      coverUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_url'],
+      ),
+      author: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author'],
+      ),
+      categoryName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_name'],
+      ),
+      format: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}format'],
+      )!,
+      pageCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page_count'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      progress: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}progress'],
+      )!,
+      expectedBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expected_bytes'],
+      ),
+      downloadedBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}downloaded_bytes'],
+      ),
+      localContentPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_content_path'],
+      ),
+      localCoverPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_cover_path'],
+      ),
+      contentChecksum: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_checksum'],
+      ),
+      contentVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_version'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      downloadedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}downloaded_at'],
+      ),
+      lastVerifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_verified_at'],
+      ),
+      lastOpenedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_opened_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalDownloadedBooksTable createAlias(String alias) {
+    return $LocalDownloadedBooksTable(attachedDatabase, alias);
+  }
+}
+
+class LocalDownloadedBookData extends DataClass
+    implements Insertable<LocalDownloadedBookData> {
+  /// Matches Book.id on the backend
+  final String bookId;
+
+  /// User who downloaded (device-local; one download per user/book)
+  final String userId;
+
+  /// Book title (cached for display without network)
+  final String title;
+  final String? titleAm;
+
+  /// Cover URL (cached for display)
+  final String? coverUrl;
+
+  /// Author
+  final String? author;
+
+  /// Category name
+  final String? categoryName;
+
+  /// Format: PDF | TEXT | AUDIO | EPUB | EXTERNAL_LINK
+  final String format;
+
+  /// Total page count (informational)
+  final int? pageCount;
+
+  /// Status enum stored as string
+  final String status;
+
+  /// 0.0–1.0 download progress fraction
+  final double progress;
+
+  /// Expected total file size in bytes
+  final int? expectedBytes;
+
+  /// Bytes received so far
+  final int? downloadedBytes;
+
+  /// Absolute path to the downloaded main content file (PDF, etc.)
+  /// Null until download completes successfully.
+  final String? localContentPath;
+
+  /// Absolute path to the cached cover image
+  final String? localCoverPath;
+
+  /// SHA-256 or MD5 checksum of content file (for integrity verification)
+  final String? contentChecksum;
+
+  /// The updatedAt timestamp from the Book record at download time.
+  /// Used to detect whether the book content has changed server-side.
+  final String? contentVersion;
+  final String? lastError;
+  final int retryCount;
+  final DateTime? downloadedAt;
+  final DateTime? lastVerifiedAt;
+  final DateTime? lastOpenedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const LocalDownloadedBookData({
+    required this.bookId,
+    required this.userId,
+    required this.title,
+    this.titleAm,
+    this.coverUrl,
+    this.author,
+    this.categoryName,
+    required this.format,
+    this.pageCount,
+    required this.status,
+    required this.progress,
+    this.expectedBytes,
+    this.downloadedBytes,
+    this.localContentPath,
+    this.localCoverPath,
+    this.contentChecksum,
+    this.contentVersion,
+    this.lastError,
+    required this.retryCount,
+    this.downloadedAt,
+    this.lastVerifiedAt,
+    this.lastOpenedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['user_id'] = Variable<String>(userId);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || titleAm != null) {
+      map['title_am'] = Variable<String>(titleAm);
+    }
+    if (!nullToAbsent || coverUrl != null) {
+      map['cover_url'] = Variable<String>(coverUrl);
+    }
+    if (!nullToAbsent || author != null) {
+      map['author'] = Variable<String>(author);
+    }
+    if (!nullToAbsent || categoryName != null) {
+      map['category_name'] = Variable<String>(categoryName);
+    }
+    map['format'] = Variable<String>(format);
+    if (!nullToAbsent || pageCount != null) {
+      map['page_count'] = Variable<int>(pageCount);
+    }
+    map['status'] = Variable<String>(status);
+    map['progress'] = Variable<double>(progress);
+    if (!nullToAbsent || expectedBytes != null) {
+      map['expected_bytes'] = Variable<int>(expectedBytes);
+    }
+    if (!nullToAbsent || downloadedBytes != null) {
+      map['downloaded_bytes'] = Variable<int>(downloadedBytes);
+    }
+    if (!nullToAbsent || localContentPath != null) {
+      map['local_content_path'] = Variable<String>(localContentPath);
+    }
+    if (!nullToAbsent || localCoverPath != null) {
+      map['local_cover_path'] = Variable<String>(localCoverPath);
+    }
+    if (!nullToAbsent || contentChecksum != null) {
+      map['content_checksum'] = Variable<String>(contentChecksum);
+    }
+    if (!nullToAbsent || contentVersion != null) {
+      map['content_version'] = Variable<String>(contentVersion);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || downloadedAt != null) {
+      map['downloaded_at'] = Variable<DateTime>(downloadedAt);
+    }
+    if (!nullToAbsent || lastVerifiedAt != null) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt);
+    }
+    if (!nullToAbsent || lastOpenedAt != null) {
+      map['last_opened_at'] = Variable<DateTime>(lastOpenedAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalDownloadedBooksCompanion toCompanion(bool nullToAbsent) {
+    return LocalDownloadedBooksCompanion(
+      bookId: Value(bookId),
+      userId: Value(userId),
+      title: Value(title),
+      titleAm: titleAm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(titleAm),
+      coverUrl: coverUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverUrl),
+      author: author == null && nullToAbsent
+          ? const Value.absent()
+          : Value(author),
+      categoryName: categoryName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryName),
+      format: Value(format),
+      pageCount: pageCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pageCount),
+      status: Value(status),
+      progress: Value(progress),
+      expectedBytes: expectedBytes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expectedBytes),
+      downloadedBytes: downloadedBytes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(downloadedBytes),
+      localContentPath: localContentPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localContentPath),
+      localCoverPath: localCoverPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localCoverPath),
+      contentChecksum: contentChecksum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentChecksum),
+      contentVersion: contentVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentVersion),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      retryCount: Value(retryCount),
+      downloadedAt: downloadedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(downloadedAt),
+      lastVerifiedAt: lastVerifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastVerifiedAt),
+      lastOpenedAt: lastOpenedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastOpenedAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LocalDownloadedBookData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalDownloadedBookData(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      title: serializer.fromJson<String>(json['title']),
+      titleAm: serializer.fromJson<String?>(json['titleAm']),
+      coverUrl: serializer.fromJson<String?>(json['coverUrl']),
+      author: serializer.fromJson<String?>(json['author']),
+      categoryName: serializer.fromJson<String?>(json['categoryName']),
+      format: serializer.fromJson<String>(json['format']),
+      pageCount: serializer.fromJson<int?>(json['pageCount']),
+      status: serializer.fromJson<String>(json['status']),
+      progress: serializer.fromJson<double>(json['progress']),
+      expectedBytes: serializer.fromJson<int?>(json['expectedBytes']),
+      downloadedBytes: serializer.fromJson<int?>(json['downloadedBytes']),
+      localContentPath: serializer.fromJson<String?>(json['localContentPath']),
+      localCoverPath: serializer.fromJson<String?>(json['localCoverPath']),
+      contentChecksum: serializer.fromJson<String?>(json['contentChecksum']),
+      contentVersion: serializer.fromJson<String?>(json['contentVersion']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      downloadedAt: serializer.fromJson<DateTime?>(json['downloadedAt']),
+      lastVerifiedAt: serializer.fromJson<DateTime?>(json['lastVerifiedAt']),
+      lastOpenedAt: serializer.fromJson<DateTime?>(json['lastOpenedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'userId': serializer.toJson<String>(userId),
+      'title': serializer.toJson<String>(title),
+      'titleAm': serializer.toJson<String?>(titleAm),
+      'coverUrl': serializer.toJson<String?>(coverUrl),
+      'author': serializer.toJson<String?>(author),
+      'categoryName': serializer.toJson<String?>(categoryName),
+      'format': serializer.toJson<String>(format),
+      'pageCount': serializer.toJson<int?>(pageCount),
+      'status': serializer.toJson<String>(status),
+      'progress': serializer.toJson<double>(progress),
+      'expectedBytes': serializer.toJson<int?>(expectedBytes),
+      'downloadedBytes': serializer.toJson<int?>(downloadedBytes),
+      'localContentPath': serializer.toJson<String?>(localContentPath),
+      'localCoverPath': serializer.toJson<String?>(localCoverPath),
+      'contentChecksum': serializer.toJson<String?>(contentChecksum),
+      'contentVersion': serializer.toJson<String?>(contentVersion),
+      'lastError': serializer.toJson<String?>(lastError),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'downloadedAt': serializer.toJson<DateTime?>(downloadedAt),
+      'lastVerifiedAt': serializer.toJson<DateTime?>(lastVerifiedAt),
+      'lastOpenedAt': serializer.toJson<DateTime?>(lastOpenedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  LocalDownloadedBookData copyWith({
+    String? bookId,
+    String? userId,
+    String? title,
+    Value<String?> titleAm = const Value.absent(),
+    Value<String?> coverUrl = const Value.absent(),
+    Value<String?> author = const Value.absent(),
+    Value<String?> categoryName = const Value.absent(),
+    String? format,
+    Value<int?> pageCount = const Value.absent(),
+    String? status,
+    double? progress,
+    Value<int?> expectedBytes = const Value.absent(),
+    Value<int?> downloadedBytes = const Value.absent(),
+    Value<String?> localContentPath = const Value.absent(),
+    Value<String?> localCoverPath = const Value.absent(),
+    Value<String?> contentChecksum = const Value.absent(),
+    Value<String?> contentVersion = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    int? retryCount,
+    Value<DateTime?> downloadedAt = const Value.absent(),
+    Value<DateTime?> lastVerifiedAt = const Value.absent(),
+    Value<DateTime?> lastOpenedAt = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => LocalDownloadedBookData(
+    bookId: bookId ?? this.bookId,
+    userId: userId ?? this.userId,
+    title: title ?? this.title,
+    titleAm: titleAm.present ? titleAm.value : this.titleAm,
+    coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
+    author: author.present ? author.value : this.author,
+    categoryName: categoryName.present ? categoryName.value : this.categoryName,
+    format: format ?? this.format,
+    pageCount: pageCount.present ? pageCount.value : this.pageCount,
+    status: status ?? this.status,
+    progress: progress ?? this.progress,
+    expectedBytes: expectedBytes.present
+        ? expectedBytes.value
+        : this.expectedBytes,
+    downloadedBytes: downloadedBytes.present
+        ? downloadedBytes.value
+        : this.downloadedBytes,
+    localContentPath: localContentPath.present
+        ? localContentPath.value
+        : this.localContentPath,
+    localCoverPath: localCoverPath.present
+        ? localCoverPath.value
+        : this.localCoverPath,
+    contentChecksum: contentChecksum.present
+        ? contentChecksum.value
+        : this.contentChecksum,
+    contentVersion: contentVersion.present
+        ? contentVersion.value
+        : this.contentVersion,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    retryCount: retryCount ?? this.retryCount,
+    downloadedAt: downloadedAt.present ? downloadedAt.value : this.downloadedAt,
+    lastVerifiedAt: lastVerifiedAt.present
+        ? lastVerifiedAt.value
+        : this.lastVerifiedAt,
+    lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  LocalDownloadedBookData copyWithCompanion(
+    LocalDownloadedBooksCompanion data,
+  ) {
+    return LocalDownloadedBookData(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      title: data.title.present ? data.title.value : this.title,
+      titleAm: data.titleAm.present ? data.titleAm.value : this.titleAm,
+      coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
+      author: data.author.present ? data.author.value : this.author,
+      categoryName: data.categoryName.present
+          ? data.categoryName.value
+          : this.categoryName,
+      format: data.format.present ? data.format.value : this.format,
+      pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
+      status: data.status.present ? data.status.value : this.status,
+      progress: data.progress.present ? data.progress.value : this.progress,
+      expectedBytes: data.expectedBytes.present
+          ? data.expectedBytes.value
+          : this.expectedBytes,
+      downloadedBytes: data.downloadedBytes.present
+          ? data.downloadedBytes.value
+          : this.downloadedBytes,
+      localContentPath: data.localContentPath.present
+          ? data.localContentPath.value
+          : this.localContentPath,
+      localCoverPath: data.localCoverPath.present
+          ? data.localCoverPath.value
+          : this.localCoverPath,
+      contentChecksum: data.contentChecksum.present
+          ? data.contentChecksum.value
+          : this.contentChecksum,
+      contentVersion: data.contentVersion.present
+          ? data.contentVersion.value
+          : this.contentVersion,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      downloadedAt: data.downloadedAt.present
+          ? data.downloadedAt.value
+          : this.downloadedAt,
+      lastVerifiedAt: data.lastVerifiedAt.present
+          ? data.lastVerifiedAt.value
+          : this.lastVerifiedAt,
+      lastOpenedAt: data.lastOpenedAt.present
+          ? data.lastOpenedAt.value
+          : this.lastOpenedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalDownloadedBookData(')
+          ..write('bookId: $bookId, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('titleAm: $titleAm, ')
+          ..write('coverUrl: $coverUrl, ')
+          ..write('author: $author, ')
+          ..write('categoryName: $categoryName, ')
+          ..write('format: $format, ')
+          ..write('pageCount: $pageCount, ')
+          ..write('status: $status, ')
+          ..write('progress: $progress, ')
+          ..write('expectedBytes: $expectedBytes, ')
+          ..write('downloadedBytes: $downloadedBytes, ')
+          ..write('localContentPath: $localContentPath, ')
+          ..write('localCoverPath: $localCoverPath, ')
+          ..write('contentChecksum: $contentChecksum, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('lastError: $lastError, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
+          ..write('lastOpenedAt: $lastOpenedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    bookId,
+    userId,
+    title,
+    titleAm,
+    coverUrl,
+    author,
+    categoryName,
+    format,
+    pageCount,
+    status,
+    progress,
+    expectedBytes,
+    downloadedBytes,
+    localContentPath,
+    localCoverPath,
+    contentChecksum,
+    contentVersion,
+    lastError,
+    retryCount,
+    downloadedAt,
+    lastVerifiedAt,
+    lastOpenedAt,
+    createdAt,
+    updatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalDownloadedBookData &&
+          other.bookId == this.bookId &&
+          other.userId == this.userId &&
+          other.title == this.title &&
+          other.titleAm == this.titleAm &&
+          other.coverUrl == this.coverUrl &&
+          other.author == this.author &&
+          other.categoryName == this.categoryName &&
+          other.format == this.format &&
+          other.pageCount == this.pageCount &&
+          other.status == this.status &&
+          other.progress == this.progress &&
+          other.expectedBytes == this.expectedBytes &&
+          other.downloadedBytes == this.downloadedBytes &&
+          other.localContentPath == this.localContentPath &&
+          other.localCoverPath == this.localCoverPath &&
+          other.contentChecksum == this.contentChecksum &&
+          other.contentVersion == this.contentVersion &&
+          other.lastError == this.lastError &&
+          other.retryCount == this.retryCount &&
+          other.downloadedAt == this.downloadedAt &&
+          other.lastVerifiedAt == this.lastVerifiedAt &&
+          other.lastOpenedAt == this.lastOpenedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalDownloadedBooksCompanion
+    extends UpdateCompanion<LocalDownloadedBookData> {
+  final Value<String> bookId;
+  final Value<String> userId;
+  final Value<String> title;
+  final Value<String?> titleAm;
+  final Value<String?> coverUrl;
+  final Value<String?> author;
+  final Value<String?> categoryName;
+  final Value<String> format;
+  final Value<int?> pageCount;
+  final Value<String> status;
+  final Value<double> progress;
+  final Value<int?> expectedBytes;
+  final Value<int?> downloadedBytes;
+  final Value<String?> localContentPath;
+  final Value<String?> localCoverPath;
+  final Value<String?> contentChecksum;
+  final Value<String?> contentVersion;
+  final Value<String?> lastError;
+  final Value<int> retryCount;
+  final Value<DateTime?> downloadedAt;
+  final Value<DateTime?> lastVerifiedAt;
+  final Value<DateTime?> lastOpenedAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalDownloadedBooksCompanion({
+    this.bookId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.titleAm = const Value.absent(),
+    this.coverUrl = const Value.absent(),
+    this.author = const Value.absent(),
+    this.categoryName = const Value.absent(),
+    this.format = const Value.absent(),
+    this.pageCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.progress = const Value.absent(),
+    this.expectedBytes = const Value.absent(),
+    this.downloadedBytes = const Value.absent(),
+    this.localContentPath = const Value.absent(),
+    this.localCoverPath = const Value.absent(),
+    this.contentChecksum = const Value.absent(),
+    this.contentVersion = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalDownloadedBooksCompanion.insert({
+    required String bookId,
+    required String userId,
+    required String title,
+    this.titleAm = const Value.absent(),
+    this.coverUrl = const Value.absent(),
+    this.author = const Value.absent(),
+    this.categoryName = const Value.absent(),
+    required String format,
+    this.pageCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.progress = const Value.absent(),
+    this.expectedBytes = const Value.absent(),
+    this.downloadedBytes = const Value.absent(),
+    this.localContentPath = const Value.absent(),
+    this.localCoverPath = const Value.absent(),
+    this.contentChecksum = const Value.absent(),
+    this.contentVersion = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.lastVerifiedAt = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       userId = Value(userId),
+       title = Value(title),
+       format = Value(format),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<LocalDownloadedBookData> custom({
+    Expression<String>? bookId,
+    Expression<String>? userId,
+    Expression<String>? title,
+    Expression<String>? titleAm,
+    Expression<String>? coverUrl,
+    Expression<String>? author,
+    Expression<String>? categoryName,
+    Expression<String>? format,
+    Expression<int>? pageCount,
+    Expression<String>? status,
+    Expression<double>? progress,
+    Expression<int>? expectedBytes,
+    Expression<int>? downloadedBytes,
+    Expression<String>? localContentPath,
+    Expression<String>? localCoverPath,
+    Expression<String>? contentChecksum,
+    Expression<String>? contentVersion,
+    Expression<String>? lastError,
+    Expression<int>? retryCount,
+    Expression<DateTime>? downloadedAt,
+    Expression<DateTime>? lastVerifiedAt,
+    Expression<DateTime>? lastOpenedAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (userId != null) 'user_id': userId,
+      if (title != null) 'title': title,
+      if (titleAm != null) 'title_am': titleAm,
+      if (coverUrl != null) 'cover_url': coverUrl,
+      if (author != null) 'author': author,
+      if (categoryName != null) 'category_name': categoryName,
+      if (format != null) 'format': format,
+      if (pageCount != null) 'page_count': pageCount,
+      if (status != null) 'status': status,
+      if (progress != null) 'progress': progress,
+      if (expectedBytes != null) 'expected_bytes': expectedBytes,
+      if (downloadedBytes != null) 'downloaded_bytes': downloadedBytes,
+      if (localContentPath != null) 'local_content_path': localContentPath,
+      if (localCoverPath != null) 'local_cover_path': localCoverPath,
+      if (contentChecksum != null) 'content_checksum': contentChecksum,
+      if (contentVersion != null) 'content_version': contentVersion,
+      if (lastError != null) 'last_error': lastError,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (downloadedAt != null) 'downloaded_at': downloadedAt,
+      if (lastVerifiedAt != null) 'last_verified_at': lastVerifiedAt,
+      if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalDownloadedBooksCompanion copyWith({
+    Value<String>? bookId,
+    Value<String>? userId,
+    Value<String>? title,
+    Value<String?>? titleAm,
+    Value<String?>? coverUrl,
+    Value<String?>? author,
+    Value<String?>? categoryName,
+    Value<String>? format,
+    Value<int?>? pageCount,
+    Value<String>? status,
+    Value<double>? progress,
+    Value<int?>? expectedBytes,
+    Value<int?>? downloadedBytes,
+    Value<String?>? localContentPath,
+    Value<String?>? localCoverPath,
+    Value<String?>? contentChecksum,
+    Value<String?>? contentVersion,
+    Value<String?>? lastError,
+    Value<int>? retryCount,
+    Value<DateTime?>? downloadedAt,
+    Value<DateTime?>? lastVerifiedAt,
+    Value<DateTime?>? lastOpenedAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalDownloadedBooksCompanion(
+      bookId: bookId ?? this.bookId,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      titleAm: titleAm ?? this.titleAm,
+      coverUrl: coverUrl ?? this.coverUrl,
+      author: author ?? this.author,
+      categoryName: categoryName ?? this.categoryName,
+      format: format ?? this.format,
+      pageCount: pageCount ?? this.pageCount,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      expectedBytes: expectedBytes ?? this.expectedBytes,
+      downloadedBytes: downloadedBytes ?? this.downloadedBytes,
+      localContentPath: localContentPath ?? this.localContentPath,
+      localCoverPath: localCoverPath ?? this.localCoverPath,
+      contentChecksum: contentChecksum ?? this.contentChecksum,
+      contentVersion: contentVersion ?? this.contentVersion,
+      lastError: lastError ?? this.lastError,
+      retryCount: retryCount ?? this.retryCount,
+      downloadedAt: downloadedAt ?? this.downloadedAt,
+      lastVerifiedAt: lastVerifiedAt ?? this.lastVerifiedAt,
+      lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (titleAm.present) {
+      map['title_am'] = Variable<String>(titleAm.value);
+    }
+    if (coverUrl.present) {
+      map['cover_url'] = Variable<String>(coverUrl.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
+    }
+    if (categoryName.present) {
+      map['category_name'] = Variable<String>(categoryName.value);
+    }
+    if (format.present) {
+      map['format'] = Variable<String>(format.value);
+    }
+    if (pageCount.present) {
+      map['page_count'] = Variable<int>(pageCount.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (progress.present) {
+      map['progress'] = Variable<double>(progress.value);
+    }
+    if (expectedBytes.present) {
+      map['expected_bytes'] = Variable<int>(expectedBytes.value);
+    }
+    if (downloadedBytes.present) {
+      map['downloaded_bytes'] = Variable<int>(downloadedBytes.value);
+    }
+    if (localContentPath.present) {
+      map['local_content_path'] = Variable<String>(localContentPath.value);
+    }
+    if (localCoverPath.present) {
+      map['local_cover_path'] = Variable<String>(localCoverPath.value);
+    }
+    if (contentChecksum.present) {
+      map['content_checksum'] = Variable<String>(contentChecksum.value);
+    }
+    if (contentVersion.present) {
+      map['content_version'] = Variable<String>(contentVersion.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (downloadedAt.present) {
+      map['downloaded_at'] = Variable<DateTime>(downloadedAt.value);
+    }
+    if (lastVerifiedAt.present) {
+      map['last_verified_at'] = Variable<DateTime>(lastVerifiedAt.value);
+    }
+    if (lastOpenedAt.present) {
+      map['last_opened_at'] = Variable<DateTime>(lastOpenedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalDownloadedBooksCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('titleAm: $titleAm, ')
+          ..write('coverUrl: $coverUrl, ')
+          ..write('author: $author, ')
+          ..write('categoryName: $categoryName, ')
+          ..write('format: $format, ')
+          ..write('pageCount: $pageCount, ')
+          ..write('status: $status, ')
+          ..write('progress: $progress, ')
+          ..write('expectedBytes: $expectedBytes, ')
+          ..write('downloadedBytes: $downloadedBytes, ')
+          ..write('localContentPath: $localContentPath, ')
+          ..write('localCoverPath: $localCoverPath, ')
+          ..write('contentChecksum: $contentChecksum, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('lastError: $lastError, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('lastVerifiedAt: $lastVerifiedAt, ')
+          ..write('lastOpenedAt: $lastOpenedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10572,6 +11961,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalCalendarNoteMediaTable localCalendarNoteMedia =
       $LocalCalendarNoteMediaTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $LocalDownloadedBooksTable localDownloadedBooks =
+      $LocalDownloadedBooksTable(this);
   late final UsersDao usersDao = UsersDao(this as AppDatabase);
   late final VideosDao videosDao = VideosDao(this as AppDatabase);
   late final ConversationsDao conversationsDao = ConversationsDao(
@@ -10587,6 +11978,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final CalendarNotesDao calendarNotesDao = CalendarNotesDao(
+    this as AppDatabase,
+  );
+  late final DownloadedBooksDao downloadedBooksDao = DownloadedBooksDao(
     this as AppDatabase,
   );
   @override
@@ -10605,6 +11999,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localCalendarNotes,
     localCalendarNoteMedia,
     syncQueue,
+    localDownloadedBooks,
   ];
 }
 
@@ -15426,6 +16821,605 @@ typedef $$SyncQueueTableProcessedTableManager =
       SyncQueueData,
       PrefetchHooks Function()
     >;
+typedef $$LocalDownloadedBooksTableCreateCompanionBuilder =
+    LocalDownloadedBooksCompanion Function({
+      required String bookId,
+      required String userId,
+      required String title,
+      Value<String?> titleAm,
+      Value<String?> coverUrl,
+      Value<String?> author,
+      Value<String?> categoryName,
+      required String format,
+      Value<int?> pageCount,
+      Value<String> status,
+      Value<double> progress,
+      Value<int?> expectedBytes,
+      Value<int?> downloadedBytes,
+      Value<String?> localContentPath,
+      Value<String?> localCoverPath,
+      Value<String?> contentChecksum,
+      Value<String?> contentVersion,
+      Value<String?> lastError,
+      Value<int> retryCount,
+      Value<DateTime?> downloadedAt,
+      Value<DateTime?> lastVerifiedAt,
+      Value<DateTime?> lastOpenedAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalDownloadedBooksTableUpdateCompanionBuilder =
+    LocalDownloadedBooksCompanion Function({
+      Value<String> bookId,
+      Value<String> userId,
+      Value<String> title,
+      Value<String?> titleAm,
+      Value<String?> coverUrl,
+      Value<String?> author,
+      Value<String?> categoryName,
+      Value<String> format,
+      Value<int?> pageCount,
+      Value<String> status,
+      Value<double> progress,
+      Value<int?> expectedBytes,
+      Value<int?> downloadedBytes,
+      Value<String?> localContentPath,
+      Value<String?> localCoverPath,
+      Value<String?> contentChecksum,
+      Value<String?> contentVersion,
+      Value<String?> lastError,
+      Value<int> retryCount,
+      Value<DateTime?> downloadedAt,
+      Value<DateTime?> lastVerifiedAt,
+      Value<DateTime?> lastOpenedAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalDownloadedBooksTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalDownloadedBooksTable> {
+  $$LocalDownloadedBooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titleAm => $composableBuilder(
+    column: $table.titleAm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get categoryName => $composableBuilder(
+    column: $table.categoryName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expectedBytes => $composableBuilder(
+    column: $table.expectedBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get downloadedBytes => $composableBuilder(
+    column: $table.downloadedBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localContentPath => $composableBuilder(
+    column: $table.localContentPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localCoverPath => $composableBuilder(
+    column: $table.localCoverPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentChecksum => $composableBuilder(
+    column: $table.contentChecksum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalDownloadedBooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalDownloadedBooksTable> {
+  $$LocalDownloadedBooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get titleAm => $composableBuilder(
+    column: $table.titleAm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryName => $composableBuilder(
+    column: $table.categoryName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expectedBytes => $composableBuilder(
+    column: $table.expectedBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get downloadedBytes => $composableBuilder(
+    column: $table.downloadedBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localContentPath => $composableBuilder(
+    column: $table.localContentPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localCoverPath => $composableBuilder(
+    column: $table.localCoverPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentChecksum => $composableBuilder(
+    column: $table.contentChecksum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalDownloadedBooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalDownloadedBooksTable> {
+  $$LocalDownloadedBooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get titleAm =>
+      $composableBuilder(column: $table.titleAm, builder: (column) => column);
+
+  GeneratedColumn<String> get coverUrl =>
+      $composableBuilder(column: $table.coverUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<String> get categoryName => $composableBuilder(
+    column: $table.categoryName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get format =>
+      $composableBuilder(column: $table.format, builder: (column) => column);
+
+  GeneratedColumn<int> get pageCount =>
+      $composableBuilder(column: $table.pageCount, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<double> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => column);
+
+  GeneratedColumn<int> get expectedBytes => $composableBuilder(
+    column: $table.expectedBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get downloadedBytes => $composableBuilder(
+    column: $table.downloadedBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localContentPath => $composableBuilder(
+    column: $table.localContentPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localCoverPath => $composableBuilder(
+    column: $table.localCoverPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentChecksum => $composableBuilder(
+    column: $table.contentChecksum,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastVerifiedAt => $composableBuilder(
+    column: $table.lastVerifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalDownloadedBooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalDownloadedBooksTable,
+          LocalDownloadedBookData,
+          $$LocalDownloadedBooksTableFilterComposer,
+          $$LocalDownloadedBooksTableOrderingComposer,
+          $$LocalDownloadedBooksTableAnnotationComposer,
+          $$LocalDownloadedBooksTableCreateCompanionBuilder,
+          $$LocalDownloadedBooksTableUpdateCompanionBuilder,
+          (
+            LocalDownloadedBookData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalDownloadedBooksTable,
+              LocalDownloadedBookData
+            >,
+          ),
+          LocalDownloadedBookData,
+          PrefetchHooks Function()
+        > {
+  $$LocalDownloadedBooksTableTableManager(
+    _$AppDatabase db,
+    $LocalDownloadedBooksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalDownloadedBooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalDownloadedBooksTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalDownloadedBooksTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> titleAm = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
+                Value<String?> author = const Value.absent(),
+                Value<String?> categoryName = const Value.absent(),
+                Value<String> format = const Value.absent(),
+                Value<int?> pageCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<double> progress = const Value.absent(),
+                Value<int?> expectedBytes = const Value.absent(),
+                Value<int?> downloadedBytes = const Value.absent(),
+                Value<String?> localContentPath = const Value.absent(),
+                Value<String?> localCoverPath = const Value.absent(),
+                Value<String?> contentChecksum = const Value.absent(),
+                Value<String?> contentVersion = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> downloadedAt = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
+                Value<DateTime?> lastOpenedAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalDownloadedBooksCompanion(
+                bookId: bookId,
+                userId: userId,
+                title: title,
+                titleAm: titleAm,
+                coverUrl: coverUrl,
+                author: author,
+                categoryName: categoryName,
+                format: format,
+                pageCount: pageCount,
+                status: status,
+                progress: progress,
+                expectedBytes: expectedBytes,
+                downloadedBytes: downloadedBytes,
+                localContentPath: localContentPath,
+                localCoverPath: localCoverPath,
+                contentChecksum: contentChecksum,
+                contentVersion: contentVersion,
+                lastError: lastError,
+                retryCount: retryCount,
+                downloadedAt: downloadedAt,
+                lastVerifiedAt: lastVerifiedAt,
+                lastOpenedAt: lastOpenedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required String userId,
+                required String title,
+                Value<String?> titleAm = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
+                Value<String?> author = const Value.absent(),
+                Value<String?> categoryName = const Value.absent(),
+                required String format,
+                Value<int?> pageCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<double> progress = const Value.absent(),
+                Value<int?> expectedBytes = const Value.absent(),
+                Value<int?> downloadedBytes = const Value.absent(),
+                Value<String?> localContentPath = const Value.absent(),
+                Value<String?> localCoverPath = const Value.absent(),
+                Value<String?> contentChecksum = const Value.absent(),
+                Value<String?> contentVersion = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> downloadedAt = const Value.absent(),
+                Value<DateTime?> lastVerifiedAt = const Value.absent(),
+                Value<DateTime?> lastOpenedAt = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalDownloadedBooksCompanion.insert(
+                bookId: bookId,
+                userId: userId,
+                title: title,
+                titleAm: titleAm,
+                coverUrl: coverUrl,
+                author: author,
+                categoryName: categoryName,
+                format: format,
+                pageCount: pageCount,
+                status: status,
+                progress: progress,
+                expectedBytes: expectedBytes,
+                downloadedBytes: downloadedBytes,
+                localContentPath: localContentPath,
+                localCoverPath: localCoverPath,
+                contentChecksum: contentChecksum,
+                contentVersion: contentVersion,
+                lastError: lastError,
+                retryCount: retryCount,
+                downloadedAt: downloadedAt,
+                lastVerifiedAt: lastVerifiedAt,
+                lastOpenedAt: lastOpenedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalDownloadedBooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalDownloadedBooksTable,
+      LocalDownloadedBookData,
+      $$LocalDownloadedBooksTableFilterComposer,
+      $$LocalDownloadedBooksTableOrderingComposer,
+      $$LocalDownloadedBooksTableAnnotationComposer,
+      $$LocalDownloadedBooksTableCreateCompanionBuilder,
+      $$LocalDownloadedBooksTableUpdateCompanionBuilder,
+      (
+        LocalDownloadedBookData,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalDownloadedBooksTable,
+          LocalDownloadedBookData
+        >,
+      ),
+      LocalDownloadedBookData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15458,4 +17452,6 @@ class $AppDatabaseManager {
       );
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$LocalDownloadedBooksTableTableManager get localDownloadedBooks =>
+      $$LocalDownloadedBooksTableTableManager(_db, _db.localDownloadedBooks);
 }

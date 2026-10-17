@@ -13,6 +13,7 @@ const _kLockEnabled = 'app_lock_enabled';
 const _kLockMethod = 'app_lock_method';
 const _kLockTimeout = 'app_lock_timeout_minutes';
 const _kPinTypeKey = 'app_lock_pin_type_settings';
+const _kNotificationPrivacy = 'app_lock_notification_privacy';
 
 /// The authentication method used at the lock screen.
 enum AppLockMethod {
@@ -78,12 +79,14 @@ class AppLockSettings {
   final AppLockMethod method;
   final int timeoutMinutes; // 0 = immediately, -1 = never
   final PinType pinType;
+  final bool notificationPrivacy;
 
   const AppLockSettings({
     this.isEnabled = false,
     this.method = AppLockMethod.pin,
     this.timeoutMinutes = 1,
     this.pinType = PinType.pin6,
+    this.notificationPrivacy = true,
   });
 
   AppLockSettings copyWith({
@@ -91,12 +94,14 @@ class AppLockSettings {
     AppLockMethod? method,
     int? timeoutMinutes,
     PinType? pinType,
+    bool? notificationPrivacy,
   }) =>
       AppLockSettings(
         isEnabled: isEnabled ?? this.isEnabled,
         method: method ?? this.method,
         timeoutMinutes: timeoutMinutes ?? this.timeoutMinutes,
         pinType: pinType ?? this.pinType,
+        notificationPrivacy: notificationPrivacy ?? this.notificationPrivacy,
       );
 }
 
@@ -112,12 +117,14 @@ class AppLockSettingsNotifier extends StateNotifier<AppLockSettings> {
     final methodStr = _prefs.getString(_kLockMethod);
     final timeout = _prefs.getInt(_kLockTimeout) ?? 1;
     final pinTypeStr = _prefs.getString(_kPinTypeKey);
+    final notificationPrivacy = _prefs.getBool(_kNotificationPrivacy) ?? true;
 
     state = AppLockSettings(
       isEnabled: enabled,
       method: AppLockMethodX.fromKey(methodStr),
       timeoutMinutes: timeout,
       pinType: PinTypeX.fromKey(pinTypeStr),
+      notificationPrivacy: notificationPrivacy,
     );
   }
 
@@ -141,11 +148,17 @@ class AppLockSettingsNotifier extends StateNotifier<AppLockSettings> {
     state = state.copyWith(pinType: type);
   }
 
+  Future<void> setNotificationPrivacy(bool value) async {
+    await _prefs.setBool(_kNotificationPrivacy, value);
+    state = state.copyWith(notificationPrivacy: value);
+  }
+
   Future<void> disable() async {
     await _prefs.remove(_kLockEnabled);
     await _prefs.remove(_kLockMethod);
     await _prefs.remove(_kLockTimeout);
     await _prefs.remove(_kPinTypeKey);
+    await _prefs.remove(_kNotificationPrivacy);
     state = const AppLockSettings();
   }
 }

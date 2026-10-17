@@ -1,4 +1,4 @@
-﻿// lib/features/security/presentation/providers/app_lock_provider.dart
+// lib/features/security/presentation/providers/app_lock_provider.dart
 //
 // Controls the locked/unlocked state of the app.
 // Integrates with AppLifecycleObserver to auto-lock after a configurable
@@ -82,7 +82,9 @@ class AppLockState {
   bool get isInCooldown =>
       cooldownUntil != null && DateTime.now().isBefore(cooldownUntil!);
 
-  bool get shouldForceLogout => failedAttempts >= kMaxAttemptsForceLogout;
+  bool get shouldForceLogout => false;
+
+  bool get requireBiometricFallback => failedAttempts >= kMaxAttemptsForceLogout;
 
   AppLockState copyWith({
     AppLockStatus? status,
@@ -182,6 +184,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
   Future<void> _init() async {
     if (!_settings.isEnabled) {
       state = const AppLockState(status: AppLockStatus.disabled);
+      await _prefs.setBool('app_lock_is_locked', false);
       return;
     }
 
@@ -198,6 +201,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       biometricExhausted: false,
       cooldownUntil: cooldownUntil,
     );
+    await _prefs.setBool('app_lock_is_locked', true);
     _secureWindowService.setSecureMode(true);
     // Do NOT start inactivity timer -- app starts locked.
   }
@@ -344,6 +348,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       biometricExhausted: false,
     );
     _secureWindowService.setSecureMode(true);
+    _prefs.setBool('app_lock_is_locked', true);
   }
 
   /// Public lock -- always enforced; clears any active media exemption.
@@ -383,6 +388,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         clearCooldown: true,
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
+      await _prefs.setBool('app_lock_is_locked', false);
       _secureWindowService.setSecureMode(false);
       // Only start inactivity timer if no media session is currently active.
       if (!_isMediaActive()) _restartInactivityTimer();
@@ -412,6 +418,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         clearCooldown: true,
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
+      await _prefs.setBool('app_lock_is_locked', false);
       _secureWindowService.setSecureMode(false);
       if (!_isMediaActive()) _restartInactivityTimer();
       return true;
@@ -434,6 +441,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
         clearCooldown: true,
       );
       await _prefs.setInt(_kLastActive, DateTime.now().millisecondsSinceEpoch);
+      await _prefs.setBool('app_lock_is_locked', false);
       _secureWindowService.setSecureMode(false);
       if (!_isMediaActive()) _restartInactivityTimer();
       return true;
@@ -449,9 +457,15 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     await _prefs.setInt(_kFailedAttempts, newAttempts);
 
     if (newAttempts >= kMaxAttemptsForceLogout) {
+      final cooldownUntil = DateTime.now().add(const Duration(minutes: 10));
+      await _prefs.setInt(
+        _kCooldownUntil,
+        cooldownUntil.millisecondsSinceEpoch,
+      );
       state = state.copyWith(
         status: AppLockStatus.locked,
         failedAttempts: newAttempts,
+        cooldownUntil: cooldownUntil,
       );
       return false;
     }
@@ -489,6 +503,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
     await _patternService.clearPattern();
     _ref.read(mediaActivityProvider.notifier).clearAll();
     state = const AppLockState(status: AppLockStatus.disabled);
+    await _prefs.setBool('app_lock_is_locked', false);
     _secureWindowService.setSecureMode(false);
   }
 
@@ -498,6 +513,7 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       failedAttempts: 0,
       clearCooldown: true,
     );
+    _prefs.setBool('app_lock_is_locked', false);
     _secureWindowService.setSecureMode(false);
     if (!_isMediaActive()) _restartInactivityTimer();
   }
@@ -508,11 +524,13 @@ class AppLockNotifier extends StateNotifier<AppLockState> {
       failedAttempts: 0,
       clearCooldown: true,
     );
+    _prefs.setBool('app_lock_is_locked', false);
     _secureWindowService.setSecureMode(false);
     if (!_isMediaActive()) _restartInactivityTimer();
   }
 
-  bool get shouldForceLogout => state.failedAttempts >= kMaxAttemptsForceLogout;
+  bool get shouldForceLogout => state.shouldForceLogout;
+  bool get requireBiometricFallback => state.requireBiometricFallback;
 }
 
 final appLockProvider = StateNotifierProvider<AppLockNotifier, AppLockState>((

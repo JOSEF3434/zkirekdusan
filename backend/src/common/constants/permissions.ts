@@ -169,6 +169,17 @@ export const PERMISSIONS = {
   ANALYTICS: {
     READ: 'analytics.read',
   },
+
+  // ─── Books / Digital Library ─────────────────────────────
+  BOOKS: {
+    VIEW: 'books.view',
+    CREATE: 'books.create',
+    UPDATE: 'books.update',
+    DELETE: 'books.delete',
+    MANAGE_CATEGORIES: 'books.manage_categories',
+    MANAGE_LIBRARY: 'books.manage_library',
+    DOWNLOAD: 'books.download',
+  },
 } as const;
 
 export type Permission =
@@ -244,6 +255,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'storage.manage',
     'auth.login-policy.view',
     'auth.login-policy.manage',
+    'books.view',
+    'books.create',
+    'books.update',
+    'books.delete',
+    'books.manage_categories',
+    'books.manage_library',
+    'books.download',
   ],
 
   MODERATOR: [
@@ -271,6 +289,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'live.view',
     'live.moderate',
     'live.stop',
+    'books.view',
+    'books.manage_library',
   ],
 
   SUPPORT: [
@@ -300,5 +320,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'uploads.delete',
     'streams.start',
     'streams.end',
+    'books.view',
+    'books.download',
   ],
 };

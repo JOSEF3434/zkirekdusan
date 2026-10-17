@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';

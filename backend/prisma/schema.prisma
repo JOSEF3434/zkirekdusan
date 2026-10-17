@@ -403,6 +403,16 @@ model User {
   modifiedLoginPolicies LoginPolicy[]          @relation("LoginPolicyModifier")
   loginPolicyAuditLogs  LoginPolicyAuditLog[]  @relation("LoginPolicyAuditActor")
 
+  // Phase 8 — Digital Library
+  createdCategories   BookCategory[]       @relation("CategoryCreator")
+  createdBooks        Book[]               @relation("BookCreator")
+  updatedBooks        Book[]               @relation("BookUpdater")
+  bookProgress        UserBookProgress[]
+  bookBookmarks       UserBookmark[]
+  bookAnnotations     UserBookAnnotation[]
+  readingPrefs        UserReadingPrefs?
+
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -683,6 +693,13 @@ model File {
 
   /// Ethiopian Calendar references
   calendarNoteMedia CalendarNoteMedia[] @relation("CalendarNoteMediaFiles")
+
+  /// Phase 8 — Digital Library book file references
+  bookCovers        Book[]        @relation("BookCoverFile")
+  bookContents      Book[]        @relation("BookContentFile")
+  bookChapterFiles  BookChapter[] @relation("BookChapterContentFile")
+
+
 
   /// Soft delete
   deletedAt DateTime?
@@ -2840,4 +2857,270 @@ model LoginPolicyAuditLog {
   @@index([createdAt])
   @@map("login_policy_audit_logs")
 }
+
+// ─────────────────────────────────────────────
+// PHASE 8: DIGITAL LIBRARY (BOOKS)
+// ─────────────────────────────────────────────
+
+enum BookStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum BookFormat {
+  PDF
+  EPUB
+  TEXT
+  AUDIO
+  EXTERNAL_LINK
+}
+
+enum BookLanguage {
+  AMHARIC
+  GEEZ
+  ENGLISH
+  OTHER
+}
+
+// Hierarchical category tree for the library.
+// parentId = null → top-level category/tab.
+model BookCategory {
+  id          String  @id @default(uuid())
+  name        String
+  nameAm      String?
+  nameGez     String?
+  description String? @db.Text
+  slug        String  @unique
+
+  parentId String?
+  parent   BookCategory?  @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children BookCategory[] @relation("CategoryChildren")
+
+  sortOrder  Int     @default(0)
+  isVisible  Boolean @default(true)
+  isArchived Boolean @default(false)
+
+  iconName String?
+  coverUrl String?
+
+  books Book[]
+
+  createdById String?
+  createdBy   User?   @relation("CategoryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([parentId])
+  @@index([sortOrder])
+  @@index([isVisible])
+  @@index([deletedAt])
+  @@map("book_categories")
+}
+
+model Book {
+  id String @id @default(uuid())
+
+  title       String
+  titleAm     String?
+  titleGez    String?
+  subtitle    String?
+  author      String?
+  translator  String?
+  description String? @db.Text
+
+  categoryId String?
+  category   BookCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  language BookLanguage @default(AMHARIC)
+  format   BookFormat   @default(PDF)
+
+  publisher     String?
+  publishedYear Int?
+  edition       String?
+  isbn          String?
+  pageCount     Int?
+
+  tags String[]
+
+  status BookStatus @default(DRAFT)
+
+  coverFileId String?
+  coverFile   File?   @relation("BookCoverFile", fields: [coverFileId], references: [id], onDelete: SetNull)
+
+  contentFileId String?
+  contentFile   File?   @relation("BookContentFile", fields: [contentFileId], references: [id], onDelete: SetNull)
+
+  externalUrl String?
+  sortOrder   Int     @default(0)
+
+  viewsCount     Int @default(0)
+  bookmarksCount Int @default(0)
+
+  progress    UserBookProgress[]
+  bookmarks   UserBookmark[]
+  annotations UserBookAnnotation[]
+  chapters    BookChapter[]
+
+
+  deletedAt DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("BookCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   User?   @relation("BookUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([language])
+  @@index([format])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@index([createdAt])
+  @@map("books")
+}
+
+// Ordered chapters for TEXT/AUDIO/EPUB-style structured books.
+// For PDF books, chapters are navigated by page number only.
+model BookChapter {
+  id     String @id @default(uuid())
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  order       Int
+  title       String
+  titleAm     String?
+  titleGez    String?
+
+  // Inline content for TEXT format books
+  content     String? @db.Text
+
+  // Per-chapter file (e.g. separate audio file per chapter, or PDF page range)
+  contentFileId String?
+  contentFile   File?   @relation("BookChapterContentFile", fields: [contentFileId], references: [id], onDelete: SetNull)
+
+  // Duration in seconds for AUDIO chapters
+  durationSeconds Int?
+
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, order])
+  @@index([bookId])
+  @@index([bookId, order])
+  @@map("book_chapters")
+}
+
+model UserBookProgress {
+
+  id     String @id @default(uuid())
+  userId String
+  bookId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  currentPage     Int?
+  currentChapter  Int?
+  scrollOffset    Float?
+  percentComplete Float   @default(0)
+  isCompleted     Boolean @default(false)
+
+  lastReadAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
+  @@index([lastReadAt])
+  @@map("user_book_progress")
+}
+
+model UserBookmark {
+  id     String @id @default(uuid())
+  userId String
+  bookId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  page    Int?
+  chapter Int?
+  label   String?
+  note    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([userId, bookId])
+  @@map("user_book_bookmarks")
+}
+
+model UserBookAnnotation {
+  id     String @id @default(uuid())
+  userId String
+  bookId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  page           Int?
+  chapter        Int?
+  startOffset    Int?
+  endOffset      Int?
+  selectedText   String? @db.Text
+  note           String? @db.Text
+  highlightColor String?
+  annotationType String  @default("highlight")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([userId, bookId])
+  @@index([deletedAt])
+  @@map("user_book_annotations")
+}
+
+model UserReadingPrefs {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fontSize    Float  @default(16)
+  lineSpacing Float  @default(1.5)
+  fontFamily  String @default("default")
+  textAlign   String @default("left")
+
+  themeMode  String @default("system")
+  pageMargin Float  @default(16)
+  scrollMode String @default("paginated")
+
+  gridView          Boolean @default(true)
+  sortBy            String  @default("title")
+  sortAsc           Boolean @default(true)
+  defaultCategoryId String?
+
+  defaultHighlightColor String @default("#FFEB3B")
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("user_reading_prefs")
+}
+
 

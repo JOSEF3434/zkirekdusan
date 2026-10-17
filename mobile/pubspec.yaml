@@ -75,6 +75,10 @@ dependencies:
   local_auth: ^2.3.0
   crypto: ^3.0.6
 
+  # F8: Digital Library — PDF reader (Android/iOS/macOS/web/Windows/Linux)
+  pdfx: ^2.9.2
+  percent_indicator: ^4.2.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

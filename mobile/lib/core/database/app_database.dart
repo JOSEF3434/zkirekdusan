@@ -13,6 +13,8 @@ import 'tables/local_search_history_table.dart';
 import 'tables/local_feed_items_table.dart';
 import 'tables/local_calendar_notes_table.dart';
 import 'tables/sync_queue_table.dart';
+import 'tables/local_downloaded_books_table.dart';
+
 
 import 'daos/users_dao.dart';
 import 'daos/videos_dao.dart';
@@ -23,6 +25,8 @@ import 'daos/sync_queue_dao.dart';
 import 'daos/feed_dao.dart';
 import 'daos/search_history_dao.dart';
 import 'daos/calendar_notes_dao.dart';
+import 'daos/downloaded_books_dao.dart';
+
 
 part 'app_database.g.dart';
 
@@ -39,6 +43,7 @@ part 'app_database.g.dart';
     LocalCalendarNotes,
     LocalCalendarNoteMedia,
     SyncQueue,
+    LocalDownloadedBooks,
   ],
   daos: [
     UsersDao,
@@ -50,6 +55,7 @@ part 'app_database.g.dart';
     FeedDao,
     SearchHistoryDao,
     CalendarNotesDao,
+    DownloadedBooksDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -65,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -129,6 +135,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(localCalendarNotes, entry.value());
           }
         }
+      }
+
+      // Version 5: Add downloaded books table for offline reading
+      if (from < 5) {
+        await m.createTable(localDownloadedBooks);
       }
     },
     beforeOpen: (OpeningDetails details) async {

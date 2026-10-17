@@ -68,6 +68,9 @@ import { ExploreModule } from './modules/explore/explore.module.js';
 // Ethiopian Calendar
 import { CalendarModule } from './modules/calendar/calendar.module.js';
 
+// Phase 8 — Digital Library
+import { BooksModule } from './modules/books/books.module.js';
+
 // Phase 7 — Admin Platform & Moderation
 import { AdminModule } from './modules/admin/admin.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
@@ -185,6 +188,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 
     // Ethiopian Calendar
     CalendarModule,
+
+    // Phase 8 — Digital Library
+    BooksModule,
 
     // Phase 7 — Admin Platform & Reports
     AdminModule,

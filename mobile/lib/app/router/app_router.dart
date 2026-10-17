@@ -37,6 +37,9 @@ import 'package:mobile/features/library/presentation/bookmarks_screen.dart';
 
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/features/books/presentation/screens/books_screen.dart';
+import 'package:mobile/features/books/presentation/screens/book_detail_screen.dart';
+import 'package:mobile/features/books/presentation/screens/book_reader_screen.dart';
+
 import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
 import 'package:mobile/features/calendar/presentation/calendar_note_detail_screen.dart';
 import 'package:mobile/features/upload/presentation/upload_screen.dart';
@@ -749,6 +752,31 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/books',
                 builder: (context, state) => const BooksScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      return BookDetailScreen(bookId: id);
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'read',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final id = state.pathParameters['id']!;
+                          final extra = state.extra as Map<String, dynamic>?;
+                          return BookReaderScreen(
+                            bookId: id,
+                            startChapter: extra?['startChapter'] as int? ?? 0,
+                            isDownloaded: extra?['isDownloaded'] as bool? ?? false,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
