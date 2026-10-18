@@ -148,4 +148,80 @@ class BooksRepository {
 
   Future<void> updateLastOpened(String bookId, String userId) =>
       _downloadDao.updateLastOpened(bookId, userId);
+
+  // ── Admin Book Management ───────────────────────────────────────────────
+
+  Future<PaginatedBooks> getAdminBooks({
+    String? search,
+    String? categoryId,
+    String? format,
+    String? language,
+    String? status,
+    int page = 1,
+    int limit = 20,
+    String sortBy = 'updatedAt',
+    String sortDir = 'desc',
+  }) =>
+      _remote.fetchAdminBooks(
+        search: search,
+        categoryId: categoryId,
+        format: format,
+        language: language,
+        status: status,
+        page: page,
+        limit: limit,
+        sortBy: sortBy,
+        sortDir: sortDir,
+      );
+
+  Future<BookModel> createBook(Map<String, dynamic> data) =>
+      _remote.createBook(data);
+
+  Future<BookModel> updateBook(String id, Map<String, dynamic> data) =>
+      _remote.updateBook(id, data);
+
+  Future<void> deleteBook(String id, {bool permanent = false}) =>
+      _remote.deleteBook(id, permanent: permanent);
+
+  Future<BookModel> publishBook(String id) => _remote.publishBook(id);
+
+  Future<BookModel> unpublishBook(String id) => _remote.unpublishBook(id);
+
+  Future<BookModel> archiveBook(String id) => _remote.archiveBook(id);
+
+  Future<BookModel> restoreBook(String id) => _remote.restoreBook(id);
+
+  Future<Map<String, dynamic>> uploadBookCover({
+    required List<int> bytes,
+    required String filename,
+  }) =>
+      _remote.uploadBookCover(bytes: bytes, filename: filename);
+
+  Future<Map<String, dynamic>> uploadBookContent({
+    required List<int> bytes,
+    required String filename,
+    void Function(int count, int total)? onProgress,
+  }) =>
+      _remote.uploadBookContent(
+        bytes: bytes,
+        filename: filename,
+        onProgress: onProgress,
+      );
+
+  // ── Admin Category Management ───────────────────────────────────────────
+
+  Future<List<BookCategoryModel>> getAdminCategories({
+    bool includeArchived = true,
+  }) =>
+      _remote.fetchAdminCategories(includeArchived: includeArchived);
+
+  Future<BookCategoryModel> createCategory(Map<String, dynamic> data) =>
+      _remote.createCategory(data);
+
+  Future<BookCategoryModel> updateCategory(
+          String id, Map<String, dynamic> data) =>
+      _remote.updateCategory(id, data);
+
+  Future<void> deleteCategory(String id, {String? reassignCategoryId}) =>
+      _remote.deleteCategory(id, reassignCategoryId: reassignCategoryId);
 }

@@ -39,6 +39,10 @@ import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/features/books/presentation/screens/books_screen.dart';
 import 'package:mobile/features/books/presentation/screens/book_detail_screen.dart';
 import 'package:mobile/features/books/presentation/screens/book_reader_screen.dart';
+import 'package:mobile/features/books/presentation/screens/book_form_screen.dart';
+import 'package:mobile/features/books/presentation/screens/book_management_screen.dart';
+import 'package:mobile/features/books/presentation/screens/category_management_screen.dart';
+import 'package:mobile/features/books/data/models/book_model.dart';
 
 import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
 import 'package:mobile/features/calendar/presentation/calendar_note_detail_screen.dart';
@@ -754,6 +758,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const BooksScreen(),
                 routes: [
                   GoRoute(
+                    path: 'manage',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const BookManagementScreen(),
+                  ),
+                  GoRoute(
+                    path: 'create',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const BookFormScreen(),
+                  ),
+                  GoRoute(
+                    path: 'categories',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const CategoryManagementScreen(),
+                  ),
+                  GoRoute(
                     path: ':id',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
@@ -761,6 +780,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                       return BookDetailScreen(bookId: id);
                     },
                     routes: [
+                      GoRoute(
+                        path: 'edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final id = state.pathParameters['id']!;
+                          final extra = state.extra as BookModel?;
+                          return BookFormScreen(bookId: id, initialBook: extra);
+                        },
+                      ),
                       GoRoute(
                         path: 'read',
                         parentNavigatorKey: rootNavigatorKey,

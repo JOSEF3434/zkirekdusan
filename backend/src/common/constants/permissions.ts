@@ -176,6 +176,7 @@ export const PERMISSIONS = {
     CREATE: 'books.create',
     UPDATE: 'books.update',
     DELETE: 'books.delete',
+    PUBLISH: 'books.publish',
     MANAGE_CATEGORIES: 'books.manage_categories',
     MANAGE_LIBRARY: 'books.manage_library',
     DOWNLOAD: 'books.download',
@@ -259,6 +260,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'books.create',
     'books.update',
     'books.delete',
+    'books.publish',
     'books.manage_categories',
     'books.manage_library',
     'books.download',
@@ -291,6 +293,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'live.stop',
     'books.view',
     'books.manage_library',
+    'books.create',
+    'books.update',
+    'books.publish',
   ],
 
   SUPPORT: [

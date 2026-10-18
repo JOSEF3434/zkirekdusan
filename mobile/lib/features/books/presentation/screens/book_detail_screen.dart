@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import '../../data/models/book_model.dart';
 import '../providers/books_providers.dart';
+import '../providers/book_permissions_provider.dart';
 
 class BookDetailScreen extends ConsumerWidget {
   final String bookId;
@@ -97,6 +98,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
     final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
+    final bookPerms = ref.watch(bookPermissionsProvider);
 
     return Scaffold(
       body: NestedScrollView(
@@ -121,6 +123,24 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
               onPressed: () => context.pop(),
             ),
             actions: [
+              if (bookPerms.canUpdate)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.edit_outlined,
+                          color: Colors.white, size: 18),
+                    ),
+                    onPressed: () =>
+                        context.push('/books/${book.id}/edit', extra: book),
+                    tooltip: 'Edit Book',
+                  ),
+                ),
               // Download / remove button
               if (widget.isAuth && book.isReadable)
                 Padding(

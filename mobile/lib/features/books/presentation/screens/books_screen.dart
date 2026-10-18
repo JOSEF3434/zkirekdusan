@@ -8,6 +8,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import '../../data/models/book_category_model.dart';
 import '../../data/models/book_model.dart';
 import '../providers/books_providers.dart';
+import '../providers/book_permissions_provider.dart';
 import '../widgets/book_card.dart';
 
 class BooksScreen extends ConsumerStatefulWidget {
@@ -67,6 +68,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
     final libraryState = ref.watch(libraryProvider);
     final prefs = ref.watch(readingPrefsProvider);
     final auth = ref.watch(authProvider);
+    final bookPerms = ref.watch(bookPermissionsProvider);
     final isAuth = auth.status == AuthStatus.authenticated;
     final userId = auth.user?.id;
 
@@ -74,7 +76,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
       backgroundColor: theme.colorScheme.surface,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildAppBar(context, theme, prefs, libraryState),
+          _buildAppBar(context, theme, prefs, libraryState, bookPerms),
           _buildDownloadTabBar(theme),
         ],
         body: RefreshIndicator(
@@ -90,6 +92,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
     ThemeData theme,
     ReadingPrefsState prefs,
     LibraryState libraryState,
+    BookPermissions bookPerms,
   ) {
     return SliverAppBar(
       expandedHeight: 120,
@@ -146,12 +149,37 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
         ),
       ),
       actions: [
-        if (!_showSearch)
+        if (!_showSearch) ...[
+          if (bookPerms.canCreate)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Semantics(
+                button: true,
+                label: 'Add Book',
+                child: Tooltip(
+                  message: 'Add Book',
+                  child: Material(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => context.push('/books/create'),
+                      child: const SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: Icon(Icons.add, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => setState(() => _showSearch = true),
             tooltip: 'Search books',
           ),
+        ],
         IconButton(
           icon: Icon(prefs.gridView ? Icons.view_list_rounded : Icons.grid_view_rounded),
           onPressed: () {
@@ -162,6 +190,55 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           tooltip: prefs.gridView ? 'List view' : 'Grid view',
         ),
         _FilterMenuButton(libraryState: libraryState),
+        if (bookPerms.hasAnyManagementAccess)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Book Management',
+            onSelected: (val) {
+              if (val == 'manage') {
+                context.push('/books/manage');
+              } else if (val == 'categories') {
+                context.push('/books/categories');
+              } else if (val == 'create') {
+                context.push('/books/create');
+              }
+            },
+            itemBuilder: (ctx) => [
+              if (bookPerms.canManageLibrary)
+                const PopupMenuItem(
+                  value: 'manage',
+                  child: Row(
+                    children: [
+                      Icon(Icons.dashboard_customize_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Manage Books'),
+                    ],
+                  ),
+                ),
+              if (bookPerms.canManageCategories)
+                const PopupMenuItem(
+                  value: 'categories',
+                  child: Row(
+                    children: [
+                      Icon(Icons.category_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Manage Categories'),
+                    ],
+                  ),
+                ),
+              if (bookPerms.canCreate)
+                const PopupMenuItem(
+                  value: 'create',
+                  child: Row(
+                    children: [
+                      Icon(Icons.add_circle_outline, size: 20),
+                      SizedBox(width: 10),
+                      Text('Add Book'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         const SizedBox(width: 4),
       ],
     );

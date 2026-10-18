@@ -7,9 +7,10 @@ import {
   BooksAdminController,
 } from './books.controller.js';
 import { PrismaModule } from '../../prisma/prisma.module.js';
+import { UploadsModule } from '../uploads/uploads.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, UploadsModule],
   controllers: [BooksPublicController, BooksUserController, BooksAdminController],
   providers: [BooksService],
   exports: [BooksService],

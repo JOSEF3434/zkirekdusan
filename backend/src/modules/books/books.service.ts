@@ -17,6 +17,8 @@ import { CreateBookBookmarkDto } from './dto/create-bookmark.dto.js';
 import { UpsertReadingPrefsDto } from './dto/upsert-reading-prefs.dto.js';
 import { CreateBookChapterDto, UpdateBookChapterDto } from './dto/create-book-chapter.dto.js';
 import { BookStatus, Prisma } from '@prisma/client';
+import { UploadsService } from '../uploads/uploads.service.js';
+import path from 'path';
 
 // ── Selects (shared projection shapes) ─────────────────────────────────────
 
@@ -90,7 +92,10 @@ const BOOK_DETAIL_SELECT = {
 
 @Injectable()
 export class BooksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   // ── Categories ─────────────────────────────────────────────────────────
 
@@ -163,6 +168,24 @@ export class BooksService {
       if (conflict && conflict.id !== id) throw new ConflictException('Slug already in use');
     }
 
+    // Circular parent-child cycle prevention
+    if (dto.parentId !== undefined && dto.parentId !== null) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('A category cannot be its own parent');
+      }
+      let currentParentId: string | null = dto.parentId;
+      while (currentParentId) {
+        if (currentParentId === id) {
+          throw new BadRequestException('Circular parent-child category reference is not allowed');
+        }
+        const p = await this.prisma.bookCategory.findUnique({
+          where: { id: currentParentId },
+          select: { parentId: true },
+        });
+        currentParentId = p?.parentId ?? null;
+      }
+    }
+
     return this.prisma.bookCategory.update({
       where: { id },
       data: {
@@ -182,16 +205,50 @@ export class BooksService {
     });
   }
 
-  async deleteCategory(id: string) {
+  async deleteCategory(id: string, reassignCategoryId?: string) {
     const cat = await this.prisma.bookCategory.findFirst({ where: { id, deletedAt: null } });
     if (!cat) throw new NotFoundException('Category not found');
 
-    // Soft-delete; books keep categoryId but category becomes invisible
+    if (reassignCategoryId) {
+      const target = await this.prisma.bookCategory.findFirst({
+        where: { id: reassignCategoryId, deletedAt: null },
+      });
+      if (!target) throw new NotFoundException('Reassign target category not found');
+      if (reassignCategoryId === id) {
+        throw new BadRequestException('Cannot reassign to the category being deleted');
+      }
+
+      // Reassign books
+      await this.prisma.book.updateMany({
+        where: { categoryId: id },
+        data: { categoryId: reassignCategoryId },
+      });
+
+      // Reassign child categories
+      await this.prisma.bookCategory.updateMany({
+        where: { parentId: id },
+        data: { parentId: reassignCategoryId },
+      });
+    } else {
+      // Unlink child categories so they become top-level
+      await this.prisma.bookCategory.updateMany({
+        where: { parentId: id },
+        data: { parentId: null },
+      });
+
+      // Books with this category remain, categoryId becomes null
+      await this.prisma.book.updateMany({
+        where: { categoryId: id },
+        data: { categoryId: null },
+      });
+    }
+
+    // Soft-delete; mark archived and invisible
     await this.prisma.bookCategory.update({
       where: { id },
-      data: { deletedAt: new Date(), isVisible: false },
+      data: { deletedAt: new Date(), isVisible: false, isArchived: true },
     });
-    return { success: true, message: 'Category archived' };
+    return { success: true, message: 'Category archived successfully' };
   }
 
   // ── Books ───────────────────────────────────────────────────────────────
@@ -250,6 +307,31 @@ export class BooksService {
       }),
     ]);
 
+    let statusCounts:
+      | { published: number; draft: number; archived: number; total: number }
+      | undefined;
+    if (isAdmin) {
+      const [publishedCount, draftCount, archivedCount, totalCount] =
+        await Promise.all([
+          this.prisma.book.count({
+            where: { deletedAt: null, status: BookStatus.PUBLISHED },
+          }),
+          this.prisma.book.count({
+            where: { deletedAt: null, status: BookStatus.DRAFT },
+          }),
+          this.prisma.book.count({
+            where: { deletedAt: null, status: BookStatus.ARCHIVED },
+          }),
+          this.prisma.book.count({ where: { deletedAt: null } }),
+        ]);
+      statusCounts = {
+        published: publishedCount,
+        draft: draftCount,
+        archived: archivedCount,
+        total: totalCount,
+      };
+    }
+
     return {
       data: items,
       meta: {
@@ -259,6 +341,7 @@ export class BooksService {
         totalPages: Math.ceil(total / limit),
         hasNext: page * limit < total,
         hasPrev: page > 1,
+        ...(statusCounts ? { statusCounts } : {}),
       },
     };
   }
@@ -285,6 +368,74 @@ export class BooksService {
     }
 
     return { ...book, myProgress: progress ?? null };
+  }
+
+  async uploadCover(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Cover image file is required');
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedExts.includes(ext) && !allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `Invalid cover file type. Allowed: ${allowedExts.join(', ')}`,
+      );
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Cover image file size must not exceed 10MB');
+    }
+
+    const uploaded = await this.uploadsService.uploadMediaFile(
+      userId,
+      file,
+      'books/covers',
+    );
+    return uploaded;
+  }
+
+  async uploadContent(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Book content file is required');
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = [
+      '.pdf',
+      '.epub',
+      '.txt',
+      '.md',
+      '.mp3',
+      '.m4a',
+      '.aac',
+      '.wav',
+      '.ogg',
+    ];
+    const isAllowedMime =
+      file.mimetype.includes('pdf') ||
+      file.mimetype.includes('epub') ||
+      file.mimetype.startsWith('audio/') ||
+      file.mimetype.includes('text') ||
+      file.mimetype === 'application/octet-stream';
+
+    if (!allowedExts.includes(ext) && !isAllowedMime) {
+      throw new BadRequestException(
+        `Unsupported content file format. Allowed: ${allowedExts.join(', ')}`,
+      );
+    }
+
+    if (file.size > 150 * 1024 * 1024) {
+      throw new BadRequestException('Book content file size must not exceed 150MB');
+    }
+
+    const uploaded = await this.uploadsService.uploadMediaFile(
+      userId,
+      file,
+      'books/content',
+    );
+    return uploaded;
   }
 
   async createBook(userId: string, dto: CreateBookDto) {
@@ -361,13 +512,70 @@ export class BooksService {
     });
   }
 
-  async deleteBook(id: string) {
+  async publishBook(userId: string, id: string) {
     const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
     if (!book) throw new NotFoundException('Book not found');
 
+    return this.prisma.book.update({
+      where: { id },
+      data: { status: BookStatus.PUBLISHED, updatedById: userId },
+      select: BOOK_DETAIL_SELECT,
+    });
+  }
+
+  async unpublishBook(userId: string, id: string) {
+    const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
+    if (!book) throw new NotFoundException('Book not found');
+
+    return this.prisma.book.update({
+      where: { id },
+      data: { status: BookStatus.DRAFT, updatedById: userId },
+      select: BOOK_DETAIL_SELECT,
+    });
+  }
+
+  async archiveBook(userId: string, id: string) {
+    const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
+    if (!book) throw new NotFoundException('Book not found');
+
+    return this.prisma.book.update({
+      where: { id },
+      data: { status: BookStatus.ARCHIVED, updatedById: userId },
+      select: BOOK_DETAIL_SELECT,
+    });
+  }
+
+  async restoreBook(userId: string, id: string) {
+    const book = await this.prisma.book.findUnique({ where: { id } });
+    if (!book) throw new NotFoundException('Book not found');
+
+    return this.prisma.book.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        status: BookStatus.DRAFT,
+        updatedById: userId,
+      },
+      select: BOOK_DETAIL_SELECT,
+    });
+  }
+
+  async deleteBook(id: string, permanent = false) {
+    const book = await this.prisma.book.findUnique({ where: { id } });
+    if (!book) throw new NotFoundException('Book not found');
+
+    if (permanent) {
+      await this.prisma.userBookProgress.deleteMany({ where: { bookId: id } });
+      await this.prisma.userBookmark.deleteMany({ where: { bookId: id } });
+      await this.prisma.userBookAnnotation.deleteMany({ where: { bookId: id } });
+      await this.prisma.bookChapter.deleteMany({ where: { bookId: id } });
+      await this.prisma.book.delete({ where: { id } });
+      return { success: true, message: 'Book permanently deleted' };
+    }
+
     await this.prisma.book.update({
       where: { id },
-      data: { deletedAt: new Date(), status: 'DELETED' },
+      data: { deletedAt: new Date(), status: BookStatus.DELETED },
     });
     return { success: true, message: 'Book deleted' };
   }

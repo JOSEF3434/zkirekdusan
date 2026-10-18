@@ -1,4 +1,4 @@
-// src/modules/books/books.controller.ts
+import 'multer';
 import {
   Controller,
   Get,
@@ -12,8 +12,11 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseBoolPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { BooksService } from './books.service.js';
 import { CreateBookCategoryDto } from './dto/create-book-category.dto.js';
 import { UpdateBookCategoryDto } from './dto/update-book-category.dto.js';
@@ -211,8 +214,37 @@ export class BooksAdminController {
   @Delete('admin/categories/:id')
   @Permissions(PERMISSIONS.BOOKS.MANAGE_CATEGORIES)
   @ApiOperation({ summary: 'Archive a book category (admin)' })
-  deleteCategory(@Param('id') id: string) {
-    return this.booksService.deleteCategory(id);
+  deleteCategory(
+    @Param('id') id: string,
+    @Query('reassignCategoryId') reassignCategoryId?: string,
+  ) {
+    return this.booksService.deleteCategory(id, reassignCategoryId);
+  }
+
+  // Uploads
+
+  @Post('admin/upload-cover')
+  @Permissions(PERMISSIONS.BOOKS.CREATE)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a book cover image (admin)' })
+  uploadCover(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.booksService.uploadCover(userId, file);
+  }
+
+  @Post('admin/upload-content')
+  @Permissions(PERMISSIONS.BOOKS.CREATE)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a book content file (PDF, EPUB, Audio, etc.) (admin)' })
+  uploadContent(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.booksService.uploadContent(userId, file);
   }
 
   // Books
@@ -242,11 +274,42 @@ export class BooksAdminController {
     return this.booksService.updateBook(userId, id, dto);
   }
 
+  @Post('admin/:id/publish')
+  @Permissions(PERMISSIONS.BOOKS.PUBLISH)
+  @ApiOperation({ summary: 'Publish a book (admin)' })
+  publishBook(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.booksService.publishBook(userId, id);
+  }
+
+  @Post('admin/:id/unpublish')
+  @Permissions(PERMISSIONS.BOOKS.PUBLISH)
+  @ApiOperation({ summary: 'Unpublish a book to draft (admin)' })
+  unpublishBook(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.booksService.unpublishBook(userId, id);
+  }
+
+  @Post('admin/:id/archive')
+  @Permissions(PERMISSIONS.BOOKS.UPDATE)
+  @ApiOperation({ summary: 'Archive a book (admin)' })
+  archiveBook(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.booksService.archiveBook(userId, id);
+  }
+
+  @Post('admin/:id/restore')
+  @Permissions(PERMISSIONS.BOOKS.UPDATE)
+  @ApiOperation({ summary: 'Restore an archived/deleted book (admin)' })
+  restoreBook(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.booksService.restoreBook(userId, id);
+  }
+
   @Delete('admin/:id')
   @Permissions(PERMISSIONS.BOOKS.DELETE)
-  @ApiOperation({ summary: 'Soft-delete a book (admin)' })
-  deleteBook(@Param('id') id: string) {
-    return this.booksService.deleteBook(id);
+  @ApiOperation({ summary: 'Soft-delete or permanently delete a book (admin)' })
+  deleteBook(
+    @Param('id') id: string,
+    @Query('permanent', new DefaultValuePipe(false), ParseBoolPipe) permanent: boolean,
+  ) {
+    return this.booksService.deleteBook(id, permanent);
   }
 
   // Chapters
