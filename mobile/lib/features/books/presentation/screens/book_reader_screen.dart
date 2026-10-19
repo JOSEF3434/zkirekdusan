@@ -39,6 +39,8 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   String? _loadErrorMsg;
   bool _isLoading = true;
   BookModel? _book;
+  bool _isVertical = true;
+  bool _fitToPage = true;
 
   @override
   void initState() {
@@ -266,71 +268,95 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       backgroundColor: Colors.black,
       body: GestureDetector(
         onTap: () => setState(() => _uiVisible = !_uiVisible),
-        child: Stack(
-          children: [
-            // PDF viewer
-            PdfViewPinch(
-              controller: _pdfController!,
-              onDocumentLoaded: (doc) {
-                setState(() => _totalPages = doc.pagesCount);
-              },
-              onPageChanged: (page) {
-                setState(() => _currentPage = page);
-                // Auto-save progress every 5 pages
-                if (page % 5 == 0) _saveProgress();
-              },
-              scrollDirection: prefs.scrollMode == 'continuous'
-                  ? Axis.vertical
-                  : Axis.horizontal,
-              builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-                options: const DefaultBuilderOptions(),
-                documentLoaderBuilder: (_) => const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-                pageLoaderBuilder: (_) => const Center(
-                  child: CircularProgressIndicator(color: Colors.white54),
-                ),
-                errorBuilder: (_, error) => Center(
-                  child: Text(error.toString(),
-                      style: const TextStyle(color: Colors.red)),
-                ),
-              ),
-            ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 700;
+            // On desktop/web wide screens, constrain width so the full page height fits vertically on screen
+            final double? maxPageWidth = (isWide && _fitToPage)
+                ? (constraints.maxHeight * 0.72).clamp(420.0, 850.0)
+                : null;
 
-            // Top AppBar overlay
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              top: _uiVisible ? 0 : -100,
-              left: 0,
-              right: 0,
-              child: _ReaderAppBar(
-                bookTitle: book?.title ?? '',
-                onClose: () {
-                  _saveProgress();
-                  context.pop();
-                },
-              ),
-            ),
+            return Stack(
+              children: [
+                // PDF viewer centered and properly scaled on wide screens
+                Center(
+                  child: SizedBox(
+                    width: maxPageWidth ?? double.infinity,
+                    height: double.infinity,
+                    child: PdfViewPinch(
+                      controller: _pdfController!,
+                      onDocumentLoaded: (doc) {
+                        setState(() => _totalPages = doc.pagesCount);
+                      },
+                      onPageChanged: (page) {
+                        setState(() => _currentPage = page);
+                        // Auto-save progress every 5 pages
+                        if (page % 5 == 0) _saveProgress();
+                      },
+                      scrollDirection:
+                          _isVertical ? Axis.vertical : Axis.horizontal,
+                      backgroundDecoration:
+                          const BoxDecoration(color: Colors.black),
+                      builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+                        options: const DefaultBuilderOptions(),
+                        documentLoaderBuilder: (_) => const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                        pageLoaderBuilder: (_) => const Center(
+                          child: CircularProgressIndicator(color: Colors.white54),
+                        ),
+                        errorBuilder: (_, error) => Center(
+                          child: Text(error.toString(),
+                              style: const TextStyle(color: Colors.red)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
-            // Bottom page indicator
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              bottom: _uiVisible ? 0 : -80,
-              left: 0,
-              right: 0,
-              child: _PageIndicatorBar(
-                currentPage: _currentPage,
-                totalPages: _totalPages,
-                onJump: (p) {
-                  _pdfController!.animateToPage(
-                    pageNumber: p,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-              ),
-            ),
-          ],
+                // Top AppBar overlay
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
+                  top: _uiVisible ? 0 : -100,
+                  left: 0,
+                  right: 0,
+                  child: _ReaderAppBar(
+                    bookTitle: book?.title ?? '',
+                    isVertical: _isVertical,
+                    isFitToPage: _fitToPage,
+                    showFitToggle: isWide,
+                    onToggleScroll: () =>
+                        setState(() => _isVertical = !_isVertical),
+                    onToggleFit: () =>
+                        setState(() => _fitToPage = !_fitToPage),
+                    onClose: () {
+                      _saveProgress();
+                      context.pop();
+                    },
+                  ),
+                ),
+
+                // Bottom page indicator
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
+                  bottom: _uiVisible ? 0 : -80,
+                  left: 0,
+                  right: 0,
+                  child: _PageIndicatorBar(
+                    currentPage: _currentPage,
+                    totalPages: _totalPages,
+                    onJump: (p) {
+                      _pdfController!.animateToPage(
+                        pageNumber: p,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -341,8 +367,22 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
 class _ReaderAppBar extends StatelessWidget {
   final String bookTitle;
+  final bool isVertical;
+  final bool isFitToPage;
+  final bool showFitToggle;
+  final VoidCallback onToggleScroll;
+  final VoidCallback onToggleFit;
   final VoidCallback onClose;
-  const _ReaderAppBar({required this.bookTitle, required this.onClose});
+
+  const _ReaderAppBar({
+    required this.bookTitle,
+    required this.isVertical,
+    required this.isFitToPage,
+    required this.showFitToggle,
+    required this.onToggleScroll,
+    required this.onToggleFit,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +408,30 @@ class _ReaderAppBar extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: onClose,
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isVertical ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded,
+              color: Colors.white,
+            ),
+            tooltip: isVertical
+                ? 'Vertical scroll (click for horizontal)'
+                : 'Horizontal swipe (click for vertical)',
+            onPressed: onToggleScroll,
+          ),
+          if (showFitToggle)
+            IconButton(
+              icon: Icon(
+                isFitToPage ? Icons.fit_screen_rounded : Icons.fullscreen_rounded,
+                color: Colors.white,
+              ),
+              tooltip: isFitToPage
+                  ? 'Fit page (click for full width)'
+                  : 'Full width (click to fit page)',
+              onPressed: onToggleFit,
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
     );
   }
