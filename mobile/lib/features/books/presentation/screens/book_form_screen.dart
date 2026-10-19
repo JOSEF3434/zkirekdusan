@@ -1,5 +1,6 @@
 // lib/features/books/presentation/screens/book_form_screen.dart
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -373,9 +374,28 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        _showErrorSnackBar(
-          'Failed to save book: ${e.toString().replaceAll('Exception: ', '')}',
-        );
+        String errorMessage = 'Failed to save book';
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map) {
+            if (data['details'] != null) {
+              if (data['details'] is List && (data['details'] as List).isNotEmpty) {
+                errorMessage = (data['details'] as List).join('\n');
+              } else if (data['details'] is String) {
+                errorMessage = data['details'] as String;
+              }
+            } else if (data['error'] != null) {
+              errorMessage = data['error'].toString();
+            } else if (data['message'] != null) {
+              errorMessage = data['message'].toString();
+            }
+          } else if (e.message != null && e.message!.isNotEmpty) {
+            errorMessage = e.message!;
+          }
+        } else {
+          errorMessage = 'Failed to save book: ${e.toString().replaceAll('Exception: ', '')}';
+        }
+        _showErrorSnackBar(errorMessage);
       }
     }
   }

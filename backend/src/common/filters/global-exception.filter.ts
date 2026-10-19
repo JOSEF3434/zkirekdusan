@@ -55,13 +55,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, unknown>;
-        const message =
-          typeof resp['message'] === 'string'
-            ? resp['message']
-            : exception.message;
         const details = Array.isArray(resp['message'])
           ? (resp['message'] as string[])
           : undefined;
+        const message =
+          typeof resp['message'] === 'string'
+            ? resp['message']
+            : details && details.length > 0
+              ? details.join('; ')
+              : exception.message;
         return { statusCode: status, message, details };
       }
 
@@ -73,16 +75,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return this.handlePrismaKnownError(exception);
     }
 
-    // Prisma — validation errors (e.g. passing undefined/null where required)
+    // Prisma — validation errors (e.g. invalid arguments, missing fields, schema mismatches)
     if (exception instanceof Prisma.PrismaClientValidationError) {
-      this.logger.error(
-        'PrismaClientValidationError — likely undefined id passed to query',
-      );
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message:
-          'Invalid query parameters — this is a server bug, please report it',
-      };
+      return this.handlePrismaValidationError(exception);
     }
 
     // Prisma — initialization errors
@@ -97,6 +92,85 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'An unexpected internal error occurred',
+    };
+  }
+
+  private handlePrismaValidationError(error: Prisma.PrismaClientValidationError): {
+    statusCode: number;
+    message: string;
+    details?: string | string[];
+  } {
+    const rawMessage = error.message || '';
+    this.logger.error(`PrismaClientValidationError: ${rawMessage}`, error.stack);
+
+    // 1. Internal query/schema structure mismatch (e.g. unknown field in select statement)
+    const selectFieldMatch = rawMessage.match(
+      /Unknown field `([^`]+)` for select statement on model `([^`]+)`/,
+    );
+    if (selectFieldMatch) {
+      const [, field, model] = selectFieldMatch;
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal database query configuration error',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? `Unknown field '${field}' on model '${model}' in select statement`
+            : undefined,
+      };
+    }
+
+    // 2. Missing required argument / property
+    const missingArgMatch = rawMessage.match(/Argument `([^`]+)` is missing/);
+    if (missingArgMatch) {
+      const [, arg] = missingArgMatch;
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: `Missing required field: ${arg}`,
+        details: `Field '${arg}' is required`,
+      };
+    }
+
+    // 3. Type mismatch (e.g. Provided String, expected Int)
+    const typeMismatchMatch = rawMessage.match(
+      /Provided (\w+), expected (\w+) at `([^`]+)`/,
+    );
+    if (typeMismatchMatch) {
+      const [, provided, expected, path] = typeMismatchMatch;
+      const fieldName = path.split('.').pop() || path;
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: `Invalid type for '${fieldName}': expected ${expected}, got ${provided}`,
+        details: `Expected ${expected} for '${fieldName}'`,
+      };
+    }
+
+    // 4. Unknown property / argument in payload
+    const unknownArgMatch = rawMessage.match(/Unknown argument `([^`]+)`/);
+    if (unknownArgMatch) {
+      const [, arg] = unknownArgMatch;
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: `Unknown property: ${arg}`,
+        details: `Property '${arg}' is not supported`,
+      };
+    }
+
+    // 5. Invalid enum value
+    const enumMatch = rawMessage.match(/Invalid value for argument `([^`]+)`/);
+    if (enumMatch) {
+      const [, arg] = enumMatch;
+      return {
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: `Invalid value provided for '${arg}'`,
+        details: `Value constraint failed for '${arg}'`,
+      };
+    }
+
+    // 6. Generic client-safe validation error
+    return {
+      statusCode: HttpStatus.BAD_REQUEST,
+      message: 'Invalid request data or database constraint failure',
+      details: process.env.NODE_ENV === 'development' ? rawMessage : undefined,
     };
   }
 

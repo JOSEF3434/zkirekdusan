@@ -71,7 +71,7 @@ const BOOK_DETAIL_SELECT = {
   edition: true,
   isbn: true,
   contentFileId: true,
-  contentFile: { select: { id: true, url: true, fileSize: true, mimeType: true } },
+  contentFile: { select: { id: true, url: true, size: true, mimeType: true } },
   chapters: {
     where: { isPublished: true },
     select: {
@@ -251,6 +251,23 @@ export class BooksService {
     return { success: true, message: 'Category archived successfully' };
   }
 
+  private formatBookResponse<T extends Record<string, any>>(book: T): T {
+    if (!book) return book;
+    const formatted: any = { ...book };
+    if (formatted.contentFile) {
+      const sizeVal =
+        formatted.contentFile.size !== undefined && formatted.contentFile.size !== null
+          ? Number(formatted.contentFile.size)
+          : undefined;
+      formatted.contentFile = {
+        ...formatted.contentFile,
+        size: sizeVal,
+        fileSize: sizeVal,
+      };
+    }
+    return formatted;
+  }
+
   // ── Books ───────────────────────────────────────────────────────────────
 
   async listBooks(query: QueryBooksDto, isAdmin = false) {
@@ -367,7 +384,7 @@ export class BooksService {
       });
     }
 
-    return { ...book, myProgress: progress ?? null };
+    return this.formatBookResponse({ ...book, myProgress: progress ?? null });
   }
 
   async uploadCover(userId: string, file: Express.Multer.File) {
@@ -439,16 +456,33 @@ export class BooksService {
   }
 
   async createBook(userId: string, dto: CreateBookDto) {
-    if (dto.contentFileId) {
-      const file = await this.prisma.file.findUnique({ where: { id: dto.contentFileId } });
-      if (!file) throw new BadRequestException('Content file not found');
-    }
-    if (dto.coverFileId) {
-      const file = await this.prisma.file.findUnique({ where: { id: dto.coverFileId } });
-      if (!file) throw new BadRequestException('Cover file not found');
+    if (dto.categoryId) {
+      const category = await this.prisma.bookCategory.findFirst({
+        where: { id: dto.categoryId, deletedAt: null },
+      });
+      if (!category) {
+        throw new BadRequestException('Category not found');
+      }
     }
 
-    return this.prisma.book.create({
+    if (dto.contentFileId) {
+      const file = await this.prisma.file.findFirst({
+        where: { id: dto.contentFileId, deletedAt: null },
+      });
+      if (!file) throw new BadRequestException('Content file not found');
+      if (file.status !== 'READY') throw new BadRequestException('Content file is not ready');
+    }
+
+    if (dto.coverFileId) {
+      const file = await this.prisma.file.findFirst({
+        where: { id: dto.coverFileId, deletedAt: null },
+      });
+      if (!file) throw new BadRequestException('Cover file not found');
+      if (file.status !== 'READY') throw new BadRequestException('Cover file is not ready');
+      if (file.fileType !== 'IMAGE') throw new BadRequestException('Cover file must be an image');
+    }
+
+    const created = await this.prisma.book.create({
       data: {
         title: dto.title,
         titleAm: dto.titleAm,
@@ -476,13 +510,41 @@ export class BooksService {
       },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(created);
   }
 
   async updateBook(userId: string, id: string, dto: UpdateBookDto) {
     const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.prisma.book.update({
+    if (dto.categoryId) {
+      const category = await this.prisma.bookCategory.findFirst({
+        where: { id: dto.categoryId, deletedAt: null },
+      });
+      if (!category) {
+        throw new BadRequestException('Category not found');
+      }
+    }
+
+    if (dto.contentFileId) {
+      const file = await this.prisma.file.findFirst({
+        where: { id: dto.contentFileId, deletedAt: null },
+      });
+      if (!file) throw new BadRequestException('Content file not found');
+      if (file.status !== 'READY') throw new BadRequestException('Content file is not ready');
+    }
+
+    if (dto.coverFileId) {
+      const file = await this.prisma.file.findFirst({
+        where: { id: dto.coverFileId, deletedAt: null },
+      });
+      if (!file) throw new BadRequestException('Cover file not found');
+      if (file.status !== 'READY') throw new BadRequestException('Cover file is not ready');
+      if (file.fileType !== 'IMAGE') throw new BadRequestException('Cover file must be an image');
+    }
+
+    const updated = await this.prisma.book.update({
       where: { id },
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
@@ -510,46 +572,54 @@ export class BooksService {
       },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(updated);
   }
 
   async publishBook(userId: string, id: string) {
     const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.prisma.book.update({
+    const updated = await this.prisma.book.update({
       where: { id },
       data: { status: BookStatus.PUBLISHED, updatedById: userId },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(updated);
   }
 
   async unpublishBook(userId: string, id: string) {
     const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.prisma.book.update({
+    const updated = await this.prisma.book.update({
       where: { id },
       data: { status: BookStatus.DRAFT, updatedById: userId },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(updated);
   }
 
   async archiveBook(userId: string, id: string) {
     const book = await this.prisma.book.findFirst({ where: { id, deletedAt: null } });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.prisma.book.update({
+    const updated = await this.prisma.book.update({
       where: { id },
       data: { status: BookStatus.ARCHIVED, updatedById: userId },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(updated);
   }
 
   async restoreBook(userId: string, id: string) {
     const book = await this.prisma.book.findUnique({ where: { id } });
     if (!book) throw new NotFoundException('Book not found');
 
-    return this.prisma.book.update({
+    const updated = await this.prisma.book.update({
       where: { id },
       data: {
         deletedAt: null,
@@ -558,6 +628,8 @@ export class BooksService {
       },
       select: BOOK_DETAIL_SELECT,
     });
+
+    return this.formatBookResponse(updated);
   }
 
   async deleteBook(id: string, permanent = false) {
@@ -845,7 +917,7 @@ export class BooksService {
         format: true,
         pageCount: true,
         contentFileId: true,
-        contentFile: { select: { id: true, url: true, fileSize: true, mimeType: true } },
+        contentFile: { select: { id: true, url: true, size: true, mimeType: true } },
         chapters: {
           where: { isPublished: true },
           select: {
@@ -853,7 +925,7 @@ export class BooksService {
             order: true,
             title: true,
             contentFileId: true,
-            contentFile: { select: { id: true, url: true, fileSize: true, mimeType: true } },
+            contentFile: { select: { id: true, url: true, size: true, mimeType: true } },
           },
           orderBy: { order: 'asc' },
         },
@@ -865,6 +937,25 @@ export class BooksService {
       throw new BadRequestException('This book has no downloadable content available');
     }
 
-    return book;
+    return {
+      ...book,
+      contentFile: book.contentFile
+        ? {
+            ...book.contentFile,
+            size: Number(book.contentFile.size),
+            fileSize: Number(book.contentFile.size),
+          }
+        : null,
+      chapters: book.chapters.map((ch: any) => ({
+        ...ch,
+        contentFile: ch.contentFile
+          ? {
+              ...ch.contentFile,
+              size: Number(ch.contentFile.size),
+              fileSize: Number(ch.contentFile.size),
+            }
+          : null,
+      })),
+    };
   }
 }

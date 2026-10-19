@@ -32,6 +32,7 @@ describe('BooksService', () => {
       },
       file: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
       userBookProgress: {
         deleteMany: jest.fn(),
@@ -207,6 +208,200 @@ describe('BooksService', () => {
       expect(prisma.bookChapter.deleteMany).toHaveBeenCalledWith({ where: { bookId: 'book-1' } });
       expect(prisma.book.delete).toHaveBeenCalledWith({ where: { id: 'book-1' } });
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('Book creation & file association', () => {
+    const validDto: any = {
+      title: 'test',
+      titleAm: 'ሙከራ',
+      titleGez: 'ሙከራ',
+      subtitle: 'test book',
+      author: 'Mr. z',
+      translator: 'mr. Y',
+      publishedYear: 2019,
+      pageCount: 300,
+      description: 'test book uploaded',
+      language: 'GEEZ',
+      format: 'PDF',
+      status: 'DRAFT',
+      categoryId: '3dbbe380-2777-4a76-9d9d-3976a62fff3a',
+      tags: ['test'],
+      sortOrder: 0,
+      coverFileId: '5e8caaac-5534-422f-8ca4-91521f941c4c',
+      contentFileId: '4d6643ca-3697-49ac-bd67-6048d819fa91',
+    };
+
+    it('creates book and formats contentFile size and fileSize correctly', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) {
+          return Promise.resolve({
+            id: validDto.contentFileId,
+            status: 'READY',
+            fileType: 'DOCUMENT',
+            size: BigInt(1743806),
+          });
+        }
+        if (where.id === validDto.coverFileId) {
+          return Promise.resolve({
+            id: validDto.coverFileId,
+            status: 'READY',
+            fileType: 'IMAGE',
+            size: BigInt(100204),
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      const createdRecord = {
+        id: 'book-new-id',
+        title: validDto.title,
+        contentFileId: validDto.contentFileId,
+        contentFile: {
+          id: validDto.contentFileId,
+          url: 'https://cloudinary.com/pdf.pdf',
+          size: BigInt(1743806),
+          mimeType: 'application/pdf',
+        },
+      };
+      prisma.book.create.mockResolvedValue(createdRecord);
+
+      const result = await service.createBook('admin-user-id', validDto);
+
+      expect(prisma.bookCategory.findFirst).toHaveBeenCalledWith({
+        where: { id: validDto.categoryId, deletedAt: null },
+      });
+      expect(prisma.book.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            title: 'test',
+            createdById: 'admin-user-id',
+            updatedById: 'admin-user-id',
+            categoryId: validDto.categoryId,
+            coverFileId: validDto.coverFileId,
+            contentFileId: validDto.contentFileId,
+          }),
+        }),
+      );
+      expect(result.id).toBe('book-new-id');
+      expect(result.contentFile.size).toBe(1743806);
+      expect(result.contentFile.fileSize).toBe(1743806);
+    });
+
+    it('throws BadRequestException when categoryId does not exist', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Category not found'));
+    });
+
+    it('throws BadRequestException when contentFileId does not exist', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) return Promise.resolve(null);
+        return Promise.resolve({ id: validDto.coverFileId, status: 'READY', fileType: 'IMAGE' });
+      });
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Content file not found'));
+    });
+
+    it('throws BadRequestException when contentFile is not READY', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) {
+          return Promise.resolve({ id: validDto.contentFileId, status: 'PROCESSING', fileType: 'DOCUMENT' });
+        }
+        return Promise.resolve({ id: validDto.coverFileId, status: 'READY', fileType: 'IMAGE' });
+      });
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Content file is not ready'));
+    });
+
+    it('throws BadRequestException when coverFileId does not exist', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) {
+          return Promise.resolve({ id: validDto.contentFileId, status: 'READY', fileType: 'DOCUMENT' });
+        }
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Cover file not found'));
+    });
+
+    it('throws BadRequestException when coverFile is not READY', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) {
+          return Promise.resolve({ id: validDto.contentFileId, status: 'READY', fileType: 'DOCUMENT' });
+        }
+        return Promise.resolve({ id: validDto.coverFileId, status: 'FAILED', fileType: 'IMAGE' });
+      });
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Cover file is not ready'));
+    });
+
+    it('throws BadRequestException when coverFile is not an IMAGE', async () => {
+      prisma.bookCategory.findFirst.mockResolvedValue({ id: validDto.categoryId });
+      prisma.file.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === validDto.contentFileId) {
+          return Promise.resolve({ id: validDto.contentFileId, status: 'READY', fileType: 'DOCUMENT' });
+        }
+        return Promise.resolve({ id: validDto.coverFileId, status: 'READY', fileType: 'DOCUMENT' });
+      });
+
+      await expect(
+        service.createBook('admin-user-id', validDto),
+      ).rejects.toThrow(new BadRequestException('Cover file must be an image'));
+    });
+  });
+
+  describe('getDownloadInfo', () => {
+    it('returns formatted download info with size and fileSize for book and chapters', async () => {
+      prisma.book.findFirst.mockResolvedValue({
+        id: 'book-published-1',
+        title: 'Published Book',
+        format: 'PDF',
+        pageCount: 120,
+        contentFileId: 'file-1',
+        contentFile: {
+          id: 'file-1',
+          url: 'https://cdn.example.com/file.pdf',
+          size: BigInt(500000),
+          mimeType: 'application/pdf',
+        },
+        chapters: [
+          {
+            id: 'chap-1',
+            order: 1,
+            title: 'Chapter 1',
+            contentFileId: 'file-chap-1',
+            contentFile: {
+              id: 'file-chap-1',
+              url: 'https://cdn.example.com/chap1.mp3',
+              size: BigInt(123456),
+              mimeType: 'audio/mpeg',
+            },
+          },
+        ],
+      });
+
+      const result = await service.getDownloadInfo('user-1', 'book-published-1');
+
+      expect(result.contentFile.size).toBe(500000);
+      expect(result.contentFile.fileSize).toBe(500000);
+      expect(result.chapters[0].contentFile.size).toBe(123456);
+      expect(result.chapters[0].contentFile.fileSize).toBe(123456);
     });
   });
 });

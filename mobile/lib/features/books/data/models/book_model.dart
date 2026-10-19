@@ -248,7 +248,7 @@ class BookModel {
       contentFileId: rawContent?['id'] as String?,
       contentUrl: rawContent?['url'] as String?,
       contentFileSizeBytes:
-          (rawContent?['fileSize'] as num?)?.toInt(),
+          ((rawContent?['size'] ?? rawContent?['fileSize']) as num?)?.toInt(),
       chapters: rawChapters is List
           ? rawChapters
               .map((c) => BookChapterModel.fromJson(c as Map<String, dynamic>))
