@@ -115,5 +115,55 @@ export async function seed(prisma: PrismaClient) {
     console.log('✅ Default Login Policy seeded');
   }
 
+  /**
+   * 6. Seed Default Amharic Alephat Letters and 22 Alephats
+   */
+  const lettersCount = await prisma.alephatLetter.count();
+  if (lettersCount === 0) {
+    const { INITIAL_ALEPHAT_LETTERS } = await import('../../src/modules/alephat/alephat.seed-data.js');
+    for (const item of INITIAL_ALEPHAT_LETTERS) {
+      await prisma.alephatLetter.create({
+        data: {
+          letter: item.letter,
+          name: item.name,
+          order: item.order,
+          defaultNote: item.defaultNote,
+          pronunciationGuide: item.pronunciationGuide,
+          isPublished: true,
+          familyMembers: {
+            create: item.familyMembers.map((fm) => ({
+              glyph: fm.glyph,
+              orderIndex: fm.orderIndex,
+              orderName: fm.orderName,
+              note: fm.note,
+              pronunciation: fm.pronunciation,
+              isPublished: true,
+            })),
+          },
+        },
+      });
+    }
+    console.log(`✅ Seeded ${INITIAL_ALEPHAT_LETTERS.length} Amharic base letters`);
+  }
+
+  const count22 = await prisma.alephat22Entry.count();
+  if (count22 === 0) {
+    const { INITIAL_22_ALEPHATS } = await import('../../src/modules/alephat/alephat.seed-data.js');
+    for (const item of INITIAL_22_ALEPHATS) {
+      await prisma.alephat22Entry.create({
+        data: {
+          letter: item.letter,
+          title: item.title,
+          meaning: item.meaning,
+          order: item.order,
+          note: item.note,
+          supplementaryInfo: item.supplementaryInfo,
+          isPublished: true,
+        },
+      });
+    }
+    console.log(`✅ Seeded ${INITIAL_22_ALEPHATS.length} 22 Alephat entries`);
+  }
+
   console.log('🎉 Database seed completed successfully!');
 }

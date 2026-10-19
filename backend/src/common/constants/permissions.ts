@@ -181,6 +181,15 @@ export const PERMISSIONS = {
     MANAGE_LIBRARY: 'books.manage_library',
     DOWNLOAD: 'books.download',
   },
+
+  // ─── Amharic Alephat Learning & Reference ────────────────
+  ALEPHAT: {
+    VIEW: 'alephat.view',
+    CREATE: 'alephat.create',
+    UPDATE: 'alephat.update',
+    DELETE: 'alephat.delete',
+    PUBLISH: 'alephat.publish',
+  },
 } as const;
 
 export type Permission =
@@ -264,6 +273,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'books.manage_categories',
     'books.manage_library',
     'books.download',
+    'alephat.view',
+    'alephat.create',
+    'alephat.update',
+    'alephat.delete',
+    'alephat.publish',
   ],
 
   MODERATOR: [
@@ -296,6 +310,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'books.create',
     'books.update',
     'books.publish',
+    'alephat.view',
+    'alephat.create',
+    'alephat.update',
+    'alephat.publish',
   ],
 
   SUPPORT: [
@@ -327,5 +345,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'streams.end',
     'books.view',
     'books.download',
+    'alephat.view',
   ],
 };

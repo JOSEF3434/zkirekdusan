@@ -412,6 +412,12 @@ model User {
   bookAnnotations     UserBookAnnotation[]
   readingPrefs        UserReadingPrefs?
 
+  // Amharic Alephat Learning & Reference
+  createdAlephatLetters   AlephatLetter[]  @relation("AlephatLetterCreator")
+  updatedAlephatLetters   AlephatLetter[]  @relation("AlephatLetterUpdater")
+  createdAlephat22Entries Alephat22Entry[] @relation("Alephat22Creator")
+  updatedAlephat22Entries Alephat22Entry[] @relation("Alephat22Updater")
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2793,6 +2799,80 @@ model CalendarNoteMedia {
   @@index([fileId])
   @@map("calendar_note_media")
 }
+
+// ─────────────────────────────────────────────
+// AMHARIC ALEPHAT LEARNING & REFERENCE
+// ─────────────────────────────────────────────
+
+model AlephatLetter {
+  id                 String   @id @default(uuid())
+  letter             String   @unique // e.g. "ሀ"
+  name               String?  // e.g. "ሆይ", "አልፋ"
+  order              Int      @default(0)
+  defaultNote        String?  @db.Text
+  pronunciationGuide String?
+  isPublished        Boolean  @default(true)
+
+  createdById        String?
+  updatedById        String?
+  createdBy          User?    @relation("AlephatLetterCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?    @relation("AlephatLetterUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  familyMembers      AlephatFamilyMember[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([order])
+  @@index([isPublished])
+  @@index([createdById])
+  @@map("alephat_letters")
+}
+
+model AlephatFamilyMember {
+  id            String         @id @default(uuid())
+  baseLetterId  String
+  baseLetter    AlephatLetter  @relation(fields: [baseLetterId], references: [id], onDelete: Cascade)
+  glyph         String         // e.g. "ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ", "ሇ"
+  orderIndex    Int            // 1=ግዕዝ, 2=ካዕብ, 3=ሣልስ, 4=ራብዕ, 5=ኃምስ, 6=ሳድስ, 7=ሳብዕ, 8=ሳምን
+  orderName     String?        // e.g. "ግዕዝ", "ካዕብ", "ሣልስ", "ራብዕ", "ኃምስ", "ሳድስ", "ሳብዕ", "ሳምን"
+  note          String?        @db.Text
+  pronunciation String?
+  isPublished   Boolean        @default(true)
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([baseLetterId, orderIndex])
+  @@index([baseLetterId])
+  @@index([orderIndex])
+  @@map("alephat_family_members")
+}
+
+model Alephat22Entry {
+  id                String   @id @default(uuid())
+  letter            String   // e.g. "አ"
+  title             String   // e.g. "አሌፍ (አ)"
+  meaning           String?  // e.g. "አምላክ / መጀመሪያ"
+  order             Int      @default(0) // 1 to 22
+  note              String   @db.Text
+  supplementaryInfo String?  @db.Text
+  isPublished       Boolean  @default(true)
+
+  createdById       String?
+  updatedById       String?
+  createdBy         User?    @relation("Alephat22Creator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         User?    @relation("Alephat22Updater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([order])
+  @@index([isPublished])
+  @@index([createdById])
+  @@map("alephat_22_entries")
+}
+
 
 // ─────────────────────────────────────────────
 // LOGIN POLICY MANAGEMENT (Admin Controlled)

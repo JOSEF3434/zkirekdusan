@@ -1,0 +1,490 @@
+// src/modules/alephat/alephat.seed-data.ts
+
+export interface SeedFamilyMember {
+  glyph: string;
+  orderIndex: number;
+  orderName: string;
+  note?: string;
+  pronunciation?: string;
+}
+
+export interface SeedAlephatLetter {
+  letter: string;
+  name: string;
+  order: number;
+  defaultNote: string;
+  pronunciationGuide?: string;
+  familyMembers: SeedFamilyMember[];
+}
+
+export interface Seed22Alephat {
+  letter: string;
+  title: string;
+  meaning: string;
+  order: number;
+  note: string;
+  supplementaryInfo?: string;
+}
+
+const ORDER_NAMES = ['ግዕዝ', 'ካዕብ', 'ሣልስ', 'ራብዕ', 'ኃምስ', 'ሳድስ', 'ሳብዕ', 'ሳምን'];
+
+function makeFamily(base: string, forms: string[], phoneticRoots: string[], baseNote: string): SeedFamilyMember[] {
+  return forms.map((glyph, idx) => {
+    const orderIndex = idx + 1;
+    const orderName = ORDER_NAMES[idx] || `${orderIndex}ኛ`;
+    const pron = phoneticRoots[idx] || '';
+    return {
+      glyph,
+      orderIndex,
+      orderName,
+      pronunciation: pron,
+      note: `${glyph}፡ የ${base} ${orderName} ድምጽ። ${baseNote}`,
+    };
+  });
+}
+
+export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
+  {
+    letter: 'ሀ',
+    name: 'ሆይ',
+    order: 1,
+    defaultNote: 'ሀ፡ ሆይ ይባላል። የመጀመሪያው የፊደል መገኛ ድምጽ ነው። በጉሮሮ የሚነገር የትንፋሽ ድምጽ ነው።',
+    pronunciationGuide: 'Hä - Voiceless glottal fricative',
+    familyMembers: makeFamily('ሀ', ['ሀ', 'ሁ', 'ሂ', 'ሃ', 'ሄ', 'ህ', 'ሆ', 'ሇ'], ['hä', 'hu', 'hi', 'ha', 'hé', 'hə', 'ho', 'hwa'], 'የጉሮሮ የትንፋሽ ድምጽ።'),
+  },
+  {
+    letter: 'ለ',
+    name: 'ላዊ',
+    order: 2,
+    defaultNote: 'ለ፡ ላዊ ይባላል። በምላስ ጫፍና በላይኛው ድድ የሚነገር ፈሳሽ (lateral) ድምጽ ነው።',
+    pronunciationGuide: 'Lä - Alveolar lateral approximant',
+    familyMembers: makeFamily('ለ', ['ለ', 'ሉ', 'ሊ', 'ላ', 'ሌ', 'ል', 'ሎ', 'ሏ'], ['lä', 'lu', 'li', 'la', 'lé', 'lə', 'lo', 'lwa'], 'በምላስና በላይኛው ድድ የሚነገር ፈሳሽ ድምጽ።'),
+  },
+  {
+    letter: 'ሐ',
+    name: 'ሐውት',
+    order: 3,
+    defaultNote: 'ሐ፡ ሐውት ይባላል። ከመካከለኛው ጉሮሮ የሚወጣ ጠንካራ የጉሮሮ ድምጽ ነው።',
+    pronunciationGuide: 'Hä (Pharyngeal) - Voiceless pharyngeal fricative',
+    familyMembers: makeFamily('ሐ', ['ሐ', 'ሑ', 'ሒ', 'ሓ', 'ሔ', 'ሕ', 'ሖ', 'ሗ'], ['hä', 'hu', 'hi', 'ha', 'hé', 'hə', 'ho', 'hwa'], 'ጠንካራ የጉሮሮ ድምጽ።'),
+  },
+  {
+    letter: 'መ',
+    name: 'ማይ',
+    order: 4,
+    defaultNote: 'መ፡ ማይ ይባላል። በሁለቱ ከንፈሮች የሚነገር የአፍንጫ ድምጽ (bilabial nasal) ነው።',
+    pronunciationGuide: 'Mä - Bilabial nasal',
+    familyMembers: makeFamily('መ', ['መ', 'ሙ', 'ሚ', 'ማ', 'ሜ', 'ም', 'ሞ', 'ሟ'], ['mä', 'mu', 'mi', 'ma', 'mé', 'mə', 'mo', 'mwa'], 'በሁለቱ ከንፈሮች የሚነገር የአፍንጫ ድምጽ።'),
+  },
+  {
+    letter: 'ሠ',
+    name: 'ሠውት (ንጉሥ)',
+    order: 5,
+    defaultNote: 'ሠ፡ ሠውት ይባላል (የንጉሡ ሠ)። በጥርሶችና በድድ መካከል የሚወጣ የፉጨት ድምጽ ነው።',
+    pronunciationGuide: 'Sä - Voiceless alveolar fricative',
+    familyMembers: makeFamily('ሠ', ['ሠ', 'ሡ', 'ሢ', 'ሣ', 'ሤ', 'ሥ', 'ሦ', 'ሧ'], ['sä', 'su', 'si', 'sa', 'sé', 'sə', 'so', 'swa'], 'የንጉሡ ሠ ድምጽ።'),
+  },
+  {
+    letter: 'ረ',
+    name: 'ርእስ',
+    order: 6,
+    defaultNote: 'ረ፡ ርእስ ይባላል። የምላስ ጫፍን በማርገብገብ የሚነገር ድምጽ ነው።',
+    pronunciationGuide: 'Rä - Alveolar trill',
+    familyMembers: makeFamily('ረ', ['ረ', 'ሩ', 'ሪ', 'ራ', 'ሬ', 'ር', 'ሮ', 'ሯ'], ['rä', 'ru', 'ri', 'ra', 'ré', 'rə', 'ro', 'rwa'], 'የምላስ ጫፍን በማርገብገብ የሚነገር ድምጽ።'),
+  },
+  {
+    letter: 'ሰ',
+    name: 'ሳት (እሳት)',
+    order: 7,
+    defaultNote: 'ሰ፡ ሳት ይባላል (የእሳቱ ሰ)። ጥርስና ድድ በሚፈጥሩት ክፍተት የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Sä - Alveolar fricative',
+    familyMembers: makeFamily('ሰ', ['ሰ', 'ሱ', 'ሲ', 'ሳ', 'ሴ', 'ስ', 'ሶ', 'ሷ'], ['sä', 'su', 'si', 'sa', 'sé', 'sə', 'so', 'swa'], 'የእሳቱ ሰ ድምጽ።'),
+  },
+  {
+    letter: 'ሸ',
+    name: 'ሻ',
+    order: 8,
+    defaultNote: 'ሸ፡ ሻ ይባላል። ምላስን ወደ ላንቃ በማስጠጋት የሚነገር ለስላሳ የፉጨት ድምጽ ነው።',
+    pronunciationGuide: 'Shä - Postalveolar fricative',
+    familyMembers: makeFamily('ሸ', ['ሸ', 'ሹ', 'ሺ', 'ሻ', 'ሼ', 'ሽ', 'ሾ', 'ሿ'], ['shä', 'shu', 'shi', 'sha', 'shé', 'shə', 'sho', 'shwa'], 'ለስላሳ የፉጨት ድምጽ።'),
+  },
+  {
+    letter: 'ቀ',
+    name: 'ቃፍ',
+    order: 9,
+    defaultNote: 'ቀ፡ ቃፍ ይባላል። ከላንቃ ጀርባ የሚወጣ የጉሮሮ ፍንዳታ (ejective velar/uvular) ድምጽ ነው።',
+    pronunciationGuide: 'Qä - Velar/uvular ejective stop',
+    familyMembers: makeFamily('ቀ', ['ቀ', 'ቁ', 'ቂ', 'ቃ', 'ቄ', 'ቅ', 'ቆ'], ['qä', 'qu', 'qi', 'qa', 'qé', 'qə', 'qo'], 'ከላንቃ ጀርባ የሚወጣ ጠንካራ ድምጽ።'),
+  },
+  {
+    letter: 'በ',
+    name: 'ቤት',
+    order: 10,
+    defaultNote: 'በ፡ ቤት ይባላል። ሁለቱ ከንፈሮች ተገጥመው ድንገት ሲከፈቱ የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Bä - Voiced bilabial stop',
+    familyMembers: makeFamily('በ', ['በ', 'ቡ', 'ቢ', 'ባ', 'ቤ', 'ብ', 'ቦ', 'ቧ'], ['bä', 'bu', 'bi', 'ba', 'bé', 'bə', 'bo', 'bwa'], 'የከንፈር ድምጽ።'),
+  },
+  {
+    letter: 'ተ',
+    name: 'ታው',
+    order: 11,
+    defaultNote: 'ተ፡ ታው ይባላል። የምላስ ጫፍ የላይኛውን ጥርስና ድድ ሲነካ የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Tä - Voiceless alveolar stop',
+    familyMembers: makeFamily('ተ', ['ተ', 'ቱ', 'ቲ', 'ታ', 'ቴ', 'ት', 'ቶ', 'ቷ'], ['tä', 'tu', 'ti', 'ta', 'té', 'tə', 'to', 'twa'], 'የጥርስና ድድ ድምጽ።'),
+  },
+  {
+    letter: 'ቸ',
+    name: 'ቻ',
+    order: 12,
+    defaultNote: 'ቸ፡ ቻ ይባላል። የምላስ መካከለኛ ክፍል ከላንቃ ጋር ሲጋጠም የሚፈጠር ድምጽ ነው።',
+    pronunciationGuide: 'Chä - Voiceless postalveolar affricate',
+    familyMembers: makeFamily('ቸ', ['ቸ', 'ቹ', 'ቺ', 'ቻ', 'ቼ', 'ች', 'ቾ', 'ቿ'], ['chä', 'chu', 'chi', 'cha', 'ché', 'chə', 'cho', 'chwa'], 'የላንቃ ፍንዳታ ድምጽ።'),
+  },
+  {
+    letter: 'ኀ',
+    name: 'ኀርም (ብዙኃን)',
+    order: 13,
+    defaultNote: 'ኀ፡ ኀርም ይባላል (የብዙኃኑ ኀ)። ከጥልቅ ጉሮሮ የሚወጣ ለስላሳ ድምጽ ነው።',
+    pronunciationGuide: 'Hä (Velar) - Voiceless velar fricative',
+    familyMembers: makeFamily('ኀ', ['ኀ', 'ኁ', 'ኂ', 'ኃ', 'ኄ', 'ኅ', 'ኆ'], ['hä', 'hu', 'hi', 'ha', 'hé', 'hə', 'ho'], 'የብዙኃኑ ኀ ድምጽ።'),
+  },
+  {
+    letter: 'ነ',
+    name: 'ነሐስ',
+    order: 14,
+    defaultNote: 'ነ፡ ነሐስ ይባላል። የምላስ ጫፍ ድድን ሲነካ በአፍንጫ በኩል የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Nä - Alveolar nasal',
+    familyMembers: makeFamily('ነ', ['ነ', 'ኑ', 'ኒ', 'ና', 'ኔ', 'ን', 'ኖ', 'ኗ'], ['nä', 'nu', 'ni', 'na', 'né', 'nə', 'no', 'nwa'], 'የአፍንጫ ድምጽ።'),
+  },
+  {
+    letter: 'ኘ',
+    name: 'ኛ',
+    order: 15,
+    defaultNote: 'ኘ፡ ኛ ይባላል። የምላስ ገጽ ከላንቃ ጋር ሲገናኝ በአፍንጫ በኩል የሚነገር ድምጽ ነው።',
+    pronunciationGuide: 'Ñä - Palatal nasal',
+    familyMembers: makeFamily('ኘ', ['ኘ', 'ኙ', 'ኚ', 'ኛ', 'ኜ', 'ኝ', 'ኞ', 'ኟ'], ['ñä', 'ñu', 'ñi', 'ña', 'ñé', 'ñə', 'ño', 'ñwa'], 'የላንቃ የአፍንጫ ድምጽ።'),
+  },
+  {
+    letter: 'አ',
+    name: 'አልፍ',
+    order: 16,
+    defaultNote: 'አ፡ አልፍ ይባላል። ከጉሮሮ የሚወጣ የአናባቢ መክፈቻ ድምጽ ነው።',
+    pronunciationGuide: '’ä - Glottal stop',
+    familyMembers: makeFamily('አ', ['አ', 'ኡ', 'ኢ', 'ኣ', 'ኤ', 'እ', 'ኦ', 'ኧ'], ['’ä', '’u', '’i', '’a', '’é', '’ə', '’o', '’wa'], 'የአልፍ አናባቢ ድምጽ።'),
+  },
+  {
+    letter: 'ከ',
+    name: 'ካፍ',
+    order: 17,
+    defaultNote: 'ከ፡ ካፍ ይባላል። የምላስ የኋላ ክፍል ለስላሳውን ላንቃ በመንካት የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Kä - Voiceless velar stop',
+    familyMembers: makeFamily('ከ', ['ከ', 'ኩ', 'ኪ', 'ካ', 'ኬ', 'ክ', 'ኮ'], ['kä', 'ku', 'ki', 'ka', 'ké', 'kə', 'ko'], 'የላንቃ ድምጽ።'),
+  },
+  {
+    letter: 'ኸ',
+    name: 'ኻ',
+    order: 18,
+    defaultNote: 'ኸ፡ ኻ ይባላል። በምላስ የኋላ ክፍልና በላንቃ መካከል የሚወጣ ሰበቃ ድምጽ ነው።',
+    pronunciationGuide: 'Kha - Voiceless velar fricative',
+    familyMembers: makeFamily('ኸ', ['ኸ', 'ኹ', 'ኺ', 'ኻ', 'ኼ', 'ኽ', 'ኾ'], ['khä', 'khu', 'khi', 'kha', 'khé', 'khə', 'kho'], 'የሰበቃ ድምጽ።'),
+  },
+  {
+    letter: 'ወ',
+    name: 'ወዌ',
+    order: 19,
+    defaultNote: 'ወ፡ ወዌ ይባላል። ከንፈርን በማድበልበል የሚነገር ከፊል አናባቢ ድምጽ ነው።',
+    pronunciationGuide: 'Wä - Labial-velar approximant',
+    familyMembers: makeFamily('ወ', ['ወ', 'ዉ', 'ዊ', 'ዋ', 'ዌ', 'ው', 'ዎ'], ['wä', 'wu', 'wi', 'wa', 'wé', 'wə', 'wo'], 'ከፊል አናባቢ ድምጽ።'),
+  },
+  {
+    letter: 'ዐ',
+    name: 'ዐይን',
+    order: 20,
+    defaultNote: 'ዐ፡ ዐይን ይባላል። ከጥልቅ ጉሮሮ (pharyngeal) የሚወጣ ታላቅ ድምጽ ነው።',
+    pronunciationGuide: '‘ä - Voiced pharyngeal fricative',
+    familyMembers: makeFamily('ዐ', ['ዐ', 'ዑ', 'ዒ', 'ዓ', 'ዔ', 'ዕ', 'ዖ'], ['‘ä', '‘u', '‘i', '‘a', '‘é', '‘ə', '‘o'], 'የዓይኑ ዐ ጥልቅ ድምጽ።'),
+  },
+  {
+    letter: 'ዘ',
+    name: 'ዛይ',
+    order: 21,
+    defaultNote: 'ዘ፡ ዛይ ይባላል። የምላስ ጫፍ ከድድ ጋር ተቀራርቦ የሚወጣ የድምጽ አውታር ንዝረት ያለው ድምጽ ነው።',
+    pronunciationGuide: 'Zä - Voiced alveolar fricative',
+    familyMembers: makeFamily('ዘ', ['ዘ', 'ዙ', 'ዚ', 'ዛ', 'ዜ', 'ዝ', 'ዞ', 'ዟ'], ['zä', 'zu', 'zi', 'za', 'zé', 'zə', 'zo', 'zwa'], 'የድምጽ አውታር ንዝረት ያለው ድምጽ።'),
+  },
+  {
+    letter: 'ዠ',
+    name: 'ዠ',
+    order: 22,
+    defaultNote: 'ዠ፡ ዠ ይባላል። በምላስና በላንቃ መካከል የሚወጣ ለስላሳ የንዝረት ድምጽ ነው።',
+    pronunciationGuide: 'Zhä - Voiced postalveolar fricative',
+    familyMembers: makeFamily('ዠ', ['ዠ', 'ዡ', 'ዢ', 'ዣ', 'ዤ', 'ዥ', 'ዦ', 'ዧ'], ['zhä', 'zhu', 'zhi', 'zha', 'zhé', 'zhə', 'zho', 'zhwa'], 'ለስላሳ የንዝረት ድምጽ።'),
+  },
+  {
+    letter: 'የ',
+    name: 'የመን',
+    order: 23,
+    defaultNote: 'የ፡ የመን ይባላል። ምላስ ወደ ጠጣሩ ላንቃ በመቅረብ የሚወጣ ከፊል አናባቢ ድምጽ ነው።',
+    pronunciationGuide: 'Yä - Palatal approximant',
+    familyMembers: makeFamily('የ', ['የ', 'ዩ', 'ዪ', 'ያ', 'ዬ', 'ይ', 'ዮ'], ['yä', 'yu', 'yi', 'ya', 'yé', 'yə', 'yo'], 'ከፊል አናባቢ ድምጽ።'),
+  },
+  {
+    letter: 'ደ',
+    name: 'ድንት',
+    order: 24,
+    defaultNote: 'ደ፡ ድንት ይባላል። የምላስ ጫፍ የላይኛውን ጥርስና ድድ በመንካት የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Dä - Voiced alveolar stop',
+    familyMembers: makeFamily('ደ', ['ደ', 'ዱ', 'ዲ', 'ዳ', 'ዴ', 'ድ', 'ዶ', 'ዷ'], ['dä', 'du', 'di', 'da', 'dé', 'də', 'do', 'dwa'], 'የጥርስና ድድ ድምጽ።'),
+  },
+  {
+    letter: 'ጀ',
+    name: 'ጀ',
+    order: 25,
+    defaultNote: 'ጀ፡ ጀ ይባላል። በምላስና በላንቃ መካከል የሚወጣ የድምጽ አውታር ንዝረት ያለው ድምጽ ነው።',
+    pronunciationGuide: 'Jä - Voiced postalveolar affricate',
+    familyMembers: makeFamily('ጀ', ['ጀ', 'ጁ', 'ጂ', 'ጃ', 'ጄ', 'ጅ', 'ጆ', 'ጇ'], ['jä', 'ju', 'ji', 'ja', 'jé', 'jə', 'jo', 'jwa'], 'የላንቃ ንዝረት ድምጽ።'),
+  },
+  {
+    letter: 'ገ',
+    name: 'ገምል',
+    order: 26,
+    defaultNote: 'ገ፡ ገምል ይባላል። የምላስ ጀርባ ከላንቃ ጋር ሲገናኝ የሚፈጠር ድምጽ ነው።',
+    pronunciationGuide: 'Gä - Voiced velar stop',
+    familyMembers: makeFamily('ገ', ['ገ', 'ጉ', 'ጊ', 'ጋ', 'ጌ', 'ግ', 'ጎ'], ['gä', 'gu', 'gi', 'ga', 'gé', 'gə', 'go'], 'የላንቃ ድምጽ።'),
+  },
+  {
+    letter: 'ጠ',
+    name: 'ጠይት',
+    order: 27,
+    defaultNote: 'ጠ፡ ጠይት ይባላል። የምላስ ጫፍ ድድን በመጫን የሚወጣ ጠንካራ ፍንዳታ ድምጽ ነው።',
+    pronunciationGuide: 'T’ä - Alveolar ejective stop',
+    familyMembers: makeFamily('ጠ', ['ጠ', 'ጡ', 'ጢ', 'ጣ', 'ጤ', 'ጥ', 'ጦ', 'ጧ'], ['t’ä', 't’u', 't’i', 't’a', 't’é', 't’ə', 't’o', 't’wa'], 'ጠንካራ የድድ ድምጽ።'),
+  },
+  {
+    letter: 'ጨ',
+    name: 'ጨ',
+    order: 28,
+    defaultNote: 'ጨ፡ ጨ ይባላል። ምላስ ላንቃን በመጫን የሚወጣ ጠንካራ የላንቃ ፍንዳታ ድምጽ ነው።',
+    pronunciationGuide: 'Ch’ä - Postalveolar ejective affricate',
+    familyMembers: makeFamily('ጨ', ['ጨ', 'ጩ', 'ጪ', 'ጫ', 'ጬ', 'ጭ', 'ጮ', 'ጯ'], ['ch’ä', 'ch’u', 'ch’i', 'ch’a', 'ch’é', 'ch’ə', 'ch’o', 'ch’wa'], 'ጠንካራ የላንቃ ድምጽ።'),
+  },
+  {
+    letter: 'ጰ',
+    name: 'ጰይት',
+    order: 29,
+    defaultNote: 'ጰ፡ ጰይት ይባላል። በከንፈሮች ግፊት የሚወጣ ጠንካራ ፍንዳታ ድምጽ ነው።',
+    pronunciationGuide: 'P’ä - Bilabial ejective stop',
+    familyMembers: makeFamily('ጰ', ['ጰ', 'ጱ', 'ጲ', 'ጳ', 'ጴ', 'ጵ', 'ጶ', 'ጷ'], ['p’ä', 'p’u', 'p’i', 'p’a', 'p’é', 'p’ə', 'p’o', 'p’wa'], 'ጠንካራ የከንፈር ፍንዳታ ድምጽ።'),
+  },
+  {
+    letter: 'ጸ',
+    name: 'ጸደይ (ጸሎት)',
+    order: 30,
+    defaultNote: 'ጸ፡ ጸደይ ይባላል (የጸሎቱ ጸ)። በጥርስና በድድ መካከል የሚወጣ ጠንካራ ድምጽ ነው።',
+    pronunciationGuide: 'Ts’ä - Alveolar ejective affricate',
+    familyMembers: makeFamily('ጸ', ['ጸ', 'ጹ', 'ጺ', 'ጻ', 'ጼ', 'ጽ', 'ጾ', 'ጿ'], ['ts’ä', 'ts’u', 'ts’i', 'ts’a', 'ts’é', 'ts’ə', 'ts’o', 'ts’wa'], 'የጸሎቱ ጸ ድምጽ።'),
+  },
+  {
+    letter: 'ፀ',
+    name: 'ፀጳ (ፀሐይ)',
+    order: 31,
+    defaultNote: 'ፀ፡ ፀጳ ይባላል (የፀሐዩ ፀ)። ከጥልቅ ጉሮሮና ከላንቃ ጋር ተያይዞ የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Ts’ä (Pharyngealized) - Ejective fricative',
+    familyMembers: makeFamily('ፀ', ['ፀ', 'ፁ', 'ፂ', 'ፃ', 'ፄ', 'ፅ', 'ፆ'], ['ts’ä', 'ts’u', 'ts’i', 'ts’a', 'ts’é', 'ts’ə', 'ts’o'], 'የፀሐዩ ፀ ድምጽ።'),
+  },
+  {
+    letter: 'ፈ',
+    name: 'አፍ',
+    order: 32,
+    defaultNote: 'ፈ፡ አፍ ይባላል። የላይኛው ጥርስ የታችኛውን ከንፈር ሲነካ የሚወጣ ድምጽ ነው።',
+    pronunciationGuide: 'Fä - Labiodental fricative',
+    familyMembers: makeFamily('ፈ', ['ፈ', 'ፉ', 'ፊ', 'ፋ', 'ፌ', 'ፍ', 'ፎ', 'ፏ'], ['fä', 'fu', 'fi', 'fa', 'fé', 'fə', 'fo', 'fwa'], 'የጥርስና ከንፈር ድምጽ።'),
+  },
+  {
+    letter: 'ፐ',
+    name: 'ፔ',
+    order: 33,
+    defaultNote: 'ፐ፡ ፔ ይባላል። በሁለቱ ከንፈሮች ፍንዳታ የሚወጣ ለስላሳ ድምጽ ነው።',
+    pronunciationGuide: 'Pä - Voiceless bilabial stop',
+    familyMembers: makeFamily('ፐ', ['ፐ', 'ፑ', 'ፒ', 'ፓ', 'ፔ', 'ፕ', 'ፖ', 'ፗ'], ['pä', 'pu', 'pi', 'pa', 'pé', 'pə', 'po', 'pwa'], 'የከንፈር ፍንዳታ ድምጽ።'),
+  },
+];
+
+export const INITIAL_22_ALEPHATS: Seed22Alephat[] = [
+  {
+    letter: 'አ',
+    title: 'አሌፍ (አ)',
+    meaning: 'አምላክ፣ መጀመሪያ',
+    order: 1,
+    note: 'አሌፍ ማለት አምላክ ወይም መጀመሪያ ማለት ነው። እግዚአብሔር የፍጥረታት ሁሉ መጀመሪያ፣ አልፋና ኦሜጋ፣ ፊተኛውና ኋለኛው መሆኑን ያመለክታል።',
+    supplementaryInfo: 'በመዝሙረ ዳዊት (መዝ. 119፥1-8) አሌፍ የሚጀምረው የሕግን መንገድ ስለ መጠበቅና ፍጹም ስለ መሆን በሚያስተምሩ ቃላት ነው።',
+  },
+  {
+    letter: 'በ',
+    title: 'ቤት (በ)',
+    meaning: 'ቤት፣ ማደሪያ',
+    order: 2,
+    note: 'ቤት ማለት ማደሪያ ወይም የሰው መኖሪያ ማለት ነው። በምስጢሩ ቤተ መቅደስን፣ የእግዚአብሔርን ማደሪያና ማኅደረ መለኮት ድንግል ማርያምን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥9-16 ጎበዝ መንገዱን በምን ያነጻል? የሚለው ጥያቄ በቤት አንቀጽ ውስጥ ይገኛል።',
+  },
+  {
+    letter: 'ገ',
+    title: 'ጋመል (ገ)',
+    meaning: 'ግመል፣ ምልዓት፣ ሸክም ተሸካሚ',
+    order: 3,
+    note: 'ጋመል ማለት ግመል ወይም ሸክም ተሸካሚ ማለት ነው። ትዕግሥትንና የእግዚአብሔርን ጸጋ ምልዓት፤ እንዲሁም የሰው ልጆችን ሸክም የተሸከመውን መድኃኔዓለም ክርስቶስን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥17-24 ለእኔ ለባሪያህ በቸርነትህ አድርግልኝ በማለት የእግዚአብሔርን ምሕረት ይለምናል።',
+  },
+  {
+    letter: 'ደ',
+    title: 'ዳልት (ደ)',
+    meaning: 'ደጅ፣ መግቢያ በር',
+    order: 4,
+    note: 'ዳልት ማለት ደጅ ወይም መግቢያ በር ማለት ነው። ወደ መንግሥተ ሰማያትና ወደ እውነተኛ ሕይወት የሚያደርስ የጽድቅ ደጅ ጌታችን ኢየሱስ ክርስቶስ መሆኑን ያሳያል።',
+    supplementaryInfo: 'በመዝ. 119፥25-32 ነፍሴ በመሬት ላይ ተጣበቀች፤ እንደ ቃልህ ሕያው አድርገኝ ይላል።',
+  },
+  {
+    letter: 'ሀ',
+    title: 'ሆይ (ሀ)',
+    meaning: 'ሕይወት፣ እስትንፋስ',
+    order: 5,
+    note: 'ሆይ ማለት እስትንፋስ ወይም ሕይወት ማለት ነው። ለሰው ልጆች ሁሉ ሕይወትን የሚሰጥ መንፈስ ቅዱስ መሆኑንና እግዚአብሔር በሰው አፍንጫ የሕይወት እስትንፋስን እፍ እንዳለበት ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥33-40 አቤቱ፥ የሥርዓትህን መንገድ አስተምረኝ፤ እኔም እስከ መጨረሻው እጠብቀዋለሁ።',
+  },
+  {
+    letter: 'ወ',
+    title: 'ዋው (ወ)',
+    meaning: 'መያዣ፣ ማገናኛ፣ ፍቅር',
+    order: 6,
+    note: 'ዋው ማለት መያዣ፣ ማያያዣ ወይም ማሰሪያ ማለት ነው። ሰማይና ምድርን፣ አምላክንና ሰውን በፍቅር ያገናኘውን ምስጢረ ተዋሕዶንና የሰላም ማሰሪያን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥41-48 አቤቱ፥ ምሕረትህና ማዳንህ እንደ ቃልህ ወደ እኔ ይምጡ።',
+  },
+  {
+    letter: 'ዘ',
+    title: 'ዛይ (ዘ)',
+    meaning: 'መሣሪያ፣ ዘውድ፣ አክሊል',
+    order: 7,
+    note: 'ዛይ ማለት መሣሪያ ወይም ዘውድ ማለት ነው። ምእመናን በክፉው ላይ የሚቀዳጁትን የድል አክሊልና የእምነት ጋሻ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥49-56 ተስፋ እንድታደርግ ላደረግኸኝ ለባሪያህ ቃልህን አስብ።',
+  },
+  {
+    letter: 'ሐ',
+    title: 'ሔት (ሐ)',
+    meaning: 'አጥር፣ ጥበቃ፣ ከለላ',
+    order: 8,
+    note: 'ሔት ማለት አጥር ወይም ጥበቃ ማለት ነው። የእግዚአብሔር ጸጋና መላእክት በምእመናን ዙሪያ እንደ ቅጥር ሆነው እንደሚጠብቋቸው ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥57-64 እድል ፈንታዬ አንተ ነህ፤ ቃልህን እጠብቅ ዘንድ ተናገርሁ።',
+  },
+  {
+    letter: 'ጠ',
+    title: 'ጠይት (ጠ)',
+    meaning: 'ቸርነት፣ በጎነት',
+    order: 9,
+    note: 'ጠይት ማለት ቸርነት ወይም በጎነት ማለት ነው። እግዚአብሔር ቸርና በጎ መሆኑን፣ ለሚሹትም ሁሉ ቸርነቱን እንደማይነሳ ያሳያል።',
+    supplementaryInfo: 'በመዝ. 119፥65-72 አቤቱ፥ እንደ ቃልህ ለባሪያህ ቸርነትን አደረግህ።',
+  },
+  {
+    letter: 'የ',
+    title: 'ዮድ (የ)',
+    meaning: 'እጅ፣ ሥራ፣ ኃይል',
+    order: 10,
+    note: 'ዮድ ማለት እጅ ወይም ሥራ ማለት ነው። ዓለምን የፈጠረችውን፣ ድውያንን የፈወሰችውንና አዳምን ከሲኦል ያወጣችውን የእግዚአብሔርን ኃያል ቀኝ እጅ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥73-80 እጆችህ ሠሩኝ አበጁኝም፤ ትእዛዝህንም እማር ዘንድ አስተውሎትን ስጠኝ።',
+  },
+  {
+    letter: 'ከ',
+    title: 'ካፍ (ከ)',
+    meaning: 'መዳፍ፣ በረከት',
+    order: 11,
+    note: 'ካፍ ማለት የተዘረጋ መዳፍ ማለት ነው። ለፍጥረታት ሁሉ ምግበ ሥጋንና ምግበ ነፍስን የሚመግብ፣ በረከቱን የሚዘረጋ የአምላክን ቸር እጅ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥81-88 ነፍሴ ማዳንህን ናፈቀች፤ በቃልህ ታመንሁ።',
+  },
+  {
+    letter: 'ለ',
+    title: 'ላሜድ (ለ)',
+    meaning: 'መማሪያ፣ ዘንግ፣ መመሪያ',
+    order: 12,
+    note: 'ላሜድ ማለት መማሪያ ዘንግ ወይም የእረኛ በትር ማለት ነው። እግዚአብሔር ሕዝቡን የሚመራበትንና የሚያስተምርበትን ቅዱስ ሕጉን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥89-96 አቤቱ፥ ቃልህ በሰማይ ለዘላለም ይኖራል።',
+  },
+  {
+    letter: 'መ',
+    title: 'ሜም (መ)',
+    meaning: 'ውኃ፣ ምንጭ፣ ሕይወት',
+    order: 13,
+    note: 'ሜም ማለት ውኃ ወይም የሕይወት ምንጭ ማለት ነው። በሥጋ ከጥማት የሚያድነውን ውኃና በነፍስ የሚያድሰውን የቅድስና ጥምቀትን፣ የመንፈስ ቅዱስን ጸጋ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥97-104 ሕግህን እንደ ምን እጅግ ወደድሁ! ቀኑን ሙሉ እርሱ ትካዜዬ ነው።',
+  },
+  {
+    letter: 'ነ',
+    title: 'ኑን (ነ)',
+    meaning: 'ዓሣ፣ ዘር፣ ፍሬ',
+    order: 14,
+    note: 'ኑን ማለት ዓሣ ወይም ፍሬያማነት ማለት ነው። በባሕረ ዓለም የሚዋኙትንና በወንጌል መረብ የሚሰበሰቡትን ምእመናን፣ የሐዋርያት አገልግሎት ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥105-112 ሕግህ ለእግሬ መብራት፥ ለመንገዴም ብርሃን ነው።',
+  },
+  {
+    letter: 'ሰ',
+    title: 'ሳምኬት (ሰ)',
+    meaning: 'ድጋፍ፣ ምርኩዝ',
+    order: 15,
+    note: 'ሳምኬት ማለት ድጋፍ ወይም ምርኩዝ ማለት ነው። የሚወድቁትን የሚያነሣ፣ የተጨነቁትን የሚደግፍና ለድካማችን ምርኩዝ የሚሆነውን አምላክ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥113-120 ተንኮለኞችን ጠላሁ፤ ሕግህን ግን ወደድሁ። መጠጊያዬና ጋሻዬ አንተ ነህ።',
+  },
+  {
+    letter: 'ዐ',
+    title: 'ዐይን (ዐ)',
+    meaning: 'ዐይን፣ እይታ፣ ማስተዋል',
+    order: 16,
+    note: 'ዐይን ማለት ማየት ወይም እይታ ማለት ነው። ሁሉን የሚያይ፣ በስውር ያለውን የሚያውቅና ከፍጡራን ምንም የማይሰወረውን መለኮታዊ ሁሉን አዋቂነት ያሳያል።',
+    supplementaryInfo: 'በመዝ. 119፥121-128 ፍርድንና ጽድቅን አደረግሁ፤ ለሚያስጨንቁኝ አትተወኝ።',
+  },
+  {
+    letter: 'ፈ',
+    title: 'ፌ (ፈ)',
+    meaning: 'አፍ፣ ቃል፣ ንግግር',
+    order: 17,
+    note: 'ፌ ማለት አፍ ወይም የሕይወት ቃል መውጫ ማለት ነው። የእግዚአብሔርን ቅዱስ ቃል፣ ወንጌልንና የምስጋና መስዋዕትን የሚያወራ ንጹሕ አንደበትን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥129-136 ምስክርህ ድንቅ ነው፤ ስለዚህ ነፍሴ ፈለገችው። የቃልህ መክፈቻ ያበራል።',
+  },
+  {
+    letter: 'ጸ',
+    title: 'ጻዴ (ጸ)',
+    meaning: 'ጽድቅ፣ ፍትሕ፣ ጻድቅ',
+    order: 18,
+    note: 'ጻዴ ማለት ጽድቅ ወይም ፍትሕ ማለት ነው። እግዚአብሔር ጻድቅና የጽድቅ ሁሉ ምንጭ መሆኑን፣ ፍርዱም ቅን እንደ ሆነ ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥137-144 አቤቱ፥ አንተ ጻድቅ ነህ፥ ፍርድህም ቅን ነው።',
+  },
+  {
+    letter: 'ቀ',
+    title: 'ቆፍ (ቀ)',
+    meaning: 'ቅድስና፣ ራስ',
+    order: 19,
+    note: 'ቆፍ ማለት ቅድስና ወይም ራስ ማለት ነው። ቅዱስ እግዚአብሔርንና የቤተክርስቲያን ራስ የሆነውን ክርስቶስን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥145-152 በሙሉ ልቤ ጮኽሁ፤ አቤቱ፥ ስማኝ፥ ሥርዓትህንም እሻለሁ።',
+  },
+  {
+    letter: 'ረ',
+    title: 'ሬሽ (ረ)',
+    meaning: 'ራስ፣ መሪ፣ ሹም',
+    order: 20,
+    note: 'ሬሽ ማለት ራስ ወይም መጀመሪያ ማለት ነው። የነገሥታት ንጉሥና የካህናት አለቃ የሆነውን መድኃኒታችንን ያሳያል።',
+    supplementaryInfo: 'በመዝ. 119፥153-160 መከራዬን እይ አድነኝም፤ ሕግህን አልረሳሁምና።',
+  },
+  {
+    letter: 'ሠ',
+    title: 'ሺን (ሠ)',
+    meaning: 'ጥርስ፣ እሳት፣ ኃይል',
+    order: 21,
+    note: 'ሺን ማለት ኃይል ወይም የመንፈስ ቅዱስ እሳት ማለት ነው። ኃጢአትን የሚያቃጥል መለኮታዊ እሳትንና የማይናወጥ የእምነት ጽናትን ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥161-168 አለቆች በከንቱ አሳደዱኝ፤ ልቤ ግን ከቃልህ የተነሣ ደነገጠ።',
+  },
+  {
+    letter: 'ተ',
+    title: 'ታው (ተ)',
+    meaning: 'ምልክት፣ መስቀል፣ ማኅተም',
+    order: 22,
+    note: 'ታው ማለት ምልክት፣ መስቀል ወይም ማኅተም ማለት ነው። የድኅነት ዓርማ የሆነውን ቅዱስ መስቀልና በቅዱስ ጥምቀት የምንታተምበትን የመንፈስ ቅዱስ ማኅተም ያመለክታል።',
+    supplementaryInfo: 'በመዝ. 119፥169-176 ልመናዬ ወደ ፊትህ ትቅረብ፤ እንደ ቃልህ ማስተዋልን ስጠኝ።',
+  },
+];

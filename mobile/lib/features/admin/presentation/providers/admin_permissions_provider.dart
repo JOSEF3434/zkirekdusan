@@ -70,9 +70,18 @@ class AdminPermissions {
   bool get canManageLoginPolicy =>
       isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
 
+  bool get canManageAlephat =>
+      isAuthenticated &&
+      (role == 'SUPER_ADMIN' || role == 'ADMIN' || role == 'MODERATOR');
+
+  bool get canDeleteAlephat =>
+      isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
+
   bool hasPermission(String requiredResource) {
     if (isSuperAdmin) return true;
     switch (requiredResource) {
+      case 'alephat':
+        return canManageAlephat;
       case 'users':
         return canManageUsers;
       case 'roles':

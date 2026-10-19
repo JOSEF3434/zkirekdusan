@@ -68,6 +68,9 @@ import { ExploreModule } from './modules/explore/explore.module.js';
 // Ethiopian Calendar
 import { CalendarModule } from './modules/calendar/calendar.module.js';
 
+// Amharic Alephat Learning & Reference
+import { AlephatModule } from './modules/alephat/alephat.module.js';
+
 // Phase 8 — Digital Library
 import { BooksModule } from './modules/books/books.module.js';
 
@@ -188,6 +191,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 
     // Ethiopian Calendar
     CalendarModule,
+
+    // Amharic Alephat Learning & Reference
+    AlephatModule,
 
     // Phase 8 — Digital Library
     BooksModule,

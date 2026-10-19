@@ -14,6 +14,8 @@ import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dar
 import 'package:mobile/features/calendar/presentation/widgets/sync_status_indicator.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_sync_provider.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
+import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_learning_view.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -29,19 +31,73 @@ class CalendarScreen extends ConsumerWidget {
     final canManage = _canManage(ref);
     final calendarState = ref.watch(calendarProvider);
     final tr = ref.watch(trProvider);
+    final topTab = ref.watch(calendarTopTabProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          // Trigger manual sync
-          final quickSync = ref.read(quickSyncProvider);
-          await quickSync();
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(54),
+        child: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: SegmentedButton<int>(
+              segments: [
+                ButtonSegment<int>(
+                  value: 0,
+                  icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                  label: Text(
+                    tr('calendar.tab_calendar', {'fallback': 'ቀን መቁጠሪያ'}),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamilyFallback: [
+                        'Noto Serif Ethiopic',
+                        'Noto Sans Ethiopic',
+                      ],
+                    ),
+                  ),
+                ),
+                ButtonSegment<int>(
+                  value: 1,
+                  icon: const Icon(Icons.school_outlined, size: 18),
+                  label: Text(
+                    tr('calendar.tab_alephat', {'fallback': 'ትምህርተ አሌፋት'}),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamilyFallback: [
+                        'Noto Serif Ethiopic',
+                        'Noto Sans Ethiopic',
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              selected: {topTab},
+              onSelectionChanged: (newSelection) {
+                ref.read(calendarTopTabProvider.notifier).state =
+                    newSelection.first;
+              },
+              showSelectedIcon: false,
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: topTab == 0
+          ? RefreshIndicator(
+              onRefresh: () async {
+                // Trigger manual sync
+                final quickSync = ref.read(quickSyncProvider);
+                await quickSync();
 
-          // Refresh current month notes
-          ref.invalidate(calendarNotesForMonthProvider);
-        },
-        child: CustomScrollView(
+                // Refresh current month notes
+                ref.invalidate(calendarNotesForMonthProvider);
+              },
+              child: CustomScrollView(
           slivers: [
             // App bar with month/year
             SliverAppBar(
@@ -139,8 +195,9 @@ class CalendarScreen extends ConsumerWidget {
               ),
           ],
         ),
-      ),
-      floatingActionButton: canManage && calendarState.selectedDate != null
+      )
+    : const AlephatLearningView(),
+      floatingActionButton: topTab == 0 && canManage && calendarState.selectedDate != null
           ? FloatingActionButton.extended(
               heroTag: null,
               onPressed: () {
