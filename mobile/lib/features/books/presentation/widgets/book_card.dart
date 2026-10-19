@@ -8,14 +8,18 @@ import '../providers/books_providers.dart';
 
 class BookCard extends ConsumerWidget {
   final BookModel book;
-  final VoidCallback onTap;
+  final VoidCallback? onCoverTap;
+  final VoidCallback? onDetailTap;
+  final VoidCallback? onTap;
   final VoidCallback? onDownload;
   final bool compact;
 
   const BookCard({
     super.key,
     required this.book,
-    required this.onTap,
+    this.onCoverTap,
+    this.onDetailTap,
+    this.onTap,
     this.onDownload,
     this.compact = false,
   });
@@ -29,25 +33,34 @@ class BookCard extends ConsumerWidget {
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
     final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: theme.shadowColor.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cover
-            Expanded(
+    final coverTap = onCoverTap ?? onTap;
+    final detailTap = onDetailTap ?? onTap;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cover - Clicking opens the book reader
+          Expanded(
+            child: MouseRegion(
+              cursor: coverTap != null
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: coverTap,
               child: Stack(
                 children: [
                   ClipRRect(
@@ -108,12 +121,24 @@ class BookCard extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+        ),
 
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(10),
+        // Info - Clicking opens the book details
+        MouseRegion(
+          cursor: detailTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: detailTap,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              color: Colors.transparent,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     book.title,
@@ -139,10 +164,11 @@ class BookCard extends ConsumerWidget {
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
-    );
+      ],
+    ),
+  );
   }
 }
 

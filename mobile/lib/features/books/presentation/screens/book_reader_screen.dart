@@ -4,6 +4,7 @@
 // in Phase 1 with clear messaging.
 
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -140,17 +141,20 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     }
   }
 
-  /// Downloads bytes from a URL using Dart's http client (no additional packages)
+  /// Downloads bytes from a URL using Dio (fully cross-platform on web, mobile, desktop)
   Future<Uint8List> _fetchBytes(String url) async {
-    final client = HttpClient();
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      final response = await request.close();
-      final bytes = await response.expand((chunk) => chunk).toList();
-      return Uint8List.fromList(bytes);
-    } finally {
-      client.close();
+    final dio = Dio();
+    final response = await dio.get<List<int>>(
+      url,
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(minutes: 5),
+      ),
+    );
+    if (response.data == null || response.data!.isEmpty) {
+      throw Exception('Empty response received for book PDF');
     }
+    return Uint8List.fromList(response.data!);
   }
 
   @override

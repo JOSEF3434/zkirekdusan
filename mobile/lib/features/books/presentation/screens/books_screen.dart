@@ -670,34 +670,59 @@ class _BookGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GridView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.60,
-      ),
-      itemCount: books.length + (hasMore ? 1 : 0),
-      itemBuilder: (ctx, i) {
-        if (i == books.length) {
-          return isLoadingMore
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              : const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final int crossAxisCount;
+        if (width >= 1200) {
+          crossAxisCount = 6;
+        } else if (width >= 960) {
+          crossAxisCount = 5;
+        } else if (width >= 720) {
+          crossAxisCount = 4;
+        } else if (width >= 480) {
+          crossAxisCount = 3;
+        } else {
+          crossAxisCount = 2;
         }
-        final book = books[i];
-        return BookCard(
-          book: book,
-          onTap: () => context.push('/books/${book.id}'),
-          onDownload: isAuth && book.isReadable
-              ? () => _triggerDownload(ref, book, userId)
-              : null,
+
+        return GridView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            childAspectRatio: 0.70,
+          ),
+          itemCount: books.length + (hasMore ? 1 : 0),
+          itemBuilder: (ctx, i) {
+            if (i == books.length) {
+              return isLoadingMore
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : const SizedBox.shrink();
+            }
+            final book = books[i];
+            return BookCard(
+              book: book,
+              onCoverTap: () {
+                if (book.isReadable) {
+                  context.push('/books/${book.id}/read');
+                } else {
+                  context.push('/books/${book.id}');
+                }
+              },
+              onDetailTap: () => context.push('/books/${book.id}'),
+              onDownload: isAuth && book.isReadable
+                  ? () => _triggerDownload(ref, book, userId)
+                  : null,
+            );
+          },
         );
       },
     );
@@ -743,6 +768,14 @@ class _BookList extends ConsumerWidget {
           book: book,
           isAuth: isAuth,
           userId: userId,
+          onCoverTap: () {
+            if (book.isReadable) {
+              context.push('/books/${book.id}/read');
+            } else {
+              context.push('/books/${book.id}');
+            }
+          },
+          onDetailTap: () => context.push('/books/${book.id}'),
           onTap: () => context.push('/books/${book.id}'),
           onDownload: isAuth && book.isReadable
               ? () {
@@ -761,6 +794,8 @@ class _BookList extends ConsumerWidget {
 
 class _BookListTile extends ConsumerWidget {
   final BookModel book;
+  final VoidCallback? onCoverTap;
+  final VoidCallback? onDetailTap;
   final VoidCallback onTap;
   final VoidCallback? onDownload;
   final bool isAuth;
@@ -768,6 +803,8 @@ class _BookListTile extends ConsumerWidget {
 
   const _BookListTile({
     required this.book,
+    this.onCoverTap,
+    this.onDetailTap,
     required this.onTap,
     this.onDownload,
     required this.isAuth,
@@ -783,39 +820,51 @@ class _BookListTile extends ConsumerWidget {
     final isActive = downloadState.activeProgress.containsKey(book.id);
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: theme.shadowColor.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Mini cover
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 56,
-                height: 72,
-                child: book.coverUrl != null
-                    ? Image.network(book.coverUrl!, fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _MiniPlaceholder(book: book))
-                    : _MiniPlaceholder(book: book),
+    final coverAction = onCoverTap ?? onTap;
+    final detailAction = onDetailTap ?? onTap;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Mini cover - Clicking opens the reader
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: coverAction,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 56,
+                  height: 72,
+                  child: book.coverUrl != null
+                      ? Image.network(book.coverUrl!, fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _MiniPlaceholder(book: book))
+                      : _MiniPlaceholder(book: book),
+                ),
               ),
             ),
-            const SizedBox(width: 14),
-            // Info
-            Expanded(
+          ),
+          const SizedBox(width: 14),
+          // Info - Clicking opens book details
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: detailAction,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -882,6 +931,8 @@ class _BookListTile extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+        ),
             // Action
             if (isActive)
               Padding(
@@ -905,8 +956,7 @@ class _BookListTile extends ConsumerWidget {
               const Icon(Icons.chevron_right, size: 20),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 

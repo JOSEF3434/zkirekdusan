@@ -73,13 +73,21 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
   late TabController _tabController;
   bool _descExpanded = false;
 
+  int get _tabCount => widget.book.chapters.isNotEmpty ? 2 : 1;
+
   @override
   void initState() {
     super.initState();
-    final hasTabs =
-        widget.book.chapters.isNotEmpty || widget.book.description != null;
-    _tabController =
-        TabController(length: hasTabs ? 2 : 1, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
+  }
+
+  @override
+  void didUpdateWidget(_BookDetailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.book.chapters.length != widget.book.chapters.length) {
+      _tabController.dispose();
+      _tabController = TabController(length: _tabCount, vsync: this);
+    }
   }
 
   @override
@@ -228,36 +236,44 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                 ),
               ),
 
-            // Tabs
-            if (book.chapters.isNotEmpty || book.description != null)
+            // Tabs: show TabBar only if chapters exist, otherwise display DetailsTab directly
+            if (book.chapters.isNotEmpty) ...[
               TabBar(
                 controller: _tabController,
                 labelColor: theme.colorScheme.primary,
                 indicatorColor: theme.colorScheme.primary,
                 tabs: [
                   const Tab(text: 'Details'),
-                  if (book.chapters.isNotEmpty)
-                    Tab(text: 'Chapters (${book.chapters.length})'),
+                  Tab(text: 'Chapters (${book.chapters.length})'),
                 ],
               ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _DetailsTab(
-                    book: book,
-                    expanded: _descExpanded,
-                    onExpand: () =>
-                        setState(() => _descExpanded = !_descExpanded),
-                  ),
-                  if (book.chapters.isNotEmpty)
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _DetailsTab(
+                      book: book,
+                      expanded: _descExpanded,
+                      onExpand: () =>
+                          setState(() => _descExpanded = !_descExpanded),
+                    ),
                     _ChaptersTab(
                       book: book,
                       isDownloaded: isDownloaded,
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ] else ...[
+              Expanded(
+                child: _DetailsTab(
+                  book: book,
+                  expanded: _descExpanded,
+                  onExpand: () =>
+                      setState(() => _descExpanded = !_descExpanded),
+                ),
+              ),
+            ],
           ],
         ),
       ),

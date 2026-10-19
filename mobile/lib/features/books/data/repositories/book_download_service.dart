@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/database/daos/downloaded_books_dao.dart';
+import 'package:mobile/core/storage/web_download_helper.dart';
 import '../models/book_model.dart';
 
 /// Result of a download attempt
@@ -79,8 +80,78 @@ class BookDownloadService {
     void Function(double progress, int downloaded)? onProgress,
   }) async {
     if (kIsWeb) {
-      return const DownloadResult.err(
-          'Offline download is not supported in the web version.');
+      if (_activeTokens.containsKey(book.id)) {
+        return const DownloadResult.err('Download already in progress');
+      }
+
+      final token = CancelToken();
+      _activeTokens[book.id] = token;
+
+      try {
+        final response = await _dio.get<List<int>>(
+          contentUrl,
+          cancelToken: token,
+          options: Options(
+            responseType: ResponseType.bytes,
+            receiveTimeout: const Duration(minutes: 30),
+          ),
+          onReceiveProgress: (received, total) {
+            final effectiveTotal =
+                total > 0 ? total : (expectedBytes ?? received);
+            final progress =
+                effectiveTotal > 0 ? received / effectiveTotal : 0.0;
+            onProgress?.call(progress.clamp(0.0, 1.0), received);
+          },
+        );
+
+        _activeTokens.remove(book.id);
+
+        if (response.data == null || response.data!.isEmpty) {
+          return const DownloadResult.err('Downloaded file is empty or missing');
+        }
+
+        final ext = _extensionFor(mimeType, book.format);
+        final safeTitle = book.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+        final filename = '${safeTitle.isNotEmpty ? safeTitle : 'book'}.$ext';
+
+        WebDownloadHelper.triggerBrowserSaveOnly(
+          bytes: response.data!,
+          filename: filename,
+        );
+
+        // Record in local Drift db on web
+        try {
+          await _dao.upsertRecord(LocalDownloadedBooksCompanion.insert(
+            bookId: book.id,
+            userId: userId,
+            title: book.title,
+            titleAm: Value(book.titleAm),
+            coverUrl: Value(book.coverUrl),
+            author: Value(book.author),
+            format: book.format.name.toUpperCase(),
+            pageCount: Value(book.pageCount),
+            status: const Value('completed'),
+            progress: const Value(1.0),
+            expectedBytes: Value(expectedBytes ?? response.data!.length),
+            contentVersion: Value(book.updatedAt.toIso8601String()),
+            localContentPath: Value(contentUrl),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
+        } catch (_) {}
+
+        return DownloadResult.ok(contentUrl);
+      } on DioException catch (e) {
+        _activeTokens.remove(book.id);
+        if (e.type == DioExceptionType.cancel) {
+          return const DownloadResult.err('Download cancelled');
+        }
+        final msg = e.message ?? 'Network error during download';
+        return DownloadResult.err(msg);
+      } catch (e) {
+        _activeTokens.remove(book.id);
+        return DownloadResult.err(e.toString());
+      }
     }
 
     // Prevent duplicate concurrent downloads
@@ -178,7 +249,7 @@ class BookDownloadService {
   /// Remove a downloaded book's local files and database record
   Future<void> removeDownload(String bookId, String userId) async {
     final record = await _dao.getRecord(bookId, userId);
-    if (record != null && record.localContentPath != null) {
+    if (!kIsWeb && record != null && record.localContentPath != null) {
       try {
         final f = File(record.localContentPath!);
         if (await f.exists()) await f.delete();
@@ -192,6 +263,8 @@ class BookDownloadService {
     final record = await _dao.getRecord(bookId, userId);
     if (record == null || record.localContentPath == null) return false;
     if (record.status != 'completed') return false;
+
+    if (kIsWeb) return true;
 
     final file = File(record.localContentPath!);
     if (!await file.exists()) return false;
