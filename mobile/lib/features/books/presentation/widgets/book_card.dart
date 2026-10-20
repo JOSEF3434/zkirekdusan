@@ -97,10 +97,11 @@ class BookCard extends ConsumerWidget {
                             center: const Icon(Icons.downloading, size: 14, color: Colors.white),
                           )
                         : isDownloaded
-                            ? _StatusBadge(icon: Icons.offline_pin, color: Colors.green)
-                            : onDownload != null
-                                ? _DownloadButton(onTap: onDownload!)
-                                : const SizedBox.shrink(),
+                            ? const _DownloadedBadge()
+                            : _OnlineBadge(
+                                onDownload: onDownload,
+                                isReadable: book.isReadable,
+                              ),
                   ),
 
                   // Progress indicator at bottom
@@ -246,40 +247,116 @@ class _FormatBadge extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _StatusBadge({required this.icon, required this.color});
+class _DownloadedBadge extends StatelessWidget {
+  const _DownloadedBadge();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
+    return Tooltip(
+      message: 'Downloaded • Available Offline',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFF059669),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF059669).withValues(alpha: 0.4),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_rounded, color: Colors.white, size: 11),
+            SizedBox(width: 3),
+            Text(
+              'Offline',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Icon(icon, color: color, size: 14),
     );
   }
 }
 
-class _DownloadButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _DownloadButton({required this.onTap});
+class _OnlineBadge extends StatelessWidget {
+  final VoidCallback? onDownload;
+  final bool isReadable;
+
+  const _OnlineBadge({
+    this.onDownload,
+    this.isReadable = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(20),
+    final canDownload = onDownload != null && isReadable;
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFF0284C7).withValues(alpha: 0.7),
+          width: 1,
         ),
-        child: const Icon(Icons.download_outlined, color: Colors.white, size: 14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            canDownload ? Icons.cloud_download_outlined : Icons.cloud_outlined,
+            color: const Color(0xFF38BDF8),
+            size: 11,
+          ),
+          const SizedBox(width: 3),
+          const Text(
+            'Online',
+            style: TextStyle(
+              color: Color(0xFF38BDF8),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (canDownload) {
+      return Semantics(
+        button: true,
+        label: 'Download book for offline reading',
+        child: Tooltip(
+          message: 'Online • Tap to Download',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDownload,
+            child: content,
+          ),
+        ),
+      );
+    }
+
+    return Tooltip(
+      message: 'Online Only',
+      child: content,
     );
   }
 }

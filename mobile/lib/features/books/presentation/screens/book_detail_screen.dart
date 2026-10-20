@@ -178,13 +178,21 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                               icon: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.8),
+                                  color: const Color(0xFF059669),
                                   borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF059669)
+                                          .withValues(alpha: 0.4),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(Icons.offline_pin,
+                                child: const Icon(Icons.check_circle_rounded,
                                     color: Colors.white, size: 18),
                               ),
-                              tooltip: 'Download Options',
+                              tooltip: 'Downloaded (Offline Options)',
                               onPressed: () =>
                                   _showDownloadedBookOptions(context, ref),
                             )
@@ -192,13 +200,27 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                               icon: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.black45,
+                                  color: const Color(0xFF0284C7)
+                                      .withValues(alpha: 0.85),
                                   borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: const Color(0xFF38BDF8)
+                                        .withValues(alpha: 0.6),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF0284C7)
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(Icons.download_outlined,
+                                child: const Icon(Icons.cloud_download_outlined,
                                     color: Colors.white, size: 18),
                               ),
-                              tooltip: 'Download Book',
+                              tooltip: 'Download Book (Online Only)',
                               onPressed: () async {
                                 if (widget.userId != null) {
                                   final messenger =
@@ -1034,7 +1056,7 @@ class _ReadButton extends ConsumerWidget {
                     extra: {'isDownloaded': isDownloaded});
               },
               icon: Icon(
-                isDownloaded ? Icons.offline_pin : Icons.menu_book,
+                isDownloaded ? Icons.check_circle_rounded : Icons.menu_book,
               ),
               label: Text(hasProgress ? 'Continue Reading' : 'Read Book'),
               style: FilledButton.styleFrom(

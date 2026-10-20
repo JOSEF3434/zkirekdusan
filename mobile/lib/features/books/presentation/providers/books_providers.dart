@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/database/app_database.dart';
+export 'package:mobile/core/database/app_database.dart' show LocalDownloadedBookData;
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/providers/database_provider.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
@@ -457,24 +458,21 @@ final downloadsNotifierProvider =
 /// Stream of all completed downloads for current user
 final downloadedBooksStreamProvider =
     StreamProvider<List<LocalDownloadedBookData>>((ref) {
-  final userId = ref.watch(authProvider).user?.id;
-  if (userId == null) return const Stream.empty();
+  final userId = ref.watch(authProvider).user?.id ?? 'guest';
   return ref.watch(booksRepositoryProvider).watchDownloads(userId);
 });
 
 /// Stream of ALL download records (any status) for current user
 final allDownloadsStreamProvider =
     StreamProvider<List<LocalDownloadedBookData>>((ref) {
-  final userId = ref.watch(authProvider).user?.id;
-  if (userId == null) return const Stream.empty();
+  final userId = ref.watch(authProvider).user?.id ?? 'guest';
   return ref.watch(booksRepositoryProvider).watchAllDownloads(userId);
 });
 
 /// Quick lookup: is a specific book downloaded for the current user?
 final isBookDownloadedProvider =
     FutureProvider.family<bool, String>((ref, bookId) async {
-  final userId = ref.watch(authProvider).user?.id;
-  if (userId == null) return false;
+  final userId = ref.watch(authProvider).user?.id ?? 'guest';
   return ref.watch(booksRepositoryProvider).isDownloaded(bookId, userId);
 });
 

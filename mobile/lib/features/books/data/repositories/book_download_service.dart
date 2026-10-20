@@ -225,28 +225,30 @@ class BookDownloadService {
           );
         }
 
-        // For inApp or both: record in local Drift DB
-        if (destination == BookDownloadDestination.inApp ||
-            destination == BookDownloadDestination.both) {
-          try {
-            await _dao.upsertRecord(LocalDownloadedBooksCompanion.insert(
-              bookId: book.id,
-              userId: userId,
-              title: book.title,
-              titleAm: Value(book.titleAm),
-              coverUrl: Value(book.coverUrl),
-              author: Value(book.author),
-              format: book.format.name.toUpperCase(),
-              pageCount: Value(book.pageCount),
-              status: const Value('completed'),
-              progress: const Value(1.0),
-              expectedBytes: Value(expectedBytes ?? response.data!.length),
-              contentVersion: Value(book.updatedAt.toIso8601String()),
-              localContentPath: Value(contentUrl),
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ));
-          } catch (_) {}
+        // Always record in local DB (Drift / Web store) so downloaded books appear in the app
+        final effectiveUserId = userId.isNotEmpty ? userId : 'guest';
+        try {
+          await _dao.upsertRecord(LocalDownloadedBooksCompanion.insert(
+            bookId: book.id,
+            userId: effectiveUserId,
+            title: book.title,
+            titleAm: Value(book.titleAm),
+            coverUrl: Value(book.coverUrl),
+            author: Value(book.author),
+            categoryName: Value(book.categoryName),
+            format: book.format.name.toUpperCase(),
+            pageCount: Value(book.pageCount),
+            status: const Value('completed'),
+            progress: const Value(1.0),
+            expectedBytes: Value(expectedBytes ?? response.data!.length),
+            contentVersion: Value(book.updatedAt.toIso8601String()),
+            localContentPath: Value(contentUrl),
+            downloadedAt: Value(DateTime.now()),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
+        } catch (e) {
+          debugPrint('[BookDownloadService] Web download DB upsert error: $e');
         }
 
         if (destination == BookDownloadDestination.deviceFileManager) {

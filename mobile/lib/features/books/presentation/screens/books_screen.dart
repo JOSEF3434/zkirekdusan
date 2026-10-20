@@ -117,7 +117,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
                 text: TextSpan(
                   children: [
                     TextSpan(
-                      text: 'ዝክረ ',
+                      text: 'ዝክረ ክዱሳን  ',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         color: theme.colorScheme.primary,
@@ -257,9 +257,15 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontSize: 12),
           tabs: const [
-            Tab(text: 'All'),
-            Tab(icon: Icon(Icons.offline_pin, size: 14), text: 'Downloaded'),
-            Tab(text: 'Online Only'),
+            Tab(icon: Icon(Icons.auto_stories_outlined, size: 14), text: 'All'),
+            Tab(
+              icon: Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF059669)),
+              text: 'Downloaded',
+            ),
+            Tab(
+              icon: Icon(Icons.cloud_outlined, size: 14, color: Color(0xFF0284C7)),
+              text: 'Online Only',
+            ),
           ],
         ),
         color: theme.colorScheme.surface,
@@ -278,29 +284,69 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
   ) {
     // Get download records for filtering
     final downloadsAsync = ref.watch(downloadedBooksStreamProvider);
-    final downloadedIds = downloadsAsync.valueOrNull
-            ?.map((d) => d.bookId)
-            .toSet() ??
-        <String>{};
+    final downloadedRecords =
+        downloadsAsync.valueOrNull ?? <LocalDownloadedBookData>[];
+    final downloadedIds = downloadedRecords.map((d) => d.bookId).toSet();
 
-    List<BookModel> filteredBooks = libraryState.books;
+    List<BookModel> filteredBooks;
 
-    // Apply download filter client-side (data already fetched)
     if (_dlTabIndex == 1) {
-      filteredBooks = filteredBooks
-          .where((b) => downloadedIds.contains(b.id))
-          .toList();
+      // Downloaded tab: show all downloaded books (match existing or map from local record)
+      final existingBooksById = {for (final b in libraryState.books) b.id: b};
+      filteredBooks = downloadedRecords.map((d) {
+        if (existingBooksById.containsKey(d.bookId)) {
+          return existingBooksById[d.bookId]!;
+        }
+        return BookModel(
+          id: d.bookId,
+          title: d.title,
+          titleAm: d.titleAm,
+          author: d.author,
+          categoryName: d.categoryName,
+          language: BookLanguage.amharic,
+          format: BookFormat.values.firstWhere(
+            (f) => f.name.toUpperCase() == d.format.toUpperCase(),
+            orElse: () => BookFormat.pdf,
+          ),
+          status: BookStatus.published,
+          pageCount: d.pageCount,
+          tags: const [],
+          sortOrder: 0,
+          viewsCount: 0,
+          bookmarksCount: 0,
+          coverUrl: d.coverUrl,
+          contentUrl: d.localContentPath,
+          chapters: const [],
+          attachments: const [],
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+        );
+      }).toList();
+
+      final search = libraryState.filter.search?.trim().toLowerCase();
+      if (search != null && search.isNotEmpty) {
+        filteredBooks = filteredBooks.where((b) {
+          final t = b.title.toLowerCase();
+          final ta = b.titleAm?.toLowerCase() ?? '';
+          final a = b.author?.toLowerCase() ?? '';
+          return t.contains(search) || ta.contains(search) || a.contains(search);
+        }).toList();
+      }
     } else if (_dlTabIndex == 2) {
-      filteredBooks = filteredBooks
+      // Online only tab
+      filteredBooks = libraryState.books
           .where((b) => !downloadedIds.contains(b.id))
           .toList();
+    } else {
+      // All tab
+      filteredBooks = libraryState.books;
     }
 
-    if (libraryState.isLoading && libraryState.books.isEmpty) {
+    if (libraryState.isLoading && libraryState.books.isEmpty && _dlTabIndex == 0) {
       return _LoadingGrid(isGrid: prefs.gridView);
     }
 
-    if (libraryState.error != null && libraryState.books.isEmpty) {
+    if (libraryState.error != null && libraryState.books.isEmpty && _dlTabIndex == 0) {
       return _ErrorState(
         message: libraryState.error!,
         onRetry: () => ref.read(libraryProvider.notifier).refresh(),
@@ -892,13 +938,69 @@ class _BookListTile extends ConsumerWidget {
                     children: [
                       _Chip(book.format.name.toUpperCase(), theme),
                       const SizedBox(width: 6),
-                      if (book.pageCount != null)
+                      if (book.pageCount != null) ...[
                         _Chip('${book.pageCount} pp', theme),
+                        const SizedBox(width: 6),
+                      ],
                       if (isDownloaded)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Icon(Icons.offline_pin,
-                              size: 14, color: Colors.green),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFF059669)
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle_rounded,
+                                  size: 11, color: Color(0xFF059669)),
+                              SizedBox(width: 3),
+                              Text(
+                                'Downloaded',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFF0284C7)
+                                  .withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.cloud_outlined,
+                                  size: 11, color: Color(0xFF0284C7)),
+                              SizedBox(width: 3),
+                              Text(
+                                'Online',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0284C7),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                     ],
                   ),
@@ -946,9 +1048,26 @@ class _BookListTile extends ConsumerWidget {
                   ),
                 ),
               )
-            else if (!isDownloaded && onDownload != null)
+            else if (isDownloaded)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Tooltip(
+                  message: 'Downloaded (Offline Ready)',
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF059669),
+                    size: 22,
+                  ),
+                ),
+              )
+            else if (onDownload != null)
               IconButton(
-                icon: const Icon(Icons.download_outlined, size: 20),
+                icon: const Icon(
+                  Icons.cloud_download_outlined,
+                  color: Color(0xFF0284C7),
+                  size: 22,
+                ),
+                tooltip: 'Download for offline reading',
                 onPressed: onDownload,
                 visualDensity: VisualDensity.compact,
               )
