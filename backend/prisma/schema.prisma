@@ -411,6 +411,7 @@ model User {
   bookBookmarks       UserBookmark[]
   bookAnnotations     UserBookAnnotation[]
   readingPrefs        UserReadingPrefs?
+  modifiedBookDownloadSettings BookDownloadSetting[] @relation("BookDownloadSettingModifier")
 
   // Amharic Alephat Learning & Reference
   createdAlephatLetters   AlephatLetter[]  @relation("AlephatLetterCreator")
@@ -704,6 +705,7 @@ model File {
   bookCovers        Book[]        @relation("BookCoverFile")
   bookContents      Book[]        @relation("BookContentFile")
   bookChapterFiles  BookChapter[] @relation("BookChapterContentFile")
+  bookAttachmentFiles BookAttachment[] @relation("BookAttachmentFiles")
 
 
 
@@ -3044,6 +3046,7 @@ model Book {
   bookmarks   UserBookmark[]
   annotations UserBookAnnotation[]
   chapters    BookChapter[]
+  attachments BookAttachment[]
 
 
   deletedAt DateTime?
@@ -3201,6 +3204,51 @@ model UserReadingPrefs {
   createdAt DateTime @default(now())
 
   @@map("user_reading_prefs")
+}
+
+// ─────────────────────────────────────────────
+// BOOK DOWNLOAD DESTINATION & MULTI-MEDIA ATTACHMENTS
+// ─────────────────────────────────────────────
+
+enum BookDownloadDestination {
+  IN_APP
+  DEVICE_FILE_MANAGER
+  BOTH
+}
+
+/// Admin-controlled persistent download destination setting for books.
+model BookDownloadSetting {
+  id          String                  @id @default(uuid())
+  destination BookDownloadDestination @default(IN_APP)
+  description String?                 @db.Text
+
+  updatedById String?
+  updatedBy   User?                   @relation("BookDownloadSettingModifier", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@map("book_download_settings")
+}
+
+/// Multi-media attachments associated with a book (audio, video, documents, images)
+model BookAttachment {
+  id        String   @id @default(uuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  fileId    String
+  file      File     @relation("BookAttachmentFiles", fields: [fileId], references: [id], onDelete: Cascade)
+
+  title     String?
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookId])
+  @@index([fileId])
+  @@map("book_attachments")
 }
 
 

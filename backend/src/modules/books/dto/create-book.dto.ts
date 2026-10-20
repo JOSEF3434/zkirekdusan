@@ -10,9 +10,11 @@ import {
   MaxLength,
   Min,
   Max,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
+import { BookAttachmentItemDto } from './book-attachment.dto.js';
 
 export enum BookStatusDto {
   DRAFT = 'DRAFT',
@@ -188,4 +190,11 @@ export class CreateBookDto {
   })
   @IsInt()
   sortOrder?: number;
+
+  @ApiPropertyOptional({ type: [BookAttachmentItemDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BookAttachmentItemDto)
+  attachments?: BookAttachmentItemDto[];
 }

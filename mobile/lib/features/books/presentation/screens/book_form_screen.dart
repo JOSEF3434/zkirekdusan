@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../data/models/book_attachment_model.dart';
 import '../../data/models/book_category_model.dart';
 import '../../data/models/book_model.dart';
 import '../providers/book_admin_providers.dart';
@@ -61,6 +62,8 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
   String? _newContentName;
   int? _newContentSize;
 
+  final List<_AttachmentFormItem> _attachments = [];
+
   bool _isSaving = false;
   double? _contentUploadProgress;
 
@@ -102,7 +105,16 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
       _existingContentUrl = b.contentUrl;
       _contentFileId = b.contentFileId;
       _contentFileName = b.contentUrl?.split('/').last;
+
+      if (b.attachments.isNotEmpty) {
+        for (final att in b.attachments) {
+          _attachments.add(_AttachmentFormItem.fromExisting(att));
+        }
+      } else {
+        _attachments.add(_AttachmentFormItem.empty());
+      }
     } else {
+      _attachments.add(_AttachmentFormItem.empty());
       _loadDetailsIfNeeded();
     }
   }
@@ -141,6 +153,16 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             _existingContentUrl = b.contentUrl;
             _contentFileId = b.contentFileId;
             _contentFileName = b.contentUrl?.split('/').last;
+
+            if (b.attachments.isNotEmpty) {
+              for (final a in _attachments) {
+                a.dispose();
+              }
+              _attachments.clear();
+              for (final att in b.attachments) {
+                _attachments.add(_AttachmentFormItem.fromExisting(att));
+              }
+            }
           });
         }
       } catch (_) {}
@@ -205,6 +227,9 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     _tagsController.dispose();
     _externalUrlController.dispose();
     _sortOrderController.dispose();
+    for (final a in _attachments) {
+      a.dispose();
+    }
     super.dispose();
   }
 
@@ -263,6 +288,150 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     }
   }
 
+  // ── Media Attachment Pickers & Helpers ──────────────────────────────────
+
+  AttachmentMediaType _detectMediaType(String ext) {
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
+      return AttachmentMediaType.image;
+    }
+    if (['mp3', 'wav', 'm4a', 'aac', 'ogg'].contains(ext)) {
+      return AttachmentMediaType.audio;
+    }
+    if (['mp4', 'webm', 'mov', 'mkv'].contains(ext)) {
+      return AttachmentMediaType.video;
+    }
+    if (['pdf', 'epub', 'doc', 'docx', 'txt', 'md'].contains(ext)) {
+      return AttachmentMediaType.document;
+    }
+    return AttachmentMediaType.other;
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _pickAttachmentFile(_AttachmentFormItem item) async {
+    try {
+      final extensions = [
+        'pdf', 'doc', 'docx', 'epub', 'txt', 'md',
+        'jpg', 'jpeg', 'png', 'webp',
+        'mp3', 'wav', 'm4a', 'aac', 'ogg',
+        'mp4', 'webm', 'mov',
+      ];
+      final res = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: extensions,
+        withData: true,
+      );
+      if (res != null && res.files.isNotEmpty) {
+        final f = res.files.first;
+        Uint8List? bytes = f.bytes;
+        if (bytes == null && f.path != null) {
+          bytes = await File(f.path!).readAsBytes();
+        }
+        if (bytes != null) {
+          final ext = f.name.contains('.')
+              ? f.name.split('.').last.toLowerCase()
+              : '';
+          setState(() {
+            item.newBytes = bytes;
+            item.newFileName = f.name;
+            item.newFileSize = f.size;
+            item.uploadedFileId = null;
+            item.uploadError = null;
+            item.mediaType = _detectMediaType(ext);
+            if (item.titleController.text.trim().isEmpty) {
+              final nameWithoutExt = f.name.contains('.')
+                  ? f.name.substring(0, f.name.lastIndexOf('.'))
+                  : f.name;
+              item.titleController.text = nameWithoutExt;
+            }
+          });
+          _uploadAttachmentItem(item);
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to select media attachment: $e');
+    }
+  }
+
+  Future<void> _uploadAttachmentItem(_AttachmentFormItem item) async {
+    if (item.newBytes == null || item.newFileName == null) return;
+    setState(() {
+      item.isUploading = true;
+      item.uploadProgress = 0.0;
+      item.uploadError = null;
+    });
+
+    try {
+      final repo = ref.read(booksRepositoryProvider);
+      final res = await repo.uploadBookAttachment(
+        bytes: item.newBytes!,
+        filename: item.newFileName!,
+        onProgress: (count, total) {
+          if (total > 0 && mounted) {
+            setState(() {
+              item.uploadProgress = count / total;
+            });
+          }
+        },
+      );
+      final fileId = res['id'] as String?;
+      if (mounted) {
+        setState(() {
+          item.isUploading = false;
+          item.uploadedFileId = fileId;
+          item.uploadProgress = 1.0;
+          item.uploadError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          item.isUploading = false;
+          item.uploadError = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  Future<void> _removeAttachmentItem(int index) async {
+    final item = _attachments[index];
+    if (item.existingId != null) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Remove Attachment'),
+          content: Text(
+            'Are you sure you want to remove "${item.titleController.text.isNotEmpty ? item.titleController.text : (item.newFileName ?? item.existingOriginalName ?? 'this attachment')}"?\n\nThis attachment will be unlinked when you save changes.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    setState(() {
+      item.dispose();
+      _attachments.removeAt(index);
+    });
+  }
+
   // ── Save action ─────────────────────────────────────────────────────────
 
   Future<void> _save() async {
@@ -301,7 +470,44 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
         contentId = contentRes['id'] as String?;
       }
 
-      // 3. Build data map
+      // 3. Upload any pending attachment files
+      for (final att in _attachments) {
+        if (att.newBytes != null &&
+            att.uploadedFileId == null &&
+            !att.isUploading) {
+          await _uploadAttachmentItem(att);
+        }
+      }
+
+      // Check if any attachment is still uploading
+      final stillUploading = _attachments.any((a) => a.isUploading);
+      if (stillUploading) {
+        _showErrorSnackBar(
+          'Please wait for media attachment uploads to complete',
+        );
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      final attachmentsData = <Map<String, dynamic>>[];
+      for (int i = 0; i < _attachments.length; i++) {
+        final item = _attachments[i];
+        final fileId = item.uploadedFileId ?? item.existingFileId;
+        if (fileId != null) {
+          attachmentsData.add({
+            if (item.existingId != null) 'id': item.existingId,
+            'fileId': fileId,
+            'title': item.titleController.text.trim().isNotEmpty
+                ? item.titleController.text.trim()
+                : (item.newFileName ??
+                    item.existingOriginalName ??
+                    'Attachment ${i + 1}'),
+            'sortOrder': i,
+          });
+        }
+      }
+
+      // 4. Build data map
       final tags = _tagsController.text
           .split(',')
           .map((t) => t.trim())
@@ -342,6 +548,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
           'externalUrl': _externalUrlController.text.trim(),
         'coverFileId': ?coverId,
         'contentFileId': ?contentId,
+        'attachments': attachmentsData,
       };
 
       if (isEditing) {
@@ -747,7 +954,12 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Section 5: Status & Sorting ───────────────────────────────
+            // ── Section 5: Media Attachments ─────────────────────────────
+            _buildAttachmentsSection(theme),
+
+            const SizedBox(height: 24),
+
+            // ── Section 6: Status & Sorting ───────────────────────────────
             _buildSectionHeader(
               theme,
               'Publication Status & Order',
@@ -1053,6 +1265,401 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
       addRec(c, '');
     }
     return list;
+  }
+
+  Widget _buildAttachmentsSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          theme,
+          'Media Attachments',
+          Icons.perm_media_outlined,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Attach supplementary audio guides, video lectures, document notes, or illustrations.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._attachments.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          return _buildAttachmentCard(theme, item, index);
+        }),
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              _attachments.add(_AttachmentFormItem.empty());
+            });
+          },
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('+ Add Media'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentCard(
+    ThemeData theme,
+    _AttachmentFormItem item,
+    int index,
+  ) {
+    final isDark = theme.brightness == Brightness.dark;
+    final (IconData mediaIcon, Color mediaColor, String mediaLabel) =
+        switch (item.mediaType) {
+      AttachmentMediaType.document => (
+          Icons.description_outlined,
+          Colors.blue,
+          'Document',
+        ),
+      AttachmentMediaType.image => (
+          Icons.image_outlined,
+          Colors.teal,
+          'Image',
+        ),
+      AttachmentMediaType.audio => (
+          Icons.audiotrack_outlined,
+          Colors.purple,
+          'Audio',
+        ),
+      AttachmentMediaType.video => (
+          Icons.videocam_outlined,
+          Colors.orange,
+          'Video',
+        ),
+      AttachmentMediaType.other => (
+          Icons.attach_file,
+          Colors.blueGrey,
+          'Media',
+        ),
+    };
+
+    final fileName = item.newFileName ??
+        item.existingOriginalName ??
+        (item.existingUrl?.split('/').last) ??
+        'No file chosen';
+    final fileSize = item.newFileSize ?? item.existingSize;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: item.uploadError != null
+              ? theme.colorScheme.error.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '#${index + 1}',
+                  style:
+                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: mediaColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: mediaColor.withAlpha(100)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(mediaIcon, size: 14, color: mediaColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      mediaLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: mediaColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                color: theme.colorScheme.error,
+                tooltip: 'Remove Attachment',
+                onPressed: () => _removeAttachmentItem(index),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: item.titleController,
+            decoration: InputDecoration(
+              labelText: 'Attachment Title',
+              hintText: 'e.g. Full Audio Narration, Manuscript Map, Notes...',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade900 : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color:
+                    theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: item.hasFile
+                ? Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: mediaColor.withAlpha(30),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(mediaIcon,
+                                color: mediaColor, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fileName,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (fileSize != null && fileSize > 0)
+                                  Text(
+                                    _formatBytes(fileSize),
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => _pickAttachmentFile(item),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Replace',
+                                style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                      if (item.isUploading) ...[
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                            value: item.uploadProgress > 0
+                                ? item.uploadProgress
+                                : null),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Uploading attachment...',
+                                style: TextStyle(fontSize: 11)),
+                            Text('${(item.uploadProgress * 100).toInt()}%',
+                                style: const TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                      ],
+                      if (item.uploadError != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.error_outline,
+                                size: 16, color: theme.colorScheme.error),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                item.uploadError!,
+                                style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                    fontSize: 11),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => _uploadAttachmentItem(item),
+                              child: const Text('Retry',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (item.uploadedFileId != null &&
+                          !item.isUploading &&
+                          item.uploadError == null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                size: 14, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Ready / Uploaded',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(Icons.cloud_upload_outlined,
+                          size: 24, color: theme.colorScheme.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'No file selected (Optional)',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'PDF, DOC, EPUB, TXT, JPG, PNG, MP3, MP4 (Max 150MB)',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: () => _pickAttachmentFile(item),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('Choose File',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentFormItem {
+  final String key;
+  final String? existingId;
+  final String? existingFileId;
+  final String? existingUrl;
+  final String? existingOriginalName;
+  final String? existingMimeType;
+  final int? existingSize;
+  AttachmentMediaType mediaType;
+
+  final TextEditingController titleController;
+
+  Uint8List? newBytes;
+  String? newFileName;
+  int? newFileSize;
+
+  String? uploadedFileId;
+  bool isUploading;
+  double uploadProgress;
+  String? uploadError;
+
+  _AttachmentFormItem({
+    required this.key,
+    this.existingId,
+    this.existingFileId,
+    this.existingUrl,
+    this.existingOriginalName,
+    this.existingMimeType,
+    this.existingSize,
+    this.mediaType = AttachmentMediaType.other,
+    String? title,
+    this.uploadedFileId,
+  })  : titleController = TextEditingController(text: title ?? ''),
+        isUploading = false,
+        uploadProgress = 0.0;
+
+  factory _AttachmentFormItem.empty() {
+    return _AttachmentFormItem(
+      key: UniqueKey().toString(),
+    );
+  }
+
+  factory _AttachmentFormItem.fromExisting(BookAttachmentModel model) {
+    return _AttachmentFormItem(
+      key: model.id,
+      existingId: model.id,
+      existingFileId: model.fileId,
+      existingUrl: model.url,
+      existingOriginalName: model.originalName,
+      existingMimeType: model.mimeType,
+      existingSize: model.fileSizeBytes,
+      mediaType: model.mediaType,
+      title: model.title ?? model.originalName ?? '',
+      uploadedFileId: model.fileId,
+    );
+  }
+
+  bool get hasFile =>
+      uploadedFileId != null ||
+      existingFileId != null ||
+      (newBytes != null && newFileName != null);
+
+  void dispose() {
+    titleController.dispose();
   }
 }
 

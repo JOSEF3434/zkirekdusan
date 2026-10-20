@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/book_model.dart';
 import '../providers/book_admin_providers.dart';
+import '../providers/book_download_settings_provider.dart';
 import '../providers/book_permissions_provider.dart';
 import '../providers/books_providers.dart';
+import '../widgets/book_download_settings_dialog.dart';
 
 class BookManagementScreen extends ConsumerStatefulWidget {
   const BookManagementScreen({super.key});
@@ -239,6 +241,11 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download_for_offline_outlined),
+            tooltip: 'Book Download Settings',
+            onPressed: () => showBookDownloadSettingsDialog(context),
+          ),
           if (perms.canManageCategories)
             IconButton(
               icon: const Icon(Icons.category_outlined),
@@ -334,6 +341,82 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
     );
   }
 
+  Widget _buildDownloadSettingsCard(ThemeData theme) {
+    final settingsState = ref.watch(bookDownloadSettingsProvider);
+    final destination = settingsState.setting.destination;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withAlpha(isDark ? 35 : 18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primary.withAlpha(isDark ? 80 : 40),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.folder_special_rounded,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Download Destination: ',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      destination.label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  switch (destination) {
+                    BookDownloadDestination.inApp =>
+                      'In-app offline storage only',
+                    BookDownloadDestination.deviceFileManager =>
+                      'Device Downloads / File Manager',
+                    BookDownloadDestination.both =>
+                      'In-app + Device Downloads folder',
+                  },
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: const Icon(Icons.settings_outlined, size: 16),
+            label: const Text('Configure', style: TextStyle(fontSize: 12)),
+            onPressed: () => showBookDownloadSettingsDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody(
     ThemeData theme,
     BookAdminState state,
@@ -367,50 +450,65 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
     }
 
     if (state.books.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.menu_book_outlined,
-                  size: 64,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
-              const SizedBox(height: 16),
-              Text(
-                'No books found',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+      return Column(
+        children: [
+          _buildDownloadSettingsCard(theme),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.menu_book_outlined,
+                        size: 64,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No books found',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Try adjusting your search or add a new book.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color:
+                              theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Try adjusting your search or add a new book.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      itemCount: state.books.length + (state.isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= state.books.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+    return Column(
+      children: [
+        _buildDownloadSettingsCard(theme),
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+            itemCount: state.books.length + (state.isLoadingMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index >= state.books.length) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
 
-        final book = state.books[index];
-        return _buildBookAdminTile(theme, book, perms);
-      },
+              final book = state.books[index];
+              return _buildBookAdminTile(theme, book, perms);
+            },
+          ),
+        ),
+      ],
     );
   }
 

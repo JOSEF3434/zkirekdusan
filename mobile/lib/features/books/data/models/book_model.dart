@@ -1,4 +1,4 @@
-// lib/features/books/data/models/book_model.dart
+import 'book_attachment_model.dart';
 
 enum BookFormat { pdf, epub, text, audio, externalLink }
 
@@ -171,6 +171,9 @@ class BookModel {
   // Chapter list (populated on detail view)
   final List<BookChapterModel> chapters;
 
+  // Supplementary multi-media attachments
+  final List<BookAttachmentModel> attachments;
+
   // My progress (populated when authenticated)
   final ReadingProgressModel? myProgress;
 
@@ -207,6 +210,7 @@ class BookModel {
     this.contentUrl,
     this.contentFileSizeBytes,
     required this.chapters,
+    this.attachments = const [],
     this.myProgress,
     required this.createdAt,
     required this.updatedAt,
@@ -214,6 +218,7 @@ class BookModel {
 
   factory BookModel.fromJson(Map<String, dynamic> json) {
     final rawChapters = json['chapters'];
+    final rawAttachments = json['attachments'];
     final rawProgress = json['myProgress'] ?? json['progress'];
     final rawCover = json['coverFile'];
     final rawContent = json['contentFile'];
@@ -252,6 +257,11 @@ class BookModel {
       chapters: rawChapters is List
           ? rawChapters
               .map((c) => BookChapterModel.fromJson(c as Map<String, dynamic>))
+              .toList()
+          : [],
+      attachments: rawAttachments is List
+          ? rawAttachments
+              .map((a) => BookAttachmentModel.fromJson(a as Map<String, dynamic>))
               .toList()
           : [],
       myProgress: rawProgress != null && rawProgress is Map

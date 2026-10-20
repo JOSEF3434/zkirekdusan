@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import '../../data/models/book_attachment_model.dart';
 import '../../data/models/book_model.dart';
 import '../providers/books_providers.dart';
 import '../providers/book_permissions_provider.dart';
@@ -73,7 +74,12 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
   late TabController _tabController;
   bool _descExpanded = false;
 
-  int get _tabCount => widget.book.chapters.isNotEmpty ? 2 : 1;
+  int get _tabCount {
+    int count = 1;
+    if (widget.book.chapters.isNotEmpty) count++;
+    if (widget.book.attachments.isNotEmpty) count++;
+    return count;
+  }
 
   @override
   void initState() {
@@ -84,7 +90,8 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
   @override
   void didUpdateWidget(_BookDetailContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.book.chapters.length != widget.book.chapters.length) {
+    if (oldWidget.book.chapters.length != widget.book.chapters.length ||
+        oldWidget.book.attachments.length != widget.book.attachments.length) {
       _tabController.dispose();
       _tabController = TabController(length: _tabCount, vsync: this);
     }
@@ -107,6 +114,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
     final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
     final bookPerms = ref.watch(bookPermissionsProvider);
+    final lastResult = downloadState.lastResults[book.id];
 
     return Scaffold(
       body: NestedScrollView(
@@ -149,7 +157,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                     tooltip: 'Edit Book',
                   ),
                 ),
-              // Download / remove button
+              // Download / options button
               if (widget.isAuth && book.isReadable)
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
@@ -176,8 +184,9 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                                 child: const Icon(Icons.offline_pin,
                                     color: Colors.white, size: 18),
                               ),
+                              tooltip: 'Download Options',
                               onPressed: () =>
-                                  _showRemoveDownloadDialog(context, ref),
+                                  _showDownloadedBookOptions(context, ref),
                             )
                           : IconButton(
                               icon: Container(
@@ -189,11 +198,43 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                                 child: const Icon(Icons.download_outlined,
                                     color: Colors.white, size: 18),
                               ),
-                              onPressed: () {
+                              tooltip: 'Download Book',
+                              onPressed: () async {
                                 if (widget.userId != null) {
-                                  ref
+                                  final messenger =
+                                      ScaffoldMessenger.of(context);
+                                  final res = await ref
                                       .read(downloadsNotifierProvider.notifier)
                                       .startDownload(book, widget.userId!);
+                                  if (res != null && mounted) {
+                                    if (res.success) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            res.externalPath != null
+                                                ? 'Saved to Downloads: ${book.title}'
+                                                : 'Downloaded for offline reading: ${book.title}',
+                                          ),
+                                          action: res.externalPath != null
+                                              ? SnackBarAction(
+                                                  label: 'Open',
+                                                  textColor: Colors.tealAccent,
+                                                  onPressed: () {
+                                                    ref
+                                                        .read(booksRepositoryProvider)
+                                                        .openDownloadedFile(
+                                                          book: book,
+                                                          userId: widget.userId!,
+                                                          preferredPath: res.externalPath,
+                                                        );
+                                                  },
+                                                )
+                                              : null,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  }
                                 }
                               },
                             ),
@@ -205,6 +246,10 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
           children: [
             // Book info
             _BookInfoHeader(book: book, theme: theme),
+
+            // Partial download failure banner
+            if (lastResult != null && lastResult.isPartial)
+              _buildPartialDownloadBanner(theme, book),
 
             // Download error
             if (downloadState.errors.containsKey(book.id))
@@ -236,15 +281,18 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                 ),
               ),
 
-            // Tabs: show TabBar only if chapters exist, otherwise display DetailsTab directly
-            if (book.chapters.isNotEmpty) ...[
+            // Tabs: show TabBar only if multiple tabs exist
+            if (_tabCount > 1) ...[
               TabBar(
                 controller: _tabController,
                 labelColor: theme.colorScheme.primary,
                 indicatorColor: theme.colorScheme.primary,
                 tabs: [
                   const Tab(text: 'Details'),
-                  Tab(text: 'Chapters (${book.chapters.length})'),
+                  if (book.chapters.isNotEmpty)
+                    Tab(text: 'Chapters (${book.chapters.length})'),
+                  if (book.attachments.isNotEmpty)
+                    Tab(text: 'Attachments (${book.attachments.length})'),
                 ],
               ),
               Expanded(
@@ -257,10 +305,16 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
                       onExpand: () =>
                           setState(() => _descExpanded = !_descExpanded),
                     ),
-                    _ChaptersTab(
-                      book: book,
-                      isDownloaded: isDownloaded,
-                    ),
+                    if (book.chapters.isNotEmpty)
+                      _ChaptersTab(
+                        book: book,
+                        isDownloaded: isDownloaded,
+                      ),
+                    if (book.attachments.isNotEmpty)
+                      _AttachmentsTab(
+                        attachments: book.attachments,
+                        book: book,
+                      ),
                   ],
                 ),
               ),
@@ -384,6 +438,135 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDownloadedBookOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.open_in_new_rounded),
+                title: const Text('Open in Device File App'),
+                subtitle:
+                    const Text('View with your preferred reader or file manager'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (widget.userId != null) {
+                    ref.read(booksRepositoryProvider).openDownloadedFile(
+                          book: widget.book,
+                          userId: widget.userId!,
+                        );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_rounded),
+                title: const Text('Share Downloaded File'),
+                subtitle: const Text('Send or export file to other apps'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (widget.userId != null) {
+                    ref.read(booksRepositoryProvider).shareDownloadedFile(
+                          book: widget.book,
+                          userId: widget.userId!,
+                        );
+                  }
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading:
+                    const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                title: const Text('Remove from In-App Library',
+                    style: TextStyle(color: Colors.red)),
+                subtitle: const Text(
+                    'Files in device Downloads folder will be kept intact'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showRemoveDownloadDialog(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPartialDownloadBanner(ThemeData theme, BookModel book) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            Colors.amber.withAlpha(isDark ? 40 : 25),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade700),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              color: Colors.amber.shade800, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Partial Download',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber.shade900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Book is safely saved in your app library, but export to your device Downloads folder failed.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () {
+              if (widget.userId != null) {
+                ref
+                    .read(downloadsNotifierProvider.notifier)
+                    .exportInAppToDevice(book, widget.userId!);
+              }
+            },
+            child: const Text('Retry Export', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -594,6 +777,197 @@ class _ChaptersTab extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+class _AttachmentsTab extends ConsumerWidget {
+  final List<BookAttachmentModel> attachments;
+  final BookModel book;
+
+  const _AttachmentsTab({
+    required this.attachments,
+    required this.book,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      itemCount: attachments.length,
+      itemBuilder: (ctx, index) {
+        final att = attachments[index];
+        final (IconData icon, Color color, String typeLabel) =
+            switch (att.mediaType) {
+          AttachmentMediaType.document => (
+              Icons.description_rounded,
+              Colors.blue,
+              'Document',
+            ),
+          AttachmentMediaType.image => (
+              Icons.image_rounded,
+              Colors.teal,
+              'Image',
+            ),
+          AttachmentMediaType.audio => (
+              Icons.headphones_rounded,
+              Colors.purple,
+              'Audio',
+            ),
+          AttachmentMediaType.video => (
+              Icons.videocam_rounded,
+              Colors.orange,
+              'Video',
+            ),
+          AttachmentMediaType.other => (
+              Icons.attach_file_rounded,
+              Colors.blueGrey,
+              'File',
+            ),
+        };
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(isDark ? 50 : 25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        att.displayName,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(20),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: color.withAlpha(80)),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                          if (att.fileSizeBytes != null &&
+                              att.fileSizeBytes! > 0) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatBytes(att.fileSizeBytes),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (att.url != null)
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: Icon(
+                      att.mediaType == AttachmentMediaType.audio
+                          ? Icons.play_arrow_rounded
+                          : (att.mediaType == AttachmentMediaType.video
+                              ? Icons.play_circle_outline_rounded
+                              : Icons.open_in_new_rounded),
+                      size: 16,
+                    ),
+                    label: Text(
+                      att.mediaType == AttachmentMediaType.audio ||
+                              att.mediaType == AttachmentMediaType.video
+                          ? 'Play'
+                          : 'Open',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () {
+                      _openAttachment(context, att);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openAttachment(BuildContext context, BookAttachmentModel att) {
+    if (att.url == null) return;
+    if (att.mediaType == AttachmentMediaType.image) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              child: Image.network(
+                att.url!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Icon(Icons.broken_image,
+                    size: 64, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Opening ${att.displayName}...'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  static String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
 

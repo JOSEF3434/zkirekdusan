@@ -8,6 +8,8 @@ import 'package:mobile/features/admin/presentation/providers/admin_permissions_p
 import 'package:mobile/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
+import 'package:mobile/features/books/presentation/providers/book_download_settings_provider.dart';
+import 'package:mobile/features/books/presentation/widgets/book_download_settings_dialog.dart';
 
 class AdminSystemScreen extends ConsumerStatefulWidget {
   const AdminSystemScreen({super.key});
@@ -387,6 +389,40 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                                 ),
                             ],
                           ),
+                        ),
+
+                        const Divider(),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final bookSettingsState =
+                                ref.watch(bookDownloadSettingsProvider);
+                            final dest =
+                                bookSettingsState.setting.destination;
+                            return ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primaryContainer
+                                      .withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.menu_book_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              title: const Text('Book Download Destination'),
+                              subtitle: Text(
+                                'Where user downloaded books are saved (${dest.label})',
+                              ),
+                              trailing: FilledButton.tonal(
+                                onPressed: () =>
+                                    showBookDownloadSettingsDialog(context),
+                                child: const Text('Configure'),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),

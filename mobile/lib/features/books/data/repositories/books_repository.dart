@@ -5,6 +5,8 @@ import 'package:mobile/core/database/daos/downloaded_books_dao.dart';
 import '../datasources/books_remote_datasource.dart';
 import '../models/book_model.dart';
 import '../models/book_category_model.dart';
+import '../models/book_download_setting_model.dart';
+import 'package:open_filex/open_filex.dart';
 import 'book_download_service.dart';
 
 class BooksRepository {
@@ -104,6 +106,7 @@ class BooksRepository {
     required BookModel book,
     required String userId,
     required String contentUrl,
+    BookDownloadDestination destination = BookDownloadDestination.inApp,
     String? mimeType,
     int? expectedBytes,
     void Function(double progress, int downloaded)? onProgress,
@@ -112,10 +115,49 @@ class BooksRepository {
         book: book,
         userId: userId,
         contentUrl: contentUrl,
+        destination: destination,
         mimeType: mimeType,
         expectedBytes: expectedBytes,
         onProgress: onProgress,
       );
+
+  Future<DownloadResult> exportInAppToDevice({
+    required BookModel book,
+    required String userId,
+  }) =>
+      _downloader.exportInAppToDevice(book, userId);
+
+  Future<bool> openDownloadedFile({
+    required BookModel book,
+    required String userId,
+    String? preferredPath,
+  }) async {
+    String? path = preferredPath;
+    if (path == null) {
+      final rec = await _downloadDao.getRecord(book.id, userId);
+      path = rec?.localContentPath;
+    }
+    if (path != null) {
+      final res = await BookDownloadService.openDownloadedFile(path);
+      return res.type == ResultType.done;
+    }
+    return false;
+  }
+
+  Future<void> shareDownloadedFile({
+    required BookModel book,
+    required String userId,
+    String? preferredPath,
+  }) async {
+    String? path = preferredPath;
+    if (path == null) {
+      final rec = await _downloadDao.getRecord(book.id, userId);
+      path = rec?.localContentPath;
+    }
+    if (path != null) {
+      await BookDownloadService.shareDownloadedFile(path, subject: book.title);
+    }
+  }
 
   Future<void> cancelDownload(String bookId, String userId) =>
       _downloader.cancelDownload(bookId, userId);
@@ -222,6 +264,30 @@ class BooksRepository {
           String id, Map<String, dynamic> data) =>
       _remote.updateCategory(id, data);
 
-  Future<void> deleteCategory(String id, {String? reassignCategoryId}) =>
+  Future<void> deleteCategory(String id, {String? reassignCategoryId}) async =>
       _remote.deleteCategory(id, reassignCategoryId: reassignCategoryId);
+
+  // ── Download Destination Settings ───────────────────────────────────────
+
+  Future<BookDownloadSettingModel> getDownloadDestinationSetting() =>
+      _remote.fetchDownloadDestination();
+
+  Future<BookDownloadSettingModel> updateDownloadDestinationSetting(
+    String destination, {
+    String? description,
+  }) =>
+      _remote.updateDownloadDestination(destination, description: description);
+
+  // ── Multi-Media Attachments ─────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> uploadBookAttachment({
+    required List<int> bytes,
+    required String filename,
+    void Function(int count, int total)? onProgress,
+  }) =>
+      _remote.uploadBookAttachment(
+        bytes: bytes,
+        filename: filename,
+        onProgress: onProgress,
+      );
 }

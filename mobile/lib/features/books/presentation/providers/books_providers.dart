@@ -12,6 +12,7 @@ import '../../data/repositories/book_download_service.dart';
 import '../../data/repositories/books_repository.dart';
 import '../../data/models/book_model.dart';
 import '../../data/models/book_category_model.dart';
+import 'book_download_settings_provider.dart';
 
 // ── Infrastructure ────────────────────────────────────────────────────────
 
@@ -269,30 +270,39 @@ final progressProvider = StateNotifierProvider.family<ProgressNotifier,
 class DownloadState {
   final Map<String, double> activeProgress; // bookId → 0.0–1.0
   final Map<String, String> errors; // bookId → message
+  final Map<String, DownloadResult> lastResults; // bookId → DownloadResult
 
   const DownloadState({
     this.activeProgress = const {},
     this.errors = const {},
+    this.lastResults = const {},
   });
 
   DownloadState copyWith({
     Map<String, double>? activeProgress,
     Map<String, String>? errors,
+    Map<String, DownloadResult>? lastResults,
   }) {
     return DownloadState(
       activeProgress: activeProgress ?? this.activeProgress,
       errors: errors ?? this.errors,
+      lastResults: lastResults ?? this.lastResults,
     );
   }
 }
 
 class DownloadsNotifier extends StateNotifier<DownloadState> {
   final BooksRepository _repo;
+  final Ref? _ref;
 
-  DownloadsNotifier(this._repo) : super(const DownloadState());
+  DownloadsNotifier(this._repo, [this._ref]) : super(const DownloadState());
 
-  Future<void> startDownload(BookModel book, String userId) async {
-    if (_repo.isActiveDownload(book.id)) return;
+  Future<DownloadResult?> startDownload(
+    BookModel book,
+    String userId, {
+    BookDownloadDestination? overrideDestination,
+  }) async {
+    if (_repo.isActiveDownload(book.id)) return null;
 
     // First get download info from backend
     Map<String, dynamic> info;
@@ -301,33 +311,47 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
     } catch (e) {
       state = DownloadState(
         activeProgress: state.activeProgress,
-        errors: {...state.errors, book.id: 'Cannot start download: ${e.toString()}'},
+        errors: {
+          ...state.errors,
+          book.id: 'Cannot start download: ${e.toString()}',
+        },
+        lastResults: state.lastResults,
       );
-      return;
+      return null;
     }
 
     final contentUrl = info['contentFile']?['url'] as String?;
     if (contentUrl == null) {
       state = DownloadState(
         activeProgress: state.activeProgress,
-        errors: {...state.errors, book.id: 'No downloadable content available for this book'},
+        errors: {
+          ...state.errors,
+          book.id: 'No downloadable content available for this book',
+        },
+        lastResults: state.lastResults,
       );
-      return;
+      return null;
     }
 
     final mimeType = info['contentFile']?['mimeType'] as String?;
     final fileSize = (info['contentFile']?['fileSize'] as num?)?.toInt();
 
+    final destination = overrideDestination ??
+        _ref?.read(bookDownloadSettingsProvider).setting.destination ??
+        BookDownloadDestination.inApp;
+
     // Set initial progress
     state = DownloadState(
       activeProgress: {...state.activeProgress, book.id: 0.0},
       errors: Map.from(state.errors)..remove(book.id),
+      lastResults: Map.from(state.lastResults)..remove(book.id),
     );
 
     final result = await _repo.startDownload(
       book: book,
       userId: userId,
       contentUrl: contentUrl,
+      destination: destination,
       mimeType: mimeType,
       expectedBytes: fileSize,
       onProgress: (progress, _) {
@@ -335,46 +359,99 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
           state = DownloadState(
             activeProgress: {...state.activeProgress, book.id: progress},
             errors: state.errors,
+            lastResults: state.lastResults,
           );
         }
       },
     );
 
-    if (!mounted) return;
+    if (!mounted) return result;
 
     // Remove from active
     final newActive = Map<String, double>.from(state.activeProgress)
       ..remove(book.id);
+    final newResults = Map<String, DownloadResult>.from(state.lastResults)
+      ..[book.id] = result;
+
     if (result.success) {
-      state = DownloadState(activeProgress: newActive, errors: state.errors);
+      state = DownloadState(
+        activeProgress: newActive,
+        errors: state.errors,
+        lastResults: newResults,
+      );
     } else {
       state = DownloadState(
         activeProgress: newActive,
         errors: {...state.errors, book.id: result.error ?? 'Download failed'},
+        lastResults: newResults,
       );
     }
+
+    return result;
+  }
+
+  /// Retries exporting in-app download to user device Downloads directory without re-downloading
+  Future<DownloadResult> exportInAppToDevice(BookModel book, String userId) async {
+    final result = await _repo.exportInAppToDevice(book: book, userId: userId);
+    if (mounted) {
+      final newResults = Map<String, DownloadResult>.from(state.lastResults)
+        ..[book.id] = result;
+      if (result.success) {
+        final errs = Map<String, String>.from(state.errors)..remove(book.id);
+        state = DownloadState(
+          activeProgress: state.activeProgress,
+          errors: errs,
+          lastResults: newResults,
+        );
+      } else {
+        state = DownloadState(
+          activeProgress: state.activeProgress,
+          errors: {
+            ...state.errors,
+            book.id: result.error ?? 'Export to device failed',
+          },
+          lastResults: newResults,
+        );
+      }
+    }
+    return result;
   }
 
   Future<void> cancelDownload(String bookId, String userId) async {
     await _repo.cancelDownload(bookId, userId);
     final newActive = Map<String, double>.from(state.activeProgress)
       ..remove(bookId);
-    state = DownloadState(activeProgress: newActive, errors: state.errors);
+    state = DownloadState(
+      activeProgress: newActive,
+      errors: state.errors,
+      lastResults: state.lastResults,
+    );
   }
 
   Future<void> removeDownload(String bookId, String userId) async {
     await _repo.removeDownload(bookId, userId);
+    final newResults = Map<String, DownloadResult>.from(state.lastResults)
+      ..remove(bookId);
+    state = DownloadState(
+      activeProgress: state.activeProgress,
+      errors: state.errors,
+      lastResults: newResults,
+    );
   }
 
   void clearError(String bookId) {
     final errs = Map<String, String>.from(state.errors)..remove(bookId);
-    state = DownloadState(activeProgress: state.activeProgress, errors: errs);
+    state = DownloadState(
+      activeProgress: state.activeProgress,
+      errors: errs,
+      lastResults: state.lastResults,
+    );
   }
 }
 
 final downloadsNotifierProvider =
     StateNotifierProvider<DownloadsNotifier, DownloadState>((ref) {
-  return DownloadsNotifier(ref.watch(booksRepositoryProvider));
+  return DownloadsNotifier(ref.watch(booksRepositoryProvider), ref);
 });
 
 /// Stream of all completed downloads for current user

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:mobile/core/network/api_client.dart';
 import '../models/book_model.dart';
 import '../models/book_category_model.dart';
+import '../models/book_download_setting_model.dart';
 
 class BooksRemoteDatasource {
   final Dio _dio;
@@ -249,5 +250,44 @@ class BooksRemoteDatasource {
       '/books/admin/categories/$id',
       queryParameters: {'reassignCategoryId': ?reassignCategoryId},
     );
+  }
+
+  // ── Download Destination Settings ───────────────────────────────────────
+
+  Future<BookDownloadSettingModel> fetchDownloadDestination() async {
+    final res = await _dio.get('/books/settings/download-destination');
+    return BookDownloadSettingModel.fromJson(parseEnvelope(res.data));
+  }
+
+  Future<BookDownloadSettingModel> updateDownloadDestination(
+    String destination, {
+    String? description,
+  }) async {
+    final res = await _dio.patch(
+      '/books/admin/settings/download-destination',
+      data: {
+        'destination': destination,
+        'description': ?description,
+      },
+    );
+    return BookDownloadSettingModel.fromJson(parseEnvelope(res.data));
+  }
+
+  // ── Admin Multi-Media Attachment Upload ─────────────────────────────────
+
+  Future<Map<String, dynamic>> uploadBookAttachment({
+    required List<int> bytes,
+    required String filename,
+    void Function(int count, int total)? onProgress,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final res = await _dio.post(
+      '/books/admin/upload-attachment',
+      data: formData,
+      onSendProgress: onProgress,
+    );
+    return parseEnvelope(res.data);
   }
 }

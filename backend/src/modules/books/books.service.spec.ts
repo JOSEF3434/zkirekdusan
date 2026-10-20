@@ -46,6 +46,16 @@ describe('BooksService', () => {
       bookChapter: {
         deleteMany: jest.fn(),
       },
+      bookAttachment: {
+        createMany: jest.fn(),
+        deleteMany: jest.fn(),
+        findMany: jest.fn(),
+      },
+      bookDownloadSetting: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
     };
 
     uploads = {
@@ -402,6 +412,132 @@ describe('BooksService', () => {
       expect(result.contentFile.fileSize).toBe(500000);
       expect(result.chapters[0].contentFile.size).toBe(123456);
       expect(result.chapters[0].contentFile.fileSize).toBe(123456);
+    });
+  });
+
+  describe('Multi-media attachments', () => {
+    it('throws BadRequestException when attachment file is missing or invalid type', async () => {
+      await expect(service.uploadAttachment('user-1', null as any)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      const invalidFile: any = {
+        originalname: 'malware.exe',
+        mimetype: 'application/x-msdownload',
+        size: 1024,
+      };
+      await expect(service.uploadAttachment('user-1', invalidFile)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('uploads valid audio/video/document attachment successfully', async () => {
+      const mockFile: any = {
+        originalname: 'sermon.mp3',
+        mimetype: 'audio/mpeg',
+        size: 2048,
+        buffer: Buffer.from('test audio'),
+      };
+      uploads.uploadMediaFile.mockResolvedValue({
+        id: 'file-att-1',
+        url: 'https://cdn.example.com/sermon.mp3',
+        mimeType: 'audio/mpeg',
+        size: 2048,
+      });
+
+      const res = await service.uploadAttachment('user-1', mockFile);
+      expect(res.id).toBe('file-att-1');
+      expect(uploads.uploadMediaFile).toHaveBeenCalledWith('user-1', mockFile, 'books/attachments');
+    });
+
+    it('validates attachment files exist and are ready on createBook', async () => {
+      prisma.file.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBook('user-1', {
+          title: 'Book With Attachments',
+          language: 'AMHARIC' as any,
+          format: 'PDF' as any,
+          attachments: [{ fileId: 'non-existent-file', title: 'Guide' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates book with attachments successfully', async () => {
+      prisma.file.findFirst.mockResolvedValue({ id: 'file-att-1', status: 'READY' });
+      prisma.book.create.mockResolvedValue({
+        id: 'book-with-att',
+        title: 'Book With Attachments',
+        attachments: [
+          {
+            id: 'att-1',
+            fileId: 'file-att-1',
+            title: 'Study Guide',
+            sortOrder: 0,
+            file: { id: 'file-att-1', size: BigInt(4096) },
+          },
+        ],
+      });
+
+      const res = await service.createBook('user-1', {
+        title: 'Book With Attachments',
+        language: 'AMHARIC' as any,
+        format: 'PDF' as any,
+        attachments: [{ fileId: 'file-att-1', title: 'Study Guide', sortOrder: 0 }],
+      });
+
+      expect(res.id).toBe('book-with-att');
+      expect(res.attachments[0].file.size).toBe(4096);
+    });
+
+    it('updates attachments cleanly on updateBook', async () => {
+      prisma.book.findFirst.mockResolvedValue({ id: 'book-1' });
+      prisma.file.findFirst.mockResolvedValue({ id: 'file-att-2', status: 'READY' });
+      prisma.book.update.mockResolvedValue({
+        id: 'book-1',
+        title: 'Updated Title',
+        attachments: [],
+      });
+
+      await service.updateBook('user-1', 'book-1', {
+        attachments: [{ fileId: 'file-att-2', title: 'New Audio' }],
+      });
+
+      expect(prisma.bookAttachment.deleteMany).toHaveBeenCalledWith({ where: { bookId: 'book-1' } });
+      expect(prisma.bookAttachment.createMany).toHaveBeenCalled();
+    });
+  });
+
+  describe('Book Download Destination Settings', () => {
+    it('creates default IN_APP setting if none exists', async () => {
+      prisma.bookDownloadSetting.findFirst.mockResolvedValue(null);
+      prisma.bookDownloadSetting.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'setting-1', ...data }),
+      );
+
+      const setting = await service.getDownloadDestinationSetting();
+      expect(setting.destination).toBe('IN_APP');
+      expect(prisma.bookDownloadSetting.create).toHaveBeenCalled();
+    });
+
+    it('updates existing setting successfully', async () => {
+      prisma.bookDownloadSetting.findFirst.mockResolvedValue({
+        id: 'setting-1',
+        destination: 'IN_APP',
+      });
+      prisma.bookDownloadSetting.update.mockResolvedValue({
+        id: 'setting-1',
+        destination: 'DEVICE_FILE_MANAGER',
+        description: 'Saved to public Downloads',
+      });
+
+      const updated = await service.updateDownloadDestinationSetting('admin-1', {
+        destination: 'DEVICE_FILE_MANAGER' as any,
+        description: 'Saved to public Downloads',
+      });
+
+      expect(updated.destination).toBe('DEVICE_FILE_MANAGER');
+      expect(prisma.bookDownloadSetting.update).toHaveBeenCalled();
     });
   });
 });

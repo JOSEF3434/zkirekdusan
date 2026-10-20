@@ -27,6 +27,7 @@ import { UpsertReadingProgressDto } from './dto/upsert-reading-progress.dto.js';
 import { CreateBookBookmarkDto } from './dto/create-bookmark.dto.js';
 import { UpsertReadingPrefsDto } from './dto/upsert-reading-prefs.dto.js';
 import { CreateBookChapterDto, UpdateBookChapterDto } from './dto/create-book-chapter.dto.js';
+import { UpdateBookDownloadSettingDto } from './dto/book-download-setting.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
@@ -49,6 +50,12 @@ export class BooksPublicController {
   @ApiOperation({ summary: 'List book categories (tree)' })
   listCategories() {
     return this.booksService.listCategories(false);
+  }
+
+  @Get('settings/download-destination')
+  @ApiOperation({ summary: 'Get current book download destination setting' })
+  getDownloadDestination() {
+    return this.booksService.getDownloadDestinationSetting();
   }
 
   @Get()
@@ -245,6 +252,35 @@ export class BooksAdminController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.booksService.uploadContent(userId, file);
+  }
+
+  @Post('admin/upload-attachment')
+  @Permissions(PERMISSIONS.BOOKS.CREATE)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a book media attachment (admin)' })
+  uploadAttachment(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.booksService.uploadAttachment(userId, file);
+  }
+
+  @Get('admin/settings/download-destination')
+  @Permissions(PERMISSIONS.BOOKS.MANAGE_LIBRARY)
+  @ApiOperation({ summary: 'Get book download destination setting (admin)' })
+  getAdminDownloadDestination() {
+    return this.booksService.getDownloadDestinationSetting();
+  }
+
+  @Patch('admin/settings/download-destination')
+  @Permissions(PERMISSIONS.BOOKS.MANAGE_LIBRARY)
+  @ApiOperation({ summary: 'Update book download destination setting (admin)' })
+  updateDownloadDestination(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: UpdateBookDownloadSettingDto,
+  ) {
+    return this.booksService.updateDownloadDestinationSetting(userId, dto);
   }
 
   // Books

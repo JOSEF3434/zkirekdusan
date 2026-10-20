@@ -16,8 +16,9 @@ import { UpsertReadingProgressDto } from './dto/upsert-reading-progress.dto.js';
 import { CreateBookBookmarkDto } from './dto/create-bookmark.dto.js';
 import { UpsertReadingPrefsDto } from './dto/upsert-reading-prefs.dto.js';
 import { CreateBookChapterDto, UpdateBookChapterDto } from './dto/create-book-chapter.dto.js';
-import { BookStatus, Prisma } from '@prisma/client';
+import { BookDownloadDestination, BookStatus, Prisma } from '@prisma/client';
 import { UploadsService } from '../uploads/uploads.service.js';
+import { UpdateBookDownloadSettingDto } from './dto/book-download-setting.dto.js';
 import path from 'path';
 
 // ── Selects (shared projection shapes) ─────────────────────────────────────
@@ -85,6 +86,27 @@ const BOOK_DETAIL_SELECT = {
       contentFile: { select: { id: true, url: true } },
     },
     orderBy: { order: 'asc' as const },
+  },
+  attachments: {
+    select: {
+      id: true,
+      fileId: true,
+      title: true,
+      sortOrder: true,
+      createdAt: true,
+      file: {
+        select: {
+          id: true,
+          url: true,
+          originalName: true,
+          mimeType: true,
+          size: true,
+          fileType: true,
+          duration: true,
+        },
+      },
+    },
+    orderBy: { sortOrder: 'asc' as const },
   },
 } as const;
 
@@ -264,6 +286,24 @@ export class BooksService {
         size: sizeVal,
         fileSize: sizeVal,
       };
+    }
+    if (Array.isArray(formatted.attachments)) {
+      formatted.attachments = formatted.attachments.map((att: any) => ({
+        ...att,
+        file: att.file
+          ? {
+              ...att.file,
+              size:
+                att.file.size !== undefined && att.file.size !== null
+                  ? Number(att.file.size)
+                  : undefined,
+              fileSize:
+                att.file.size !== undefined && att.file.size !== null
+                  ? Number(att.file.size)
+                  : undefined,
+            }
+          : null,
+      }));
     }
     return formatted;
   }
@@ -455,6 +495,52 @@ export class BooksService {
     return uploaded;
   }
 
+  async uploadAttachment(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Media attachment file is required');
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = [
+      // Documents
+      '.pdf', '.epub', '.doc', '.docx', '.txt', '.md', '.rtf', '.odt',
+      // Images
+      '.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg',
+      // Audio
+      '.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac',
+      // Video
+      '.mp4', '.webm', '.mov', '.mkv',
+    ];
+
+    const isAllowedMime =
+      file.mimetype.includes('pdf') ||
+      file.mimetype.includes('epub') ||
+      file.mimetype.includes('msword') ||
+      file.mimetype.includes('wordprocessingml') ||
+      file.mimetype.includes('text') ||
+      file.mimetype.startsWith('image/') ||
+      file.mimetype.startsWith('audio/') ||
+      file.mimetype.startsWith('video/') ||
+      file.mimetype === 'application/octet-stream';
+
+    if (!allowedExts.includes(ext) && !isAllowedMime) {
+      throw new BadRequestException(
+        `Unsupported media attachment format. Allowed extensions: ${allowedExts.join(', ')}`,
+      );
+    }
+
+    if (file.size > 150 * 1024 * 1024) {
+      throw new BadRequestException('Media attachment file size must not exceed 150MB');
+    }
+
+    const uploaded = await this.uploadsService.uploadMediaFile(
+      userId,
+      file,
+      'books/attachments',
+    );
+    return uploaded;
+  }
+
   async createBook(userId: string, dto: CreateBookDto) {
     if (dto.categoryId) {
       const category = await this.prisma.bookCategory.findFirst({
@@ -482,6 +568,18 @@ export class BooksService {
       if (file.fileType !== 'IMAGE') throw new BadRequestException('Cover file must be an image');
     }
 
+    if (dto.attachments && dto.attachments.length > 0) {
+      for (const att of dto.attachments) {
+        const file = await this.prisma.file.findFirst({
+          where: { id: att.fileId, deletedAt: null },
+        });
+        if (!file) throw new BadRequestException(`Attachment file ${att.fileId} not found`);
+        if (file.status !== 'READY') {
+          throw new BadRequestException(`Attachment file ${att.fileId} is not ready`);
+        }
+      }
+    }
+
     const created = await this.prisma.book.create({
       data: {
         title: dto.title,
@@ -507,6 +605,16 @@ export class BooksService {
         sortOrder: dto.sortOrder ?? 0,
         createdById: userId,
         updatedById: userId,
+        attachments:
+          dto.attachments && dto.attachments.length > 0
+            ? {
+                create: dto.attachments.map((att, idx) => ({
+                  fileId: att.fileId,
+                  title: att.title,
+                  sortOrder: att.sortOrder ?? idx,
+                })),
+              }
+            : undefined,
       },
       select: BOOK_DETAIL_SELECT,
     });
@@ -535,13 +643,33 @@ export class BooksService {
       if (file.status !== 'READY') throw new BadRequestException('Content file is not ready');
     }
 
-    if (dto.coverFileId) {
-      const file = await this.prisma.file.findFirst({
-        where: { id: dto.coverFileId, deletedAt: null },
+    if (dto.attachments !== undefined) {
+      if (dto.attachments.length > 0) {
+        for (const att of dto.attachments) {
+          const file = await this.prisma.file.findFirst({
+            where: { id: att.fileId, deletedAt: null },
+          });
+          if (!file) throw new BadRequestException(`Attachment file ${att.fileId} not found`);
+          if (file.status !== 'READY') {
+            throw new BadRequestException(`Attachment file ${att.fileId} is not ready`);
+          }
+        }
+      }
+
+      await this.prisma.bookAttachment.deleteMany({
+        where: { bookId: id },
       });
-      if (!file) throw new BadRequestException('Cover file not found');
-      if (file.status !== 'READY') throw new BadRequestException('Cover file is not ready');
-      if (file.fileType !== 'IMAGE') throw new BadRequestException('Cover file must be an image');
+
+      if (dto.attachments.length > 0) {
+        await this.prisma.bookAttachment.createMany({
+          data: dto.attachments.map((att, idx) => ({
+            bookId: id,
+            fileId: att.fileId,
+            title: att.title,
+            sortOrder: att.sortOrder ?? idx,
+          })),
+        });
+      }
     }
 
     const updated = await this.prisma.book.update({
@@ -929,11 +1057,29 @@ export class BooksService {
           },
           orderBy: { order: 'asc' },
         },
+        attachments: {
+          select: {
+            id: true,
+            title: true,
+            sortOrder: true,
+            file: {
+              select: {
+                id: true,
+                url: true,
+                size: true,
+                mimeType: true,
+                originalName: true,
+                fileType: true,
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 
     if (!book) throw new NotFoundException('Book not found or not available');
-    if (!book.contentFile && book.chapters.length === 0) {
+    if (!book.contentFile && book.chapters.length === 0 && book.attachments.length === 0) {
       throw new BadRequestException('This book has no downloadable content available');
     }
 
@@ -946,7 +1092,7 @@ export class BooksService {
             fileSize: Number(book.contentFile.size),
           }
         : null,
-      chapters: book.chapters.map((ch: any) => ({
+      chapters: (book.chapters ?? []).map((ch: any) => ({
         ...ch,
         contentFile: ch.contentFile
           ? {
@@ -956,6 +1102,58 @@ export class BooksService {
             }
           : null,
       })),
+      attachments: (book.attachments ?? []).map((att: any) => ({
+        ...att,
+        file: att.file
+          ? {
+              ...att.file,
+              size: Number(att.file.size),
+              fileSize: Number(att.file.size),
+            }
+          : null,
+      })),
     };
+  }
+
+  // ── Admin Book Download Destination Setting ─────────────────────────────
+
+  async getDownloadDestinationSetting() {
+    let setting = await this.prisma.bookDownloadSetting.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!setting) {
+      setting = await this.prisma.bookDownloadSetting.create({
+        data: {
+          destination: BookDownloadDestination.IN_APP,
+          description: 'Default in-app library download policy',
+        },
+      });
+    }
+    return setting;
+  }
+
+  async updateDownloadDestinationSetting(userId: string, dto: UpdateBookDownloadSettingDto) {
+    const existing = await this.prisma.bookDownloadSetting.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      return this.prisma.bookDownloadSetting.update({
+        where: { id: existing.id },
+        data: {
+          destination: dto.destination as BookDownloadDestination,
+          description: dto.description,
+          updatedById: userId,
+        },
+      });
+    }
+
+    return this.prisma.bookDownloadSetting.create({
+      data: {
+        destination: dto.destination as BookDownloadDestination,
+        description: dto.description,
+        updatedById: userId,
+      },
+    });
   }
 }
