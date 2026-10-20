@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:pdfx/pdfx.dart';
 import '../../data/models/book_model.dart';
+import '../../data/repositories/books_repository.dart';
 import '../providers/books_providers.dart';
 
 class BookReaderScreen extends ConsumerStatefulWidget {
@@ -30,7 +31,8 @@ class BookReaderScreen extends ConsumerStatefulWidget {
   ConsumerState<BookReaderScreen> createState() => _BookReaderScreenState();
 }
 
-class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
+class _BookReaderScreenState extends ConsumerState<BookReaderScreen>
+    with WidgetsBindingObserver {
   PdfControllerPinch? _pdfController;
   bool _uiVisible = true;
   int _currentPage = 1;
@@ -42,18 +44,54 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   bool _isVertical = true;
   bool _fitToPage = true;
 
+  // Cached dependencies & state for lifecycle-safe progress saving
+  ProgressNotifier? _progressNotifier;
+  BooksRepository? _booksRepository;
+  String? _currentUserId;
+  bool _isAuthenticated = false;
+  int? _lastSavedPage;
+  int? _lastSavedTotalPages;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initialize();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _captureDependencies();
+  }
+
+  void _captureDependencies() {
+    if (!mounted) return;
+    try {
+      final auth = ref.read(authProvider);
+      _isAuthenticated = auth.status == AuthStatus.authenticated;
+      _currentUserId = auth.user?.id;
+      _progressNotifier = ref.read(progressProvider(widget.bookId).notifier);
+      _booksRepository = ref.read(booksRepositoryProvider);
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _flushFinalProgress();
+    }
+  }
+
   Future<void> _initialize() async {
-    final auth = ref.read(authProvider);
-    final isAuth = auth.status == AuthStatus.authenticated;
+    _captureDependencies();
+    final isAuth = _isAuthenticated;
 
     try {
-      final repo = ref.read(booksRepositoryProvider);
+      final BooksRepository repo =
+          _booksRepository ?? ref.read(booksRepositoryProvider);
       _book = await repo.getBook(widget.bookId, authenticated: isAuth);
       if (!mounted) return;
 
@@ -93,12 +131,11 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
     // Prefer local file if downloaded
     if (widget.isDownloaded && !kIsWeb) {
-      final auth = ref.read(authProvider);
-      final userId = auth.user?.id;
-      if (userId != null) {
-        final record = await ref
-            .read(booksRepositoryProvider)
-            .getDownloadRecord(book.id, userId);
+      if (!mounted) return;
+      final userId = _currentUserId;
+      final repo = _booksRepository;
+      if (userId != null && repo != null) {
+        final record = await repo.getDownloadRecord(book.id, userId);
         if (record?.localContentPath != null &&
             await File(record!.localContentPath!).exists()) {
           contentUrl = record.localContentPath!;
@@ -110,11 +147,13 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     contentUrl ??= book.contentUrl;
 
     if (contentUrl == null) {
-      setState(() {
-        _isLoading = false;
-        _loadError = true;
-        _loadErrorMsg = 'No PDF content available for this book.';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = true;
+          _loadErrorMsg = 'No PDF content available for this book.';
+        });
+      }
       return;
     }
 
@@ -161,36 +200,90 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
   @override
   void dispose() {
-    _saveProgress();
+    WidgetsBinding.instance.removeObserver(this);
+    // Lifecycle-safe flush: uses captured notifier/repo and does NOT access ref
+    _flushFinalProgress();
     _pdfController?.dispose();
     super.dispose();
   }
 
   void _saveProgress() {
-    final auth = ref.read(authProvider);
-    if (auth.status != AuthStatus.authenticated) return;
+    _flushFinalProgress();
+  }
+
+  void _flushFinalProgress() {
+    if (!_isAuthenticated) return;
     if (_totalPages == 0) return;
-
-    final percent = (_currentPage / _totalPages * 100).clamp(0.0, 100.0);
-    ref.read(progressProvider(widget.bookId).notifier).save(
-          currentPage: _currentPage,
-          percentComplete: percent,
-          isCompleted: _currentPage >= _totalPages,
-        );
-
-    // Update last opened timestamp for downloads
-    final userId = auth.user?.id;
-    if (userId != null) {
-      ref
-          .read(booksRepositoryProvider)
-          .updateLastOpened(widget.bookId, userId);
+    if (_lastSavedPage == _currentPage && _lastSavedTotalPages == _totalPages) {
+      return;
     }
+
+    final page = _currentPage;
+    final total = _totalPages;
+    final percent = (page / total * 100).clamp(0.0, 100.0);
+    final isCompleted = page >= total;
+    final notifier = _progressNotifier;
+    final repo = _booksRepository;
+    final userId = _currentUserId;
+
+    _lastSavedPage = page;
+    _lastSavedTotalPages = total;
+
+    if (notifier != null) {
+      try {
+        notifier.save(
+          currentPage: page,
+          percentComplete: percent,
+          isCompleted: isCompleted,
+        );
+      } catch (e) {
+        debugPrint('[BookReaderScreen] Failed to save progress: $e');
+      }
+    }
+
+    if (repo != null && userId != null) {
+      try {
+        repo.updateLastOpened(widget.bookId, userId);
+      } catch (e) {
+        debugPrint('[BookReaderScreen] Failed to update last opened: $e');
+      }
+    }
+  }
+
+  void _handleDownload() {
+    if (_book == null) return;
+    final isDownloadedAsync = ref.read(isBookDownloadedProvider(widget.bookId));
+    final isDownloaded = widget.isDownloaded || (isDownloadedAsync.valueOrNull ?? false);
+    if (isDownloaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${_book!.title}" is downloaded and available offline.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    final userId = _currentUserId ?? 'guest';
+    ref.read(downloadsNotifierProvider.notifier).startDownload(_book!, userId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Downloading "${_book!.title}" for offline reading...'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    _captureDependencies();
     final theme = Theme.of(context);
     final prefs = ref.watch(readingPrefsProvider);
+    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(widget.bookId));
+    final isDownloaded =
+        widget.isDownloaded || (isDownloadedAsync.valueOrNull ?? false);
+    final downloadState = ref.watch(downloadsNotifierProvider);
+    final isDownloading = downloadState.activeProgress.containsKey(widget.bookId);
+    final downloadProgress = downloadState.activeProgress[widget.bookId] ?? 0.0;
 
     if (_isLoading) {
       return Scaffold(
@@ -264,99 +357,111 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () => setState(() => _uiVisible = !_uiVisible),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 700;
-            // On desktop/web wide screens, constrain width so the full page height fits vertically on screen
-            final double? maxPageWidth = (isWide && _fitToPage)
-                ? (constraints.maxHeight * 0.72).clamp(420.0, 850.0)
-                : null;
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _flushFinalProgress();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          onTap: () => setState(() => _uiVisible = !_uiVisible),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 700;
+              // On desktop/web wide screens, constrain width so the full page height fits vertically on screen
+              final double? maxPageWidth = (isWide && _fitToPage)
+                  ? (constraints.maxHeight * 0.72).clamp(420.0, 850.0)
+                  : null;
 
-            return Stack(
-              children: [
-                // PDF viewer centered and properly scaled on wide screens
-                Center(
-                  child: SizedBox(
-                    width: maxPageWidth ?? double.infinity,
-                    height: double.infinity,
-                    child: PdfViewPinch(
-                      controller: _pdfController!,
-                      onDocumentLoaded: (doc) {
-                        setState(() => _totalPages = doc.pagesCount);
-                      },
-                      onPageChanged: (page) {
-                        setState(() => _currentPage = page);
-                        // Auto-save progress every 5 pages
-                        if (page % 5 == 0) _saveProgress();
-                      },
-                      scrollDirection:
-                          _isVertical ? Axis.vertical : Axis.horizontal,
-                      backgroundDecoration:
-                          const BoxDecoration(color: Colors.black),
-                      builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-                        options: const DefaultBuilderOptions(),
-                        documentLoaderBuilder: (_) => const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        ),
-                        pageLoaderBuilder: (_) => const Center(
-                          child: CircularProgressIndicator(color: Colors.white54),
-                        ),
-                        errorBuilder: (_, error) => Center(
-                          child: Text(error.toString(),
-                              style: const TextStyle(color: Colors.red)),
+              return Stack(
+                children: [
+                  // PDF viewer centered and properly scaled on wide screens
+                  Center(
+                    child: SizedBox(
+                      width: maxPageWidth ?? double.infinity,
+                      height: double.infinity,
+                      child: PdfViewPinch(
+                        controller: _pdfController!,
+                        onDocumentLoaded: (doc) {
+                          setState(() => _totalPages = doc.pagesCount);
+                        },
+                        onPageChanged: (page) {
+                          setState(() => _currentPage = page);
+                          // Auto-save progress every 5 pages
+                          if (page % 5 == 0) _saveProgress();
+                        },
+                        scrollDirection:
+                            _isVertical ? Axis.vertical : Axis.horizontal,
+                        backgroundDecoration:
+                            const BoxDecoration(color: Colors.black),
+                        builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+                          options: const DefaultBuilderOptions(),
+                          documentLoaderBuilder: (_) => const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                          pageLoaderBuilder: (_) => const Center(
+                            child: CircularProgressIndicator(color: Colors.white54),
+                          ),
+                          errorBuilder: (_, error) => Center(
+                            child: Text(error.toString(),
+                                style: const TextStyle(color: Colors.red)),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-                // Top AppBar overlay
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 200),
-                  top: _uiVisible ? 0 : -100,
-                  left: 0,
-                  right: 0,
-                  child: _ReaderAppBar(
-                    bookTitle: book?.title ?? '',
-                    isVertical: _isVertical,
-                    isFitToPage: _fitToPage,
-                    showFitToggle: isWide,
-                    onToggleScroll: () =>
-                        setState(() => _isVertical = !_isVertical),
-                    onToggleFit: () =>
-                        setState(() => _fitToPage = !_fitToPage),
-                    onClose: () {
-                      _saveProgress();
-                      context.pop();
-                    },
+                  // Top AppBar overlay
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    top: _uiVisible ? 0 : -100,
+                    left: 0,
+                    right: 0,
+                    child: _ReaderAppBar(
+                      bookTitle: book?.title ?? '',
+                      isVertical: _isVertical,
+                      isFitToPage: _fitToPage,
+                      showFitToggle: isWide,
+                      isDownloaded: isDownloaded,
+                      isDownloading: isDownloading,
+                      downloadProgress: downloadProgress,
+                      onDownload: _handleDownload,
+                      onToggleScroll: () =>
+                          setState(() => _isVertical = !_isVertical),
+                      onToggleFit: () =>
+                          setState(() => _fitToPage = !_fitToPage),
+                      onClose: () {
+                        _flushFinalProgress();
+                        context.pop();
+                      },
+                    ),
                   ),
-                ),
 
-                // Bottom page indicator
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 200),
-                  bottom: _uiVisible ? 0 : -80,
-                  left: 0,
-                  right: 0,
-                  child: _PageIndicatorBar(
-                    currentPage: _currentPage,
-                    totalPages: _totalPages,
-                    onJump: (p) {
-                      _pdfController!.animateToPage(
-                        pageNumber: p,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
+                  // Bottom page indicator
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    bottom: _uiVisible ? 0 : -80,
+                    left: 0,
+                    right: 0,
+                    child: _PageIndicatorBar(
+                      currentPage: _currentPage,
+                      totalPages: _totalPages,
+                      onJump: (p) {
+                        _pdfController!.animateToPage(
+                          pageNumber: p,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -370,6 +475,10 @@ class _ReaderAppBar extends StatelessWidget {
   final bool isVertical;
   final bool isFitToPage;
   final bool showFitToggle;
+  final bool isDownloaded;
+  final bool isDownloading;
+  final double downloadProgress;
+  final VoidCallback onDownload;
   final VoidCallback onToggleScroll;
   final VoidCallback onToggleFit;
   final VoidCallback onClose;
@@ -379,6 +488,10 @@ class _ReaderAppBar extends StatelessWidget {
     required this.isVertical,
     required this.isFitToPage,
     required this.showFitToggle,
+    this.isDownloaded = false,
+    this.isDownloading = false,
+    this.downloadProgress = 0.0,
+    required this.onDownload,
     required this.onToggleScroll,
     required this.onToggleFit,
     required this.onClose,
@@ -409,6 +522,40 @@ class _ReaderAppBar extends StatelessWidget {
           onPressed: onClose,
         ),
         actions: [
+          // Download / Offline action button: changes before and after download
+          if (isDownloading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    value: downloadProgress > 0 ? downloadProgress : null,
+                    strokeWidth: 2,
+                    color: const Color(0xFF38BDF8),
+                  ),
+                ),
+              ),
+            )
+          else if (isDownloaded)
+            IconButton(
+              icon: const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF059669),
+              ),
+              tooltip: 'Downloaded • Available Offline',
+              onPressed: onDownload,
+            )
+          else
+            IconButton(
+              icon: const Icon(
+                Icons.cloud_download_outlined,
+                color: Color(0xFF38BDF8),
+              ),
+              tooltip: 'Download for offline reading',
+              onPressed: onDownload,
+            ),
           IconButton(
             icon: Icon(
               isVertical ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded,
@@ -514,6 +661,12 @@ class _TextReaderScreen extends ConsumerWidget {
     final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFFFFDE7);
     final textColor = isDark ? Colors.white : const Color(0xFF2D2D2D);
 
+    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
+    final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
+    final downloadState = ref.watch(downloadsNotifierProvider);
+    final isDownloading = downloadState.activeProgress.containsKey(book.id);
+    final downloadProgress = downloadState.activeProgress[book.id] ?? 0.0;
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -522,6 +675,55 @@ class _TextReaderScreen extends ConsumerWidget {
         iconTheme: IconThemeData(color: textColor),
         elevation: 0,
         actions: [
+          if (isDownloading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    value: downloadProgress > 0 ? downloadProgress : null,
+                    strokeWidth: 2,
+                    color: const Color(0xFF38BDF8),
+                  ),
+                ),
+              ),
+            )
+          else if (isDownloaded)
+            IconButton(
+              icon: const Icon(Icons.check_circle_rounded,
+                  color: Color(0xFF059669)),
+              tooltip: 'Downloaded • Available Offline',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        '"${book.title}" is downloaded for offline reading.'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.cloud_download_outlined,
+                  color: Color(0xFF0284C7)),
+              tooltip: 'Download for offline reading',
+              onPressed: () {
+                final userId = ref.read(authProvider).user?.id ?? 'guest';
+                ref
+                    .read(downloadsNotifierProvider.notifier)
+                    .startDownload(book, userId);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Downloading "${book.title}" for offline reading...'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
           IconButton(
             icon: Icon(Icons.text_fields, color: textColor),
             onPressed: () => _showPrefsSheet(context, ref, prefs),
