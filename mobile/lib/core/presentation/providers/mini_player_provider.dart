@@ -259,6 +259,13 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     state = state.copyWith(isVisible: false, isNavigatingToFull: true);
   }
 
+  /// Restore visibility if expand navigation failed
+  void cancelExpand() {
+    if (state.hasContent) {
+      state = state.copyWith(isVisible: true, isNavigatingToFull: false);
+    }
+  }
+
   /// Reclaims the controller for full-screen player ownership.
   VideoPlayerController? reclaimController(String expectedId) {
     if (state.contentId == expectedId) {

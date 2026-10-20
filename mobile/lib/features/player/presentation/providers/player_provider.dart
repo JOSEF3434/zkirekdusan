@@ -15,6 +15,7 @@ import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
+import 'package:mobile/features/media_experience/domain/playback_preferences.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/features/player/data/player_repository.dart';
@@ -35,6 +36,8 @@ class PlayerState {
 
   /// Restored position in seconds (-1 means no restore).
   final int resumePositionSeconds;
+  final double volume;
+  final bool isMuted;
 
   const PlayerState({
     this.video,
@@ -50,6 +53,8 @@ class PlayerState {
     this.resumePositionSeconds = -1,
     this.activeStreamUrl,
     this.isOfflinePlayback = false,
+    this.volume = 1.0,
+    this.isMuted = false,
   });
 
   PlayerState copyWith({
@@ -67,6 +72,8 @@ class PlayerState {
     int? resumePositionSeconds,
     String? activeStreamUrl,
     bool? isOfflinePlayback,
+    double? volume,
+    bool? isMuted,
   }) {
     return PlayerState(
       video: video ?? this.video,
@@ -83,26 +90,57 @@ class PlayerState {
           resumePositionSeconds ?? this.resumePositionSeconds,
       activeStreamUrl: activeStreamUrl ?? this.activeStreamUrl,
       isOfflinePlayback: isOfflinePlayback ?? this.isOfflinePlayback,
+      volume: volume ?? this.volume,
+      isMuted: isMuted ?? this.isMuted,
     );
   }
 }
 
 final playerProvider = StateNotifierProvider.autoDispose
     .family<PlayerNotifier, PlayerState, String>((ref, videoId) {
-      // Reuse the controller from the mini-player only if the current content matches.
+      // Reuse the controller and metadata from the mini-player only if the current content matches.
       // We intentionally avoid mutating the mini-player provider here because provider
       // initialization must not trigger state updates on another provider.
       final mini = ref.read(miniPlayerProvider);
-      final existingCtrl = mini.contentId == videoId ? mini.controller : null;
+      final isMatching = mini.contentId == videoId;
+      final existingCtrl = isMatching ? mini.controller : null;
 
-      return PlayerNotifier(
+      VideoResponseDto? initialVideo;
+      if (isMatching && mini.hasContent) {
+        initialVideo = VideoResponseDto(
+          id: videoId,
+          title: mini.title ?? 'Video',
+          thumbnailUrl: mini.thumbnailUrl,
+          status: VideoStatus.ready,
+          visibility: 'PUBLIC',
+          isDownloadable: true,
+          author: PostAuthorDto(
+            id: '',
+            username: mini.channelName ?? '',
+            displayName: mini.channelName,
+          ),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      final initialPrefs = ref.read(playbackPreferencesProvider);
+      final notifier = PlayerNotifier(
         ref.watch(playerRepositoryProvider),
         ref.watch(playbackProgressRepositoryProvider),
         ref.watch(storageServiceProvider),
         videoId,
-        ref.read(playbackPreferencesProvider).defaultSpeed,
+        initialPrefs,
         existingController: existingCtrl,
+        initialVideo: initialVideo,
       );
+
+      // Listen to playback preference changes without tearing down the player session
+      ref.listen<PlaybackPreferences>(playbackPreferencesProvider, (prev, next) {
+        notifier.updatePreferences(next);
+      });
+
+      return notifier;
     });
 
 class PlayerNotifier extends StateNotifier<PlayerState> {
@@ -110,26 +148,101 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   final PlaybackProgressRepository _progressRepo;
   final StorageService _storage;
   final String _videoId;
+  PlaybackPreferences _playbackPreferences;
 
   Timer? _progressTimer;
   Timer? _controlsHideTimer;
   bool _qualitySwitching = false;
   int _lastSavedPosition = 0;
+  bool _isInteractingWithControls = false;
+  double _lastVolumeBeforeMute = 1.0;
 
   PlayerNotifier(
     this._repository,
     this._progressRepo,
     this._storage,
     this._videoId,
-    double initialSpeed, {
+    this._playbackPreferences, {
     VideoPlayerController? existingController,
+    VideoResponseDto? initialVideo,
   }) : super(
          PlayerState(
-           playbackSpeed: initialSpeed,
+           playbackSpeed: _playbackPreferences.defaultSpeed,
            controller: existingController,
+           video: initialVideo,
+           isLoading: existingController == null,
+           volume: existingController?.value.volume ?? 1.0,
+           isMuted: (existingController?.value.volume ?? 1.0) == 0.0,
          ),
        ) {
+    if (existingController != null && existingController.value.isInitialized) {
+      try {
+        existingController.removeListener(_onControllerUpdate);
+      } catch (_) {}
+      existingController.addListener(_onControllerUpdate);
+      // Preserve existing playback state: do NOT force play if paused.
+    }
     _initialize(existingController: existingController);
+  }
+
+  /// Updates playback preferences in real time
+  void updatePreferences(PlaybackPreferences newPrefs) {
+    _playbackPreferences = newPrefs;
+    if (!_playbackPreferences.autoHideControls) {
+      _controlsHideTimer?.cancel();
+      if (!state.showControls) {
+        state = state.copyWith(showControls: true);
+      }
+    } else {
+      _resetControlsTimer();
+    }
+  }
+
+  /// Sets whether user is currently scrubbing or actively holding controls
+  void setInteractingWithControls(bool interacting) {
+    _isInteractingWithControls = interacting;
+    if (interacting) {
+      _controlsHideTimer?.cancel();
+    } else {
+      _resetControlsTimer();
+    }
+  }
+
+  /// Triggered on mouse hover or tap to reveal controls and reset auto-hide countdown
+  void onUserInteraction() {
+    if (!state.showControls) {
+      state = state.copyWith(showControls: true);
+    }
+    _resetControlsTimer();
+  }
+
+  /// Seamlessly adopt an active VideoPlayerController (e.g. handed off from MiniPlayer)
+  void adoptController(VideoPlayerController ctrl) {
+    final oldController = state.controller;
+    if (oldController != null && oldController != ctrl) {
+      try {
+        oldController.removeListener(_onControllerUpdate);
+      } catch (_) {}
+    }
+
+    try {
+      ctrl.removeListener(_onControllerUpdate);
+    } catch (_) {}
+    ctrl.addListener(_onControllerUpdate);
+
+    state = state.copyWith(
+      controller: ctrl,
+      isLoading: false,
+      volume: ctrl.value.volume,
+      isMuted: ctrl.value.volume == 0.0,
+    );
+
+    // Respect existing playback state: do NOT force play if paused!
+    if (ctrl.value.isPlaying) {
+      _resetControlsTimer();
+    } else {
+      state = state.copyWith(showControls: true);
+    }
   }
 
   // ── Cloudinary URL utilities ────────────────────────────────────────────
@@ -215,7 +328,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     _progressTimer?.cancel();
     _controlsHideTimer?.cancel();
     _flushProgress();
-    state.controller?.dispose();
+    final ctrl = state.controller;
+    if (ctrl != null) {
+      try {
+        ctrl.removeListener(_onControllerUpdate);
+        ctrl.dispose();
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -223,6 +342,15 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   /// Must be called BEFORE this notifier is disposed (i.e. before context.pop()).
   /// After this call, dispose() will not touch the controller.
   void detachController() {
+    _progressTimer?.cancel();
+    _controlsHideTimer?.cancel();
+    _flushProgress();
+    final ctrl = state.controller;
+    if (ctrl != null) {
+      try {
+        ctrl.removeListener(_onControllerUpdate);
+      } catch (_) {}
+    }
     state = state.copyWith(clearController: true);
   }
 
@@ -285,11 +413,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         } catch (_) {}
       }
 
-      VideoResponseDto? video;
+      VideoResponseDto video;
       try {
         video = await _repository.getVideo(_videoId);
       } catch (repoErr) {
-        if (localFilePath != null || localFileUrl != null) {
+        if (state.video != null) {
+          video = state.video!;
+        } else if (localFilePath != null || localFileUrl != null) {
           // Play in offline mode using cached download metadata
           video = VideoResponseDto(
             id: _videoId,
@@ -307,15 +437,29 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         }
       }
 
+      if (mounted) {
+        state = state.copyWith(
+          video: video,
+          currentRendition: video.renditions.isNotEmpty
+              ? video.renditions.first
+              : null,
+        );
+      }
+
+      final activeCtrl = state.controller ?? existingController;
       // If we are adopting an existing controller from MiniPlayer, bind and return immediately
-      if (existingController != null &&
-          existingController.value.isInitialized) {
-        existingController.addListener(_onControllerUpdate);
+      if (activeCtrl != null && activeCtrl.value.isInitialized) {
+        try {
+          activeCtrl.removeListener(_onControllerUpdate);
+        } catch (_) {}
+        activeCtrl.addListener(_onControllerUpdate);
+        _progressTimer?.cancel();
         _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-          if (video != null) {
-            _maybeSaveProgress(video);
+          if (state.video != null) {
+            _maybeSaveProgress(state.video!);
           }
         });
+
         _repository
             .getRecommended(_videoId)
             .then((res) {
@@ -328,7 +472,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         if (mounted) {
           state = state.copyWith(
             video: video,
-            controller: existingController,
+            controller: activeCtrl,
             isLoading: false,
             currentRendition: video.renditions.isNotEmpty
                 ? video.renditions.first
@@ -456,9 +600,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       // Throttled progress timer every 5 seconds
       _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (video != null) {
-          _maybeSaveProgress(video);
-        }
+        _maybeSaveProgress(video);
       });
 
       // Fetch recommendations in background
@@ -505,8 +647,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final ctrl = state.controller;
     if (ctrl == null) return;
     final isBuffering = ctrl.value.isBuffering;
+    final isPlaying = ctrl.value.isPlaying;
     if (state.isBuffering != isBuffering) {
       state = state.copyWith(isBuffering: isBuffering);
+    }
+    // When video pauses (e.g. ended or buffering pause), reveal controls automatically
+    if (!isPlaying && !state.showControls) {
+      state = state.copyWith(showControls: true);
     }
   }
 
@@ -555,9 +702,21 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   // ── Public control methods ────────────────────────────────────────────────
 
+  bool get isLiveStream {
+    final video = state.video;
+    if (video != null && video.isStream) return true;
+    final ctrl = state.controller;
+    if (ctrl != null &&
+        ctrl.value.isInitialized &&
+        ctrl.value.duration == Duration.zero) {
+      return true;
+    }
+    return false;
+  }
+
   void togglePlayPause() {
     final ctrl = state.controller;
-    if (ctrl == null) return;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
     if (ctrl.value.isPlaying) {
       ctrl.pause();
     } else {
@@ -567,22 +726,25 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   void seekTo(Duration position) {
+    if (isLiveStream) return;
     state.controller?.seekTo(position);
     _resetControlsTimer();
   }
 
-  void seekForward() {
+  void seekForward([int? seconds]) {
     final ctrl = state.controller;
-    if (ctrl == null) return;
-    final newPos = ctrl.value.position + const Duration(seconds: 10);
+    if (ctrl == null || !ctrl.value.isInitialized || isLiveStream) return;
+    final seekSec = seconds ?? _playbackPreferences.seekForwardSeconds;
+    final newPos = ctrl.value.position + Duration(seconds: seekSec);
     final duration = ctrl.value.duration;
     seekTo(newPos > duration ? duration : newPos);
   }
 
-  void seekBackward() {
+  void seekBackward([int? seconds]) {
     final ctrl = state.controller;
-    if (ctrl == null) return;
-    final newPos = ctrl.value.position - const Duration(seconds: 10);
+    if (ctrl == null || !ctrl.value.isInitialized || isLiveStream) return;
+    final seekSec = seconds ?? _playbackPreferences.seekBackwardSeconds;
+    final newPos = ctrl.value.position - Duration(seconds: seekSec);
     seekTo(newPos < Duration.zero ? Duration.zero : newPos);
   }
 
@@ -598,11 +760,42 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   void _resetControlsTimer() {
     _controlsHideTimer?.cancel();
-    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && state.controller?.value.isPlaying == true) {
+    // Do not auto-hide if disabled, if user is actively interacting, or if video is paused
+    if (!_playbackPreferences.autoHideControls) return;
+    if (_isInteractingWithControls) return;
+
+    final delay = Duration(seconds: _playbackPreferences.autoHideDelaySeconds);
+    _controlsHideTimer = Timer(delay, () {
+      if (mounted &&
+          state.controller?.value.isPlaying == true &&
+          !_isInteractingWithControls &&
+          _playbackPreferences.autoHideControls) {
         state = state.copyWith(showControls: false);
       }
     });
+  }
+
+  void setVolume(double volume) {
+    final clamped = volume.clamp(0.0, 1.0);
+    state.controller?.setVolume(clamped);
+    if (clamped > 0) {
+      _lastVolumeBeforeMute = clamped;
+    }
+    state = state.copyWith(
+      volume: clamped,
+      isMuted: clamped == 0.0,
+    );
+  }
+
+  void toggleMute() {
+    if (state.isMuted || state.volume == 0.0) {
+      final restoreVol =
+          _lastVolumeBeforeMute > 0 ? _lastVolumeBeforeMute : 1.0;
+      setVolume(restoreVol);
+    } else {
+      _lastVolumeBeforeMute = state.volume > 0 ? state.volume : 1.0;
+      setVolume(0.0);
+    }
   }
 
   Future<void> setPlaybackSpeed(double speed) async {

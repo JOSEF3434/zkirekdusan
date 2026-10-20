@@ -32,4 +32,32 @@ class PlaybackPreferencesNotifier extends StateNotifier<PlaybackPreferences> {
     state = state.copyWith(downloadOnWifiOnly: value);
     await _repo.save(state);
   }
+
+  Future<void> setDoubleTapSeekEnabled(bool value) async {
+    state = state.copyWith(doubleTapSeekEnabled: value);
+    await _repo.save(state);
+  }
+
+  Future<void> setSeekForwardSeconds(int value) async {
+    if (!PlaybackPreferences.allowedSeekIntervals.contains(value)) return;
+    state = state.copyWith(seekForwardSeconds: value);
+    await _repo.save(state);
+  }
+
+  Future<void> setSeekBackwardSeconds(int value) async {
+    if (!PlaybackPreferences.allowedSeekIntervals.contains(value)) return;
+    state = state.copyWith(seekBackwardSeconds: value);
+    await _repo.save(state);
+  }
+
+  Future<void> setAutoHideControls(bool value) async {
+    state = state.copyWith(autoHideControls: value);
+    await _repo.save(state);
+  }
+
+  Future<void> setAutoHideDelaySeconds(int value) async {
+    if (!PlaybackPreferences.allowedAutoHideDelays.contains(value)) return;
+    state = state.copyWith(autoHideDelaySeconds: value);
+    await _repo.save(state);
+  }
 }

@@ -18,7 +18,10 @@ import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../media_experience/presentation/widgets/player_speed_sheet.dart';
-import '../../media_experience/presentation/widgets/player_quality_sheet.dart';
+import '../../media_experience/presentation/widgets/player_settings_sheet.dart';
+import '../../media_experience/presentation/providers/playback_preferences_provider.dart';
+import '../../media_experience/domain/playback_preferences.dart';
+
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String videoId;
@@ -42,32 +45,43 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   // Format: 'video:<videoId>' — stable for the lifetime of this screen.
   String get _mediaSessionId => 'video:${widget.videoId}';
 
+  MediaActivityNotifier? _mediaActivityNotifier;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _mediaActivityNotifier = ref.read(mediaActivityProvider.notifier);
+  }
+
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final mini = ref.read(miniPlayerProvider);
       if (mini.contentId == widget.videoId && mini.controller != null) {
-        // PlayerNotifier already adopted this exact controller. Remove the
-        // MiniPlayer listener without pausing or disposing the session.
         final reclaimed = ref
             .read(miniPlayerProvider.notifier)
             .reclaimController(widget.videoId);
         if (reclaimed != null) {
-          debugPrint(
-            '[VideoPlayerScreen] Fullscreen player mounted; controller '
-            'reclaimed for ${widget.videoId} position=${reclaimed.value.position} '
-            'playing=${reclaimed.value.isPlaying}',
-          );
+          ref
+              .read(playerProvider(widget.videoId).notifier)
+              .adoptController(reclaimed);
         }
       }
     });
   }
 
-  void _triggerSeek(bool isForward) {
+  int _seekFeedbackSeconds = 5;
+
+  void _triggerSeek(bool isForward, [int? seconds]) {
+    final prefs = ref.read(playbackPreferencesProvider);
+    final sec = seconds ??
+        (isForward ? prefs.seekForwardSeconds : prefs.seekBackwardSeconds);
     setState(() {
       _isSeekingForward = isForward;
+      _seekFeedbackSeconds = sec;
     });
     _seekFeedbackTimer?.cancel();
     _seekFeedbackTimer = Timer(const Duration(milliseconds: 700), () {
@@ -79,25 +93,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   void _minimizeToMiniPlayer(PlayerState state) {
     final ctrl = state.controller;
     if (ctrl == null || !ctrl.value.isInitialized) {
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
       return;
     }
 
     final video = state.video;
     if (video == null) {
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
       return;
     }
 
-    // Detach the controller from the provider so it won't be disposed.
-    // The provider is autoDispose — when we pop, it normally disposes the
-    // controller. We prevent this by overriding with keepAlive via listen.
     ref
         .read(miniPlayerProvider.notifier)
         .showVideo(
           videoId: video.id,
           title: video.title,
-          channelName: video.author.username,
+          channelName: video.author.displayName ?? video.author.username,
           thumbnailUrl: video.thumbnailUrl,
           controller: ctrl,
         );
@@ -105,14 +124,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     // Null out the controller in provider state before dispose runs.
     ref.read(playerProvider(widget.videoId).notifier).detachController();
 
-    context.pop();
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
   }
 
   @override
   void dispose() {
     _seekFeedbackTimer?.cancel();
     // End any active media session so the inactivity timer restarts.
-    ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+    try {
+      _mediaActivityNotifier?.endSession(_mediaSessionId);
+    } catch (_) {}
     // Restore orientation when leaving player
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -155,7 +180,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       }
     });
 
-    if (state.isLoading) {
+    if (state.isLoading || state.video == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator()),
@@ -233,29 +258,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         state.controller != null && state.controller!.value.isInitialized;
     final isPlaying = isInitialized && state.controller!.value.isPlaying;
 
-    final Widget playerContent = isInitialized
-        ? GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => ref
-                .read(playerProvider(widget.videoId).notifier)
-                .toggleControls(),
-            onDoubleTapDown: (details) {
-              final box = context.findRenderObject() as RenderBox?;
-              final width =
-                  box?.size.width ?? MediaQuery.of(context).size.width;
-              final dx = details.localPosition.dx;
-              final notifier = ref.read(
-                playerProvider(widget.videoId).notifier,
-              );
+    final prefs = ref.watch(playbackPreferencesProvider);
+    final notifier = ref.read(playerProvider(widget.videoId).notifier);
 
-              if (dx < width / 2) {
-                notifier.seekBackward();
-                _triggerSeek(false);
-              } else {
-                notifier.seekForward();
-                _triggerSeek(true);
-              }
-            },
+    final Widget playerContent = isInitialized
+        ? MouseRegion(
+            onHover: (_) => notifier.onUserInteraction(),
+            onEnter: (_) => notifier.onUserInteraction(),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -282,16 +291,46 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     ),
                   ),
 
+                // Tap detector when controls are hidden: single-tap reveals controls, double-tap seeks
+                if (!state.showControls)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: notifier.toggleControls,
+                      onDoubleTapDown: prefs.doubleTapSeekEnabled
+                          ? (details) {
+                              final box =
+                                  context.findRenderObject() as RenderBox?;
+                              final width = box?.size.width ??
+                                  MediaQuery.of(context).size.width;
+                              final dx = details.localPosition.dx;
+                              final isForward = dx >= width / 2;
+                              if (isForward) {
+                                notifier.seekForward();
+                              } else {
+                                notifier.seekBackward();
+                              }
+                              _triggerSeek(isForward);
+                            }
+                          : null,
+                    ),
+                  ),
+
                 // YouTube-like double-tap seek feedback animation
                 if (_isSeekingForward != null)
-                  _YouTubeSeekFeedback(isForward: _isSeekingForward!),
+                  _YouTubeSeekFeedback(
+                    isForward: _isSeekingForward!,
+                    seconds: _seekFeedbackSeconds,
+                  ),
 
                 if (state.showControls)
                   _PlayerControlsOverlay(
                     controller: state.controller!,
-                    notifier: ref.read(playerProvider(widget.videoId).notifier),
+                    notifier: notifier,
                     videoId: widget.videoId,
                     isFullscreen: state.isFullscreen,
+                    state: state,
+                    prefs: prefs,
                     onMinimizeToMiniPlayer: () => _minimizeToMiniPlayer(state),
                     onDoubleTapSeek: (isForward) {
                       _triggerSeek(isForward);
@@ -1018,7 +1057,11 @@ class _ActionButton extends StatelessWidget {
 
 class _YouTubeSeekFeedback extends StatefulWidget {
   final bool isForward;
-  const _YouTubeSeekFeedback({required this.isForward});
+  final int seconds;
+  const _YouTubeSeekFeedback({
+    required this.isForward,
+    this.seconds = 5,
+  });
 
   @override
   State<_YouTubeSeekFeedback> createState() => _YouTubeSeekFeedbackState();
@@ -1090,7 +1133,9 @@ class _YouTubeSeekFeedbackState extends State<_YouTubeSeekFeedback>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    isFwd ? '10 seconds ▶▶' : '◀◀ 10 seconds',
+                    isFwd
+                        ? '+${widget.seconds}s ▶▶'
+                        : '◀◀ -${widget.seconds}s',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1116,6 +1161,8 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final PlayerNotifier notifier;
   final String videoId;
   final bool isFullscreen;
+  final PlayerState state;
+  final PlaybackPreferences prefs;
   final VoidCallback onMinimizeToMiniPlayer;
   final void Function(bool isForward) onDoubleTapSeek;
 
@@ -1124,150 +1171,239 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.notifier,
     required this.videoId,
     required this.isFullscreen,
+    required this.state,
+    required this.prefs,
     required this.onMinimizeToMiniPlayer,
     required this.onDoubleTapSeek,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: notifier.toggleControls,
-      onDoubleTapDown: (details) {
-        final box = context.findRenderObject() as RenderBox?;
-        final width = box?.size.width ?? MediaQuery.of(context).size.width;
-        final isForward = details.localPosition.dx >= width / 2;
-        if (isForward) {
-          notifier.seekForward();
-        } else {
-          notifier.seekBackward();
-        }
-        onDoubleTapSeek(isForward);
-      },
-      child: Container(
-        color: Colors.black45,
-        child: Stack(
-          children: [
-            // Top bar (Back button & Settings)
-            Positioned(
-              top: 8,
-              left: 8,
-              right: 8,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white,
-                      size: 32,
+    final isLiveStream = notifier.isLiveStream;
+
+    return Stack(
+      children: [
+        // 1. Background layer: tapping toggles controls, double-tapping seeks
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: notifier.toggleControls,
+            onDoubleTapDown: prefs.doubleTapSeekEnabled
+                ? (details) {
+                    final box = context.findRenderObject() as RenderBox?;
+                    final width =
+                        box?.size.width ?? MediaQuery.of(context).size.width;
+                    final isForward = details.localPosition.dx >= width / 2;
+                    if (isForward) {
+                      notifier.seekForward();
+                    } else {
+                      notifier.seekBackward();
+                    }
+                    onDoubleTapSeek(isForward);
+                  }
+                : null,
+            child: Container(color: Colors.black45),
+          ),
+        ),
+
+        // 2. Top bar (Back/Minimize button, Title if fullscreen, Volume, Speed, Settings)
+        Positioned(
+          top: 8,
+          left: 8,
+          right: 8,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                tooltip: isFullscreen ? 'Exit fullscreen' : 'Minimize player',
+                onPressed: () {
+                  if (isFullscreen) {
+                    notifier.toggleFullscreen();
+                  } else {
+                    onMinimizeToMiniPlayer();
+                  }
+                },
+              ),
+              if (isFullscreen && state.video != null)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text(
+                      state.video!.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                  ),
+                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Volume / Mute
+                  IconButton(
+                    icon: Icon(
+                      state.isMuted || state.volume == 0.0
+                          ? Icons.volume_off_rounded
+                          : (state.volume < 0.5
+                              ? Icons.volume_down_rounded
+                              : Icons.volume_up_rounded),
+                      color: Colors.white,
+                    ),
+                    tooltip: 'Mute / Unmute',
+                    onPressed: notifier.toggleMute,
+                  ),
+                  // Speed
+                  IconButton(
+                    icon: const Icon(Icons.speed, color: Colors.white),
+                    tooltip: 'Playback speed',
                     onPressed: () {
-                      if (isFullscreen) {
-                        notifier.toggleFullscreen();
-                      } else {
-                        onMinimizeToMiniPlayer();
-                      }
+                      notifier.setInteractingWithControls(true);
+                      PlayerSpeedSheet.show(context, videoId).then((_) {
+                        notifier.setInteractingWithControls(false);
+                      });
                     },
                   ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.speed, color: Colors.white),
-                        onPressed: () {
-                          PlayerSpeedSheet.show(context, videoId);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.settings, color: Colors.white),
-                        onPressed: () {
-                          PlayerQualitySheet.show(context, videoId);
-                        },
-                      ),
-                    ],
+                  // Settings / Quality
+                  IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.white),
+                    tooltip: 'Settings',
+                    onPressed: () {
+                      notifier.setInteractingWithControls(true);
+                      PlayerSettingsSheet.show(context, videoId).then((_) {
+                        notifier.setInteractingWithControls(false);
+                      });
+                    },
                   ),
                 ],
               ),
-            ),
-
-            // Center controls - Play / Pause only (10s skip buttons removed in favor of YouTube-style double-tap)
-            Center(
-              child: ValueListenableBuilder(
-                valueListenable: controller,
-                builder: (context, VideoPlayerValue value, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.38),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      iconSize: 64,
-                      color: Colors.white,
-                      icon: Icon(
-                        value.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                      ),
-                      onPressed: notifier.togglePlayPause,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Bottom progress bar
-            Positioned(
-              bottom: 8,
-              left: 16,
-              right: 16,
-              child: ValueListenableBuilder(
-                valueListenable: controller,
-                builder: (context, VideoPlayerValue value, child) {
-                  return Row(
-                    children: [
-                      Text(
-                        _formatDuration(value.position),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Expanded(
-                        child: VideoProgressIndicator(
-                          controller,
-                          allowScrubbing: true,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          colors: const VideoProgressColors(
-                            playedColor: Colors.red,
-                            bufferedColor: Colors.white30,
-                            backgroundColor: Colors.white12,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _formatDuration(value.duration),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                          color: Colors.white,
-                        ),
-                        onPressed: notifier.toggleFullscreen,
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+
+        // 3. Center controls - Play / Pause button
+        Center(
+          child: ValueListenableBuilder(
+            valueListenable: controller,
+            builder: (context, VideoPlayerValue value, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  iconSize: 64,
+                  color: Colors.white,
+                  icon: Icon(
+                    value.isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                  ),
+                  onPressed: notifier.togglePlayPause,
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 4. Bottom timeline bar
+        Positioned(
+          bottom: 8,
+          left: 16,
+          right: 16,
+          child: ValueListenableBuilder(
+            valueListenable: controller,
+            builder: (context, VideoPlayerValue value, child) {
+              return Row(
+                children: [
+                  Text(
+                    _formatDuration(value.position),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Expanded(
+                    child: Listener(
+                      onPointerDown: (_) =>
+                          notifier.setInteractingWithControls(true),
+                      onPointerUp: (_) =>
+                          notifier.setInteractingWithControls(false),
+                      onPointerCancel: (_) =>
+                          notifier.setInteractingWithControls(false),
+                      child: VideoProgressIndicator(
+                        controller,
+                        allowScrubbing: !isLiveStream,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        colors: const VideoProgressColors(
+                          playedColor: Colors.red,
+                          bufferedColor: Colors.white38,
+                          backgroundColor: Colors.white12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isLiveStream)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, color: Colors.white, size: 8),
+                          SizedBox(width: 4),
+                          Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Text(
+                      _formatDuration(value.duration),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      isFullscreen
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      color: Colors.white,
+                    ),
+                    tooltip: isFullscreen ? 'Exit fullscreen' : 'Fullscreen',
+                    onPressed: notifier.toggleFullscreen,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

@@ -43,6 +43,74 @@ class PlaybackPreferencesScreen extends ConsumerWidget {
           ),
           const Divider(),
           SwitchListTile(
+            title: Text(tr('playback.double_tap_seek')),
+            subtitle: Text(tr('playback.double_tap_seek_desc')),
+            value: prefs.doubleTapSeekEnabled,
+            onChanged: notifier.setDoubleTapSeekEnabled,
+          ),
+          if (prefs.doubleTapSeekEnabled) ...[
+            ListTile(
+              title: Text(tr('playback.seek_forward_interval')),
+              trailing: DropdownButton<int>(
+                value: prefs.seekForwardSeconds,
+                onChanged: (val) {
+                  if (val != null) notifier.setSeekForwardSeconds(val);
+                },
+                items: PlaybackPreferences.allowedSeekIntervals
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(
+                            tr('playback.seconds_format', {'seconds': s}),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+            ListTile(
+              title: Text(tr('playback.seek_backward_interval')),
+              trailing: DropdownButton<int>(
+                value: prefs.seekBackwardSeconds,
+                onChanged: (val) {
+                  if (val != null) notifier.setSeekBackwardSeconds(val);
+                },
+                items: PlaybackPreferences.allowedSeekIntervals
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(
+                            tr('playback.seconds_format', {'seconds': s}),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+          const Divider(),
+          SwitchListTile(
+            title: Text(tr('playback.auto_hide_controls')),
+            subtitle: Text(tr('playback.auto_hide_controls_desc')),
+            value: prefs.autoHideControls,
+            onChanged: notifier.setAutoHideControls,
+          ),
+          if (prefs.autoHideControls)
+            ListTile(
+              title: Text(tr('playback.auto_hide_delay')),
+              trailing: DropdownButton<int>(
+                value: prefs.autoHideDelaySeconds,
+                onChanged: (val) {
+                  if (val != null) notifier.setAutoHideDelaySeconds(val);
+                },
+                items: PlaybackPreferences.allowedAutoHideDelays
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(
+                            tr('playback.seconds_format', {'seconds': s}),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
+          const Divider(),
+          SwitchListTile(
             title: Text(tr('playback.wifi_only')),
             subtitle: Text(tr('playback.wifi_only_desc')),
             value: prefs.downloadOnWifiOnly,

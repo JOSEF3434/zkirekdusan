@@ -120,11 +120,11 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     if (mp.isEnded) {
       final target = '/live/$contentId';
       _isExpanding = true;
+      ref.read(miniPlayerProvider.notifier).prepareExpand();
       final navigated = NavigationService.instance.navigateTo(target);
-      if (navigated) {
-        ref.read(miniPlayerProvider.notifier).prepareExpand();
-      } else {
+      if (!navigated) {
         _isExpanding = false;
+        ref.read(miniPlayerProvider.notifier).cancelExpand();
       }
       return;
     }
@@ -158,17 +158,20 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     );
     _isExpanding = true;
 
+    // Immediately hide floating mini-player so the VideoPlayer widget unmounts cleanly
+    // before the full-screen player mounts, avoiding Web platform view collisions.
+    ref.read(miniPlayerProvider.notifier).prepareExpand();
+
     final navigated = NavigationService.instance.navigateTo(target);
     if (!navigated) {
       _isExpanding = false;
+      ref.read(miniPlayerProvider.notifier).cancelExpand();
       debugPrint(
         '[FloatingMiniPlayer] Fullscreen navigation rejected: target=$target',
       );
       return;
     }
 
-    // Transfer ownership without pausing, stopping, or disposing the session.
-    ref.read(miniPlayerProvider.notifier).prepareExpand();
     debugPrint(
       '[FloatingMiniPlayer] Fullscreen navigation accepted; MiniPlayer hidden '
       'for controller handoff: target=$target',
@@ -216,7 +219,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     required DragUpdateDetails details,
     required Size screenSize,
     required EdgeInsets padding,
-    required double videoAspect,
   }) {
     final startPointer = _resizeStartPointer;
     final startPosition = _resizeStartPosition;
@@ -226,57 +228,37 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     }
 
     final delta = details.globalPosition - startPointer;
-    final videoStartHeight = startWidth / videoAspect;
-    final horizontalWidth = _resizeFromLeft
-        ? startWidth - delta.dx
-        : startWidth + delta.dx;
-    final verticalWidth = _resizeFromTop
-        ? startWidth - (delta.dy * videoAspect)
-        : startWidth + (delta.dy * videoAspect);
+    final horizontalDelta = _resizeFromLeft ? -delta.dx : delta.dx;
+    final verticalDelta = _resizeFromTop ? -delta.dy : delta.dy;
 
-    double nextWidth = startWidth;
-    if (_resizeFromHorizontalEdge) nextWidth = horizontalWidth;
-    if (_resizeFromVerticalEdge) {
-      nextWidth = _resizeFromHorizontalEdge
-          ? (horizontalWidth - startWidth).abs() >=
-                    (verticalWidth - startWidth).abs()
-                ? horizontalWidth
-                : verticalWidth
-          : verticalWidth;
+    double change;
+    if (_resizeFromHorizontalEdge && _resizeFromVerticalEdge) {
+      change = (horizontalDelta.abs() >= verticalDelta.abs())
+          ? horizontalDelta
+          : verticalDelta;
+    } else if (_resizeFromHorizontalEdge) {
+      change = horizontalDelta;
+    } else {
+      change = verticalDelta;
     }
 
-    final availableWidth = max(1.0, screenSize.width - padding.horizontal - 16);
-    final availableHeight = max(
-      1.0,
-      screenSize.height - padding.vertical - 16 - bottomBarHeight,
-    );
-    final minWidth = min(
-      180.0,
-      min(availableWidth, availableHeight * videoAspect),
-    );
-    final maxWidthFromLeft =
-        screenSize.width -
-        padding.right -
-        8 -
-        (_resizeFromLeft ? padding.left + 8 : startPosition.dx);
-    final maxWidthFromHeight =
-        (screenSize.height - padding.vertical - 16 - bottomBarHeight) /
-        videoAspect;
-    final maxWidth =
-        max(minWidth, min(420.0, min(maxWidthFromLeft, maxWidthFromHeight)))
-            .clamp(
-              minWidth,
-              min(420.0, min(availableWidth, availableHeight * videoAspect)),
-            )
-            .toDouble();
-    nextWidth = nextWidth.clamp(minWidth, maxWidth).toDouble();
+    double nextWidth = startWidth + change;
 
-    final nextHeight = nextWidth / videoAspect + bottomBarHeight;
+    final availableWidth = max(1.0, screenSize.width - padding.horizontal - 16);
+    final availableHeight = max(1.0, screenSize.height - padding.vertical - 16);
+    final minSize = min(160.0, min(availableWidth, availableHeight));
+    final maxSize = max(
+      minSize,
+      min(360.0, min(availableWidth, availableHeight)),
+    );
+    nextWidth = nextWidth.clamp(minSize, maxSize).toDouble();
+    final nextHeight = nextWidth; // Square: height equals width
+
     final nextLeft = _resizeFromLeft
         ? startPosition.dx + startWidth - nextWidth
         : startPosition.dx;
     final nextTop = _resizeFromTop
-        ? startPosition.dy + videoStartHeight - nextWidth / videoAspect
+        ? startPosition.dy + startWidth - nextHeight
         : startPosition.dy;
     final minLeft = padding.left + 8.0;
     final maxLeft = screenSize.width - padding.right - nextWidth - 8.0;
@@ -300,7 +282,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
 
   // ── Drag & Safe Area Clamping ─────────────────────────────────────────────
 
-  static const bottomBarHeight = 48.0;
+  static const bottomBarHeight = 44.0;
   double _currentCardWidth = 0;
 
   void _clampPosition(
@@ -366,7 +348,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
 
     // Keep the player visible above the keyboard instead of allowing it to
     // extend into the keyboard/navigation-bar area.
-    if (!mp.hasContent) {
+    if (!mp.hasContent || !mp.isVisible) {
       _isExpanding = false;
     }
     if (!mp.isVisible || !mp.hasContent) {
@@ -406,32 +388,25 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
         );
     final activeCtrl = mp.controller ?? _liveController;
     final isInitialized = activeCtrl != null && activeCtrl.value.isInitialized;
-    final videoAspect = isInitialized && activeCtrl.value.aspectRatio > 0
-        ? activeCtrl.value.aspectRatio
-        : 16 / 9;
 
-    // Responsive dimensions
+    // Responsive dimensions: mini-player is square (cardHeight == cardWidth)
     final isTabletOrDesktop = screenSize.width >= 600;
     final defaultCardWidth = isTabletOrDesktop
-        ? min(300.0, screenSize.width * 0.38)
-        : min(220.0, screenSize.width * 0.58);
+        ? min(240.0, screenSize.width * 0.32)
+        : min(190.0, screenSize.width * 0.52);
     if (_currentCardWidth <= 0) {
       _currentCardWidth = defaultCardWidth;
     }
     final availableWidth = max(1.0, screenSize.width - padding.horizontal - 16);
-    final availableHeight = max(
-      1.0,
-      screenSize.height - padding.vertical - 16 - bottomBarHeight,
+    final availableHeight = max(1.0, screenSize.height - padding.vertical - 16);
+    final minSize = min(160.0, min(availableWidth, availableHeight));
+    final maxSize = max(
+      minSize,
+      min(360.0, min(availableWidth, availableHeight)),
     );
-    final maxWidth = min(
-      420.0,
-      min(availableWidth, availableHeight * videoAspect),
-    );
-    final minWidth = min(180.0, min(availableWidth, maxWidth));
-    _currentCardWidth = _currentCardWidth.clamp(minWidth, maxWidth).toDouble();
+    _currentCardWidth = _currentCardWidth.clamp(minSize, maxSize).toDouble();
     final cardWidth = _currentCardWidth;
-    final videoHeight = cardWidth / videoAspect;
-    final cardHeight = videoHeight + bottomBarHeight;
+    final cardHeight = cardWidth; // Square: height equals width
 
     // Position clamping
     _clampPosition(screenSize, padding, cardWidth, cardHeight);
@@ -493,90 +468,90 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   borderRadius: BorderRadius.circular(15),
                   child: Column(
                     children: [
-                      // ── 16:9 Video Player / Thumbnail Area ───────────────
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _restoreToFullPlayer(mp),
-                        child: SizedBox(
-                          width: cardWidth,
-                          height: videoHeight,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Container(color: Colors.black),
-                              if (mp.isEnded)
-                                Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    _buildThumbnail(mp),
-                                    Container(color: Colors.black54),
-                                  ],
-                                )
-                              else if (isInitialized)
-                                FittedBox(
-                                  fit: BoxFit.cover,
-                                  clipBehavior: Clip.hardEdge,
-                                  child: SizedBox(
-                                    width: activeCtrl.value.size.width > 0
-                                        ? activeCtrl.value.size.width
-                                        : 16,
-                                    height: activeCtrl.value.size.height > 0
-                                        ? activeCtrl.value.size.height
-                                        : 9,
-                                    child: VideoPlayer(activeCtrl),
-                                  ),
-                                )
-                              else
-                                _buildThumbnail(mp),
+                      // ── Video Player / Thumbnail Area (Expanded to avoid any overflow) ──
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _restoreToFullPlayer(mp),
+                          child: SizedBox.expand(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Container(color: Colors.black),
+                                if (mp.isEnded)
+                                  Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      _buildThumbnail(mp),
+                                      Container(color: Colors.black54),
+                                    ],
+                                  )
+                                else if (isInitialized)
+                                  FittedBox(
+                                    fit: BoxFit.cover,
+                                    clipBehavior: Clip.hardEdge,
+                                    child: SizedBox(
+                                      width: activeCtrl.value.size.width > 0
+                                          ? activeCtrl.value.size.width
+                                          : 16,
+                                      height: activeCtrl.value.size.height > 0
+                                          ? activeCtrl.value.size.height
+                                          : 9,
+                                      child: VideoPlayer(activeCtrl),
+                                    ),
+                                  )
+                                else
+                                  _buildThumbnail(mp),
 
-                              // LIVE or ENDED Tag overlay
-                              if (mp.isLive)
-                                Positioned(
-                                  top: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: mp.isEnded
-                                          ? Colors.grey.shade800
-                                          : Colors.redAccent,
-                                      borderRadius: BorderRadius.circular(4),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: mp.isEnded
-                                              ? Colors.black.withValues(alpha: 0.5)
-                                              : Colors.red.withValues(alpha: 0.4),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          mp.isEnded
-                                              ? Icons.stop_circle_outlined
-                                              : Icons.sensors_rounded,
-                                          size: 10,
-                                          color: Colors.white,
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          mp.isEnded ? 'ENDED' : 'LIVE',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
+                                // LIVE or ENDED Tag overlay
+                                if (mp.isLive)
+                                  Positioned(
+                                    top: 8,
+                                    left: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: mp.isEnded
+                                            ? Colors.grey.shade800
+                                            : Colors.redAccent,
+                                        borderRadius: BorderRadius.circular(4),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: mp.isEnded
+                                                ? Colors.black.withValues(alpha: 0.5)
+                                                : Colors.red.withValues(alpha: 0.4),
+                                            blurRadius: 4,
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            mp.isEnded
+                                                ? Icons.stop_circle_outlined
+                                                : Icons.sensors_rounded,
+                                            size: 10,
+                                            color: Colors.white,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            mp.isEnded ? 'ENDED' : 'LIVE',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -663,8 +638,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
+                                  minWidth: 26,
+                                  minHeight: 26,
                                 ),
                                 icon: Icon(
                                   mp.isPlaying
@@ -684,8 +659,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
+                                  minWidth: 26,
+                                  minHeight: 26,
                                 ),
                                 icon: const Icon(
                                   Icons.open_in_full_rounded,
@@ -700,8 +675,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
+                                minWidth: 26,
+                                minHeight: 26,
                               ),
                               icon: const Icon(
                                 Icons.close_rounded,
@@ -725,7 +700,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.topRight,
@@ -736,7 +710,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.bottomLeft,
@@ -747,7 +720,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.bottomRight,
@@ -758,7 +730,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.topCenter,
@@ -769,7 +740,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.bottomCenter,
@@ -780,7 +750,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: true,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.centerLeft,
@@ -791,7 +760,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: false,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 _buildResizeHandle(
                   alignment: Alignment.centerRight,
@@ -802,7 +770,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   fromVerticalEdge: false,
                   screenSize: screenSize,
                   padding: padding,
-                  videoAspect: videoAspect,
                 ),
                 // Keep fullscreen above the top-left resize hit target.
                 Positioned(
@@ -842,7 +809,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     required bool fromVerticalEdge,
     required Size screenSize,
     required EdgeInsets padding,
-    required double videoAspect,
   }) {
     final isCorner = fromHorizontalEdge && fromVerticalEdge;
     final handleSize = isCorner ? 24.0 : 18.0;
@@ -863,7 +829,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
             details: details,
             screenSize: screenSize,
             padding: padding,
-            videoAspect: videoAspect,
           ),
           onPanEnd: (_) => _endResize(),
           onPanCancel: _endResize,
