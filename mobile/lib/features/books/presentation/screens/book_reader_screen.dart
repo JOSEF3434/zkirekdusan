@@ -28,10 +28,10 @@ class BookReaderScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BookReaderScreen> createState() => _BookReaderScreenState();
+  ConsumerState<BookReaderScreen> createState() => BookReaderScreenState();
 }
 
-class _BookReaderScreenState extends ConsumerState<BookReaderScreen>
+class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     with WidgetsBindingObserver {
   PdfControllerPinch? _pdfController;
   bool _uiVisible = true;
@@ -231,11 +231,15 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen>
 
     if (notifier != null) {
       try {
-        notifier.save(
-          currentPage: page,
-          percentComplete: percent,
-          isCompleted: isCompleted,
-        );
+        notifier
+            .save(
+              currentPage: page,
+              percentComplete: percent,
+              isCompleted: isCompleted,
+            )
+            .catchError((e) {
+          debugPrint('[BookReaderScreen] Async error saving progress: $e');
+        });
       } catch (e) {
         debugPrint('[BookReaderScreen] Failed to save progress: $e');
       }
@@ -243,12 +247,31 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen>
 
     if (repo != null && userId != null) {
       try {
-        repo.updateLastOpened(widget.bookId, userId);
+        repo.updateLastOpened(widget.bookId, userId).catchError((e) {
+          debugPrint('[BookReaderScreen] Async error updating last opened: $e');
+        });
       } catch (e) {
         debugPrint('[BookReaderScreen] Failed to update last opened: $e');
       }
     }
   }
+
+  @visibleForTesting
+  void setPageForTesting(int current, int total) {
+    _currentPage = current;
+    _totalPages = total;
+  }
+
+  @visibleForTesting
+  void flushFinalProgressForTesting() {
+    _flushFinalProgress();
+  }
+
+  @visibleForTesting
+  int get currentPage => _currentPage;
+
+  @visibleForTesting
+  int get totalPages => _totalPages;
 
   void _handleDownload() {
     if (_book == null) return;
@@ -708,7 +731,7 @@ class _TextReaderScreen extends ConsumerWidget {
           else
             IconButton(
               icon: const Icon(Icons.cloud_download_outlined,
-                  color: Color(0xFF0284C7)),
+                  color: Color(0xFF38BDF8)),
               tooltip: 'Download for offline reading',
               onPressed: () {
                 final userId = ref.read(authProvider).user?.id ?? 'guest';
