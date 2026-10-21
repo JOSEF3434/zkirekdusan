@@ -38,9 +38,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final ScrollController _latestScrollController = ScrollController();
   final ScrollController _subScrollController = ScrollController();
   bool _isAuthenticated = false;
+  int _previousTabIndex = 0;
 
-  // Recommended + Latest + (Subscriptions if auth) + Explore
-  int get _tabCount => _isAuthenticated ? 4 : 3;
+  // Recommended + Latest + (Subscriptions if auth) + Explore + Live
+  int get _tabCount => _isAuthenticated ? 5 : 4;
+  int get _liveTabIndex => _tabCount - 1;
 
   void _initTabController() {
     _tabController = TabController(length: _tabCount, vsync: this);
@@ -48,7 +50,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onTabChanged() {
+    if (_tabController.index == _liveTabIndex) {
+      if (!_tabController.indexIsChanging) {
+        final prev = _previousTabIndex;
+        _tabController.index = prev;
+        context.push('/live/discover');
+      }
+      return;
+    }
+
     if (!_tabController.indexIsChanging) {
+      _previousTabIndex = _tabController.index;
       if (_tabController.index == 0) {
         ref
             .read(videoFeedProvider.notifier)
@@ -62,7 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _syncTabController(bool isAuthenticated) {
-    final tabCount = isAuthenticated ? 4 : 3;
+    final tabCount = isAuthenticated ? 5 : 4;
     if (_tabController.length == tabCount) {
       return;
     }
@@ -133,7 +145,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ]);
     } else if (_tabController.index == 1) {
       await ref.read(videoFeedProvider.notifier).refresh();
-    } else {
+    } else if (_isAuthenticated && _tabController.index == 2) {
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
         ref.read(subscriptionFeedProvider.notifier).refresh();
       }
@@ -339,11 +351,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
+                  onTap: (index) {
+                    if (index == _liveTabIndex) {
+                      _tabController.index = _previousTabIndex;
+                      context.push('/live/discover');
+                    }
+                  },
                   tabs: [
                     Tab(text: tr('home.recommended')),
                     Tab(text: tr('home.latest')),
                     if (isAuthenticated) Tab(text: tr('home.subscriptions')),
                     Tab(text: tr('home.explore_tab')),
+                    Tab(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(tr('live.title')),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -508,6 +543,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
               // Explore Tab — displays the existing ExploreScreen
               const ExploreScreen(),
+
+              // Live Tab — redirects to existing LiveDiscoveryScreen
+              _LiveTabRedirect(
+                onRedirect: () {
+                  _tabController.index = _previousTabIndex;
+                  context.push('/live/discover');
+                },
+              ),
             ],
           ),
         ),
@@ -1040,6 +1083,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LiveTabRedirect extends ConsumerStatefulWidget {
+  final VoidCallback onRedirect;
+
+  const _LiveTabRedirect({required this.onRedirect});
+
+  @override
+  ConsumerState<_LiveTabRedirect> createState() => _LiveTabRedirectState();
+}
+
+class _LiveTabRedirectState extends ConsumerState<_LiveTabRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.onRedirect();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = ref.watch(trProvider);
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Colors.redAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                tr('live.title'),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ],
       ),
     );
   }

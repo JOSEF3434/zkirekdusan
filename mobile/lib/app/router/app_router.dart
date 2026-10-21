@@ -289,6 +289,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const StoryCreationScreen(),
       ),
       GoRoute(
+        path: '/live',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) => '/live/discover',
+      ),
+      GoRoute(
         path: '/live/discover',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const LiveDiscoveryScreen(),
