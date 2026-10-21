@@ -820,6 +820,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _language,
                     decoration: const InputDecoration(
                       labelText: 'Language',
@@ -828,19 +829,31 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                     items: const [
                       DropdownMenuItem(
                         value: 'AMHARIC',
-                        child: Text('Amharic (አማርኛ)'),
+                        child: Text(
+                          'Amharic (አማርኛ)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'GEEZ',
-                        child: Text('Ge\'ez (ግዕዝ)'),
+                        child: Text(
+                          'Ge\'ez (ግዕዝ)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'ENGLISH',
-                        child: Text('English'),
+                        child: Text(
+                          'English',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'OTHER',
-                        child: Text('Other'),
+                        child: Text(
+                          'Other',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                     onChanged: (v) {
@@ -854,6 +867,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                     data: (cats) {
                       final items = _flattenCategories(cats);
                       return DropdownButtonFormField<String?>(
+                        isExpanded: true,
                         initialValue: _selectedCategoryId,
                         decoration: const InputDecoration(
                           labelText: 'Category',
@@ -862,7 +876,10 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                         items: [
                           const DropdownMenuItem(
                             value: null,
-                            child: Text('No Category'),
+                            child: Text(
+                              'No Category',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           ...items.map(
                             (c) => DropdownMenuItem(
@@ -905,25 +922,41 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _format,
               decoration: const InputDecoration(
                 labelText: 'Book Format',
                 border: OutlineInputBorder(),
               ),
               items: const [
-                DropdownMenuItem(value: 'PDF', child: Text('PDF Document')),
-                DropdownMenuItem(value: 'EPUB', child: Text('EPUB eBook')),
+                DropdownMenuItem(
+                  value: 'PDF',
+                  child: Text('PDF Document', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'EPUB',
+                  child: Text('EPUB eBook', overflow: TextOverflow.ellipsis),
+                ),
                 DropdownMenuItem(
                   value: 'TEXT',
-                  child: Text('Structured Text / Chapters'),
+                  child: Text(
+                    'Structured Text / Chapters',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 DropdownMenuItem(
                   value: 'AUDIO',
-                  child: Text('Audiobook / Recitation'),
+                  child: Text(
+                    'Audiobook / Recitation',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 DropdownMenuItem(
                   value: 'EXTERNAL_LINK',
-                  child: Text('External Resource URL'),
+                  child: Text(
+                    'External Resource URL',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
               onChanged: (v) {
@@ -969,7 +1002,9 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _status,
                     decoration: const InputDecoration(
                       labelText: 'Status',
@@ -978,16 +1013,25 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                     items: [
                       const DropdownMenuItem(
                         value: 'DRAFT',
-                        child: Text('Draft (Unpublished)'),
+                        child: Text(
+                          'Draft (Unpublished)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       if (perms.canPublish)
                         const DropdownMenuItem(
                           value: 'PUBLISHED',
-                          child: Text('Published (Live)'),
+                          child: Text(
+                            'Published (Live)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       const DropdownMenuItem(
                         value: 'ARCHIVED',
-                        child: Text('Archived'),
+                        child: Text(
+                          'Archived',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                     onChanged: (v) {
@@ -997,6 +1041,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 2,
                   child: TextFormField(
                     controller: _sortOrderController,
                     keyboardType: TextInputType.number,

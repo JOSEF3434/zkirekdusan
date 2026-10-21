@@ -368,23 +368,26 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Download Destination: ',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                Text.rich(
+                  TextSpan(
+                    text: 'Download Destination: ',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    Text(
-                      destination.label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                    children: [
+                      TextSpan(
+                        text: destination.label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
                   switch (destination) {
                     BookDownloadDestination.inApp =>
@@ -398,6 +401,8 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 11,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -599,14 +604,19 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       const Spacer(),
                       // Last updated
-                      Text(
-                        dateFormat.format(book.updatedAt),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.4),
-                          fontSize: 10,
+                      Flexible(
+                        child: Text(
+                          dateFormat.format(book.updatedAt),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

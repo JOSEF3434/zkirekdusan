@@ -108,6 +108,7 @@ class _CategoryManagementScreenState
                     const SizedBox(height: 12),
                     // Parent Category Selector
                     DropdownButtonFormField<String?>(
+                      isExpanded: true,
                       initialValue: parentId,
                       decoration: const InputDecoration(
                         labelText: 'Parent Category (Hierarchy)',
@@ -284,6 +285,7 @@ class _CategoryManagementScreenState
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String?>(
+                    isExpanded: true,
                     initialValue: selectedReassignId,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
