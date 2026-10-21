@@ -820,6 +820,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
+                  onPressed: () => context.go('/books'),
+                  icon: const Icon(Icons.download_done_rounded),
+                  label: const Text('Go to Downloaded Books'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
                   onPressed: _onRefresh,
                   icon: const Icon(Icons.refresh),
                   label: Text(tr('offline.retry_connection')),

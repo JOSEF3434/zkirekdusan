@@ -48,13 +48,25 @@ class DownloadedBooksDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<LocalDownloadedBookData?> getRecord(
-      String bookId, String userId) {
+      String bookId, String userId) async {
     if (kIsWeb) {
       return _WebDownloadedBooksManager.getRecord(bookId, userId);
     }
-    return (select(localDownloadedBooks)
+    final exact = await (select(localDownloadedBooks)
           ..where((t) =>
               t.bookId.equals(bookId) & t.userId.equals(userId)))
+        .getSingleOrNull();
+    if (exact != null) return exact;
+
+    final guest = await (select(localDownloadedBooks)
+          ..where((t) =>
+              t.bookId.equals(bookId) & t.userId.equals('guest')))
+        .getSingleOrNull();
+    if (guest != null) return guest;
+
+    return (select(localDownloadedBooks)
+          ..where((t) => t.bookId.equals(bookId))
+          ..limit(1))
         .getSingleOrNull();
   }
 

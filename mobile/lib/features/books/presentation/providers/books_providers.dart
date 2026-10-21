@@ -216,7 +216,10 @@ final bookDetailProvider =
     FutureProvider.family<BookModel, String>((ref, id) async {
   final auth = ref.watch(authProvider);
   final isAuth = auth.status == AuthStatus.authenticated;
-  return ref.watch(booksRepositoryProvider).getBook(id, authenticated: isAuth);
+  final userId = auth.user?.id;
+  return ref
+      .watch(booksRepositoryProvider)
+      .getBook(id, authenticated: isAuth, userId: userId);
 });
 
 // ── Reading progress ─────────────────────────────────────────────────────────

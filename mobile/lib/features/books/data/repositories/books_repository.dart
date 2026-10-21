@@ -54,8 +54,49 @@ class BooksRepository {
         sortDir: sortDir,
       );
 
-  Future<BookModel> getBook(String id, {bool authenticated = false}) =>
-      _remote.fetchBook(id, authenticated: authenticated);
+  Future<BookModel> getBook(
+    String id, {
+    bool authenticated = false,
+    String? userId,
+  }) async {
+    try {
+      return await _remote.fetchBook(id, authenticated: authenticated);
+    } catch (e) {
+      // Offline fallback: check if book has a local downloaded record
+      final record = await _downloadDao.getRecord(id, userId ?? 'guest');
+      if (record != null && record.status == 'completed') {
+        return bookFromDownloadRecord(record);
+      }
+      rethrow;
+    }
+  }
+
+  BookModel bookFromDownloadRecord(LocalDownloadedBookData d) {
+    return BookModel(
+      id: d.bookId,
+      title: d.title,
+      titleAm: d.titleAm,
+      author: d.author,
+      categoryName: d.categoryName,
+      language: BookLanguage.amharic,
+      format: BookFormat.values.firstWhere(
+        (f) => f.name.toUpperCase() == d.format.toUpperCase(),
+        orElse: () => BookFormat.pdf,
+      ),
+      status: BookStatus.published,
+      pageCount: d.pageCount,
+      tags: const [],
+      sortOrder: 0,
+      viewsCount: 0,
+      bookmarksCount: 0,
+      coverUrl: d.coverUrl,
+      contentUrl: d.localContentPath,
+      chapters: const [],
+      attachments: const [],
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+    );
+  }
 
   Future<List<BookChapterModel>> getChapters(String bookId) =>
       _remote.fetchChapters(bookId);

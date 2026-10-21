@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import '../../data/models/book_category_model.dart';
 import '../../data/models/book_model.dart';
@@ -287,6 +288,35 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
     final downloadedRecords =
         downloadsAsync.valueOrNull ?? <LocalDownloadedBookData>[];
     final downloadedIds = downloadedRecords.map((d) => d.bookId).toSet();
+    final connectivity = ref.watch(connectivityProvider);
+    final isOffline = connectivity.isOffline;
+
+    final downloadedBooksList = downloadedRecords.map((d) {
+      return BookModel(
+        id: d.bookId,
+        title: d.title,
+        titleAm: d.titleAm,
+        author: d.author,
+        categoryName: d.categoryName,
+        language: BookLanguage.amharic,
+        format: BookFormat.values.firstWhere(
+          (f) => f.name.toUpperCase() == d.format.toUpperCase(),
+          orElse: () => BookFormat.pdf,
+        ),
+        status: BookStatus.published,
+        pageCount: d.pageCount,
+        tags: const [],
+        sortOrder: 0,
+        viewsCount: 0,
+        bookmarksCount: 0,
+        coverUrl: d.coverUrl,
+        contentUrl: d.localContentPath,
+        chapters: const [],
+        attachments: const [],
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+      );
+    }).toList();
 
     List<BookModel> filteredBooks;
 
@@ -339,26 +369,54 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           .toList();
     } else {
       // All tab
-      filteredBooks = libraryState.books;
+      if (isOffline && libraryState.books.isEmpty && downloadedBooksList.isNotEmpty) {
+        filteredBooks = downloadedBooksList;
+      } else {
+        filteredBooks = libraryState.books;
+      }
     }
 
-    if (libraryState.isLoading && libraryState.books.isEmpty && _dlTabIndex == 0) {
+    if (libraryState.isLoading && libraryState.books.isEmpty && _dlTabIndex == 0 && !isOffline) {
       return _LoadingGrid(isGrid: prefs.gridView);
+    }
+
+    // 1. All tab when offline or network error and no books loaded
+    if (_dlTabIndex == 0 && (isOffline || libraryState.error != null) && libraryState.books.isEmpty) {
+      if (downloadedRecords.isEmpty) {
+        return _OfflineLibraryState(
+          downloadedCount: 0,
+          onGoToDownloads: () => _downloadTabController.animateTo(1),
+          onRetry: () => ref.read(libraryProvider.notifier).refresh(),
+        );
+      }
+    }
+
+    // 2. Downloaded tab with empty state
+    if (_dlTabIndex == 1 && filteredBooks.isEmpty) {
+      return _DownloadsEmptyState(
+        isOffline: isOffline,
+        onBrowse: () => _downloadTabController.animateTo(0),
+        onRetry: () => ref.read(libraryProvider.notifier).refresh(),
+      );
+    }
+
+    // 3. Online only tab when offline or empty
+    if (_dlTabIndex == 2 && (isOffline || libraryState.error != null || filteredBooks.isEmpty)) {
+      if (filteredBooks.isEmpty) {
+        return _OnlineOnlyOfflineState(
+          downloadedCount: downloadedRecords.length,
+          onGoToDownloads: () => _downloadTabController.animateTo(1),
+          onRetry: () => ref.read(libraryProvider.notifier).refresh(),
+        );
+      }
     }
 
     if (libraryState.error != null && libraryState.books.isEmpty && _dlTabIndex == 0) {
       return _ErrorState(
         message: libraryState.error!,
         onRetry: () => ref.read(libraryProvider.notifier).refresh(),
-      );
-    }
-
-    // Downloads-only tab with empty state
-    if (_dlTabIndex == 1 && filteredBooks.isEmpty) {
-      return _DownloadsEmptyState(
-        onBrowse: () {
-          _downloadTabController.animateTo(0);
-        },
+        onGoToDownloads: () => _downloadTabController.animateTo(1),
+        downloadedCount: downloadedRecords.length,
       );
     }
 
@@ -377,8 +435,15 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
 
     return Column(
       children: [
-        // Category chip row (only on 'All' tab)
-        if (_dlTabIndex == 0)
+        // Offline banner on 'All' tab when offline with downloaded books
+        if (_dlTabIndex == 0 && (isOffline || libraryState.error != null) && downloadedRecords.isNotEmpty)
+          _OfflineBanner(
+            count: downloadedRecords.length,
+            onGoToDownloads: () => _downloadTabController.animateTo(1),
+          ),
+
+        // Category chip row (only on 'All' tab when online)
+        if (_dlTabIndex == 0 && !isOffline && libraryState.error == null)
           cats.when(
             data: (categories) => _CategoryChips(
               categories: categories,
@@ -401,19 +466,21 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           child: prefs.gridView
               ? _BookGrid(
                   books: filteredBooks,
-                  hasMore: libraryState.hasMore && _dlTabIndex == 0,
+                  hasMore: libraryState.hasMore && _dlTabIndex == 0 && !isOffline,
                   isLoadingMore: libraryState.isLoadingMore,
                   scrollController: _scrollController,
                   isAuth: isAuth,
                   userId: userId,
+                  isDownloadedTab: _dlTabIndex == 1,
                 )
               : _BookList(
                   books: filteredBooks,
-                  hasMore: libraryState.hasMore && _dlTabIndex == 0,
+                  hasMore: libraryState.hasMore && _dlTabIndex == 0 && !isOffline,
                   isLoadingMore: libraryState.isLoadingMore,
                   scrollController: _scrollController,
                   isAuth: isAuth,
                   userId: userId,
+                  isDownloadedTab: _dlTabIndex == 1,
                 ),
         ),
       ],
@@ -704,6 +771,7 @@ class _BookGrid extends ConsumerWidget {
   final ScrollController scrollController;
   final bool isAuth;
   final String? userId;
+  final bool isDownloadedTab;
 
   const _BookGrid({
     required this.books,
@@ -712,6 +780,7 @@ class _BookGrid extends ConsumerWidget {
     required this.scrollController,
     required this.isAuth,
     this.userId,
+    this.isDownloadedTab = false,
   });
 
   @override
@@ -758,7 +827,10 @@ class _BookGrid extends ConsumerWidget {
               book: book,
               onCoverTap: () {
                 if (book.isReadable) {
-                  context.push('/books/${book.id}/read');
+                  context.push(
+                    '/books/${book.id}/read',
+                    extra: {'isDownloaded': isDownloadedTab},
+                  );
                 } else {
                   context.push('/books/${book.id}');
                 }
@@ -787,6 +859,7 @@ class _BookList extends ConsumerWidget {
   final ScrollController scrollController;
   final bool isAuth;
   final String? userId;
+  final bool isDownloadedTab;
 
   const _BookList({
     required this.books,
@@ -795,6 +868,7 @@ class _BookList extends ConsumerWidget {
     required this.scrollController,
     required this.isAuth,
     this.userId,
+    this.isDownloadedTab = false,
   });
 
   @override
@@ -816,7 +890,10 @@ class _BookList extends ConsumerWidget {
           userId: userId,
           onCoverTap: () {
             if (book.isReadable) {
-              context.push('/books/${book.id}/read');
+              context.push(
+                '/books/${book.id}/read',
+                extra: {'isDownloaded': isDownloadedTab},
+              );
             } else {
               context.push('/books/${book.id}');
             }
@@ -1174,10 +1251,229 @@ class _ShimmerListItem extends StatelessWidget {
   }
 }
 
+class _OfflineBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onGoToDownloads;
+
+  const _OfflineBanner({
+    required this.count,
+    required this.onGoToDownloads,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2518),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFFB300).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 20,
+            color: Color(0xFFFFB300),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Offline Mode • Showing $count downloaded book${count > 1 ? "s" : ""}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFFFE082),
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onGoToDownloads,
+            icon: const Icon(Icons.arrow_forward, size: 14, color: Color(0xFFFFE082)),
+            label: const Text(
+              'Downloads Tab',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFFE082),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineLibraryState extends StatelessWidget {
+  final int downloadedCount;
+  final VoidCallback onGoToDownloads;
+  final VoidCallback onRetry;
+
+  const _OfflineLibraryState({
+    required this.downloadedCount,
+    required this.onGoToDownloads,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.wifi_off_rounded,
+                size: 56,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "You're in Offline Mode",
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              downloadedCount > 0
+                  ? 'Connect to the internet to browse the online catalog. You have $downloadedCount book${downloadedCount > 1 ? "s" : ""} downloaded and ready for offline reading.'
+                  : 'An internet connection is required to browse online books. Downloaded books are accessible anytime without internet connection.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onGoToDownloads,
+              icon: const Icon(Icons.download_done_rounded),
+              label: Text(
+                downloadedCount > 0
+                    ? 'Go to Downloaded Books ($downloadedCount)'
+                    : 'Go to Downloaded Books',
+              ),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Connection'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineOnlyOfflineState extends StatelessWidget {
+  final int downloadedCount;
+  final VoidCallback onGoToDownloads;
+  final VoidCallback onRetry;
+
+  const _OnlineOnlyOfflineState({
+    required this.downloadedCount,
+    required this.onGoToDownloads,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cloud_off_outlined,
+                size: 56,
+                color: Color(0xFF0284C7),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Online Books Unavailable',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Online books require an active internet connection to browse and stream. Switch to your downloaded books to continue reading offline.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onGoToDownloads,
+              icon: const Icon(Icons.download_done_rounded),
+              label: Text(
+                downloadedCount > 0
+                    ? 'Go to Downloaded Books ($downloadedCount)'
+                    : 'Go to Downloaded Books',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Connection'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-  const _ErrorState({required this.message, required this.onRetry});
+  final VoidCallback? onGoToDownloads;
+  final int downloadedCount;
+
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+    this.onGoToDownloads,
+    this.downloadedCount = 0,
+  });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1198,11 +1494,28 @@ class _ErrorState extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
+            if (onGoToDownloads != null) ...[
+              FilledButton.icon(
+                onPressed: onGoToDownloads,
+                icon: const Icon(Icons.download_done_rounded),
+                label: Text(
+                  downloadedCount > 0
+                      ? 'Go to Downloaded Books ($downloadedCount)'
+                      : 'Go to Downloaded Books',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry Connection'),
+              ),
+            ] else
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
           ],
         ),
       ),
@@ -1241,7 +1554,15 @@ class _EmptyState extends StatelessWidget {
 
 class _DownloadsEmptyState extends StatelessWidget {
   final VoidCallback onBrowse;
-  const _DownloadsEmptyState({required this.onBrowse});
+  final bool isOffline;
+  final VoidCallback? onRetry;
+
+  const _DownloadsEmptyState({
+    required this.onBrowse,
+    this.isOffline = false,
+    this.onRetry,
+  });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1251,24 +1572,47 @@ class _DownloadsEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download_outlined, size: 64,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
-            Text('No downloaded books',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF059669).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isOffline ? Icons.cloud_off_rounded : Icons.download_outlined,
+                size: 56,
+                color: const Color(0xFF059669),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Downloaded Books',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             Text(
-              'Download books to read them offline, even without internet access.',
+              isOffline
+                  ? 'You are currently offline and do not have any downloaded books on this device yet. Connect to the internet to download books for offline reading.'
+                  : 'Download books to read them offline, even without internet access.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onBrowse,
-              icon: const Icon(Icons.library_books),
-              label: const Text('Browse Library'),
-            ),
+            if (isOffline)
+              FilledButton.icon(
+                onPressed: onRetry ?? onBrowse,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry Connection'),
+              )
+            else
+              FilledButton.icon(
+                onPressed: onBrowse,
+                icon: const Icon(Icons.library_books),
+                label: const Text('Browse Library'),
+              ),
           ],
         ),
       ),

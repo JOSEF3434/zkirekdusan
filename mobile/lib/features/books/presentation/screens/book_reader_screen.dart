@@ -88,11 +88,27 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
   Future<void> _initialize() async {
     _captureDependencies();
     final isAuth = _isAuthenticated;
+    final userId = _currentUserId ?? 'guest';
 
     try {
       final BooksRepository repo =
           _booksRepository ?? ref.read(booksRepositoryProvider);
-      _book = await repo.getBook(widget.bookId, authenticated: isAuth);
+      try {
+        _book = await repo.getBook(
+          widget.bookId,
+          authenticated: isAuth,
+          userId: userId,
+        );
+      } catch (remoteErr) {
+        // Direct offline fallback from local download record
+        final record = await repo.getDownloadRecord(widget.bookId, userId);
+        if (record != null && record.status == 'completed') {
+          _book = repo.bookFromDownloadRecord(record);
+        } else {
+          rethrow;
+        }
+      }
+
       if (!mounted) return;
 
       if (_book!.format == BookFormat.pdf) {
@@ -101,18 +117,22 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
         setState(() => _isLoading = false);
       }
 
-      // Restore progress
+      // Restore progress safely (fails gracefully when offline)
       if (isAuth && mounted) {
-        final progress = await repo.getProgress(widget.bookId);
-        if (mounted &&
-            progress.currentPage != null &&
-            progress.currentPage! > 1 &&
-            _pdfController != null) {
-          _pdfController!.animateToPage(
-            pageNumber: progress.currentPage!,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
+        try {
+          final progress = await repo.getProgress(widget.bookId);
+          if (mounted &&
+              progress.currentPage != null &&
+              progress.currentPage! > 1 &&
+              _pdfController != null) {
+            _pdfController!.animateToPage(
+              pageNumber: progress.currentPage!,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        } catch (_) {
+          // Progress fetch is non-critical when offline
         }
       }
     } catch (e) {
@@ -129,17 +149,22 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
   Future<void> _initPdf(BookModel book) async {
     String? contentUrl;
 
-    // Prefer local file if downloaded
-    if (widget.isDownloaded && !kIsWeb) {
-      if (!mounted) return;
-      final userId = _currentUserId;
-      final repo = _booksRepository;
-      if (userId != null && repo != null) {
-        final record = await repo.getDownloadRecord(book.id, userId);
-        if (record?.localContentPath != null &&
-            await File(record!.localContentPath!).exists()) {
-          contentUrl = record.localContentPath!;
-        }
+    // Check if a downloaded local file exists (mobile/desktop)
+    final userId = _currentUserId ?? 'guest';
+    final repo = _booksRepository ?? (mounted ? ref.read(booksRepositoryProvider) : null);
+    if (!kIsWeb && repo != null) {
+      final record = await repo.getDownloadRecord(book.id, userId);
+      if (record?.localContentPath != null &&
+          await File(record!.localContentPath!).exists()) {
+        contentUrl = record.localContentPath!;
+      }
+    }
+
+    // Check if book.contentUrl is already a local file path
+    if (contentUrl == null && book.contentUrl != null && !kIsWeb) {
+      if (!book.contentUrl!.startsWith('http') &&
+          await File(book.contentUrl!).exists()) {
+        contentUrl = book.contentUrl!;
       }
     }
 
@@ -348,6 +373,12 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => context.go('/books'),
+                  icon: const Icon(Icons.download_done_rounded),
+                  label: const Text('Go to Downloaded Books'),
+                ),
+                const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: () => context.pop(),
                   child: const Text('Go Back'),
