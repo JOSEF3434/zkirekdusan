@@ -20,6 +20,7 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
 class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _rippleController;
+  bool _isExiting = false;
 
   @override
   void initState() {
@@ -42,20 +43,28 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen>
     final callService = ref.watch(callServiceProvider);
     final tr = ref.watch(trProvider);
 
-    // If caller cancels or call changes status, pop or navigate home
+    // If caller cancels or call changes status, safely pop or navigate home
     ref.listen<CallState>(callStateProvider, (previous, next) {
       if (next.status == CallStatus.ended || next.status == CallStatus.idle) {
-        if (mounted) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            ref.read(routerProvider).go('/home');
-          }
+        if (mounted && !_isExiting) {
+          _isExiting = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              ref.read(routerProvider).go('/home');
+            }
+          });
         }
       } else if (next.status == CallStatus.connected ||
           next.status == CallStatus.connecting) {
-        if (mounted) {
-          ref.read(routerProvider).pushReplacement('/call/active');
+        if (mounted && !_isExiting) {
+          _isExiting = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            ref.read(routerProvider).pushReplacement('/call/active');
+          });
         }
       }
     });

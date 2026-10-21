@@ -128,6 +128,12 @@ class CallStateNotifier extends StateNotifier<CallState> {
 
   CallStateNotifier() : super(const CallState());
 
+  CallState get currentState => state;
+
+  void setVideoEnabled(bool enabled) {
+    state = state.copyWith(isVideoEnabled: enabled, isVideoCall: enabled);
+  }
+
   void setIdle({String? reason}) {
     _reactionTimer?.cancel();
     state = CallState(status: CallStatus.idle, endReason: reason);

@@ -34,6 +34,33 @@ class _CallScreenState extends ConsumerState<CallScreen>
   bool _controlsVisible = true;
   bool _isPipSwapped = false;
   bool _isFullscreen = false;
+  bool _isExiting = false;
+
+  String? _getEndReasonMessage(String reason) {
+    switch (reason) {
+      case 'device_not_found':
+        return 'No microphone or camera found on this device.';
+      case 'permission_denied':
+        return 'Microphone or camera permission was denied.';
+      case 'offline':
+        return 'User is currently offline.';
+      case 'declined':
+        return 'Call was declined.';
+      case 'busy':
+        return 'User is busy on another call.';
+      case 'no_answer':
+      case 'timeout':
+        return 'No answer.';
+      case 'answered_elsewhere':
+        return 'Call was answered on another device.';
+      default:
+        if (reason.contains('NotFoundError') ||
+            reason.contains('device not found')) {
+          return 'No microphone or camera found on this device.';
+        }
+        return null;
+    }
+  }
 
   @override
   void initState() {
@@ -125,6 +152,7 @@ class _CallScreenState extends ConsumerState<CallScreen>
   }
 
   void _collapseCall() {
+    if (_isExiting) return;
     ref.read(callStateProvider.notifier).setCollapsed(true);
     if (mounted) {
       if (Navigator.of(context).canPop()) {
@@ -144,12 +172,30 @@ class _CallScreenState extends ConsumerState<CallScreen>
     // Listen for call termination
     ref.listen<CallState>(callStateProvider, (previous, next) {
       if (next.status == CallStatus.ended || next.status == CallStatus.idle) {
-        if (mounted) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            ref.read(routerProvider).go('/home');
+        if (mounted && !_isExiting) {
+          _isExiting = true;
+          if (next.endReason != null && next.endReason != 'hangup') {
+            final reasonText = _getEndReasonMessage(next.endReason!);
+            if (reasonText != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(reasonText),
+                  backgroundColor: const Color(0xFFE53935),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
           }
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              ref.read(routerProvider).go('/home');
+            }
+          });
         }
       }
       if (next.status != previous?.status) {
@@ -169,7 +215,9 @@ class _CallScreenState extends ConsumerState<CallScreen>
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
           // If popped by system gesture, keep call active in collapsed overlay
-          if (callState.isActive) {
+          // Only if call is genuinely active and not terminating/popping
+          final current = ref.read(callStateProvider);
+          if (current.isActive && !_isExiting) {
             ref.read(callStateProvider.notifier).setCollapsed(true);
           }
         }

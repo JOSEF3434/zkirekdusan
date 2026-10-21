@@ -11,14 +11,17 @@ import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/calls/providers/call_state_provider.dart';
 
 final callServiceProvider = Provider<CallService>((ref) {
-  final service = CallService(ref);
+  final notifier = ref.read(callStateProvider.notifier);
+  final service = CallService(ref, notifier);
   ref.onDispose(() => service.dispose());
   return service;
 });
 
 class CallService {
   final Ref _ref;
+  final CallStateNotifier _notifier;
   io.Socket? _socket;
+  bool _isConnectingSocket = false;
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
@@ -31,11 +34,10 @@ class CallService {
   Timer? _callTimeoutTimer;
   bool _renderersInitialized = false;
 
-  CallService(this._ref);
+  CallService(this._ref, this._notifier);
 
-  CallStateNotifier get _notifier => _ref.read(callStateProvider.notifier);
-  CallState get state => _ref.read(callStateProvider);
-
+  CallState get state => _notifier.currentState;
+ 
   // ─── WebRTC Configuration ──────────────────────────────────────────────────
   static const Map<String, dynamic> _iceServers = {
     'iceServers': [
@@ -65,12 +67,14 @@ class CallService {
   }
 
   Future<void> _connectSignalingSocket() async {
-    if (_socket != null && _socket!.connected) return;
+    if (_socket != null && (_socket!.connected || _isConnectingSocket)) return;
+    _isConnectingSocket = true;
 
     final storage = _ref.read(storageServiceProvider);
     final token = await storage.getToken(key: 'access_token');
     if (token == null) {
       debugPrint('[CallService] No auth token found');
+      _isConnectingSocket = false;
       return;
     }
 
@@ -81,6 +85,13 @@ class CallService {
       baseUrl = baseUrl.substring(0, baseUrl.length - 5);
     }
     final socketUrl = baseUrl.endsWith('/') ? '${baseUrl}chat' : '$baseUrl/chat';
+
+    if (_socket != null) {
+      _socket!.clearListeners();
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
+    }
 
     _socket = io.io(
       socketUrl,
@@ -97,7 +108,17 @@ class CallService {
     );
 
     _socket!.onConnect((_) {
+      _isConnectingSocket = false;
       debugPrint('[CallService] Connected to chat/call signaling gateway');
+    });
+
+    _socket!.onConnectError((err) {
+      _isConnectingSocket = false;
+      debugPrint('[CallService] Signaling socket connect error: $err');
+    });
+
+    _socket!.onDisconnect((_) {
+      _isConnectingSocket = false;
     });
 
     // Handle Incoming Call from another peer
@@ -140,7 +161,7 @@ class CallService {
       // Auto-cancel after 45 seconds of unanswered ringing
       _callTimeoutTimer?.cancel();
       _callTimeoutTimer = Timer(const Duration(seconds: 45), () {
-        if (_ref.read(callStateProvider).status == CallStatus.ringing) {
+        if (state.status == CallStatus.ringing) {
           rejectCall(reason: 'timeout');
         }
       });
@@ -173,6 +194,14 @@ class CallService {
       }
     });
 
+    // Handle Call Answered Elsewhere (multi-device callee stopped ringing)
+    _socket!.on('call:answered_elsewhere', (data) {
+      debugPrint('[CallService] Call answered on another device: $data');
+      _callTimeoutTimer?.cancel();
+      _cleanupPeerConnection();
+      _notifier.setIdle(reason: 'answered_elsewhere');
+    });
+
     // Handle Call Rejected
     _socket!.on('call:rejected', (data) {
       debugPrint('[CallService] Received call:rejected: $data');
@@ -184,11 +213,17 @@ class CallService {
     });
 
     // Handle Call Ended / Hangup
-    _socket!.on('call:ended', (_) {
-      debugPrint('[CallService] Received call:ended');
+    _socket!.on('call:ended', (data) {
+      debugPrint('[CallService] Received call:ended: $data');
       _callTimeoutTimer?.cancel();
       _cleanupPeerConnection();
-      _notifier.setEnded(reason: 'hangup');
+      final reason =
+          data is Map ? (data['reason'] as String? ?? 'hangup') : 'hangup';
+      if (reason == 'answered_elsewhere') {
+        _notifier.setIdle(reason: 'answered_elsewhere');
+      } else {
+        _notifier.setEnded(reason: reason);
+      }
     });
 
     // Handle Remote ICE Candidate
@@ -307,15 +342,36 @@ class CallService {
       // Timeout if not answered in 45s
       _callTimeoutTimer?.cancel();
       _callTimeoutTimer = Timer(const Duration(seconds: 45), () {
-        if (_ref.read(callStateProvider).status == CallStatus.calling) {
+        if (state.status == CallStatus.calling) {
           hangUp();
           _notifier.setEnded(reason: 'no_answer');
         }
       });
     } catch (e) {
       debugPrint('[CallService] Error initiating call: $e');
-      hangUp();
-      _notifier.setEnded(reason: e.toString());
+      _cleanupPeerConnection();
+
+      final errStr = e.toString().toLowerCase();
+      String reason = 'call_failed';
+      if (errStr.contains('notfounderror') ||
+          errStr.contains('device not found')) {
+        reason = 'device_not_found';
+      } else if (errStr.contains('notallowederror') ||
+          errStr.contains('permission denied')) {
+        reason = 'permission_denied';
+      } else {
+        reason = e.toString();
+      }
+
+      // If peer connection was established and offer sent, notify server of hangup
+      if (_peerConnection != null) {
+        _socket?.emit('call:hangup', {
+          'targetUserId': targetUserId,
+          'conversationId': conversationId,
+        });
+      }
+
+      _notifier.setEnded(reason: reason);
     }
   }
 
@@ -463,10 +519,31 @@ class CallService {
       debugPrint(
         '[CallService] getUserMedia with constraints failed ($e), falling back to basic constraints',
       );
-      return await navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': isVideo,
-      });
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          'audio': true,
+          'video': isVideo,
+        });
+      } catch (fallbackErr) {
+        debugPrint('[CallService] Basic getUserMedia failed: $fallbackErr');
+        // If video device not found (e.g. desktop PC without webcam), fallback to audio-only
+        if (isVideo) {
+          debugPrint(
+            '[CallService] Video device unavailable, attempting audio-only fallback',
+          );
+          try {
+            final audioStream = await navigator.mediaDevices.getUserMedia({
+              'audio': true,
+              'video': false,
+            });
+            _notifier.setVideoEnabled(false);
+            return audioStream;
+          } catch (audioErr) {
+            debugPrint('[CallService] Audio-only fallback also failed: $audioErr');
+          }
+        }
+        rethrow;
+      }
     }
   }
 

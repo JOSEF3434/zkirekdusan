@@ -62,12 +62,25 @@ export const WS_EVENTS = {
   // Call signaling – Server → Client
   CALL_INCOMING: 'call:incoming',
   CALL_ANSWERED: 'call:answered',
+  CALL_ANSWERED_ELSEWHERE: 'call:answered_elsewhere',
   CALL_REJECTED: 'call:rejected',
   CALL_ENDED: 'call:ended',
   CALL_ICE: 'call:ice',
   CALL_REACTION_RECEIVED: 'call:reaction',
   CALL_MEDIA_STATE_RECEIVED: 'call:media-state',
 } as const;
+
+export interface ActiveCallSession {
+  callId: string;
+  conversationId: string;
+  callerId: string;
+  callerSocketId: string;
+  targetUserId: string;
+  targetSocketIds: Set<string>;
+  answeredSocketId?: string;
+  callType: 'audio' | 'video';
+  createdAt: number;
+}
 
 // Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
 interface IMessagesService extends MessagesService {}
@@ -90,6 +103,7 @@ export class MessagingGateway
   private readonly socketUserMap = new Map<string, string>(); // socketId → userId
   private readonly activityTimers = new Map<string, NodeJS.Timeout>(); // conversationId:userId -> timer
   private readonly disconnectTimers = new Map<string, NodeJS.Timeout>(); // userId -> grace period timer
+  private readonly activeCallSessions = new Map<string, ActiveCallSession>(); // conversationId → ActiveCallSession
 
   constructor(
     private readonly jwtService: JwtService,
@@ -198,6 +212,9 @@ export class MessagingGateway
       this.logger.log(
         `[Presence] Client disconnected: ${client.id} (user: ${userId}) - remaining sockets: ${remainingSockets}`,
       );
+
+      // Clean up any call sessions involving this socket
+      this.handleSocketCallDisconnect(client.id);
 
       if (remainingSockets === 0) {
         this.userSocketMap.delete(userId);
@@ -562,7 +579,7 @@ export class MessagingGateway
     client.emit('presence:query_response', { statuses });
   }
 
-  // ── Call Signaling ────────────────────────────────────────────────────────
+  // ── Call Signaling & Multi-Device Call Management ──────────────────────
 
   /**
    * Caller → Server: initiate a call
@@ -593,9 +610,35 @@ export class MessagingGateway
       return;
     }
 
-    // Forward incoming call to all target sockets (multi-device)
-    for (const socketId of targetSockets) {
+    // Clean up any stale call session for this conversation
+    const existing = this.activeCallSessions.get(data.conversationId);
+    if (existing) {
+      this.terminateCallSession(existing, 'replaced');
+    }
+
+    const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const targetSocketIds = new Set<string>(targetSockets);
+
+    const session: ActiveCallSession = {
+      callId,
+      conversationId: data.conversationId,
+      callerId,
+      callerSocketId: client.id,
+      targetUserId: data.targetUserId,
+      targetSocketIds,
+      callType: data.callType,
+      createdAt: Date.now(),
+    };
+    this.activeCallSessions.set(data.conversationId, session);
+
+    this.logger.log(
+      `[Call] Initiating call ${callId} from ${callerId} (${client.id}) to ${data.targetUserId} across ${targetSocketIds.size} device(s)`,
+    );
+
+    // Forward incoming call to all target sockets of the callee (multi-device ringing)
+    for (const socketId of targetSocketIds) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_INCOMING, {
+        callId,
         callerId,
         conversationId: data.conversationId,
         callType: data.callType,
@@ -608,41 +651,120 @@ export class MessagingGateway
 
   /**
    * Callee → Server: accept call and send answer SDP back to caller
-   * Payload: { callerId, conversationId, answer: RTCSessionDescriptionInit }
+   * Payload: { callerId, conversationId, answer: RTCSessionDescriptionInit, callId?: string }
    */
   @SubscribeMessage(WS_EVENTS.CALL_ACCEPT)
   handleCallAccept(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { callerId: string; conversationId: string; answer: object },
+    data: { callerId: string; conversationId: string; answer: object; callId?: string },
   ) {
     const calleeId = (client as any).userId as string;
-    const callerSockets = this.userSocketMap.get(data.callerId);
-    if (!callerSockets) return;
+    const session = this.activeCallSessions.get(data.conversationId);
 
-    for (const socketId of callerSockets) {
-      this.server.to(socketId).emit(WS_EVENTS.CALL_ANSWERED, {
-        calleeId,
+    if (!session) {
+      this.logger.warn(
+        `[Call] Accept received for unknown or ended call in conversation ${data.conversationId}`,
+      );
+      // Fallback: emit to caller sockets if available
+      const callerSockets = this.userSocketMap.get(data.callerId);
+      if (callerSockets) {
+        for (const sId of callerSockets) {
+          this.server.to(sId).emit(WS_EVENTS.CALL_ANSWERED, {
+            calleeId,
+            conversationId: data.conversationId,
+            answer: data.answer,
+          });
+        }
+      }
+      return;
+    }
+
+    // If another device of this callee already answered this call:
+    if (session.answeredSocketId && session.answeredSocketId !== client.id) {
+      this.logger.warn(
+        `[Call] Call ${session.callId} already answered on device ${session.answeredSocketId}. Rejecting late answer from ${client.id}`,
+      );
+      client.emit(WS_EVENTS.CALL_ENDED, {
         conversationId: data.conversationId,
-        answer: data.answer,
+        reason: 'answered_elsewhere',
+        callId: session.callId,
       });
+      return;
+    }
+
+    // Bind this single answered socket as the exclusive callee device
+    session.answeredSocketId = client.id;
+
+    this.logger.log(
+      `[Call] Call ${session.callId} answered on device socket ${client.id}. Routing solely between caller socket ${session.callerSocketId} and callee socket ${session.answeredSocketId}`,
+    );
+
+    // 1. Send answer ONLY to the initiating caller device socket
+    this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_ANSWERED, {
+      calleeId,
+      conversationId: data.conversationId,
+      answer: data.answer,
+      callId: session.callId,
+    });
+
+    // 2. Instruct ALL OTHER devices of the callee to STOP ringing immediately
+    for (const socketId of session.targetSocketIds) {
+      if (socketId !== client.id) {
+        this.server.to(socketId).emit(WS_EVENTS.CALL_ANSWERED_ELSEWHERE, {
+          conversationId: data.conversationId,
+          callId: session.callId,
+        });
+        this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
+          conversationId: data.conversationId,
+          reason: 'answered_elsewhere',
+          callId: session.callId,
+        });
+      }
     }
   }
 
   /**
    * Callee → Server: reject incoming call
-   * Payload: { callerId, conversationId, reason?: string }
+   * Payload: { callerId, conversationId, reason?: string, callId?: string }
    */
   @SubscribeMessage(WS_EVENTS.CALL_REJECT)
   handleCallReject(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { callerId: string; conversationId: string; reason?: string },
+    data: { callerId: string; conversationId: string; reason?: string; callId?: string },
   ) {
     const calleeId = (client as any).userId as string;
+    const session = this.activeCallSessions.get(data.conversationId);
+
+    if (session) {
+      this.logger.log(`[Call] Call ${session.callId} rejected by callee device ${client.id}`);
+      // Notify the initiating caller socket
+      this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_REJECTED, {
+        calleeId,
+        conversationId: data.conversationId,
+        reason: data.reason ?? 'declined',
+        callId: session.callId,
+      });
+
+      // Stop ringing on any other target devices of the callee
+      for (const socketId of session.targetSocketIds) {
+        if (socketId !== client.id) {
+          this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
+            conversationId: data.conversationId,
+            reason: data.reason ?? 'declined',
+            callId: session.callId,
+          });
+        }
+      }
+
+      this.activeCallSessions.delete(data.conversationId);
+      return;
+    }
+
+    // Fallback if session not found in memory
     const callerSockets = this.userSocketMap.get(data.callerId);
     if (!callerSockets) return;
-
     for (const socketId of callerSockets) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_REJECTED, {
         calleeId,
@@ -654,28 +776,80 @@ export class MessagingGateway
 
   /**
    * Either party → Server: hang up an active or ringing call
-   * Payload: { targetUserId, conversationId }
+   * Payload: { targetUserId, conversationId, callId?: string }
    */
   @SubscribeMessage(WS_EVENTS.CALL_HANGUP)
   handleCallHangup(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { targetUserId: string; conversationId: string },
+    @MessageBody() data: { targetUserId: string; conversationId: string; callId?: string },
   ) {
     const senderId = (client as any).userId as string;
+    const session = this.activeCallSessions.get(data.conversationId);
+
+    if (session) {
+      this.logger.log(`[Call] Hangup in call ${session.callId} by socket ${client.id}`);
+      if (client.id === session.callerSocketId) {
+        // Caller hangs up
+        if (session.answeredSocketId) {
+          // Connected: notify the answered device
+          this.server.to(session.answeredSocketId).emit(WS_EVENTS.CALL_ENDED, {
+            senderId,
+            conversationId: data.conversationId,
+            reason: 'hangup',
+            callId: session.callId,
+          });
+        } else {
+          // Still ringing: notify all target devices to stop ringing
+          for (const socketId of session.targetSocketIds) {
+            this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
+              senderId,
+              conversationId: data.conversationId,
+              reason: 'caller_hangup',
+              callId: session.callId,
+            });
+          }
+        }
+      } else {
+        // Callee hangs up: notify initiating caller socket
+        this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_ENDED, {
+          senderId,
+          conversationId: data.conversationId,
+          reason: 'hangup',
+          callId: session.callId,
+        });
+
+        // Also ensure any ringing devices are cleaned up
+        for (const socketId of session.targetSocketIds) {
+          if (socketId !== client.id) {
+            this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
+              senderId,
+              conversationId: data.conversationId,
+              reason: 'hangup',
+              callId: session.callId,
+            });
+          }
+        }
+      }
+
+      this.activeCallSessions.delete(data.conversationId);
+      return;
+    }
+
+    // Fallback if session not tracked
     const targetSockets = this.userSocketMap.get(data.targetUserId);
     if (!targetSockets) return;
-
     for (const socketId of targetSockets) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_ENDED, {
         senderId,
         conversationId: data.conversationId,
+        reason: 'hangup',
       });
     }
   }
 
   /**
    * Either party → Server: relay an ICE candidate to the remote peer
-   * Payload: { targetUserId, conversationId, candidate: RTCIceCandidateInit }
+   * Payload: { targetUserId, conversationId, candidate: RTCIceCandidateInit, callId?: string }
    */
   @SubscribeMessage(WS_EVENTS.CALL_ICE_CANDIDATE)
   handleCallIceCandidate(
@@ -685,11 +859,44 @@ export class MessagingGateway
       targetUserId: string;
       conversationId: string;
       candidate: object;
+      callId?: string;
     },
   ) {
+    const session = this.activeCallSessions.get(data.conversationId);
+    if (session) {
+      if (client.id === session.callerSocketId) {
+        // Send candidate strictly to the answered callee device
+        if (session.answeredSocketId) {
+          this.server.to(session.answeredSocketId).emit(WS_EVENTS.CALL_ICE, {
+            conversationId: data.conversationId,
+            candidate: data.candidate,
+            callId: session.callId,
+          });
+          return;
+        }
+        // If not answered yet, trickle candidate to ringing sockets
+        for (const socketId of session.targetSocketIds) {
+          this.server.to(socketId).emit(WS_EVENTS.CALL_ICE, {
+            conversationId: data.conversationId,
+            candidate: data.candidate,
+            callId: session.callId,
+          });
+        }
+        return;
+      } else if (client.id === session.answeredSocketId) {
+        // Send candidate strictly to caller device
+        this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_ICE, {
+          conversationId: data.conversationId,
+          candidate: data.candidate,
+          callId: session.callId,
+        });
+        return;
+      }
+    }
+
+    // Fallback:
     const targetSockets = this.userSocketMap.get(data.targetUserId);
     if (!targetSockets) return;
-
     for (const socketId of targetSockets) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_ICE, {
         conversationId: data.conversationId,
@@ -700,7 +907,6 @@ export class MessagingGateway
 
   /**
    * Either party → Server: send in-call reaction or gesture
-   * Payload: { targetUserId, conversationId, emoji, action?: string }
    */
   @SubscribeMessage(WS_EVENTS.CALL_REACTION)
   handleCallReaction(
@@ -714,9 +920,26 @@ export class MessagingGateway
     },
   ) {
     const senderId = (client as any).userId as string;
+    const session = this.activeCallSessions.get(data.conversationId);
+    if (session) {
+      const destinationSocketId =
+        client.id === session.callerSocketId
+          ? session.answeredSocketId
+          : session.callerSocketId;
+      if (destinationSocketId) {
+        this.server.to(destinationSocketId).emit(WS_EVENTS.CALL_REACTION_RECEIVED, {
+          senderId,
+          conversationId: data.conversationId,
+          emoji: data.emoji,
+          action: data.action,
+        });
+        return;
+      }
+    }
+
+    // Fallback:
     const targetSockets = this.userSocketMap.get(data.targetUserId);
     if (!targetSockets) return;
-
     for (const socketId of targetSockets) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_REACTION_RECEIVED, {
         senderId,
@@ -729,7 +952,6 @@ export class MessagingGateway
 
   /**
    * Either party → Server: notify peer of media state changes (mute, video toggle, screen share)
-   * Payload: { targetUserId, conversationId, isMuted?: boolean, isVideoEnabled?: boolean, isScreenSharing?: boolean }
    */
   @SubscribeMessage(WS_EVENTS.CALL_MEDIA_STATE)
   handleCallMediaState(
@@ -744,9 +966,27 @@ export class MessagingGateway
     },
   ) {
     const senderId = (client as any).userId as string;
+    const session = this.activeCallSessions.get(data.conversationId);
+    if (session) {
+      const destinationSocketId =
+        client.id === session.callerSocketId
+          ? session.answeredSocketId
+          : session.callerSocketId;
+      if (destinationSocketId) {
+        this.server.to(destinationSocketId).emit(WS_EVENTS.CALL_MEDIA_STATE_RECEIVED, {
+          senderId,
+          conversationId: data.conversationId,
+          isMuted: data.isMuted,
+          isVideoEnabled: data.isVideoEnabled,
+          isScreenSharing: data.isScreenSharing,
+        });
+        return;
+      }
+    }
+
+    // Fallback:
     const targetSockets = this.userSocketMap.get(data.targetUserId);
     if (!targetSockets) return;
-
     for (const socketId of targetSockets) {
       this.server.to(socketId).emit(WS_EVENTS.CALL_MEDIA_STATE_RECEIVED, {
         senderId,
@@ -756,6 +996,82 @@ export class MessagingGateway
         isScreenSharing: data.isScreenSharing,
       });
     }
+  }
+
+  /** Clean up any active call session for a disconnected socket */
+  private handleSocketCallDisconnect(socketId: string) {
+    for (const [convId, session] of this.activeCallSessions.entries()) {
+      if (session.callerSocketId === socketId) {
+        this.logger.log(
+          `[Call] Caller socket ${socketId} disconnected. Ending call ${session.callId}`,
+        );
+        if (session.answeredSocketId) {
+          this.server.to(session.answeredSocketId).emit(WS_EVENTS.CALL_ENDED, {
+            conversationId: convId,
+            reason: 'peer_disconnected',
+            callId: session.callId,
+          });
+        } else {
+          for (const sId of session.targetSocketIds) {
+            this.server.to(sId).emit(WS_EVENTS.CALL_ENDED, {
+              conversationId: convId,
+              reason: 'caller_disconnected',
+              callId: session.callId,
+            });
+          }
+        }
+        this.activeCallSessions.delete(convId);
+      } else if (session.answeredSocketId === socketId) {
+        this.logger.log(
+          `[Call] Answered callee socket ${socketId} disconnected. Ending call ${session.callId}`,
+        );
+        this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_ENDED, {
+          conversationId: convId,
+          reason: 'peer_disconnected',
+          callId: session.callId,
+        });
+        this.activeCallSessions.delete(convId);
+      } else if (session.targetSocketIds.has(socketId)) {
+        session.targetSocketIds.delete(socketId);
+        if (session.targetSocketIds.size === 0 && !session.answeredSocketId) {
+          this.logger.log(
+            `[Call] All callee target sockets disconnected for call ${session.callId}`,
+          );
+          this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_REJECTED, {
+            conversationId: convId,
+            reason: 'offline',
+            callId: session.callId,
+          });
+          this.activeCallSessions.delete(convId);
+        }
+      }
+    }
+  }
+
+  /** Helper to gracefully terminate an existing call session */
+  private terminateCallSession(session: ActiveCallSession, reason: string) {
+    if (session.callerSocketId) {
+      this.server.to(session.callerSocketId).emit(WS_EVENTS.CALL_ENDED, {
+        conversationId: session.conversationId,
+        reason,
+        callId: session.callId,
+      });
+    }
+    if (session.answeredSocketId) {
+      this.server.to(session.answeredSocketId).emit(WS_EVENTS.CALL_ENDED, {
+        conversationId: session.conversationId,
+        reason,
+        callId: session.callId,
+      });
+    }
+    for (const sId of session.targetSocketIds) {
+      this.server.to(sId).emit(WS_EVENTS.CALL_ENDED, {
+        conversationId: session.conversationId,
+        reason,
+        callId: session.callId,
+      });
+    }
+    this.activeCallSessions.delete(session.conversationId);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
