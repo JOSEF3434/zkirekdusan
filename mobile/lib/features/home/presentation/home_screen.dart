@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +20,7 @@ import 'package:mobile/features/home/presentation/providers/home_refresh_provide
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/explore/presentation/explore_screen.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
+import 'package:mobile/core/presentation/widgets/video_thumbnail_widget.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 
@@ -368,7 +368,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       if (continueWatchingState.items.isNotEmpty) ...[
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                           sliver: SliverToBoxAdapter(
                             child: Text(
                               tr('home.continue_watching'),
@@ -398,7 +398,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           ),
                         ),
-                        const SliverToBoxAdapter(child: Divider(height: 32)),
+                        const SliverToBoxAdapter(child: Divider(height: 16)),
                       ],
                       // Category filter chips
                       SliverToBoxAdapter(child: _buildCategoryChips()),
@@ -656,38 +656,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
 
-    return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 400,
-        mainAxisExtent: 360,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final totalCount = videos.length + (isLoadingMore || error != null ? 1 : 0);
+
+    Widget buildItem(BuildContext context, int index) {
+      if (index < videos.length) {
+        return VideoCard(video: videos[index]);
+      } else if (error != null) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(tr('home.load_more_failed')),
+              TextButton(
+                onPressed: () =>
+                    ref.read(videoFeedProvider.notifier).loadMore(),
+                child: Text(tr('common.retry')),
+              ),
+            ],
+          ),
+        );
+      } else if (isLoadingMore) {
+        return const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    // Phone-sized screens (< 600dp, including Pixel 9 at 412dp):
+    // Display exactly 1 video card per row with natural content height and compact 12dp spacing.
+    if (screenWidth < 600) {
+      return SliverPadding(
+        padding: const EdgeInsets.only(bottom: 24),
+        sliver: SliverList.separated(
+          itemCount: totalCount,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: buildItem,
+        ),
+      );
+    }
+
+    // Tablet & Desktop screens (>= 600dp):
+    final int crossAxisCount = screenWidth >= 1200
+        ? 4
+        : (screenWidth >= 900 ? 3 : 2);
+    const double crossAxisSpacing = 16.0;
+    const double mainAxisSpacing = 16.0;
+    const double horizontalPadding = 16.0;
+    final availableWidth =
+        screenWidth - (horizontalPadding * 2) - (crossAxisSpacing * (crossAxisCount - 1));
+    final itemWidth = availableWidth / crossAxisCount;
+    // 16:9 thumbnail ratio + info/actions height (~125dp) ensures no excessive vertical gap
+    final mainAxisExtent = (itemWidth * 9 / 16) + 125.0;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 24),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisExtent: mainAxisExtent,
+          crossAxisSpacing: crossAxisSpacing,
+          mainAxisSpacing: mainAxisSpacing,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          buildItem,
+          childCount: totalCount,
+        ),
       ),
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (index < videos.length) {
-          return VideoCard(video: videos[index]);
-        } else if (error != null) {
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text(tr('home.load_more_failed')),
-                TextButton(
-                  onPressed: () =>
-                      ref.read(videoFeedProvider.notifier).loadMore(),
-                  child: Text(tr('common.retry')),
-                ),
-              ],
-            ),
-          );
-        } else if (isLoadingMore) {
-          return const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return const SizedBox.shrink();
-      }, childCount: videos.length + (isLoadingMore || error != null ? 1 : 0)),
     );
   }
 
@@ -876,6 +913,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildOfflineVideoTile(DownloadMetadata item, ThemeData theme) {
     final tr = ref.read(trProvider);
     final sizeMb = (item.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+    final isDone = item.status == VideoDownloadStatus.completed;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -892,73 +930,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thumbnail
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 120,
-                  height: 68,
-                  color: Colors.black87,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (item.thumbnailUrl != null &&
-                          item.thumbnailUrl!.isNotEmpty)
-                        item.thumbnailUrl!.startsWith('/') ||
-                                item.thumbnailUrl!.startsWith('file://')
-                            ? Image.file(
-                                File(
-                                  item.thumbnailUrl!.replaceFirst(
-                                    'file://',
-                                    '',
-                                  ),
-                                ),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(
-                                    Icons.video_library_rounded,
-                                    color: Colors.white54,
-                                  ),
-                                ),
-                              )
-                            : Image.network(
-                                item.thumbnailUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(
-                                    Icons.video_library_rounded,
-                                    color: Colors.white54,
-                                  ),
-                                ),
-                              )
-                      else
-                        const Center(
-                          child: Icon(
-                            Icons.video_library_rounded,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      Positioned(
-                        bottom: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              // Thumbnail with local offline resolution and gradient fallback
+              SizedBox(
+                width: 120,
+                height: 68,
+                child: VideoThumbnailWidget(
+                  thumbnailUrl: item.thumbnailUrl,
+                  videoUrl: item.localPath,
+                  borderRadius: BorderRadius.circular(8),
+                  playIconSize: 20,
                 ),
               ),
               const SizedBox(width: 12),
@@ -980,16 +960,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.arrow_circle_down_rounded,
-                          size: 14,
-                          color: Color(0xFF00C6FF),
+                        Icon(
+                          isDone
+                              ? Icons.check_circle_rounded
+                              : (item.status == VideoDownloadStatus.failed
+                                  ? Icons.error_outline_rounded
+                                  : Icons.downloading_rounded),
+                          size: 15,
+                          color: item.status == VideoDownloadStatus.failed
+                              ? theme.colorScheme.error
+                              : const Color(0xFF00C6FF),
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          tr('video.size_mb', {'size': sizeMb}),
+                          isDone
+                              ? '${tr('downloads.status.completed')} • ${tr('video.size_mb', {'size': sizeMb})}'
+                              : (item.status == VideoDownloadStatus.failed
+                                  ? tr('downloads.status.failed')
+                                  : tr('downloads.status.downloading')),
                           style: TextStyle(
                             fontSize: 12,
+                            fontWeight: FontWeight.w500,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),

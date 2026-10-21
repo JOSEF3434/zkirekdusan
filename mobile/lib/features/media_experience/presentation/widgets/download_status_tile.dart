@@ -62,27 +62,61 @@ class DownloadStatusTile extends ConsumerWidget {
         ),
       ),
       title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isDownloading)
-            Text(
-              tr('downloads.status.downloading'),
-              style: TextStyle(color: theme.colorScheme.primary),
-            )
-          else if (error != null)
-            Text(
-              tr('downloads.status.failed'),
-              style: TextStyle(color: theme.colorScheme.error),
-            )
-          else if (isCompleted)
-            Text(
-              tr('downloads.storage').replaceAll(
-                '{0}',
-                (metadata!.sizeBytes / (1024 * 1024)).toStringAsFixed(1),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Row(
+          children: [
+            if (isDownloading) ...[
+              const SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF00C6FF),
+                ),
               ),
-            ),
-        ],
+              const SizedBox(width: 6),
+              Text(
+                '${tr('downloads.status.downloading')} ${(progress * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Color(0xFF00C6FF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ] else if (error != null) ...[
+              Icon(
+                Icons.error_outline_rounded,
+                size: 15,
+                color: theme.colorScheme.error,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                tr('downloads.status.failed'),
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ] else if (isCompleted) ...[
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 15,
+                color: Color(0xFF00C6FF),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${tr('downloads.status.completed')} • ${tr('downloads.storage').replaceAll('{0}', (metadata!.sizeBytes / (1024 * 1024)).toStringAsFixed(1))}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

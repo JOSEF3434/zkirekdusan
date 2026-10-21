@@ -600,6 +600,20 @@ export class VideosPublicController {
 
   // ─── Direct video ID endpoints ─────────────────────────────────────────────
 
+  @Get(':videoId/recommended')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Get recommended videos based on current video' })
+  @ApiParam({ name: 'videoId', description: 'Video ID' })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  async getRecommended(
+    @Param('videoId') videoId: string,
+    @CurrentUser('sub') userId?: string,
+    @Query('limit') limit = 10,
+  ) {
+    return this.videosService.getRecommended(videoId, userId ?? '', +limit);
+  }
+
   @Get(':videoId')
   @Public()
   @UseGuards(OptionalJwtAuthGuard)

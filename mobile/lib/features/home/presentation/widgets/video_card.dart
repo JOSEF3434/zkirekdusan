@@ -1,8 +1,8 @@
-// lib/features/home/presentation/widgets/video_card.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
-import 'package:mobile/core/presentation/widgets/video_thumbnail_widget.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/social/presentation/widgets/like_button.dart';
@@ -75,13 +75,109 @@ class VideoCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  VideoThumbnailWidget(
-                    thumbnailUrl: video.thumbnailUrl,
-                    videoUrl: video.sourceFileUrl ?? video.hlsUrl,
-                    hlsUrl: video.hlsUrl,
-                    renditionUrls:
-                        video.renditions.map((r) => r.url).toList(),
-                    borderRadius: BorderRadius.zero,
+                  Builder(
+                    builder: (context) {
+                      // 1. Support for downloaded videos: check if thumbnailUrl is a local file
+                      if (!kIsWeb && video.thumbnailUrl != null) {
+                        final rawThumb = video.thumbnailUrl!;
+                        final isLocal = rawThumb.startsWith('/') ||
+                            rawThumb.startsWith('file://') ||
+                            rawThumb.contains(':\\') ||
+                            rawThumb.contains(':/');
+                        if (isLocal) {
+                          final file =
+                              File(rawThumb.replaceFirst('file://', ''));
+                          if (file.existsSync()) {
+                            return Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildFallback(context, theme),
+                            );
+                          }
+                        }
+                      }
+
+                      // 2. Support for downloaded videos: check if local video file has thumbnail in its folder
+                      if (!kIsWeb &&
+                          (video.sourceFileUrl != null ||
+                              video.hlsUrl != null)) {
+                        final localV =
+                            (video.sourceFileUrl ?? video.hlsUrl)!;
+                        if (localV.startsWith('/') ||
+                            localV.startsWith('file://') ||
+                            localV.contains(':\\') ||
+                            localV.contains(':/')) {
+                          try {
+                            final vFile =
+                                File(localV.replaceFirst('file://', ''));
+                            final parentDir = vFile.parent;
+                            final thumbJpg =
+                                File('${parentDir.path}/thumbnail.jpg');
+                            final thumbPng =
+                                File('${parentDir.path}/thumbnail.png');
+                            if (thumbJpg.existsSync()) {
+                              return Image.file(
+                                thumbJpg,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildFallback(context, theme),
+                              );
+                            } else if (thumbPng.existsSync()) {
+                              return Image.file(
+                                thumbPng,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildFallback(context, theme),
+                              );
+                            }
+                          } catch (_) {}
+                        }
+                      }
+
+                      // 3. Original thumbnail resolution logic
+                      final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+                        thumbnailUrl: video.thumbnailUrl,
+                        hlsUrl: video.hlsUrl,
+                        renditionUrls:
+                            video.renditions.map((r) => r.url).toList(),
+                      );
+
+                      if (resolvedThumb != null && resolvedThumb.isNotEmpty) {
+                        if (!kIsWeb &&
+                            (resolvedThumb.startsWith('/') ||
+                                resolvedThumb.startsWith('file://') ||
+                                resolvedThumb.contains(':\\'))) {
+                          final file = File(
+                              resolvedThumb.replaceFirst('file://', ''));
+                          if (file.existsSync()) {
+                            return Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildFallback(context, theme),
+                            );
+                          }
+                        }
+
+                        return AppNetworkImage(
+                          imageUrl: resolvedThumb,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            child: const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return _buildFallback(context, theme);
+                    },
                   ),
 
                   // Duration Badge
@@ -255,6 +351,35 @@ class VideoCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static Widget _buildFallback(BuildContext context, ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.surfaceContainerHighest,
+            theme.colorScheme.surfaceContainerHigh,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            color: Colors.black38,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.white70,
+            size: 36,
+          ),
+        ),
       ),
     );
   }

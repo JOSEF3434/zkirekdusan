@@ -78,15 +78,39 @@ class VideoThumbnailWidget extends StatelessWidget {
       renditionUrls: renditionUrls,
     );
 
+    String? effectiveThumb = resolvedThumb;
+    if (!kIsWeb &&
+        videoUrl != null &&
+        (videoUrl!.startsWith('/') ||
+            videoUrl!.startsWith('file://') ||
+            videoUrl!.contains(':\\') ||
+            videoUrl!.contains(':/'))) {
+      try {
+        final vFile = File(videoUrl!.replaceFirst('file://', ''));
+        final parentDir = vFile.parent;
+        final thumbJpg = File('${parentDir.path}/thumbnail.jpg');
+        final thumbPng = File('${parentDir.path}/thumbnail.png');
+        if (thumbJpg.existsSync()) {
+          effectiveThumb = thumbJpg.path;
+        } else if (thumbPng.existsSync()) {
+          effectiveThumb = thumbPng.path;
+        }
+      } catch (_) {}
+    }
+
+    final thumb = effectiveThumb;
     Widget imageWidget;
-    if (resolvedThumb == null || resolvedThumb.trim().isEmpty) {
+    if (thumb == null || thumb.trim().isEmpty) {
       imageWidget = buildFallback(context, playIconSize: playIconSize);
     } else {
       final isLocalFile = !kIsWeb &&
-          (resolvedThumb.startsWith('/') || resolvedThumb.startsWith('file://'));
+          (thumb.startsWith('/') ||
+              thumb.startsWith('file://') ||
+              thumb.contains(':\\') ||
+              thumb.contains(':/'));
 
       if (isLocalFile) {
-        final filePath = resolvedThumb.replaceFirst('file://', '');
+        final filePath = thumb.replaceFirst('file://', '');
         imageWidget = Image.file(
           File(filePath),
           fit: fit,
@@ -94,14 +118,14 @@ class VideoThumbnailWidget extends StatelessWidget {
               buildFallback(context, playIconSize: playIconSize),
         );
       } else if (kIsWeb &&
-          !resolvedThumb.startsWith('http://') &&
-          !resolvedThumb.startsWith('https://') &&
-          !resolvedThumb.startsWith('blob:') &&
-          !resolvedThumb.startsWith('data:')) {
+          !thumb.startsWith('http://') &&
+          !thumb.startsWith('https://') &&
+          !thumb.startsWith('blob:') &&
+          !thumb.startsWith('data:')) {
         imageWidget = buildFallback(context, playIconSize: playIconSize);
       } else {
         imageWidget = AppNetworkImage(
-          imageUrl: resolvedThumb,
+          imageUrl: thumb,
           fit: fit,
           placeholder: (ctx, url) => Container(
             color: theme.colorScheme.surfaceContainerHighest,

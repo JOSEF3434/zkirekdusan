@@ -109,9 +109,11 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'Accept',
+      'Accept-Language',
       'Origin',
       'X-Requested-With',
       'Range',
+      'Cache-Control',
     ],
 
     exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],

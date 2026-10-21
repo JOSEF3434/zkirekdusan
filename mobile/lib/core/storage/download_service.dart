@@ -298,14 +298,24 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           if (!kIsWeb) {
             final file = File(v.localFilePath!);
             if (await file.exists() && (await file.length()) > 0) {
+              String? thumb = v.thumbnailUrl;
+              final videoDir = file.parent;
+              final thumbJpg = File('${videoDir.path}/thumbnail.jpg');
+              final thumbPng = File('${videoDir.path}/thumbnail.png');
+              if (await thumbJpg.exists()) {
+                thumb = thumbJpg.path;
+              } else if (await thumbPng.exists()) {
+                thumb = thumbPng.path;
+              }
               map[v.id] = DownloadMetadata(
                 videoId: v.id,
                 title: v.title,
                 localPath: v.localFilePath!,
-                thumbnailUrl: v.thumbnailUrl,
+                thumbnailUrl: thumb,
                 sizeBytes: v.fileSizeBytes,
                 quality: v.selectedQuality,
                 status: VideoDownloadStatus.completed,
+                channelName: v.creatorName,
               );
             }
           }
@@ -476,13 +486,36 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         }
         await downloadedFile.rename(finalFilePath);
 
+        // Download thumbnail locally alongside the video file for reliable offline access
+        String? finalThumbnailUrl = thumbnailUrl;
+        if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+          try {
+            final isPng = thumbnailUrl.toLowerCase().contains('.png');
+            final localThumbPath =
+                '${videoDir.path}/thumbnail.${isPng ? 'png' : 'jpg'}';
+            final resolvedThumb =
+                MediaUrlResolver.resolve(thumbnailUrl) ?? thumbnailUrl;
+            await _dio.download(
+              resolvedThumb,
+              localThumbPath,
+              options: Options(responseType: ResponseType.bytes),
+            );
+            final thumbFile = File(localThumbPath);
+            if (await thumbFile.exists() && (await thumbFile.length()) > 0) {
+              finalThumbnailUrl = localThumbPath;
+            }
+          } catch (e) {
+            debugPrint('[DownloadService] Local thumbnail download note: $e');
+          }
+        }
+
         // Write deterministic metadata.json alongside the video
         final metadataFile = File('${videoDir.path}/metadata.json');
         final metadata = DownloadMetadata(
           videoId: videoId,
           title: title,
           localPath: finalFilePath,
-          thumbnailUrl: thumbnailUrl,
+          thumbnailUrl: finalThumbnailUrl,
           sizeBytes: length,
           quality: quality,
           status: VideoDownloadStatus.completed,
@@ -499,6 +532,14 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
           fileSizeBytes: length,
           selectedQuality: quality,
         );
+        if (finalThumbnailUrl != null && finalThumbnailUrl != thumbnailUrl) {
+          await _db.videosDao.upsertVideo(
+            LocalVideosCompanion(
+              id: drift.Value(videoId),
+              thumbnailUrl: drift.Value(finalThumbnailUrl),
+            ),
+          );
+        }
 
         state = state.copyWith(
           downloading: {...state.downloading}..remove(videoId),

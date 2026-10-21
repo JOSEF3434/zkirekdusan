@@ -104,6 +104,11 @@ final playerProvider = StateNotifierProvider.autoDispose
       final mini = ref.read(miniPlayerProvider);
       final isMatching = mini.contentId == videoId;
       final existingCtrl = isMatching ? mini.controller : null;
+      final wasPlayingOnHandOff = isMatching
+          ? (mini.isPlaying ||
+              mini.wasPlayingBeforeHandoff ||
+              ref.read(miniPlayerProvider.notifier).lastReclaimedWasPlaying)
+          : null;
 
       VideoResponseDto? initialVideo;
       if (isMatching && mini.hasContent) {
@@ -133,6 +138,7 @@ final playerProvider = StateNotifierProvider.autoDispose
         initialPrefs,
         existingController: existingCtrl,
         initialVideo: initialVideo,
+        wasPlayingOnHandOff: wasPlayingOnHandOff,
       );
 
       // Listen to playback preference changes without tearing down the player session
@@ -165,9 +171,11 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     this._playbackPreferences, {
     VideoPlayerController? existingController,
     VideoResponseDto? initialVideo,
+    bool? wasPlayingOnHandOff,
   }) : super(
          PlayerState(
-           playbackSpeed: _playbackPreferences.defaultSpeed,
+           playbackSpeed: existingController?.value.playbackSpeed ??
+               _playbackPreferences.defaultSpeed,
            controller: existingController,
            video: initialVideo,
            isLoading: existingController == null,
@@ -180,7 +188,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         existingController.removeListener(_onControllerUpdate);
       } catch (_) {}
       existingController.addListener(_onControllerUpdate);
-      // Preserve existing playback state: do NOT force play if paused.
+      if (wasPlayingOnHandOff == true && !existingController.value.isPlaying) {
+        existingController.play();
+      }
     }
     _initialize(existingController: existingController);
   }
@@ -217,7 +227,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   /// Seamlessly adopt an active VideoPlayerController (e.g. handed off from MiniPlayer)
-  void adoptController(VideoPlayerController ctrl) {
+  void adoptController(VideoPlayerController ctrl, {bool? wasPlaying}) {
     final oldController = state.controller;
     if (oldController != null && oldController != ctrl) {
       try {
@@ -230,15 +240,20 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     } catch (_) {}
     ctrl.addListener(_onControllerUpdate);
 
+    final shouldPlay = wasPlaying ?? ctrl.value.isPlaying;
+    if (shouldPlay && !ctrl.value.isPlaying && ctrl.value.isInitialized) {
+      ctrl.play();
+    }
+
     state = state.copyWith(
       controller: ctrl,
       isLoading: false,
       volume: ctrl.value.volume,
       isMuted: ctrl.value.volume == 0.0,
+      playbackSpeed: ctrl.value.playbackSpeed,
     );
 
-    // Respect existing playback state: do NOT force play if paused!
-    if (ctrl.value.isPlaying) {
+    if (ctrl.value.isPlaying || shouldPlay) {
       _resetControlsTimer();
     } else {
       state = state.copyWith(showControls: true);

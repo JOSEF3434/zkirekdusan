@@ -39,6 +39,8 @@ class MiniPlayerState {
 
   // -- Playback and UI state --
   final bool isPlaying;
+  final bool wasPlayingBeforeHandoff;
+  final bool isHandoffInProgress;
   final Offset? position; // Dragged position on screen
   final bool isNavigatingToFull; // Controller handoff flag
 
@@ -55,6 +57,8 @@ class MiniPlayerState {
     this.isEnded = false,
     this.endedDurationSeconds,
     this.isPlaying = true,
+    this.wasPlayingBeforeHandoff = false,
+    this.isHandoffInProgress = false,
     this.position,
     this.isNavigatingToFull = false,
   });
@@ -74,6 +78,8 @@ class MiniPlayerState {
     int? endedDurationSeconds,
     bool clearEndedDuration = false,
     bool? isPlaying,
+    bool? wasPlayingBeforeHandoff,
+    bool? isHandoffInProgress,
     Offset? position,
     bool? isNavigatingToFull,
   }) {
@@ -92,6 +98,9 @@ class MiniPlayerState {
           ? null
           : (endedDurationSeconds ?? this.endedDurationSeconds),
       isPlaying: isPlaying ?? this.isPlaying,
+      wasPlayingBeforeHandoff:
+          wasPlayingBeforeHandoff ?? this.wasPlayingBeforeHandoff,
+      isHandoffInProgress: isHandoffInProgress ?? this.isHandoffInProgress,
       position: position ?? this.position,
       isNavigatingToFull: isNavigatingToFull ?? this.isNavigatingToFull,
     );
@@ -105,6 +114,9 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   MiniPlayerNotifier() : super(const MiniPlayerState());
 
   VoidCallback? _controllerListener;
+  bool _lastReclaimedWasPlaying = false;
+
+  bool get lastReclaimedWasPlaying => _lastReclaimedWasPlaying;
 
   // ── Show Video MiniPlayer ──────────────────────────────────────────────
 
@@ -115,11 +127,13 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     String? thumbnailUrl,
     String? avatarUrl,
     required VideoPlayerController controller,
+    bool? wasPlaying,
   }) {
     if (state.controller != null && state.controller != controller) {
       _disposeCurrentController();
     }
     _bindController(controller);
+    final isActuallyPlaying = wasPlaying ?? controller.value.isPlaying;
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.video,
@@ -130,7 +144,9 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       avatarUrl: avatarUrl,
       controller: controller,
       isEnded: false,
-      isPlaying: controller.value.isPlaying,
+      isPlaying: isActuallyPlaying,
+      wasPlayingBeforeHandoff: isActuallyPlaying,
+      isHandoffInProgress: true,
       position: state.position,
       isNavigatingToFull: false,
     );
@@ -210,9 +226,25 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   void syncPlaybackState(VideoPlayerController ctrl) {
     if (!mounted || state.controller != ctrl) return;
+    // On Web (and during navigation transitions on all platforms), unmounting a platform
+    // VideoPlayer widget involuntarily emits a pause event from the browser DOM element.
+    // When a handoff is in progress and the video was actively playing, we preserve isPlaying
+    // so the incoming player container (mini-player or full-screen) seamlessly resumes playback.
+    if (state.isHandoffInProgress &&
+        state.wasPlayingBeforeHandoff &&
+        !ctrl.value.isPlaying) {
+      return;
+    }
     final playing = ctrl.value.isPlaying;
     if (playing != state.isPlaying) {
       state = state.copyWith(isPlaying: playing);
+    }
+  }
+
+  /// Called when the target container has mounted and resumed playback
+  void completeHandoff() {
+    if (state.isHandoffInProgress) {
+      state = state.copyWith(isHandoffInProgress: false);
     }
   }
 
@@ -256,13 +288,24 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   /// Prepare to navigate to full screen. Hides overlay without disposing controller.
   void prepareExpand() {
-    state = state.copyWith(isVisible: false, isNavigatingToFull: true);
+    final wasPlaying =
+        state.isPlaying || (state.controller?.value.isPlaying ?? false);
+    state = state.copyWith(
+      isVisible: false,
+      isNavigatingToFull: true,
+      isHandoffInProgress: true,
+      wasPlayingBeforeHandoff: wasPlaying,
+    );
   }
 
   /// Restore visibility if expand navigation failed
   void cancelExpand() {
     if (state.hasContent) {
-      state = state.copyWith(isVisible: true, isNavigatingToFull: false);
+      state = state.copyWith(
+        isVisible: true,
+        isNavigatingToFull: false,
+        isHandoffInProgress: false,
+      );
     }
   }
 
@@ -270,6 +313,8 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   VideoPlayerController? reclaimController(String expectedId) {
     if (state.contentId == expectedId) {
       final ctrl = state.controller;
+      _lastReclaimedWasPlaying =
+          state.isPlaying || state.wasPlayingBeforeHandoff;
       _unbindController();
       state = const MiniPlayerState();
       return ctrl;

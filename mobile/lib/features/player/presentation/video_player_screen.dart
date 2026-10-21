@@ -61,13 +61,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       if (!mounted) return;
       final mini = ref.read(miniPlayerProvider);
       if (mini.contentId == widget.videoId && mini.controller != null) {
+        final wasPlaying = mini.isPlaying ||
+            mini.wasPlayingBeforeHandoff ||
+            ref.read(miniPlayerProvider.notifier).lastReclaimedWasPlaying;
         final reclaimed = ref
             .read(miniPlayerProvider.notifier)
             .reclaimController(widget.videoId);
         if (reclaimed != null) {
           ref
               .read(playerProvider(widget.videoId).notifier)
-              .adoptController(reclaimed);
+              .adoptController(reclaimed, wasPlaying: wasPlaying);
         }
       }
     });
@@ -111,6 +114,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       return;
     }
 
+    final wasPlaying = ctrl.value.isPlaying;
+
     ref
         .read(miniPlayerProvider.notifier)
         .showVideo(
@@ -119,6 +124,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           channelName: video.author.displayName ?? video.author.username,
           thumbnailUrl: video.thumbnailUrl,
           controller: ctrl,
+          wasPlaying: wasPlaying,
         );
 
     // Null out the controller in provider state before dispose runs.

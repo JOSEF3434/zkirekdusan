@@ -389,6 +389,25 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     final activeCtrl = mp.controller ?? _liveController;
     final isInitialized = activeCtrl != null && activeCtrl.value.isInitialized;
 
+    if (isInitialized &&
+        (mp.isPlaying || mp.wasPlayingBeforeHandoff) &&
+        !activeCtrl.value.isPlaying) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final current = ref.read(miniPlayerProvider);
+        final ctrl = current.controller ?? _liveController;
+        if (ctrl != null &&
+            ctrl.value.isInitialized &&
+            (current.isPlaying || current.wasPlayingBeforeHandoff) &&
+            !ctrl.value.isPlaying) {
+          ctrl.play();
+        }
+        if (current.isHandoffInProgress) {
+          ref.read(miniPlayerProvider.notifier).completeHandoff();
+        }
+      });
+    }
+
     // Responsive dimensions: mini-player is square (cardHeight == cardWidth)
     final isTabletOrDesktop = screenSize.width >= 600;
     final defaultCardWidth = isTabletOrDesktop

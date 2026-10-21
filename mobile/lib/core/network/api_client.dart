@@ -96,13 +96,10 @@ class PrefixFallbackInterceptor extends Interceptor {
         final isRoutingNotFound = bodyStr.contains('Cannot GET /api/') ||
             bodyStr.contains('Cannot POST /api/') ||
             bodyStr.contains('Cannot PATCH /api/') ||
-            bodyStr.contains('Cannot DELETE /api/') ||
-            bodyStr.contains('Cannot PUT /api/');
-
-        final isKnownRootRoute = reqOptions.path.startsWith('/videos') ||
-            reqOptions.path.startsWith('videos');
-
-        if (isRoutingNotFound || isKnownRootRoute) {
+            bodyStr.contains('Cannot DELETE /api/');
+        // Only retry if the server returned an explicit Express routing 404 (e.g. Cannot GET /api/...)
+        // Do NOT retry application-level 404s (e.g. video not found, empty collections, etc.)
+        if (isRoutingNotFound) {
           final newPath = uriPath.replaceFirst(RegExp(r'^/api(?=/|$)'), '');
           final fallbackUrl = uri.replace(path: newPath).toString();
 
