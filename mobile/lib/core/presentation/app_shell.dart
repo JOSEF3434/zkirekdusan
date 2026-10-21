@@ -153,6 +153,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               children: [
                 MainNavigationRail(
                   selectedIndex: _adjustedSelectedIndex,
+                  currentPath: GoRouterState.of(context).uri.toString(),
                   onDestinationSelected: (index) =>
                       _onItemTapped(index, context),
                 ),

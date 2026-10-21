@@ -13,7 +13,7 @@ import 'package:mobile/features/notifications/presentation/providers/unread_coun
 
 /// Reusable desktop/tablet persistent sidebar rail.
 /// Displays Home, Calendar, Create, Chats, Books plus trailing shortcuts
-/// (Notifications, Downloads, Watch History, Liked Videos, Channels, Cache & Storage, Admin Panel).
+/// (Notifications, Downloads, Watch History, Liked Videos, Channels, Cache & Storage, Settings, Admin Panel).
 class MainNavigationRail extends ConsumerStatefulWidget {
   final int? selectedIndex;
   final String? currentPath;
@@ -133,8 +133,13 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final adminPermissions = ref.watch(adminPermissionsProvider);
 
-    final resolvedIndex = _resolveSelectedIndex(widget.currentPath);
-    final path = widget.currentPath ?? '';
+    String path = widget.currentPath ?? '';
+    if (path.isEmpty) {
+      try {
+        path = GoRouterState.of(context).uri.toString();
+      } catch (_) {}
+    }
+    final resolvedIndex = _resolveSelectedIndex(path);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -229,7 +234,26 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
                           isSelected: false,
                           onTap: () => showCacheStorageDialog(context, ref),
                         ),
-                        // 7. Admin Panel
+                        // 7. Settings
+                        _RailActionItem(
+                          icon: Icons.settings_outlined,
+                          selectedIcon: Icons.settings,
+                          label: () {
+                            final title = tr('settings.title');
+                            if (title != 'settings.title' && title.isNotEmpty) return title;
+                            final nav = tr('nav.settings');
+                            if (nav != 'nav.settings' && nav.isNotEmpty) return nav;
+                            return 'Settings';
+                          }(),
+                          isExtended: isDesktop,
+                          isSelected: path.startsWith('/settings'),
+                          onTap: () {
+                            if (path != '/settings') {
+                              context.push('/settings');
+                            }
+                          },
+                        ),
+                        // 8. Admin Panel
                         if (adminPermissions.hasAdminAccess) ...[
                           Divider(
                             indent: isDesktop ? 16 : 8,
