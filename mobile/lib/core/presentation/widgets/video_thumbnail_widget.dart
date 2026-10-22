@@ -71,61 +71,77 @@ class VideoThumbnailWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final resolvedThumb = MediaUrlResolver.resolveThumbnail(
+    String? effectiveThumb;
+
+    // 1. Check if thumbnailUrl is an existing local file (e.g. for downloaded videos)
+    if (!kIsWeb && thumbnailUrl != null && thumbnailUrl!.trim().isNotEmpty) {
+      final clean = thumbnailUrl!.trim().replaceFirst('file://', '');
+      try {
+        final f = File(clean);
+        if (f.existsSync()) {
+          effectiveThumb = f.path;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Check if local video file has a downloaded thumbnail alongside it
+    if (effectiveThumb == null &&
+        !kIsWeb &&
+        videoUrl != null &&
+        videoUrl!.trim().isNotEmpty) {
+      final cleanVideo = videoUrl!.trim().replaceFirst('file://', '');
+      final isLocalVideo = !cleanVideo.startsWith('http://') &&
+          !cleanVideo.startsWith('https://') &&
+          (cleanVideo.startsWith('/') ||
+              cleanVideo.startsWith('file://') ||
+              RegExp(r'^[a-zA-Z]:[/\\]').hasMatch(cleanVideo));
+      if (isLocalVideo) {
+        try {
+          final vFile = File(cleanVideo);
+          final parentDir = vFile.parent;
+          final thumbJpg = File('${parentDir.path}/thumbnail.jpg');
+          final thumbPng = File('${parentDir.path}/thumbnail.png');
+          if (thumbJpg.existsSync()) {
+            effectiveThumb = thumbJpg.path;
+          } else if (thumbPng.existsSync()) {
+            effectiveThumb = thumbPng.path;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3. Otherwise resolve remote network / Cloudinary / stream thumbnail
+    effectiveThumb ??= MediaUrlResolver.resolveThumbnail(
       thumbnailUrl: thumbnailUrl,
       videoUrl: videoUrl,
       hlsUrl: hlsUrl,
       renditionUrls: renditionUrls,
     );
 
-    String? effectiveThumb = resolvedThumb;
-    if (!kIsWeb &&
-        videoUrl != null &&
-        (videoUrl!.startsWith('/') ||
-            videoUrl!.startsWith('file://') ||
-            videoUrl!.contains(':\\') ||
-            videoUrl!.contains(':/'))) {
-      try {
-        final vFile = File(videoUrl!.replaceFirst('file://', ''));
-        final parentDir = vFile.parent;
-        final thumbJpg = File('${parentDir.path}/thumbnail.jpg');
-        final thumbPng = File('${parentDir.path}/thumbnail.png');
-        if (thumbJpg.existsSync()) {
-          effectiveThumb = thumbJpg.path;
-        } else if (thumbPng.existsSync()) {
-          effectiveThumb = thumbPng.path;
-        }
-      } catch (_) {}
-    }
-
     final thumb = effectiveThumb;
     Widget imageWidget;
     if (thumb == null || thumb.trim().isEmpty) {
       imageWidget = buildFallback(context, playIconSize: playIconSize);
     } else {
-      final isLocalFile = !kIsWeb &&
-          (thumb.startsWith('/') ||
-              thumb.startsWith('file://') ||
-              thumb.contains(':\\') ||
-              thumb.contains(':/'));
+      final trimmedThumb = thumb.trim();
+      final isNetwork = trimmedThumb.startsWith('http://') ||
+          trimmedThumb.startsWith('https://') ||
+          trimmedThumb.startsWith('blob:') ||
+          trimmedThumb.startsWith('data:');
 
-      if (isLocalFile) {
-        final filePath = thumb.replaceFirst('file://', '');
+      if (!isNetwork && !kIsWeb) {
+        final filePath = trimmedThumb.replaceFirst('file://', '');
         imageWidget = Image.file(
           File(filePath),
           fit: fit,
           errorBuilder: (_, _, _) =>
               buildFallback(context, playIconSize: playIconSize),
         );
-      } else if (kIsWeb &&
-          !thumb.startsWith('http://') &&
-          !thumb.startsWith('https://') &&
-          !thumb.startsWith('blob:') &&
-          !thumb.startsWith('data:')) {
+      } else if (!isNetwork && kIsWeb) {
         imageWidget = buildFallback(context, playIconSize: playIconSize);
       } else {
         imageWidget = AppNetworkImage(
-          imageUrl: thumb,
+          imageUrl: trimmedThumb,
           fit: fit,
           placeholder: (ctx, url) => Container(
             color: theme.colorScheme.surfaceContainerHighest,

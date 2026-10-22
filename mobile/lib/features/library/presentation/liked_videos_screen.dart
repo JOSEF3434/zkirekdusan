@@ -169,6 +169,12 @@ class _LikedVideosScreenState extends ConsumerState<LikedVideosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('library.liked')),
+        actions: [
+          Center(
+            child: _buildViewModeToggle(theme),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -343,14 +349,12 @@ class _LikedVideosScreenState extends ConsumerState<LikedVideosScreen> {
           // Row 1: Search bar
           _buildSearchField(theme),
           const SizedBox(height: 8),
-          // Row 2: Sort dropdown + Date filters + View mode toggle
+          // Row 2: Sort dropdown + Date filters
           Row(
             children: [
               _buildSortDropdown(context, theme),
               const SizedBox(width: 8),
               Expanded(child: _buildFilterChips(theme)),
-              const SizedBox(width: 8),
-              _buildViewModeToggle(theme),
             ],
           ),
         ],
@@ -365,8 +369,6 @@ class _LikedVideosScreenState extends ConsumerState<LikedVideosScreen> {
         _buildFilterChips(theme),
         const SizedBox(width: 12),
         Expanded(child: _buildSearchField(theme)),
-        const SizedBox(width: 12),
-        _buildViewModeToggle(theme),
       ],
     );
   }

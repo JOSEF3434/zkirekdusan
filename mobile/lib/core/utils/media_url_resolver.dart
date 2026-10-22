@@ -1,4 +1,6 @@
 // lib/core/utils/media_url_resolver.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../../app/env/env.dart';
 
 class MediaUrlResolver {
@@ -13,6 +15,23 @@ class MediaUrlResolver {
     if (isCloudinary(trimmed)) {
       return trimmed;
     }
+
+    // 1. Local filesystem paths and file:// URIs on native platforms — preserve untouched
+    if (!kIsWeb) {
+      if (trimmed.startsWith('file://') ||
+          trimmed.startsWith('/data/') ||
+          trimmed.startsWith('/storage/') ||
+          trimmed.startsWith('/sdcard/') ||
+          RegExp(r'^[a-zA-Z]:[/\\]').hasMatch(trimmed)) {
+        return trimmed;
+      }
+      try {
+        if (File(trimmed).existsSync()) {
+          return trimmed;
+        }
+      } catch (_) {}
+    }
+
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       final base = Env.apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
       return trimmed.startsWith('/') ? '$base$trimmed' : '$base/$trimmed';

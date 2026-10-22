@@ -80,10 +80,11 @@ class VideoCard extends StatelessWidget {
                       // 1. Support for downloaded videos: check if thumbnailUrl is a local file
                       if (!kIsWeb && video.thumbnailUrl != null) {
                         final rawThumb = video.thumbnailUrl!;
-                        final isLocal = rawThumb.startsWith('/') ||
-                            rawThumb.startsWith('file://') ||
-                            rawThumb.contains(':\\') ||
-                            rawThumb.contains(':/');
+                        final isLocal = !rawThumb.startsWith('http://') &&
+                            !rawThumb.startsWith('https://') &&
+                            (rawThumb.startsWith('/') ||
+                                rawThumb.startsWith('file://') ||
+                                RegExp(r'^[a-zA-Z]:[/\\]').hasMatch(rawThumb));
                         if (isLocal) {
                           final file =
                               File(rawThumb.replaceFirst('file://', ''));
@@ -104,10 +105,12 @@ class VideoCard extends StatelessWidget {
                               video.hlsUrl != null)) {
                         final localV =
                             (video.sourceFileUrl ?? video.hlsUrl)!;
-                        if (localV.startsWith('/') ||
-                            localV.startsWith('file://') ||
-                            localV.contains(':\\') ||
-                            localV.contains(':/')) {
+                        final isLocalVideo = !localV.startsWith('http://') &&
+                            !localV.startsWith('https://') &&
+                            (localV.startsWith('/') ||
+                                localV.startsWith('file://') ||
+                                RegExp(r'^[a-zA-Z]:[/\\]').hasMatch(localV));
+                        if (isLocalVideo) {
                           try {
                             final vFile =
                                 File(localV.replaceFirst('file://', ''));

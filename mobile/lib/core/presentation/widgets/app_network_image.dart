@@ -1,4 +1,5 @@
 // lib/core/presentation/widgets/app_network_image.dart
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -70,6 +71,37 @@ class AppNetworkImage extends StatelessWidget {
           ),
         );
 
+    // Safeguard: If a local file path was accidentally passed to AppNetworkImage on native mobile
+    if (!kIsWeb &&
+        !imageUrl.startsWith('http://') &&
+        !imageUrl.startsWith('https://') &&
+        !imageUrl.startsWith('blob:') &&
+        !imageUrl.startsWith('data:')) {
+      final clean = imageUrl.replaceFirst('file://', '');
+      try {
+        final f = File(clean);
+        if (f.existsSync()) {
+          final localWidget = Image.file(
+            f,
+            fit: fit,
+            width: width,
+            height: height,
+            alignment: alignment,
+            color: color,
+            colorBlendMode: colorBlendMode,
+            errorBuilder: (ctx, err, stack) {
+              final errW = errorWidget ?? defaultErrorWidget;
+              return errW(ctx, imageUrl, err);
+            },
+          );
+          if (borderRadius != null) {
+            return ClipRRect(borderRadius: borderRadius!, child: localWidget);
+          }
+          return localWidget;
+        }
+      } catch (_) {}
+    }
+
     Widget imageContent;
 
     if (kIsWeb) {
@@ -116,9 +148,23 @@ class AppNetworkImage extends StatelessWidget {
         placeholder: placeholder != null
             ? (ctx, url) => placeholder!(ctx, url)
             : defaultPlaceholder,
-        errorWidget: errorWidget != null
-            ? (ctx, url, err) => errorWidget!(ctx, url, err)
-            : defaultErrorWidget,
+        errorWidget: (ctx, url, err) {
+          // If CachedNetworkImage encounters a caching or storage issue on mobile,
+          // gracefully fallback to standard Image.network before showing error widget
+          return Image.network(
+            imageUrl,
+            fit: fit,
+            width: width,
+            height: height,
+            alignment: alignment,
+            color: color,
+            colorBlendMode: colorBlendMode,
+            errorBuilder: (c, e, s) {
+              final errW = errorWidget ?? defaultErrorWidget;
+              return errW(c, imageUrl, e);
+            },
+          );
+        },
         imageBuilder: imageBuilder != null
             ? (ctx, prov) => imageBuilder!(ctx, prov)
             : null,
