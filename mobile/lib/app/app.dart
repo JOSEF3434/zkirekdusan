@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/router/app_router.dart';
@@ -10,6 +11,20 @@ import 'package:mobile/features/notifications/data/notification_lifecycle_manage
 import 'package:mobile/core/presentation/widgets/floating_mini_player.dart';
 import 'package:mobile/core/presentation/widgets/app_activity_tracker.dart';
 import 'package:mobile/features/calls/presentation/widgets/floating_call_overlay.dart';
+
+/// Global scroll behavior supporting mouse, trackpad, and touch drag gestures across Web & Native
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.unknown,
+      };
+}
 
 class StreamHubApp extends ConsumerWidget {
   const StreamHubApp({super.key});
@@ -31,6 +46,7 @@ class StreamHubApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: prefsState.themeMode,
       locale: Locale(prefsState.languageCode),
+      scrollBehavior: const AppScrollBehavior(),
 
       routerConfig: router,
       debugShowCheckedModeBanner: false,
@@ -54,4 +70,3 @@ class StreamHubApp extends ConsumerWidget {
     );
   }
 }
-
