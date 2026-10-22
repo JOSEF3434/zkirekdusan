@@ -5,6 +5,8 @@ import 'package:mobile/features/creator/domain/creator_enums.dart';
 part 'creator_channel_dto.freezed.dart';
 part 'creator_channel_dto.g.dart';
 
+String? _parseTotalViews(dynamic val) => val?.toString();
+
 @freezed
 abstract class CreatorChannelDto with _$CreatorChannelDto {
   const factory CreatorChannelDto({
@@ -19,7 +21,7 @@ abstract class CreatorChannelDto with _$CreatorChannelDto {
     required UploadPermission uploadPermission,
     @Default(0) int subscribersCount,
     @Default(0) int videosCount,
-    String? totalViewsCount,
+    @JsonKey(fromJson: _parseTotalViews) String? totalViewsCount,
     @Default([]) List<String> categories,
     @Default([]) List<String> tags,
     required DateTime createdAt,

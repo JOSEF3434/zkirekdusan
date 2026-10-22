@@ -9,6 +9,7 @@ import 'package:mobile/features/upload/presentation/providers/upload_provider.da
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
+import 'package:mobile/features/creator/presentation/providers/upload_channels_provider.dart';
 
 class UploadScreen extends ConsumerWidget {
   const UploadScreen({super.key});
@@ -16,20 +17,23 @@ class UploadScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(uploadProvider);
+    final channelsState = ref.watch(uploadChannelsProvider(null));
     final tr = ref.watch(trProvider);
 
-    // If no channel is selected yet, redirect to channel selector
-    if (state.selectedChannel == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          context.pushReplacement('/creator/upload');
-        }
+    // Auto-select first channel if none is selected yet
+    if (state.selectedChannel == null && channelsState.channels.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+        if (ref.read(uploadProvider).selectedChannel != null) return;
+        final first = channelsState.channels.first;
+        final resolved = await ref
+            .read(uploadChannelsProvider(null).notifier)
+            .resolveChannel(first);
+        if (!context.mounted) return;
+        ref
+            .read(uploadProvider.notifier)
+            .preselectChannel(first.toGroupDto(), resolved);
       });
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
     }
 
     return PopScope(
@@ -61,15 +65,76 @@ class UploadScreen extends ConsumerWidget {
                   state.step == UploadStep.processing) {
                 _confirmCancel(context, ref);
               } else {
-                ref.read(uploadProvider.notifier).cancelUpload();
                 context.pop();
               }
             },
           ),
         ),
-        body: _buildBody(context, ref, state),
+        body: state.selectedChannel == null
+            ? _buildNoChannelBody(context, ref, channelsState)
+            : _buildBody(context, ref, state),
       ),
     );
+  }
+
+  Widget _buildNoChannelBody(
+    BuildContext context,
+    WidgetRef ref,
+    UploadChannelsState channelsState,
+  ) {
+    final tr = ref.watch(trProvider);
+    if (channelsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (channelsState.error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                channelsState.error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () =>
+                    ref.read(uploadChannelsProvider(null).notifier).refresh(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (channelsState.channels.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.tv_off_outlined, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                tr('upload.no_channels_desc'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.push('/creator/create-group'),
+                icon: const Icon(Icons.add),
+                label: Text(tr('creator.create_channel_btn')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return const Center(child: CircularProgressIndicator());
   }
 
   void _confirmCancel(BuildContext context, WidgetRef ref) {
@@ -88,7 +153,6 @@ class UploadScreen extends ConsumerWidget {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.of(ctx).pop();
-              ref.read(uploadProvider.notifier).cancelUpload();
               context.pop();
             },
             child: Text(tr('upload.cancel_upload')),
@@ -180,7 +244,7 @@ class _VideoPickerWidget extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       InkWell(
-                        onTap: () => context.push('/creator/upload'),
+                        onTap: () => _showChannelPickerBottomSheet(context, ref),
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -394,10 +458,8 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: () {
-                          // Change channel via modern channel selector
-                          context.push('/creator/upload');
-                        },
+                        onPressed: () =>
+                            _showChannelPickerBottomSheet(context, ref),
                         icon: const Icon(Icons.edit, size: 14),
                         label: const Text(
                           'Change',
@@ -971,3 +1033,213 @@ class _UploadFailedWidget extends ConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// CHANNEL PICKER MODAL / SHEET
+// ─────────────────────────────────────────────
+
+void _showChannelPickerBottomSheet(BuildContext context, WidgetRef ref) {
+  final isDesktop = MediaQuery.of(context).size.width > 600;
+  if (isDesktop) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          child: const _ChannelPickerSheet(),
+        ),
+      ),
+    );
+  } else {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => const SafeArea(child: _ChannelPickerSheet()),
+    );
+  }
+}
+
+class _ChannelPickerSheet extends ConsumerWidget {
+  const _ChannelPickerSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final channelsState = ref.watch(uploadChannelsProvider(null));
+    final uploadState = ref.watch(uploadProvider);
+    final tr = ref.watch(trProvider);
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('creator.select_channel_title'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: tr('creator.create_channel_tooltip'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push('/creator/create-group');
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Flexible(
+            child: Builder(
+              builder: (context) {
+                if (channelsState.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (channelsState.error != null) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          channelsState.error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: () => ref
+                              .read(uploadChannelsProvider(null).notifier)
+                              .refresh(),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (channelsState.channels.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(tr('creator.no_channels_title')),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            context.push('/creator/create-group');
+                          },
+                          child: Text(tr('creator.create_channel_btn')),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: channelsState.channels.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, indent: 68),
+                  itemBuilder: (context, index) {
+                    final item = channelsState.channels[index];
+                    final isSelected = uploadState.selectedChannel != null &&
+                        (uploadState.selectedChannel!.id == item.channel?.id ||
+                            (item.channel == null &&
+                                uploadState.selectedGroup?.id ==
+                                    item.group.id));
+                    final title = item.displayName;
+                    final subtitle = item.channel?.handle.isNotEmpty == true
+                        ? (item.channel!.handle.startsWith('@')
+                            ? item.channel!.handle
+                            : '@${item.channel!.handle}')
+                        : item.group.name;
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        backgroundImage: item.group.avatarUrl != null &&
+                                item.group.avatarUrl!.isNotEmpty
+                            ? NetworkImage(item.group.avatarUrl!)
+                            : null,
+                        child: item.group.avatarUrl == null ||
+                                item.group.avatarUrl!.isEmpty
+                            ? Text(
+                                title.isNotEmpty ? title[0].toUpperCase() : 'C',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? Icon(
+                              Icons.check_circle,
+                              color: theme.colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () async {
+                        final groupDto = item.toGroupDto();
+                        final channelDto = await ref
+                            .read(uploadChannelsProvider(null).notifier)
+                            .resolveChannel(item);
+                        ref
+                            .read(uploadProvider.notifier)
+                            .selectChannel(groupDto, channelDto);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

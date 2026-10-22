@@ -1,4 +1,5 @@
 // lib/features/creator/presentation/providers/upload_channels_provider.dart
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/creator/data/creator_repository.dart';
 import 'package:mobile/features/creator/domain/creator_channel_dto.dart';
@@ -193,7 +194,12 @@ class UploadChannelsNotifier extends StateNotifier<UploadChannelsState> {
                 PermittedUploadChannel(group: group, channel: null),
               );
             }
-          } catch (_) {
+          } catch (e, st) {
+            developer.log(
+              '[UploadChannelsNotifier] Failed to load channels for group ${group.id}: $e',
+              error: e,
+              stackTrace: st,
+            );
             // Even if query fails, ensure user can see and select their active channel
             permittedChannels.add(
               PermittedUploadChannel(group: group, channel: null),

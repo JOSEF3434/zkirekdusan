@@ -139,7 +139,7 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
         if (isChangingChannel && Navigator.of(context).canPop()) {
           context.pop();
         } else {
-          context.push('/upload');
+          context.pushReplacement('/upload');
         }
       }
     }

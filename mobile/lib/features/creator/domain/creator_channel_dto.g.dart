@@ -22,7 +22,7 @@ _CreatorChannelDto _$CreatorChannelDtoFromJson(Map<String, dynamic> json) =>
       ),
       subscribersCount: (json['subscribersCount'] as num?)?.toInt() ?? 0,
       videosCount: (json['videosCount'] as num?)?.toInt() ?? 0,
-      totalViewsCount: json['totalViewsCount'] as String?,
+      totalViewsCount: _parseTotalViews(json['totalViewsCount']),
       categories:
           (json['categories'] as List<dynamic>?)
               ?.map((e) => e as String)
