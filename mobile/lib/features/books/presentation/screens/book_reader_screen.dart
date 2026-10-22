@@ -303,10 +303,44 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     final isDownloadedAsync = ref.read(isBookDownloadedProvider(widget.bookId));
     final isDownloaded = widget.isDownloaded || (isDownloadedAsync.valueOrNull ?? false);
     if (isDownloaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"${_book!.title}" is downloaded and available offline.'),
-          duration: const Duration(seconds: 2),
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Downloaded Book Options'),
+          content: Text(
+            '"${_book!.title}" is currently downloaded for offline reading. Would you like to remove the offline download and switch back to online mode?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Keep Offline'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                final userId = _currentUserId ?? 'guest';
+                await ref
+                    .read(downloadsNotifierProvider.notifier)
+                    .removeDownload(widget.bookId, userId);
+                ref.invalidate(isBookDownloadedProvider(widget.bookId));
+                ref.invalidate(downloadedBooksStreamProvider);
+                if (mounted) {
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Removed "${_book!.title}" from offline downloads. Switched back to online mode.',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Remove & Return to Online'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            ),
+          ],
         ),
       );
       return;

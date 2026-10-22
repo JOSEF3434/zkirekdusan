@@ -400,13 +400,36 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
       );
     }
 
-    // 3. Online only tab when offline or empty
-    if (_dlTabIndex == 2 && (isOffline || libraryState.error != null || filteredBooks.isEmpty)) {
-      if (filteredBooks.isEmpty) {
-        return _OnlineOnlyOfflineState(
+    // 3. Online only tab
+    if (_dlTabIndex == 2) {
+      if (isOffline || libraryState.error != null) {
+        if (filteredBooks.isEmpty) {
+          return _OnlineOnlyOfflineState(
+            downloadedCount: downloadedRecords.length,
+            onGoToDownloads: () => _downloadTabController.animateTo(1),
+            onRetry: () => ref.read(libraryProvider.notifier).refresh(),
+          );
+        }
+      } else if (filteredBooks.isEmpty && !libraryState.isLoading) {
+        final allDownloaded = libraryState.books.isNotEmpty &&
+            libraryState.books.every((b) => downloadedIds.contains(b.id));
+        if (allDownloaded) {
+          return _AllBooksDownloadedState(
+            downloadedCount: downloadedRecords.length,
+            onGoToDownloads: () => _downloadTabController.animateTo(1),
+            onBrowseAll: () => _downloadTabController.animateTo(0),
+          );
+        }
+        return _NoOnlineBooksState(
+          hasFilters: libraryState.filter.search != null ||
+              libraryState.filter.categoryId != null,
           downloadedCount: downloadedRecords.length,
+          onClearFilters: () {
+            ref.read(libraryProvider.notifier).applyFilter(const LibraryFilter());
+            _searchController.clear();
+          },
           onGoToDownloads: () => _downloadTabController.animateTo(1),
-          onRetry: () => ref.read(libraryProvider.notifier).refresh(),
+          onBrowseAll: () => _downloadTabController.animateTo(0),
         );
       }
     }
@@ -1020,33 +1043,40 @@ class _BookListTile extends ConsumerWidget {
                         const SizedBox(width: 6),
                       ],
                       if (isDownloaded)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF059669)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: const Color(0xFF059669)
-                                  .withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_rounded,
-                                  size: 11, color: Color(0xFF059669)),
-                              SizedBox(width: 3),
-                              Text(
-                                'Downloaded',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF059669),
+                        InkWell(
+                          onTap: () => _confirmRemoveDownload(context, ref, book),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Tooltip(
+                            message: 'Downloaded • Tap to remove from offline',
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF059669)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFF059669)
+                                      .withValues(alpha: 0.4),
                                 ),
                               ),
-                            ],
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle_rounded,
+                                      size: 11, color: Color(0xFF059669)),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Downloaded',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         )
                       else
@@ -1126,16 +1156,31 @@ class _BookListTile extends ConsumerWidget {
                 ),
               )
             else if (isDownloaded)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Tooltip(
-                  message: 'Downloaded (Offline Ready)',
-                  child: Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF059669),
-                    size: 22,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: Tooltip(
+                      message: 'Downloaded (Offline Ready)',
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF059669),
+                        size: 20,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red.shade400,
+                      size: 20,
+                    ),
+                    tooltip: 'Delete download (switch back to online mode)',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _confirmRemoveDownload(context, ref, book),
+                  ),
+                ],
               )
             else if (onDownload != null)
               IconButton(
@@ -1153,6 +1198,53 @@ class _BookListTile extends ConsumerWidget {
           ],
         ),
       );
+  }
+
+  void _confirmRemoveDownload(
+    BuildContext context,
+    WidgetRef ref,
+    BookModel book,
+  ) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Downloaded Book'),
+        content: Text(
+          'Remove "${book.title}" from offline downloads? The offline copy will be deleted and the book will return to online streaming mode.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              final auth = ref.read(authProvider);
+              final effectiveUserId = userId ?? auth.user?.id ?? 'guest';
+              await ref
+                  .read(downloadsNotifierProvider.notifier)
+                  .removeDownload(book.id, effectiveUserId);
+              ref.invalidate(isBookDownloadedProvider(book.id));
+              ref.invalidate(downloadedBooksStreamProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Removed "${book.title}" from offline downloads. Switched back to online mode.',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete & Return to Online'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1453,6 +1545,199 @@ class _OnlineOnlyOfflineState extends StatelessWidget {
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry Connection'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AllBooksDownloadedState extends StatelessWidget {
+  final int downloadedCount;
+  final VoidCallback onGoToDownloads;
+  final VoidCallback onBrowseAll;
+
+  const _AllBooksDownloadedState({
+    required this.downloadedCount,
+    required this.onGoToDownloads,
+    required this.onBrowseAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF059669).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 56,
+                color: Color(0xFF059669),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'All Books Downloaded',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'ሁሉም መጽሐፍት ወርደዋል',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF059669),
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Text(
+                'All available books have already been downloaded to your device for offline reading. You can read them from your Downloaded tab, or delete downloads to stream them online.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onGoToDownloads,
+              icon: const Icon(Icons.download_done_rounded),
+              label: Text(
+                downloadedCount > 0
+                    ? 'Go to Downloaded Books ($downloadedCount)'
+                    : 'Go to Downloaded Books',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onBrowseAll,
+              icon: const Icon(Icons.library_books_rounded),
+              label: const Text('Browse All Books'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoOnlineBooksState extends StatelessWidget {
+  final bool hasFilters;
+  final int downloadedCount;
+  final VoidCallback onClearFilters;
+  final VoidCallback onGoToDownloads;
+  final VoidCallback onBrowseAll;
+
+  const _NoOnlineBooksState({
+    required this.hasFilters,
+    required this.downloadedCount,
+    required this.onClearFilters,
+    required this.onGoToDownloads,
+    required this.onBrowseAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cloud_queue_rounded,
+                size: 56,
+                color: Color(0xFF0284C7),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              hasFilters ? 'No Matching Online Books' : 'No Online Books Available',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              hasFilters ? 'ምንም የሚመሳሰል የመስመር ላይ መጽሐፍ የለም' : 'ምንም የመስመር ላይ መጽሐፍ የለም',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF0284C7),
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Text(
+                hasFilters
+                    ? 'No online books match your selected search or category filters. Try clearing your filters or check your downloaded library.'
+                    : 'There are currently no online-only books available in the catalog. You can explore your downloaded books or browse all library items.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (hasFilters) ...[
+              FilledButton.icon(
+                onPressed: onClearFilters,
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: const Text('Clear Filters'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else if (downloadedCount > 0) ...[
+              FilledButton.icon(
+                onPressed: onGoToDownloads,
+                icon: const Icon(Icons.download_done_rounded),
+                label: Text('Go to Downloaded Books ($downloadedCount)'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            OutlinedButton.icon(
+              onPressed: onBrowseAll,
+              icon: const Icon(Icons.library_books_rounded),
+              label: const Text('Browse All Books'),
             ),
           ],
         ),

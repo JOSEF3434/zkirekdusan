@@ -479,25 +479,36 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Remove Download'),
-        content: const Text(
-            'Remove the downloaded file? You can re-download it anytime. This will not delete the book from the library.'),
+        content: Text(
+            'Remove "${widget.book.title}" from downloaded books? The offline copy will be deleted and the book will return to online streaming mode.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () {
+          FilledButton.icon(
+            onPressed: () async {
               Navigator.pop(context);
-              if (widget.userId != null) {
-                ref
-                    .read(downloadsNotifierProvider.notifier)
-                    .removeDownload(widget.book.id, widget.userId!);
-                ref.invalidate(isBookDownloadedProvider(widget.book.id));
+              final uid = widget.userId ?? 'guest';
+              await ref
+                  .read(downloadsNotifierProvider.notifier)
+                  .removeDownload(widget.book.id, uid);
+              ref.invalidate(isBookDownloadedProvider(widget.book.id));
+              ref.invalidate(downloadedBooksStreamProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Removed "${widget.book.title}" from offline downloads. Switched back to online mode.',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               }
             },
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Remove & Return to Online'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove'),
           ),
         ],
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import '../../data/models/book_model.dart';
 import '../providers/books_providers.dart';
 
@@ -12,6 +13,7 @@ class BookCard extends ConsumerWidget {
   final VoidCallback? onDetailTap;
   final VoidCallback? onTap;
   final VoidCallback? onDownload;
+  final VoidCallback? onDeleteDownload;
   final bool compact;
 
   const BookCard({
@@ -21,6 +23,7 @@ class BookCard extends ConsumerWidget {
     this.onDetailTap,
     this.onTap,
     this.onDownload,
+    this.onDeleteDownload,
     this.compact = false,
   });
 
@@ -32,6 +35,8 @@ class BookCard extends ConsumerWidget {
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
     final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
+    final deleteAction = onDeleteDownload ??
+        () => _confirmRemoveDownload(context, ref, book);
 
     final coverTap = onCoverTap ?? onTap;
     final detailTap = onDetailTap ?? onTap;
@@ -97,7 +102,7 @@ class BookCard extends ConsumerWidget {
                             center: const Icon(Icons.downloading, size: 14, color: Colors.white),
                           )
                         : isDownloaded
-                            ? const _DownloadedBadge()
+                            ? _DownloadedBadge(onDelete: deleteAction)
                             : _OnlineBadge(
                                 onDownload: onDownload,
                                 isReadable: book.isReadable,
@@ -168,8 +173,55 @@ class BookCard extends ConsumerWidget {
           ),
         ),
       ],
-    ),
-  );
+      ),
+    );
+  }
+
+  void _confirmRemoveDownload(
+    BuildContext context,
+    WidgetRef ref,
+    BookModel book,
+  ) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Remove Download'),
+        content: Text(
+          'Remove "${book.title}" from downloaded books? The offline copy will be deleted and the book will return to online streaming mode.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(context);
+              final auth = ref.read(authProvider);
+              final userId = auth.user?.id ?? 'guest';
+              await ref
+                  .read(downloadsNotifierProvider.notifier)
+                  .removeDownload(book.id, userId);
+              ref.invalidate(isBookDownloadedProvider(book.id));
+              ref.invalidate(downloadedBooksStreamProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Removed "${book.title}" from offline downloads. Switched back to online mode.',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Remove & Return to Online'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -248,42 +300,60 @@ class _FormatBadge extends StatelessWidget {
 }
 
 class _DownloadedBadge extends StatelessWidget {
-  const _DownloadedBadge();
+  final VoidCallback? onDelete;
+  const _DownloadedBadge({this.onDelete});
 
   @override
   Widget build(BuildContext context) {
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF059669),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF059669).withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, color: Colors.white, size: 11),
+          SizedBox(width: 3),
+          Text(
+            'Offline',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onDelete != null) {
+      return Semantics(
+        button: true,
+        label: 'Remove downloaded book and switch to online mode',
+        child: Tooltip(
+          message: 'Downloaded • Tap to remove from offline',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDelete,
+            child: badge,
+          ),
+        ),
+      );
+    }
+
     return Tooltip(
       message: 'Downloaded • Available Offline',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFF059669),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF059669).withValues(alpha: 0.4),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white, size: 11),
-            SizedBox(width: 3),
-            Text(
-              'Offline',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: badge,
     );
   }
 }

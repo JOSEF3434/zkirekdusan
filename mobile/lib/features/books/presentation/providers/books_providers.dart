@@ -441,6 +441,9 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
       errors: state.errors,
       lastResults: newResults,
     );
+    _ref?.invalidate(isBookDownloadedProvider(bookId));
+    _ref?.invalidate(downloadedBooksStreamProvider);
+    _ref?.invalidate(allDownloadsStreamProvider);
   }
 
   void clearError(String bookId) {

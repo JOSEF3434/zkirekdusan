@@ -171,7 +171,8 @@ class DownloadedBooksDao extends DatabaseAccessor<AppDatabase>
     }
     return (delete(localDownloadedBooks)
           ..where((t) =>
-              t.bookId.equals(bookId) & t.userId.equals(userId)))
+              t.bookId.equals(bookId) &
+              (t.userId.equals(userId) | t.userId.equals('guest'))))
         .go();
   }
 
@@ -439,7 +440,15 @@ class _WebDownloadedBooksManager {
   static Future<int> deleteRecord(String bookId, String userId) async {
     final cache = await _ensureLoaded();
     final key = _key(userId, bookId);
-    final removed = cache.remove(key) != null || cache.remove(_key('guest', bookId)) != null;
+    bool removed = cache.remove(key) != null;
+    removed = cache.remove(_key('guest', bookId)) != null || removed;
+    final otherKeys = cache.keys
+        .where((k) => k.endsWith('_$bookId') || k == bookId)
+        .toList();
+    for (final k in otherKeys) {
+      cache.remove(k);
+      removed = true;
+    }
     if (removed) {
       await _persist();
       return 1;
