@@ -53,41 +53,46 @@ class Alephat22View extends ConsumerWidget {
           ),
 
         // Search & Filter header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: SearchBar(
-                  hintText: 'በፊደል፣ በርዕስ ወይም በማብራሪያ ፈልግ...',
-                  leading: const Icon(Icons.search, size: 20),
-                  padding: const WidgetStatePropertyAll(
-                    EdgeInsets.symmetric(horizontal: 14),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SearchBar(
+                      hintText: 'በፊደል፣ በርዕስ ወይም በማብራሪያ ፈልግ...',
+                      leading: const Icon(Icons.search, size: 20),
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      elevation: const WidgetStatePropertyAll(0),
+                      backgroundColor: WidgetStatePropertyAll(
+                        theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                      ),
+                      onChanged: (val) {
+                        ref.read(alephat22SearchProvider.notifier).state = val;
+                      },
+                    ),
                   ),
-                  elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor: WidgetStatePropertyAll(
-                    theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                  ),
-                  onChanged: (val) {
-                    ref.read(alephat22SearchProvider.notifier).state = val;
-                  },
-                ),
+                  if (perms.canManageAlephat) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      icon: const Icon(Icons.add),
+                      tooltip: tr('alephat.add_22', {'fallback': 'አዲስ መዝግብ'}),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => const Manage22Dialog(),
+                        );
+                      },
+                    ),
+                  ],
+                ],
               ),
-              if (perms.canManageAlephat) ...[
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  icon: const Icon(Icons.add),
-                  tooltip: tr('alephat.add_22', {'fallback': 'አዲስ መዝግብ'}),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => const Manage22Dialog(),
-                    );
-                  },
-                ),
-              ],
-            ],
+            ),
           ),
         ),
 

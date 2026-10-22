@@ -55,8 +55,13 @@ class LetterInfoPanel extends ConsumerWidget {
         ? (selectedMember.pronunciation ?? letter.pronunciationGuide)
         : letter.pronunciationGuide;
 
+    final isLargeScreen = MediaQuery.sizeOf(context).width >= 720;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: EdgeInsets.symmetric(
+        horizontal: isLargeScreen ? 0 : 16,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),

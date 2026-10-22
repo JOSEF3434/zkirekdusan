@@ -8,6 +8,7 @@ import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_letter_model.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_22_model.dart';
+import 'package:mobile/features/calendar/alephat/data/alephat_seed_data.dart';
 
 final alephatRepositoryProvider = Provider<AlephatRepository>((ref) {
   final dio = ref.watch(apiClientProvider);
@@ -66,7 +67,10 @@ class AlephatRepository {
       developer.log('Error reading cached letters: $e',
           name: 'AlephatRepository');
     }
-    return [];
+    // When local storage has no cached letters yet, populate with initial seed data
+    final seeds = AlephatSeedData.getInitialLetters();
+    saveCachedLetters(seeds);
+    return seeds;
   }
 
   Future<void> saveCachedLetters(List<AlephatLetterModel> letters) async {
@@ -100,7 +104,10 @@ class AlephatRepository {
       developer.log('Error reading cached 22 list: $e',
           name: 'AlephatRepository');
     }
-    return [];
+    // When local storage has no cached 22 entries yet, populate with initial seed data
+    final seeds = AlephatSeedData.getInitial22List();
+    saveCached22List(seeds);
+    return seeds;
   }
 
   Future<void> saveCached22List(List<Alephat22Model> list) async {
@@ -116,13 +123,13 @@ class AlephatRepository {
   }
 
   Future<bool> hasCachedLetters() async {
-    final letters = await getCachedLetters();
-    return letters.isNotEmpty;
+    final prefs = await _getPrefs();
+    return prefs.containsKey(_keyCachedLetters);
   }
 
   Future<bool> hasCached22() async {
-    final list = await getCached22List();
-    return list.isNotEmpty;
+    final prefs = await _getPrefs();
+    return prefs.containsKey(_keyCached22);
   }
 
   Future<DateTime?> getLastSyncTime() async {
@@ -243,9 +250,7 @@ class AlephatRepository {
         return cached;
       }
 
-      // No cache exists and remote failed: rethrow so UI can guide the user
-      // that an initial network connection is required.
-      rethrow;
+      return await getCachedLetters();
     }
 
     return cached;
@@ -463,8 +468,7 @@ class AlephatRepository {
         return cached;
       }
 
-      // No cache and remote failed: rethrow for first-launch explanation
-      rethrow;
+      return await getCached22List();
     }
 
     return cached;

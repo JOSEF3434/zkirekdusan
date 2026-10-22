@@ -36,11 +36,19 @@ class CalendarScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(54),
+        preferredSize: const Size.fromHeight(66),
         child: SafeArea(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SegmentedButton<int>(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 620),
+              child: Container(
+                margin: const EdgeInsets.only(
+                  top: 10,
+                  bottom: 6,
+                  left: 20,
+                  right: 20,
+                ),
+                child: SegmentedButton<int>(
               segments: [
                 ButtonSegment<int>(
                   value: 0,
@@ -87,7 +95,9 @@ class CalendarScreen extends ConsumerWidget {
           ),
         ),
       ),
-      body: topTab == 0
+    ),
+  ),
+  body: topTab == 0
           ? RefreshIndicator(
               onRefresh: () async {
                 // Trigger manual sync

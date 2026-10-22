@@ -41,11 +41,15 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
     final selectedOrder = ref.watch(selectedFamilyMemberOrderProvider);
     final tr = ref.watch(trProvider);
 
+    final isLargeScreen = MediaQuery.sizeOf(context).width >= 720;
     final members = widget.letter.familyMembers;
 
     if (members.isEmpty) {
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: EdgeInsets.symmetric(
+          horizontal: isLargeScreen ? 0 : 16,
+          vertical: 12,
+        ),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerLow,
@@ -68,7 +72,10 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          padding: EdgeInsets.symmetric(
+            horizontal: isLargeScreen ? 4 : 20,
+            vertical: 6,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -119,7 +126,9 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isLargeScreen ? 0 : 14,
+                ),
                 itemCount: members.length,
                 itemBuilder: (context, index) {
                   final member = members[index];

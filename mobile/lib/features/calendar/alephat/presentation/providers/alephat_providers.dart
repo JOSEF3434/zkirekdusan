@@ -41,8 +41,8 @@ class AlephatLayoutNotifier extends StateNotifier<AlephatLayoutMode> {
 
   static AlephatLayoutMode _loadInitialMode(SharedPreferences? prefs) {
     final saved = prefs?.getString(_prefKey);
-    if (saved == 'grid') return AlephatLayoutMode.grid;
-    return AlephatLayoutMode.horizontal;
+    if (saved == 'horizontal') return AlephatLayoutMode.horizontal;
+    return AlephatLayoutMode.grid;
   }
 
   Future<void> setLayoutMode(AlephatLayoutMode mode) async {

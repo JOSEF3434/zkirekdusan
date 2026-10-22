@@ -23,44 +23,54 @@ class AlephatLearningView extends ConsumerWidget {
     return Column(
       children: [
         // 2. Nested Two Tabs selector (Letter Families vs 22 Alephats)
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color:
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildNestedTabButton(
-                  context: context,
-                  title: tr('alephat.tab_letters', {'fallback': 'ፊደላት'}),
-                  subtitle:
-                      tr('alephat.tab_letters_sub', {'fallback': 'የፊደል ቤተሰቦች'}),
-                  icon: Icons.font_download_outlined,
-                  isActive: activeTab == 0,
-                  onTap: () {
-                    ref.read(alephatNestedTabProvider.notifier).state = 0;
-                  },
-                ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Container(
+              margin: const EdgeInsets.only(
+                top: 8,
+                bottom: 8,
+                left: 20,
+                right: 20,
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildNestedTabButton(
-                  context: context,
-                  title: tr('alephat.tab_22', {'fallback': '22 አሌፋት'}),
-                  subtitle:
-                      tr('alephat.tab_22_sub', {'fallback': 'ምስጢረ አሌፋት'}),
-                  icon: Icons.menu_book_outlined,
-                  isActive: activeTab == 1,
-                  onTap: () {
-                    ref.read(alephatNestedTabProvider.notifier).state = 1;
-                  },
-                ),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildNestedTabButton(
+                      context: context,
+                      title: tr('alephat.tab_letters', {'fallback': 'ፊደላት'}),
+                      subtitle: tr('alephat.tab_letters_sub',
+                          {'fallback': 'የፊደል ቤተሰቦች'}),
+                      icon: Icons.font_download_outlined,
+                      isActive: activeTab == 0,
+                      onTap: () {
+                        ref.read(alephatNestedTabProvider.notifier).state = 0;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildNestedTabButton(
+                      context: context,
+                      title: tr('alephat.tab_22', {'fallback': '22 አሌፋት'}),
+                      subtitle:
+                          tr('alephat.tab_22_sub', {'fallback': 'ምስጢረ አሌፋት'}),
+                      icon: Icons.menu_book_outlined,
+                      isActive: activeTab == 1,
+                      onTap: () {
+                        ref.read(alephatNestedTabProvider.notifier).state = 1;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
 
@@ -240,6 +250,8 @@ class _LetterFamiliesContent extends ConsumerWidget {
           }
         }
 
+        final isLargeScreen = MediaQuery.sizeOf(context).width >= 720;
+
         return Column(
           children: [
             // Subtle offline sync indicator banner
@@ -282,17 +294,31 @@ class _LetterFamiliesContent extends ConsumerWidget {
                     parent: BouncingScrollPhysics(),
                   ),
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 3. Information Card (Amharic character, transliteration, meaning/note)
-                      LetterInfoPanel(letter: selectedLetter),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1100),
+                      child: Container(
+                        margin: isLargeScreen
+                            ? const EdgeInsets.only(
+                                left: 24,
+                                right: 24,
+                                top: 6,
+                              )
+                            : EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // 3. Information Card (Amharic character, transliteration, meaning/note)
+                            LetterInfoPanel(letter: selectedLetter),
 
-                      // 4. Configured Letter Family Display
-                      LetterFamilyDisplay(letter: selectedLetter),
+                            // 4. Configured Letter Family Display
+                            LetterFamilyDisplay(letter: selectedLetter),
 
-                      const SizedBox(height: 12),
-                    ],
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -301,25 +327,45 @@ class _LetterFamiliesContent extends ConsumerWidget {
             // 5. Letter selector dock at the bottom of the learning content
             SafeArea(
               top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      offset: const Offset(0, -2),
-                      blurRadius: 6,
+              bottom: !isLargeScreen,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Container(
+                    margin: isLargeScreen
+                        ? const EdgeInsets.only(
+                            left: 24,
+                            right: 24,
+                            bottom: 20,
+                            top: 6,
+                          )
+                        : EdgeInsets.zero,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius:
+                          isLargeScreen ? BorderRadius.circular(16) : null,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                              alpha: isLargeScreen ? 0.2 : 0.12),
+                          offset: const Offset(0, -2),
+                          blurRadius: isLargeScreen ? 10 : 6,
+                        ),
+                      ],
+                      border: isLargeScreen
+                          ? Border.all(
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.35),
+                            )
+                          : Border(
+                              top: BorderSide(
+                                color: theme.colorScheme.outlineVariant
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
                     ),
-                  ],
-                  border: Border(
-                    top: BorderSide(
-                      color: theme.colorScheme.outlineVariant
-                          .withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Column(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -427,8 +473,10 @@ class _LetterFamiliesContent extends ConsumerWidget {
                 ),
               ),
             ),
-          ],
-        );
+          ),
+        ),
+      ],
+    );
       },
     );
   }

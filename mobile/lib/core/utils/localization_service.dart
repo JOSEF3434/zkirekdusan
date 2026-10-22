@@ -43,7 +43,13 @@ class LocalizationService {
     if (text.isEmpty) {
       final enMap = _localizedStrings['en'];
       if (enMap != null && enMap.containsKey(key)) {
-        text = enMap[key]?.toString() ?? key;
+        text = enMap[key]?.toString() ?? '';
+      }
+    }
+    // Fallback to provided args fallback if key is missing in active locale and English
+    if (text.isEmpty) {
+      if (args != null && args.containsKey('fallback')) {
+        text = args['fallback']?.toString() ?? key;
       } else {
         text = key;
       }

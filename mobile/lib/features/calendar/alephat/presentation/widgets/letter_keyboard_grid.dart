@@ -18,10 +18,9 @@ class LetterKeyboardGrid extends ConsumerWidget {
 
   int _calculateColumnCount(double width) {
     if (width < 360) return 6;
-    if (width < 520) return 7;
+    if (width < 540) return 7;
     if (width < 720) return 9;
-    if (width < 1000) return 11;
-    return 17;
+    return 11; // 11 columns on large screens/web displays 33 letters in exactly 3 rows (11 x 3 = 33)
   }
 
   @override
@@ -37,18 +36,21 @@ class LetterKeyboardGrid extends ConsumerWidget {
         final crossAxisCount = _calculateColumnCount(width);
         final isMobileWidth = width < 720;
         final totalItemCount = letters.length + (perms.canManageAlephat ? 1 : 0);
+        final rowCount = (totalItemCount / crossAxisCount).ceil();
+        final double itemHeight = isMobileWidth ? 46.0 : 48.0;
+        final double spacing = 5.0;
+        final double totalGridHeight =
+            (rowCount * itemHeight) + ((rowCount - 1) * spacing) + 12.0;
 
         Widget gridContent = GridView.builder(
-          physics: isMobileWidth
-              ? const BouncingScrollPhysics()
-              : const NeverScrollableScrollPhysics(),
-          shrinkWrap: !isMobileWidth,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
-            mainAxisExtent: isMobileWidth ? 48 : 52,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            mainAxisExtent: itemHeight,
           ),
           itemCount: totalItemCount,
           itemBuilder: (context, index) {
@@ -173,19 +175,12 @@ class LetterKeyboardGrid extends ConsumerWidget {
           },
         );
 
-        if (isMobileWidth) {
-          return SizedBox(
-            height: 210,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: gridContent,
-            ),
-          );
-        }
-
-        return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: gridContent,
+        return SizedBox(
+          height: totalGridHeight,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: gridContent,
+          ),
         );
       },
     );
