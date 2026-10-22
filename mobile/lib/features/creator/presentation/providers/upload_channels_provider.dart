@@ -152,44 +152,58 @@ class UploadChannelsNotifier extends StateNotifier<UploadChannelsState> {
       await Future.wait(
         activeGroups.map((group) async {
           try {
-            var channels = await _repository.getGroupVideoChannels(group.id);
+            final channels = await _repository.getGroupVideoChannels(group.id);
 
-            // If group doesn't have video channels yet, auto-provision on the fly
-            if (channels.isEmpty) {
-              try {
-                final baseHandle = group.slug
-                    .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
-                    .toLowerCase();
-                final rawHandle =
-                    '@${baseHandle.isNotEmpty ? baseHandle : 'channel'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}';
-                final handle = rawHandle.length > 30
-                    ? rawHandle.substring(0, 30)
-                    : rawHandle;
-                final newChan = await _repository.createVideoChannel(
-                  groupId: group.id,
-                  name: '${group.name} Channel',
-                  slug:
-                      '${group.slug}-${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-                  handle: handle,
-                  description: 'Official video channel for ${group.name}',
-                );
-                channels = [newChan];
-              } catch (_) {
-                // Ignore transient creation errors, will fallback to group item
+            final validChannels = channels.where((channel) {
+              return channel.status == ChannelStatus.active &&
+                  _permissionService.canUploadToChannel(group, channel);
+            }).toList();
+
+            // Detect and clean up duplicate auto-generated empty channels
+            if (validChannels.length > 1) {
+              final autoSlugPattern = RegExp(
+                r'^' + RegExp.escape(group.slug) + r'-\d+$',
+                caseSensitive: false,
+              );
+              final autoHandlePattern = RegExp(
+                r'^@?' +
+                    RegExp.escape(group.slug.replaceAll('-', '_')) +
+                    r'_\d+$',
+                caseSensitive: false,
+              );
+
+              final autoChannels = validChannels.where((c) {
+                final isAuto = autoSlugPattern.hasMatch(c.slug) ||
+                    autoHandlePattern.hasMatch(c.handle);
+                return isAuto && c.videosCount == 0;
+              }).toList();
+
+              // If multiple auto-generated duplicates exist, keep the oldest/first and clean up the rest
+              if (autoChannels.length > 1) {
+                final duplicatesToDelete = autoChannels.skip(1).toList();
+
+                for (final dup in duplicatesToDelete) {
+                  validChannels.removeWhere((c) => c.id == dup.id);
+                  // Soft-delete on the server asynchronously in the background
+                  _repository
+                      .deleteVideoChannel(groupId: group.id, channelId: dup.id)
+                      .catchError((e) {
+                    developer.log(
+                      '[UploadChannelsNotifier] Failed to prune duplicate channel ${dup.id}: $e',
+                    );
+                  });
+                }
               }
             }
 
-            if (channels.isNotEmpty) {
-              for (final channel in channels) {
-                if (channel.status == ChannelStatus.active &&
-                    _permissionService.canUploadToChannel(group, channel)) {
-                  permittedChannels.add(
-                    PermittedUploadChannel(group: group, channel: channel),
-                  );
-                }
+            if (validChannels.isNotEmpty) {
+              for (final channel in validChannels) {
+                permittedChannels.add(
+                  PermittedUploadChannel(group: group, channel: channel),
+                );
               }
             } else {
-              // Always guarantee the user's active group is shown as a channel!
+              // Always guarantee the user's active group is shown as an option
               permittedChannels.add(
                 PermittedUploadChannel(group: group, channel: null),
               );
@@ -200,7 +214,6 @@ class UploadChannelsNotifier extends StateNotifier<UploadChannelsState> {
               error: e,
               stackTrace: st,
             );
-            // Even if query fails, ensure user can see and select their active channel
             permittedChannels.add(
               PermittedUploadChannel(group: group, channel: null),
             );
@@ -236,7 +249,7 @@ class UploadChannelsNotifier extends StateNotifier<UploadChannelsState> {
       return item.toVideoChannelDto();
     }
 
-    // Attempt to query or provision
+    // If channel is null, query existing channels for the group without creating duplicates
     try {
       final channels = await _repository.getGroupVideoChannels(item.group.id);
       if (channels.isNotEmpty) {
@@ -247,28 +260,25 @@ class UploadChannelsNotifier extends StateNotifier<UploadChannelsState> {
       }
     } catch (_) {}
 
+    return item.toVideoChannelDto();
+  }
+
+  /// Deletes a channel from the group and removes it from state
+  Future<void> deleteChannel(PermittedUploadChannel item) async {
+    if (item.channel == null) return;
     try {
-      final baseHandle = item.group.slug
-          .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
-          .toLowerCase();
-      final rawHandle =
-          '@${baseHandle.isNotEmpty ? baseHandle : 'channel'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}';
-      final handle =
-          rawHandle.length > 30 ? rawHandle.substring(0, 30) : rawHandle;
-      final newChan = await _repository.createVideoChannel(
+      await _repository.deleteVideoChannel(
         groupId: item.group.id,
-        name: '${item.group.name} Channel',
-        slug:
-            '${item.group.slug}-${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-        handle: handle,
-        description: 'Official video channel for ${item.group.name}',
+        channelId: item.channel!.id,
       );
-      return PermittedUploadChannel(
-        group: item.group,
-        channel: newChan,
-      ).toVideoChannelDto();
-    } catch (_) {
-      return item.toVideoChannelDto();
+      state = state.copyWith(
+        channels: state.channels
+            .where((c) => c.channel?.id != item.channel!.id)
+            .toList(),
+      );
+    } catch (e) {
+      developer.log('[UploadChannelsNotifier] Failed to delete channel: $e');
+      rethrow;
     }
   }
 

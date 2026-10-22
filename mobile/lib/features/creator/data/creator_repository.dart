@@ -130,6 +130,14 @@ class CreatorRepository {
     final data = parseEnvelope(response.data);
     return CreatorChannelDto.fromJson(data);
   }
+
+  /// Delete (archive) a video channel
+  Future<void> deleteVideoChannel({
+    required String groupId,
+    required String channelId,
+  }) async {
+    await _dio.delete('/groups/$groupId/video-channels/$channelId');
+  }
 }
 
 class PaginatedCreatorGroups {

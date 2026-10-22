@@ -1213,12 +1213,59 @@ class _ChannelPickerSheet extends ConsumerWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      trailing: isSelected
-                          ? Icon(
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) ...[
+                            Icon(
                               Icons.check_circle,
                               color: theme.colorScheme.primary,
-                            )
-                          : null,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          if (item.channel != null)
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                                color: theme.colorScheme.error
+                                    .withValues(alpha: 0.6),
+                              ),
+                              tooltip: 'Delete Channel',
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete Channel'),
+                                    content: Text(
+                                      'Are you sure you want to delete "${item.displayName}"?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                        ),
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await ref
+                                      .read(uploadChannelsProvider(null).notifier)
+                                      .deleteChannel(item);
+                                }
+                              },
+                            ),
+                        ],
+                      ),
                       onTap: () async {
                         final groupDto = item.toGroupDto();
                         final channelDto = await ref

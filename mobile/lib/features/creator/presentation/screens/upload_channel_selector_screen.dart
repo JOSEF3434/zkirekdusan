@@ -248,6 +248,44 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              if (item.channel != null)
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: theme.colorScheme.error.withValues(alpha: 0.7),
+                  ),
+                  tooltip: 'Delete Channel',
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Channel'),
+                        content: Text(
+                          'Are you sure you want to delete "${item.displayName}"?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await ref
+                          .read(uploadChannelsProvider(initialGroupId).notifier)
+                          .deleteChannel(item);
+                    }
+                  },
+                ),
               FilledButton.tonalIcon(
                 onPressed: handleSelect,
                 icon: const Icon(Icons.cloud_upload_outlined, size: 18),
