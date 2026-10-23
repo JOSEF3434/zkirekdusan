@@ -113,11 +113,20 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
     final group = item.group;
     final channel = item.channel;
     final title = item.displayName;
-    final subtitle = (channel != null && channel.name != group.name)
-        ? group.name
-        : (group.description != null && group.description!.isNotEmpty
-              ? group.description!
-              : 'Active channel ready for upload');
+    final String subtitle;
+    if (channel != null && channel.handle.isNotEmpty) {
+      subtitle = channel.handle.startsWith('@')
+          ? channel.handle
+          : '@${channel.handle}';
+    } else if (group.name != title) {
+      subtitle = group.name;
+    } else if (group.description != null &&
+        group.description!.isNotEmpty &&
+        group.description != title) {
+      subtitle = group.description!;
+    } else {
+      subtitle = '';
+    }
 
     final avatarLetter = title.isNotEmpty
         ? title.substring(0, 1).toUpperCase()
@@ -145,160 +154,176 @@ class UploadChannelSelectorScreen extends ConsumerWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLowest,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: handleSelect,
         child: Padding(
-          padding: const EdgeInsets.all(14.0),
-          child: Row(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage:
-                    group.avatarUrl != null && group.avatarUrl!.isNotEmpty
-                    ? NetworkImage(group.avatarUrl!)
-                    : null,
-                child: group.avatarUrl == null || group.avatarUrl!.isEmpty
-                    ? Text(
-                        avatarLetter,
-                        style: TextStyle(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
+              // Top row: Avatar, Channel Name & Handle, Delete Button
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    backgroundImage:
+                        group.avatarUrl != null && group.avatarUrl!.isNotEmpty
+                        ? NetworkImage(group.avatarUrl!)
+                        : null,
+                    child: group.avatarUrl == null || group.avatarUrl!.isEmpty
+                        ? Text(
+                            avatarLetter,
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
+                        Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.green.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 12,
-                                color: Colors.green,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Ready to upload',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        if (channel != null && channel.handle.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Text(
-                            channel.handle.startsWith('@')
-                                ? channel.handle
-                                : '@${channel.handle}',
+                            subtitle,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline,
-                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (item.channel != null)
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: theme.colorScheme.error.withValues(alpha: 0.7),
                   ),
-                  tooltip: 'Delete Channel',
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Delete Channel'),
-                        content: Text(
-                          'Are you sure you want to delete "${item.displayName}"?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancel'),
-                          ),
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.red,
+                  if (item.channel != null)
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: theme.colorScheme.error.withValues(alpha: 0.7),
+                      ),
+                      tooltip: 'Delete Channel',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Channel'),
+                            content: Text(
+                              'Are you sure you want to delete "${item.displayName}"?',
                             ),
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Delete'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await ref
+                              .read(uploadChannelsProvider(initialGroupId).notifier)
+                              .deleteChannel(item);
+                        }
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 12),
+              // Bottom row: Status Badge + Select Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 13,
+                            color: Colors.green,
+                          ),
+                          SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              'Ready to upload',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
-                    );
-                    if (confirm == true) {
-                      await ref
-                          .read(uploadChannelsProvider(initialGroupId).notifier)
-                          .deleteChannel(item);
-                    }
-                  },
-                ),
-              FilledButton.tonalIcon(
-                onPressed: handleSelect,
-                icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                label: Consumer(
-                  builder: (context, ref, _) =>
-                      Text(ref.watch(trProvider)('creator.select_btn')),
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: handleSelect,
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                    label: Consumer(
+                      builder: (context, ref, _) =>
+                          Text(ref.watch(trProvider)('creator.select_btn')),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
