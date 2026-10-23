@@ -582,13 +582,57 @@ class _FilterMenuButton extends ConsumerWidget {
   }
 }
 
-class _FilterSheet extends ConsumerWidget {
+class _FilterSheet extends ConsumerStatefulWidget {
   final LibraryFilter currentFilter;
   const _FilterSheet({required this.currentFilter});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends ConsumerState<_FilterSheet> {
+  late LibraryFilter _activeFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeFilter = widget.currentFilter;
+  }
+
+  void _onFormatSelected(String? format) {
+    final newFilter = _activeFilter.copyWith(
+      format: format,
+      clearFormat: format == null,
+    );
+    setState(() => _activeFilter = newFilter);
+    ref.read(libraryProvider.notifier).applyFilter(newFilter);
+  }
+
+  void _onLanguageSelected(String? language) {
+    final newFilter = _activeFilter.copyWith(
+      language: language,
+      clearLanguage: language == null,
+    );
+    setState(() => _activeFilter = newFilter);
+    ref.read(libraryProvider.notifier).applyFilter(newFilter);
+  }
+
+  void _onSortSelected(String sortBy) {
+    final newFilter = _activeFilter.copyWith(sortBy: sortBy);
+    setState(() => _activeFilter = newFilter);
+    ref.read(libraryProvider.notifier).applyFilter(newFilter);
+  }
+
+  void _onReset() {
+    const defaultFilter = LibraryFilter();
+    setState(() => _activeFilter = defaultFilter);
+    ref.read(libraryProvider.notifier).applyFilter(defaultFilter);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currentFilter = _activeFilter;
 
     final formats = [
       (null, 'All Formats'),
@@ -636,16 +680,13 @@ class _FilterSheet extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Filter & Sort',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'Filter & Sort',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 TextButton(
-                  onPressed: () {
-                    ref.read(libraryProvider.notifier).applyFilter(
-                          const LibraryFilter(),
-                        );
-                    Navigator.pop(context);
-                  },
+                  onPressed: _onReset,
                   child: const Text('Reset'),
                 ),
               ],
@@ -656,59 +697,92 @@ class _FilterSheet extends ConsumerWidget {
               controller: sc,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
-                _Section(title: 'Format', children: [
-                  Wrap(
-                    spacing: 8,
-                    children: formats.map((f) {
-                      final isSelected = currentFilter.format == f.$1;
-                      return FilterChip(
-                        label: Text(f.$2),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          ref.read(libraryProvider.notifier).applyFilter(
-                                currentFilter.copyWith(format: f.$1),
-                              );
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ]),
+                _Section(
+                  title: 'Format',
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: formats.map((f) {
+                        final isSelected = currentFilter.format == f.$1;
+                        return FilterChip(
+                          label: Text(f.$2),
+                          selected: isSelected,
+                          showCheckmark: true,
+                          checkmarkColor: Colors.white,
+                          selectedColor: const Color(0xFF14B8A6),
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : theme.colorScheme.onSurface,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (_) => _onFormatSelected(f.$1),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                _Section(title: 'Language', children: [
-                  Wrap(
-                    spacing: 8,
-                    children: languages.map((l) {
-                      final isSelected = currentFilter.language == l.$1;
-                      return FilterChip(
-                        label: Text(l.$2),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          ref.read(libraryProvider.notifier).applyFilter(
-                                currentFilter.copyWith(language: l.$1),
-                              );
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ]),
+                _Section(
+                  title: 'Language',
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: languages.map((l) {
+                        final isSelected = currentFilter.language == l.$1;
+                        return FilterChip(
+                          label: Text(l.$2),
+                          selected: isSelected,
+                          showCheckmark: true,
+                          checkmarkColor: Colors.white,
+                          selectedColor: const Color(0xFF14B8A6),
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : theme.colorScheme.onSurface,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (_) => _onLanguageSelected(l.$1),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                _Section(title: 'Sort By', children: [
-                  Wrap(
-                    spacing: 8,
-                    children: sorts.map((s) {
-                      final isSelected = currentFilter.sortBy == s.$1;
-                      return ChoiceChip(
-                        label: Text(s.$2),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          ref.read(libraryProvider.notifier).applyFilter(
-                                currentFilter.copyWith(sortBy: s.$1),
-                              );
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ]),
+                _Section(
+                  title: 'Sort By',
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: sorts.map((s) {
+                        final isSelected = currentFilter.sortBy == s.$1;
+                        return ChoiceChip(
+                          label: Text(s.$2),
+                          selected: isSelected,
+                          showCheckmark: true,
+                          checkmarkColor: Colors.white,
+                          selectedColor: const Color(0xFF14B8A6),
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : theme.colorScheme.onSurface,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          onSelected: (_) => _onSortSelected(s.$1),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
               ],
             ),
@@ -848,6 +922,7 @@ class _BookGrid extends ConsumerWidget {
             final book = books[i];
             return BookCard(
               book: book,
+              isDownloadedTab: isDownloadedTab,
               onCoverTap: () {
                 if (book.isReadable) {
                   context.push(
@@ -911,6 +986,7 @@ class _BookList extends ConsumerWidget {
           book: book,
           isAuth: isAuth,
           userId: userId,
+          isDownloadedTab: isDownloadedTab,
           onCoverTap: () {
             if (book.isReadable) {
               context.push(
@@ -946,6 +1022,7 @@ class _BookListTile extends ConsumerWidget {
   final VoidCallback? onDownload;
   final bool isAuth;
   final String? userId;
+  final bool isDownloadedTab;
 
   const _BookListTile({
     required this.book,
@@ -955,14 +1032,18 @@ class _BookListTile extends ConsumerWidget {
     this.onDownload,
     required this.isAuth,
     this.userId,
+    this.isDownloadedTab = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
-    final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
     final downloadState = ref.watch(downloadsNotifierProvider);
+    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
+    final isJustDownloaded = downloadState.lastResults[book.id]?.success == true;
+    final isDownloaded = isDownloadedTab ||
+        isJustDownloaded ||
+        (isDownloadedAsync.valueOrNull ?? false);
     final isActive = downloadState.activeProgress.containsKey(book.id);
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
 
@@ -1047,7 +1128,7 @@ class _BookListTile extends ConsumerWidget {
                           onTap: () => _confirmRemoveDownload(context, ref, book),
                           borderRadius: BorderRadius.circular(6),
                           child: Tooltip(
-                            message: 'Downloaded • Tap to remove from offline',
+                            message: 'Downloaded • Tap to delete from local storage',
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
@@ -1063,7 +1144,7 @@ class _BookListTile extends ConsumerWidget {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.check_circle_rounded,
+                                  Icon(Icons.delete_outline_rounded,
                                       size: 11, color: Color(0xFF059669)),
                                   SizedBox(width: 3),
                                   Text(
@@ -1156,31 +1237,15 @@ class _BookListTile extends ConsumerWidget {
                 ),
               )
             else if (isDownloaded)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Tooltip(
-                      message: 'Downloaded (Offline Ready)',
-                      child: Icon(
-                        Icons.check_circle_rounded,
-                        color: Color(0xFF059669),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      color: Colors.red.shade400,
-                      size: 20,
-                    ),
-                    tooltip: 'Delete download (switch back to online mode)',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _confirmRemoveDownload(context, ref, book),
-                  ),
-                ],
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 22,
+                ),
+                tooltip: 'Delete downloaded book from local storage',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _confirmRemoveDownload(context, ref, book),
               )
             else if (onDownload != null)
               IconButton(
@@ -1207,19 +1272,19 @@ class _BookListTile extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Downloaded Book'),
         content: Text(
-          'Remove "${book.title}" from offline downloads? The offline copy will be deleted and the book will return to online streaming mode.',
+          'Do you want to delete "${book.title}" from local storage? This will remove the offline copy from your device and return the book to online mode.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               final auth = ref.read(authProvider);
               final effectiveUserId = userId ?? auth.user?.id ?? 'guest';
               await ref
@@ -1227,11 +1292,12 @@ class _BookListTile extends ConsumerWidget {
                   .removeDownload(book.id, effectiveUserId);
               ref.invalidate(isBookDownloadedProvider(book.id));
               ref.invalidate(downloadedBooksStreamProvider);
+              ref.invalidate(allDownloadsStreamProvider);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Removed "${book.title}" from offline downloads. Switched back to online mode.',
+                      'Deleted "${book.title}" from local storage. Switched back to online mode.',
                     ),
                     duration: const Duration(seconds: 2),
                   ),
@@ -1239,7 +1305,7 @@ class _BookListTile extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Delete & Return to Online'),
+            label: const Text('Delete from Local Storage'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
           ),
         ],

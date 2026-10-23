@@ -69,7 +69,9 @@ class LibraryFilter {
     bool clearCategory = false,
     String? search,
     String? format,
+    bool clearFormat = false,
     String? language,
+    bool clearLanguage = false,
     String? sortBy,
     String? sortDir,
     String? downloadFilter,
@@ -77,8 +79,8 @@ class LibraryFilter {
     return LibraryFilter(
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       search: search ?? this.search,
-      format: format ?? this.format,
-      language: language ?? this.language,
+      format: clearFormat ? null : (format ?? this.format),
+      language: clearLanguage ? null : (language ?? this.language),
       sortBy: sortBy ?? this.sortBy,
       sortDir: sortDir ?? this.sortDir,
       downloadFilter: downloadFilter ?? this.downloadFilter,
@@ -383,6 +385,9 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
         errors: state.errors,
         lastResults: newResults,
       );
+      _ref?.invalidate(isBookDownloadedProvider(book.id));
+      _ref?.invalidate(downloadedBooksStreamProvider);
+      _ref?.invalidate(allDownloadsStreamProvider);
     } else {
       state = DownloadState(
         activeProgress: newActive,
@@ -407,6 +412,9 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
           errors: errs,
           lastResults: newResults,
         );
+        _ref?.invalidate(isBookDownloadedProvider(book.id));
+        _ref?.invalidate(downloadedBooksStreamProvider);
+        _ref?.invalidate(allDownloadsStreamProvider);
       } else {
         state = DownloadState(
           activeProgress: state.activeProgress,

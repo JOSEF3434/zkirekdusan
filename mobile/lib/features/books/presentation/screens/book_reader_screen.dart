@@ -305,31 +305,32 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     if (isDownloaded) {
       showDialog(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Downloaded Book Options'),
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Delete Downloaded Book'),
           content: Text(
-            '"${_book!.title}" is currently downloaded for offline reading. Would you like to remove the offline download and switch back to online mode?',
+            'Do you want to delete "${_book!.title}" from local storage? This will remove the offline copy from your device and return the book to online mode.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Keep Offline'),
             ),
             FilledButton.icon(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.of(dialogContext).pop();
                 final userId = _currentUserId ?? 'guest';
                 await ref
                     .read(downloadsNotifierProvider.notifier)
                     .removeDownload(widget.bookId, userId);
                 ref.invalidate(isBookDownloadedProvider(widget.bookId));
                 ref.invalidate(downloadedBooksStreamProvider);
+                ref.invalidate(allDownloadsStreamProvider);
                 if (mounted) {
                   setState(() {});
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Removed "${_book!.title}" from offline downloads. Switched back to online mode.',
+                        'Deleted "${_book!.title}" from local storage. Switched back to online mode.',
                       ),
                       duration: const Duration(seconds: 2),
                     ),
@@ -337,7 +338,7 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
                 }
               },
               icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Remove & Return to Online'),
+              label: const Text('Delete from Local Storage'),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
@@ -360,10 +361,12 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     _captureDependencies();
     final theme = Theme.of(context);
     final prefs = ref.watch(readingPrefsProvider);
-    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(widget.bookId));
-    final isDownloaded =
-        widget.isDownloaded || (isDownloadedAsync.valueOrNull ?? false);
     final downloadState = ref.watch(downloadsNotifierProvider);
+    final isDownloadedAsync = ref.watch(isBookDownloadedProvider(widget.bookId));
+    final isJustDownloaded = downloadState.lastResults[widget.bookId]?.success == true;
+    final isDownloaded = widget.isDownloaded ||
+        isJustDownloaded ||
+        (isDownloadedAsync.valueOrNull ?? false);
     final isDownloading = downloadState.activeProgress.containsKey(widget.bookId);
     final downloadProgress = downloadState.activeProgress[widget.bookId] ?? 0.0;
 

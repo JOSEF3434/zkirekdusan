@@ -25,7 +25,10 @@ class BookCard extends ConsumerWidget {
     this.onDownload,
     this.onDeleteDownload,
     this.compact = false,
+    this.isDownloadedTab = false,
   });
+
+  final bool isDownloadedTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +37,10 @@ class BookCard extends ConsumerWidget {
     final isActiveDownload = downloadState.activeProgress.containsKey(book.id);
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
-    final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
+    final isJustDownloaded = downloadState.lastResults[book.id]?.success == true;
+    final isDownloaded = isDownloadedTab ||
+        isJustDownloaded ||
+        (isDownloadedAsync.valueOrNull ?? false);
     final deleteAction = onDeleteDownload ??
         () => _confirmRemoveDownload(context, ref, book);
 
@@ -184,19 +190,19 @@ class BookCard extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove Download'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Downloaded Book'),
         content: Text(
-          'Remove "${book.title}" from downloaded books? The offline copy will be deleted and the book will return to online streaming mode.',
+          'Do you want to delete "${book.title}" from local storage? This will remove the offline copy from your device and return the book to online mode.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               final auth = ref.read(authProvider);
               final userId = auth.user?.id ?? 'guest';
               await ref
@@ -204,11 +210,12 @@ class BookCard extends ConsumerWidget {
                   .removeDownload(book.id, userId);
               ref.invalidate(isBookDownloadedProvider(book.id));
               ref.invalidate(downloadedBooksStreamProvider);
+              ref.invalidate(allDownloadsStreamProvider);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Removed "${book.title}" from offline downloads. Switched back to online mode.',
+                      'Deleted "${book.title}" from local storage. Switched back to online mode.',
                     ),
                     duration: const Duration(seconds: 2),
                   ),
@@ -216,7 +223,7 @@ class BookCard extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Remove & Return to Online'),
+            label: const Text('Delete from Local Storage'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
           ),
         ],
@@ -321,10 +328,10 @@ class _DownloadedBadge extends StatelessWidget {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_rounded, color: Colors.white, size: 11),
+          Icon(Icons.delete_outline_rounded, color: Colors.white, size: 12),
           SizedBox(width: 3),
           Text(
-            'Offline',
+            'Downloaded',
             style: TextStyle(
               color: Colors.white,
               fontSize: 9.5,
@@ -339,9 +346,9 @@ class _DownloadedBadge extends StatelessWidget {
     if (onDelete != null) {
       return Semantics(
         button: true,
-        label: 'Remove downloaded book and switch to online mode',
+        label: 'Delete downloaded book from local storage',
         child: Tooltip(
-          message: 'Downloaded • Tap to remove from offline',
+          message: 'Downloaded • Tap to delete from local storage',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onDelete,
@@ -352,7 +359,7 @@ class _DownloadedBadge extends StatelessWidget {
     }
 
     return Tooltip(
-      message: 'Downloaded • Available Offline',
+      message: 'Downloaded • Tap to delete from local storage',
       child: badge,
     );
   }

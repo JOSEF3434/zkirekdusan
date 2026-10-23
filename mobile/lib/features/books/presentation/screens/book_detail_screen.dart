@@ -150,7 +150,9 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
         downloadState.activeProgress.containsKey(book.id);
     final progress = downloadState.activeProgress[book.id] ?? 0.0;
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(book.id));
-    final isDownloaded = isDownloadedAsync.valueOrNull ?? false;
+    final isJustDownloaded = downloadState.lastResults[book.id]?.success == true;
+    final isDownloaded =
+        isJustDownloaded || (isDownloadedAsync.valueOrNull ?? false);
     final bookPerms = ref.watch(bookPermissionsProvider);
     final lastResult = downloadState.lastResults[book.id];
 
@@ -477,29 +479,31 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
   void _showRemoveDownloadDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove Download'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Downloaded Book'),
         content: Text(
-            'Remove "${widget.book.title}" from downloaded books? The offline copy will be deleted and the book will return to online streaming mode.'),
+          'Do you want to delete "${widget.book.title}" from local storage? This will remove the offline copy from your device and return the book to online mode.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               final uid = widget.userId ?? 'guest';
               await ref
                   .read(downloadsNotifierProvider.notifier)
                   .removeDownload(widget.book.id, uid);
               ref.invalidate(isBookDownloadedProvider(widget.book.id));
               ref.invalidate(downloadedBooksStreamProvider);
+              ref.invalidate(allDownloadsStreamProvider);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Removed "${widget.book.title}" from offline downloads. Switched back to online mode.',
+                      'Deleted "${widget.book.title}" from local storage. Switched back to online mode.',
                     ),
                     duration: const Duration(seconds: 2),
                   ),
@@ -507,7 +511,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
               }
             },
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Remove & Return to Online'),
+            label: const Text('Delete from Local Storage'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
           ),
         ],
