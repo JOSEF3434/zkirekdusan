@@ -157,6 +157,7 @@ class _Manage22DialogState extends ConsumerState<Manage22Dialog> {
                 // Form fields scrollable
                 Expanded(
                   child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(top: 18, bottom: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/web_context_menu_manager.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_letter_model.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
@@ -205,23 +206,41 @@ class _LetterSelectionBarState extends ConsumerState<LetterSelectionBar> {
                                       .withValues(alpha: 0.55),
                               elevation: isSelected ? 2 : 0,
                               borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  ref
-                                      .read(selectedBaseLetterIdProvider.notifier)
-                                      .state = item.id;
-                                  ref
-                                      .read(selectedFamilyMemberOrderProvider
-                                          .notifier)
-                                      .state = null;
-                                },
-                                onLongPress: perms.canManageAlephat
-                                    ? () => LetterActionHelper
-                                        .showLetterContextMenu(
-                                            context, ref, item)
+                              child: MouseRegion(
+                                onEnter: perms.canManageAlephat
+                                    ? (_) => WebContextMenuManager
+                                        .onMessagePointerEnter()
                                     : null,
-                                child: Container(
+                                onExit: perms.canManageAlephat
+                                    ? (_) => WebContextMenuManager
+                                        .onMessagePointerExit()
+                                    : null,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () {
+                                    ref
+                                        .read(selectedBaseLetterIdProvider.notifier)
+                                        .state = item.id;
+                                    ref
+                                        .read(selectedFamilyMemberOrderProvider
+                                            .notifier)
+                                        .state = null;
+                                  },
+                                  onLongPress: perms.canManageAlephat
+                                      ? () => LetterActionHelper
+                                          .showLetterContextMenu(
+                                              context, ref, item)
+                                      : null,
+                                  onSecondaryTapDown: perms.canManageAlephat
+                                      ? (_) => WebContextMenuManager
+                                          .onSecondaryPointerDown()
+                                      : null,
+                                  onSecondaryTap: perms.canManageAlephat
+                                      ? () => LetterActionHelper
+                                          .showLetterContextMenu(
+                                              context, ref, item)
+                                      : null,
+                                  child: Container(
                                   constraints:
                                       const BoxConstraints(minWidth: 56),
                                   padding: const EdgeInsets.symmetric(
@@ -280,6 +299,7 @@ class _LetterSelectionBarState extends ConsumerState<LetterSelectionBar> {
                                     ],
                                   ),
                                 ),
+                              ),
                               ),
                             ),
                           );

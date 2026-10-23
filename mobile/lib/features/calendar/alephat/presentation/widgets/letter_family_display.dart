@@ -3,8 +3,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/web_context_menu_manager.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_letter_model.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
+import 'package:mobile/features/calendar/alephat/presentation/widgets/letter_action_helper.dart';
 import 'package:mobile/features/calendar/alephat/presentation/widgets/letter_selection_bar.dart';
 
 class LetterFamilyDisplay extends ConsumerStatefulWidget {
@@ -40,6 +43,7 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
     final theme = Theme.of(context);
     final selectedOrder = ref.watch(selectedFamilyMemberOrderProvider);
     final tr = ref.watch(trProvider);
+    final perms = ref.watch(adminPermissionsProvider);
 
     final isLargeScreen = MediaQuery.sizeOf(context).width >= 720;
     final members = widget.letter.familyMembers;
@@ -142,23 +146,46 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
                           : theme.colorScheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(14),
                       elevation: isSelected ? 3 : 0,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () {
-                          if (selectedOrder == member.orderIndex) {
-                            // Toggle off to show base letter default note
-                            ref
-                                .read(
-                                    selectedFamilyMemberOrderProvider.notifier)
-                                .state = null;
-                          } else {
-                            ref
-                                .read(
-                                    selectedFamilyMemberOrderProvider.notifier)
-                                .state = member.orderIndex;
-                          }
-                        },
-                        child: Container(
+                      child: MouseRegion(
+                        onEnter: perms.canManageAlephat
+                            ? (_) => WebContextMenuManager
+                                .onMessagePointerEnter()
+                            : null,
+                        onExit: perms.canManageAlephat
+                            ? (_) => WebContextMenuManager
+                                .onMessagePointerExit()
+                            : null,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () {
+                            if (selectedOrder == member.orderIndex) {
+                              // Toggle off to show base letter default note
+                              ref
+                                  .read(
+                                      selectedFamilyMemberOrderProvider.notifier)
+                                  .state = null;
+                            } else {
+                              ref
+                                  .read(
+                                      selectedFamilyMemberOrderProvider.notifier)
+                                  .state = member.orderIndex;
+                            }
+                          },
+                          onLongPress: perms.canManageAlephat
+                              ? () => LetterActionHelper.showLetterContextMenu(
+                                  context, ref, widget.letter,
+                                  initialTab: 1)
+                              : null,
+                          onSecondaryTapDown: perms.canManageAlephat
+                              ? (_) => WebContextMenuManager
+                                  .onSecondaryPointerDown()
+                              : null,
+                          onSecondaryTap: perms.canManageAlephat
+                              ? () => LetterActionHelper.showLetterContextMenu(
+                                  context, ref, widget.letter,
+                                  initialTab: 1)
+                              : null,
+                          child: Container(
                           width: 68,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
@@ -212,7 +239,8 @@ class _LetterFamilyDisplayState extends ConsumerState<LetterFamilyDisplay> {
                         ),
                       ),
                     ),
-                  );
+                  ),
+                );
                 },
               ),
             ),

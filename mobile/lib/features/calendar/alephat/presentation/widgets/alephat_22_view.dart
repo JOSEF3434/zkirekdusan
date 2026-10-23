@@ -1,8 +1,9 @@
-// lib/features/calendar/alephat/presentation/widgets/alephat_22_view.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/web_context_menu_manager.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/calendar/alephat/data/alephat_repository.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_22_model.dart';
@@ -244,6 +245,12 @@ class Alephat22View extends ConsumerWidget {
         onLongPress: perms.canManageAlephat
             ? () => _showContextMenu(context, ref, item, perms)
             : null,
+        onSecondaryTapDown: perms.canManageAlephat
+            ? (_) => WebContextMenuManager.onSecondaryPointerDown()
+            : null,
+        onSecondaryTap: perms.canManageAlephat
+            ? () => _showContextMenu(context, ref, item, perms)
+            : null,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -377,61 +384,130 @@ class Alephat22View extends ConsumerWidget {
     Alephat22Model item,
     AdminPermissions perms,
   ) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: CircleAvatar(child: Text(item.letter)),
-                title: Text(item.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('ተራ ቁጥር፡ #${item.order}'),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.visibility_outlined),
-                title: const Text('ሙሉ መረጃ ተመልከት'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => Alephat22DetailSheet(entry: item),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('አርትዕ'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showDialog(
-                    context: context,
-                    builder: (_) => Manage22Dialog(entry: item),
-                  );
-                },
-              ),
-              if (perms.canDeleteAlephat) ...[
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title:
-                      const Text('ሰርዝ', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _confirmDelete(context, ref, item);
-                  },
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isLargeScreenOrWeb =
+        kIsWeb || MediaQuery.sizeOf(context).width > 600;
+
+    Widget buildMenuContent(BuildContext ctx) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Text(
+                item.letter,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontFamilyFallback: const [
+                    'Noto Serif Ethiopic',
+                    'Noto Sans Ethiopic',
+                  ],
                 ),
-              ],
-            ],
+              ),
+            ),
+            title: Text(
+              item.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamilyFallback: [
+                  'Noto Serif Ethiopic',
+                  'Noto Sans Ethiopic',
+                ],
+              ),
+            ),
+            subtitle: Text('ተራ ቁጥር፡ #${item.order}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(ctx),
+            ),
           ),
-        );
-      },
-    );
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.visibility_outlined),
+            title: const Text('ሙሉ መረጃ ተመልከት'),
+            onTap: () {
+              Navigator.pop(ctx);
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => Alephat22DetailSheet(entry: item),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('አርትዕ'),
+            onTap: () {
+              Navigator.pop(ctx);
+              showDialog(
+                context: context,
+                builder: (_) => Manage22Dialog(entry: item),
+              );
+            },
+          ),
+          if (perms.canDeleteAlephat) ...[
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('ሰርዝ', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(context, ref, item);
+              },
+            ),
+          ],
+        ],
+      );
+    }
+
+    WebContextMenuManager.onCustomMenuOpened();
+
+    if (isLargeScreenOrWeb) {
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => Dialog(
+          backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          elevation: 20,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Material(
+                color: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: buildMenuContent(dialogCtx),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ).then((_) {
+        WebContextMenuManager.onCustomMenuClosed();
+      });
+    } else {
+      showModalBottomSheet(
+        context: context,
+        builder: (sheetCtx) => SafeArea(
+          child: buildMenuContent(sheetCtx),
+        ),
+      ).then((_) {
+        WebContextMenuManager.onCustomMenuClosed();
+      });
+    }
   }
 
   void _confirmDelete(

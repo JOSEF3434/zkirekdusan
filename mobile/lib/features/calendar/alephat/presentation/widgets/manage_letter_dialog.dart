@@ -130,12 +130,16 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
         content: Form(
           key: formKey,
           child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 14, bottom: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
                   controller: glyphCtrl,
-                  decoration: const InputDecoration(labelText: 'ምልክት (ፊደል)*'),
+                  decoration: const InputDecoration(
+                    labelText: 'ምልክት (ፊደል)*',
+                    border: OutlineInputBorder(),
+                  ),
                   validator: (v) => v == null || v.trim().isEmpty ? 'ያስገቡ' : null,
                 ),
                 const SizedBox(height: 12),
@@ -322,6 +326,7 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
     return Form(
       key: _letterFormKey,
       child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 18, bottom: 8),
         child: Column(
           children: [
             Row(
@@ -396,8 +401,10 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
   }
 
   Widget _buildFamilyTab(ThemeData theme) {
-    return Column(
-      children: [
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -471,6 +478,7 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
                 ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 }
