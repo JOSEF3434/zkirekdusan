@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
+import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
 import 'package:mobile/features/groups/data/group_repository.dart';
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/groups/presentation/widgets/group_role_badge.dart';
@@ -115,12 +117,43 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
                     ),
                     const SizedBox(height: 4),
                     if (primaryChannel != null)
-                      Text(
-                        '@${primaryChannel.handle}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            '@${primaryChannel.handle}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () {
+                              final channelLink = AppLinkService.channelLink(
+                                handle: primaryChannel.handle,
+                                slug: primaryChannel.slug,
+                                channelId: primaryChannel.id,
+                              );
+                              TelegramQrSheet.show(
+                                context,
+                                title: primaryChannel.name,
+                                subtitle: AppLinkService.channelDisplay(
+                                  handle: primaryChannel.handle,
+                                  slug: primaryChannel.slug,
+                                  channelId: primaryChannel.id,
+                                ),
+                                avatarUrl: group.avatarUrl,
+                                qrData: channelLink,
+                                entityType: AppLinkEntityType.channel,
+                              );
+                            },
+                            child: const Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 18,
+                              color: Color(0xFF00C6FF),
+                            ),
+                          ),
+                        ],
                       ),
                     const SizedBox(height: 4),
                     Row(
@@ -234,6 +267,46 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
                         ),
                   label: Text(_isSubscribed ? 'Subscribed' : 'Subscribe'),
                 ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'Share QR & Link',
+                icon: const Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 20,
+                  color: Color(0xFF00C6FF),
+                ),
+                onPressed: () {
+                  final link = primaryChannel != null
+                      ? AppLinkService.channelLink(
+                          handle: primaryChannel.handle,
+                          slug: primaryChannel.slug,
+                          channelId: primaryChannel.id,
+                        )
+                      : AppLinkService.groupLink(
+                          slug: group.slug,
+                          groupId: group.id,
+                        );
+                  TelegramQrSheet.show(
+                    context,
+                    title: primaryChannel?.name ?? group.name,
+                    subtitle: primaryChannel != null
+                        ? AppLinkService.channelDisplay(
+                            handle: primaryChannel.handle,
+                            slug: primaryChannel.slug,
+                            channelId: primaryChannel.id,
+                          )
+                        : AppLinkService.groupDisplay(
+                            slug: group.slug,
+                            groupId: group.id,
+                          ),
+                    avatarUrl: group.avatarUrl,
+                    qrData: link,
+                    entityType: primaryChannel != null
+                        ? AppLinkEntityType.channel
+                        : AppLinkEntityType.group,
+                  );
+                },
+              ),
             ],
           ),
         ],

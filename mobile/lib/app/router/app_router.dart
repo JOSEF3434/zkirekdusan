@@ -2,6 +2,7 @@
 
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
@@ -120,41 +121,43 @@ class RouterNotifier extends ChangeNotifier {
     });
   }
 
+  bool _isPublicRoute(String location) {
+    if (location == '/login' ||
+        location == '/register' ||
+        location == '/onboarding') {
+      return true;
+    }
+    // Profile deep links
+    if (location.startsWith('/u/') ||
+        location.startsWith('/@') ||
+        location.startsWith('/profile/user/')) {
+      return true;
+    }
+    // Public media / groups / channels
+    if (location.startsWith('/g/') ||
+        location.startsWith('/c/') ||
+        location.startsWith('/groups/') ||
+        location.startsWith('/join/group/') ||
+        location.startsWith('/video/') ||
+        location.startsWith('/posts/') ||
+        location.startsWith('/share/')) {
+      return true;
+    }
+    // Direct username root links (e.g. /john1 or /sara_bi)
+    final uri = Uri.tryParse(location);
+    if (uri != null && uri.pathSegments.length == 1) {
+      final seg = uri.pathSegments.first;
+      if (!AppLinkService.reservedPaths.contains(seg.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   String? redirect(BuildContext context, GoRouterState state) {
-    final authState = _ref.read(authProvider);
-    final prefsState = _ref.read(preferencesProvider);
-    final splashCompleted = _ref.read(splashCompletedProvider);
-
-    final location = state.matchedLocation;
-    final isAuthRoute = location == '/login' || location == '/register';
-    final isSplashRoute = location == '/';
-    final isOnboardingRoute = location == '/onboarding';
-    final isLockRoute = location == '/lock';
-
-    // App Lock: if locked and not already on lock/auth/splash, redirect to /lock
-    final lockState = _ref.read(appLockProvider);
-    if (lockState.status == AppLockStatus.locked &&
-        !isLockRoute &&
-        !isAuthRoute &&
-        !isSplashRoute &&
-        !isOnboardingRoute) {
-      final authStatus = _ref.read(authProvider).status;
-      if (authStatus == AuthStatus.authenticated) {
-        return '/lock?from=${Uri.encodeComponent(location)}';
-      }
-    }
-
-    // If lock is unlocked/disabled and user landed on /lock, return to previous screen or /home
-    if (isLockRoute && lockState.status != AppLockStatus.locked) {
-      final from = state.uri.queryParameters['from'];
-      if (from != null && from.isNotEmpty && from != '/lock') {
-        return from;
-      }
-      return '/home';
-    }
-
     // Handle Incoming Call: immediately route to /call/incoming
     final callState = _ref.read(callStateProvider);
+    final location = state.matchedLocation;
     if (callState.status == CallStatus.ringing &&
         location != '/call/incoming') {
       return '/call/incoming';
@@ -171,13 +174,50 @@ class RouterNotifier extends ChangeNotifier {
       return '/home';
     }
 
+    return redirectPath(location, uri: state.uri);
+  }
+
+  /// Pure redirect evaluator for unit testing and router evaluation
+  String? redirectPath(String location, {Uri? uri}) {
+    final authState = _ref.read(authProvider);
+    final prefsState = _ref.read(preferencesProvider);
+    final splashCompleted = _ref.read(splashCompletedProvider);
+
+    final isAuthRoute = location == '/login' || location == '/register';
+    final isSplashRoute = location == '/';
+    final isOnboardingRoute = location == '/onboarding';
+    final isLockRoute = location == '/lock';
+    final isPublic = _isPublicRoute(location);
+
+    // App Lock: if locked and not already on lock/auth/splash, redirect to /lock
+    final lockState = _ref.read(appLockProvider);
+    if (lockState.status == AppLockStatus.locked &&
+        !isLockRoute &&
+        !isAuthRoute &&
+        !isSplashRoute &&
+        !isOnboardingRoute) {
+      final authStatus = _ref.read(authProvider).status;
+      if (authStatus == AuthStatus.authenticated) {
+        return '/lock?from=${Uri.encodeComponent(location)}';
+      }
+    }
+
+    // If lock is unlocked/disabled and user landed on /lock, return to previous screen or /home
+    if (isLockRoute && lockState.status != AppLockStatus.locked) {
+      final from = uri?.queryParameters['from'];
+      if (from != null && from.isNotEmpty && from != '/lock') {
+        return from;
+      }
+      return '/home';
+    }
+
     // 0. Hold on splash screen route until minimum splash loading time and animations complete
     if (isSplashRoute && !splashCompleted) {
       return null;
     }
 
-    // 1. Onboarding is top priority on first launch
-    if (prefsState.isFirstLaunch) {
+    // 1. Onboarding is top priority on first launch (unless user opened a public deep link)
+    if (prefsState.isFirstLaunch && !isPublic) {
       if (isOnboardingRoute) return null;
       return '/onboarding';
     }
@@ -188,8 +228,6 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     // 3. While auth status is initializing (unknown):
-    // If on splash '/', stay on splash.
-    // If refreshing on a specific route (e.g. '/home', '/calendar', '/profile'), do NOT wipe it out!
     if (authState.status == AuthStatus.unknown) {
       return null;
     }
@@ -224,8 +262,9 @@ class RouterNotifier extends ChangeNotifier {
 
     // 5. Unauthenticated user behavior:
     if (authState.status == AuthStatus.unauthenticated) {
-      // Allow unauthenticated user to access login or register page
-      if (isAuthRoute) {
+      // Allow unauthenticated users to access login, register, onboarding,
+      // and public shared links (profiles, videos, channels, groups)
+      if (isPublic) {
         return null;
       }
 
@@ -237,13 +276,33 @@ class RouterNotifier extends ChangeNotifier {
   }
 }
 
+final routerNotifierProvider = Provider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final notifier = RouterNotifier(ref);
+  final notifier = ref.watch(routerNotifierProvider);
   final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     refreshListenable: notifier,
     redirect: notifier.redirect,
+    errorBuilder: (context, state) {
+      final pathSegments = state.uri.pathSegments;
+      if (pathSegments.length == 1) {
+        final identifier = AppLinkService.cleanIdentifier(pathSegments.first);
+        if (identifier != null &&
+            !AppLinkService.reservedPaths.contains(identifier.toLowerCase())) {
+          return PublicProfileScreen(username: identifier);
+        }
+      }
+      return Scaffold(
+        appBar: AppBar(title: const Text('Page Not Found')),
+        body: Center(
+          child: Text('Page not found: ${state.uri}'),
+        ),
+      );
+    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
@@ -379,11 +438,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/@:username',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final username = state.pathParameters['username'];
+          return '/profile/user/$username';
+        },
+      ),
+      GoRoute(
         path: '/g/:id',
         parentNavigatorKey: rootNavigatorKey,
         redirect: (context, state) {
           final id = state.pathParameters['id'];
           return '/groups/$id';
+        },
+      ),
+      GoRoute(
+        path: '/c/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final id = state.pathParameters['id'];
+          return '/groups/$id';
+        },
+      ),
+      GoRoute(
+        path: '/join/group/:token',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final token = state.pathParameters['token'];
+          return '/groups/join/$token';
         },
       ),
       GoRoute(
@@ -814,6 +897,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      // Top-level username fallback route (e.g. /john1 or /sara_bi)
+      GoRoute(
+        path: '/:username',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final username = state.pathParameters['username'];
+          final clean = AppLinkService.cleanIdentifier(username);
+          if (clean != null &&
+              !AppLinkService.reservedPaths.contains(clean.toLowerCase())) {
+            return '/profile/user/$clean';
+          }
+          return null;
+        },
       ),
     ],
   );

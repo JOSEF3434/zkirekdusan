@@ -3,8 +3,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
@@ -314,17 +316,70 @@ class _DirectDetailsPanel extends StatelessWidget {
                         label: 'Call',
                         onTap: () {},
                       ),
+                      _ActionBtn(
+                        icon: Icons.qr_code_2_rounded,
+                        label: 'QR Code',
+                        onTap: () {
+                          final canonicalUrl = AppLinkService.userLink(
+                            username: other.username,
+                            userId: other.userId,
+                          );
+                          TelegramQrSheet.show(
+                            context,
+                            title: other.displayName ??
+                                (other.username.isNotEmpty ? other.username : 'User'),
+                            subtitle: AppLinkService.userDisplay(
+                              username: other.username,
+                              userId: other.userId,
+                            ),
+                            avatarUrl: other.avatarUrl,
+                            qrData: canonicalUrl,
+                            entityType: AppLinkEntityType.user,
+                          );
+                        },
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Divider(height: 1, color: dividerColor),
-                  // Username info
+                  // Username info with QR code button
                   _InfoRow(
                     icon: Icons.alternate_email_rounded,
                     iconColor: const Color(0xFF00C6FF),
-                    title: '@${other.username}',
-                    subtitle: 'Username',
+                    title: AppLinkService.userDisplay(
+                      username: other.username,
+                      userId: other.userId,
+                    ),
+                    subtitle: AppLinkService.hasValidUsername(other.username)
+                        ? 'Username'
+                        : 'User Identifier',
                     isDark: isDark,
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.qr_code_2_rounded,
+                        size: 22,
+                        color: Color(0xFF00C6FF),
+                      ),
+                      tooltip: 'Show QR Code',
+                      onPressed: () {
+                        final canonicalUrl = AppLinkService.userLink(
+                          username: other.username,
+                          userId: other.userId,
+                        );
+                        TelegramQrSheet.show(
+                          context,
+                          title: other.displayName ??
+                              (other.username.isNotEmpty ? other.username : 'User'),
+                          subtitle: AppLinkService.userDisplay(
+                            username: other.username,
+                            userId: other.userId,
+                          ),
+                          avatarUrl: other.avatarUrl,
+                          qrData: canonicalUrl,
+                          entityType: AppLinkEntityType.user,
+                        );
+                      },
+                    ),
                     onTap: () {
                       if (targetIdentifier.isNotEmpty) {
                         context.push('/profile/user/$targetIdentifier');
@@ -476,13 +531,44 @@ class _GroupDetailsPanel extends StatelessWidget {
                               .muteConversation(conversation.id);
                         },
                       ),
-                      if (conversation.groupId != null)
+                      if (conversation.groupId != null) ...[
+                        _ActionBtn(
+                          icon: Icons.qr_code_2_rounded,
+                          label: 'Share QR',
+                          onTap: () async {
+                            final groupId = conversation.groupId!;
+                            final res = await ref
+                                .read(chatDiscoveryProvider.notifier)
+                                .getGroupInviteLink(groupId);
+                            final rawInviteLink = res['inviteLink'] as String?;
+                            final inviteToken = res['inviteToken'] as String?;
+                            final link = (rawInviteLink != null &&
+                                    rawInviteLink.isNotEmpty &&
+                                    !rawInviteLink.contains('streamhub.app'))
+                                ? rawInviteLink
+                                : AppLinkService.groupLink(
+                                    groupId: groupId,
+                                    inviteToken: inviteToken,
+                                  );
+                            if (context.mounted) {
+                              TelegramQrSheet.show(
+                                context,
+                                title: name,
+                                subtitle: AppLinkService.displayLink(link),
+                                avatarUrl: avatarUrl,
+                                qrData: link,
+                                entityType: AppLinkEntityType.groupInvite,
+                              );
+                            }
+                          },
+                        ),
                         _ActionBtn(
                           icon: Icons.settings_outlined,
                           label: 'Manage',
                           onTap: () =>
                               context.push('/groups/${conversation.groupId}?tab=settings'),
                         ),
+                      ],
                       _ActionBtn(
                         icon: Icons.exit_to_app_rounded,
                         label: 'Leave',
@@ -838,6 +924,7 @@ class _InfoRow extends StatelessWidget {
   final String subtitle;
   final bool isDark;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   const _InfoRow({
     required this.icon,
@@ -846,6 +933,7 @@ class _InfoRow extends StatelessWidget {
     required this.subtitle,
     required this.isDark,
     this.onTap,
+    this.trailing,
   });
 
   @override
@@ -873,6 +961,7 @@ class _InfoRow extends StatelessWidget {
         subtitle,
         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
       ),
+      trailing: trailing,
     );
   }
 }

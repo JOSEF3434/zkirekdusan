@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 
 class QrScannerScreen extends ConsumerStatefulWidget {
   const QrScannerScreen({super.key});
@@ -212,7 +214,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                 // Demo Scanner Trigger (Simulate scan)
                 FilledButton.icon(
                   onPressed: () => _handleScannedCode(
-                    'https://app.zikrekidusan.com/u/sara_bi',
+                    'https://zikire-kdusan.onrender.com/u/0e599727-5c5c-4219-be29-7bfdcdea6147',
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF00C6FF),
@@ -395,48 +397,45 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     if (_isProcessing) return;
     _isProcessing = true;
 
-    final trimmed = rawCode.trim();
+    final parsed = AppLinkService.parse(rawCode);
 
-    // 1. Check if it's a canonical profile URL: https://app.zikrekidusan.com/u/<username>
-    final profileRegex = RegExp(
-      r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com|zikrekidusan\.com)\/u\/([a-zA-Z0-9_\.\-]+)',
-      caseSensitive: false,
-    );
-    final profileMatch = profileRegex.firstMatch(trimmed);
+    switch (parsed.type) {
+      case AppLinkEntityType.user:
+        _navigateToProfile(parsed.identifier);
+        break;
+      case AppLinkEntityType.group:
+        _navigateToGroup(parsed.identifier);
+        break;
+      case AppLinkEntityType.channel:
+        _navigateToGroup(parsed.identifier);
+        break;
+      case AppLinkEntityType.groupInvite:
+        _handleGroupInviteToken(parsed.identifier);
+        break;
+      case AppLinkEntityType.chat:
+        HapticFeedback.mediumImpact();
+        context.pushReplacement('/chats/conversation/${parsed.identifier}');
+        break;
+      case AppLinkEntityType.unknown:
+        _showGenericResult(parsed.rawUrl);
+        break;
+    }
+  }
 
-    // 2. Check if custom scheme: zikrekidusan://profile/user/<username>
-    final schemeRegex = RegExp(
-      r'zikrekidusan:\/\/profile\/user\/([a-zA-Z0-9_\.\-]+)',
-      caseSensitive: false,
-    );
-    final schemeMatch = schemeRegex.firstMatch(trimmed);
-
-    // 3. Check group canonical link: https://app.zikrekidusan.com/g/<id> or t.me/<slug>
-    final groupRegex = RegExp(
-      r'(?:https?:\/\/)?(?:app\.zikrekidusan\.com\/g|t\.me)\/([a-zA-Z0-9_\.\-]+)',
-      caseSensitive: false,
-    );
-    final groupMatch = groupRegex.firstMatch(trimmed);
-
-    if (profileMatch != null) {
-      final username = profileMatch.group(1)!;
-      _navigateToProfile(username);
-    } else if (schemeMatch != null) {
-      final username = schemeMatch.group(1)!;
-      _navigateToProfile(username);
-    } else if (groupMatch != null) {
-      final groupId = groupMatch.group(1)!;
-      _navigateToGroup(groupId);
-    } else if (trimmed.startsWith('@')) {
-      final username = trimmed.substring(1);
-      _navigateToProfile(username);
-    } else if (!trimmed.contains(' ') &&
-        !trimmed.contains('/') &&
-        trimmed.length >= 3) {
-      // Plain username fallback
-      _navigateToProfile(trimmed);
-    } else {
-      _showGenericResult(trimmed);
+  Future<void> _handleGroupInviteToken(String token) async {
+    HapticFeedback.mediumImpact();
+    try {
+      final res = await ref
+          .read(chatDiscoveryProvider.notifier)
+          .joinGroupByInvite(token);
+      final groupId = res['groupId'] as String?;
+      if (groupId != null && mounted) {
+        _navigateToGroup(groupId);
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      _showGenericResult(token);
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
@@ -193,7 +194,7 @@ class PostManagementSheet extends ConsumerWidget {
                 Navigator.pop(context);
                 Clipboard.setData(
                   ClipboardData(
-                    text: 'https://zikrekidusan.onrender.com/posts/${post.id}',
+                    text: AppLinkService.postLink(post.id),
                   ),
                 );
                 ScaffoldMessenger.of(context).showSnackBar(

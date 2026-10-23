@@ -36,6 +36,7 @@ dependencies:
   # F4: Social & UI
   share_plus: ^10.0.0
   flutter_staggered_animations: ^1.1.1
+  qr_flutter: ^4.1.0
 
   # F5: Live Streaming
   camera: ^0.11.0+2

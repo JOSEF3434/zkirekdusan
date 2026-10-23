@@ -6,10 +6,11 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
 import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/pinned_messages_bar.dart';
@@ -273,7 +274,9 @@ class InlineConversationViewState
           },
           onInviteLink: conversation?.groupId != null
               ? () => _showInviteLinkDialog(conversation!.groupId!)
-              : null,
+              : (otherMember != null
+                  ? () => _showDirectQrDialog(otherMember)
+                  : null),
           onClearChat: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Chat history cleared')),
@@ -571,91 +574,60 @@ class InlineConversationViewState
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  void _showDirectQrDialog(ConversationMemberModel otherMember) {
+    final canonicalUrl = AppLinkService.userLink(
+      username: otherMember.username,
+      userId: otherMember.userId,
+    );
+    TelegramQrSheet.show(
+      context,
+      title: otherMember.displayName ??
+          (otherMember.username.isNotEmpty ? otherMember.username : 'User'),
+      subtitle: AppLinkService.userDisplay(
+        username: otherMember.username,
+        userId: otherMember.userId,
+      ),
+      avatarUrl: otherMember.avatarUrl,
+      qrData: canonicalUrl,
+      entityType: AppLinkEntityType.user,
+    );
+  }
+
   Future<void> _showInviteLinkDialog(String groupId) async {
     try {
       final res = await ref
           .read(chatDiscoveryProvider.notifier)
           .getGroupInviteLink(groupId);
-      final link = res['inviteLink'] as String? ??
-          'https://streamhub.app/join/group/${res['inviteToken']}';
+      final rawInviteLink = res['inviteLink'] as String?;
+      final inviteToken = res['inviteToken'] as String?;
+
+      final link = (rawInviteLink != null &&
+              rawInviteLink.isNotEmpty &&
+              !rawInviteLink.contains('streamhub.app'))
+          ? rawInviteLink
+          : AppLinkService.groupLink(
+              groupId: groupId,
+              inviteToken: inviteToken,
+            );
+
+      ConversationModel? conversation;
+      try {
+        conversation = ref
+            .read(conversationsProvider)
+            .valueOrNull
+            ?.conversations
+            .where((c) => c.id == widget.conversationId)
+            .firstOrNull;
+      } catch (_) {}
+
       if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor:
-              Theme.of(ctx).brightness == Brightness.dark
-                  ? const Color(0xFF161C28)
-                  : Colors.white,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18)),
-          title: const Row(
-            children: [
-              Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
-              SizedBox(width: 10),
-              Text('Group Invite Link',
-                  style: TextStyle(fontSize: 18)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Anyone with this link can join this group:',
-                style:
-                    TextStyle(fontSize: 13, color: Colors.grey[500]),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).brightness == Brightness.dark
-                      ? const Color(0xFF1E2638)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: const Color(0xFF00C6FF)
-                          .withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        link,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF00C6FF),
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy_rounded,
-                          size: 18, color: Color(0xFF00C6FF)),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: link));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('Invite link copied!')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.done'))),
-            ),
-          ],
-        ),
+      TelegramQrSheet.show(
+        context,
+        title: conversation?.metadata?.groupName ?? conversation?.title ?? 'Group Invite',
+        subtitle: AppLinkService.displayLink(link),
+        avatarUrl: conversation?.metadata?.groupAvatar,
+        qrData: link,
+        entityType: AppLinkEntityType.groupInvite,
       );
     } catch (e) {
       if (!mounted) return;
@@ -1012,13 +984,13 @@ class _InlineHeader extends StatelessWidget {
                         ]),
                       ),
                       if (onInviteLink != null)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'invite_link',
                           child: Row(children: [
-                            Icon(Icons.link_rounded,
+                            const Icon(Icons.qr_code_2_rounded,
                                 color: Color(0xFF00C6FF), size: 20),
-                            SizedBox(width: 12),
-                            Text('Group Invite Link'),
+                            const SizedBox(width: 12),
+                            Text(isGroup ? 'Group QR & Invite' : 'Share QR & Link'),
                           ]),
                         ),
                       const PopupMenuDivider(),

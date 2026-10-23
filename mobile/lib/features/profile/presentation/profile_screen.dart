@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
@@ -141,6 +143,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         color: Color(0xFFFFB300),
                       ),
                       onPressed: () => context.push('/admin'),
+                    );
+                  },
+                ),
+                IconButton(
+                  tooltip: tr('profile.qr_and_share'),
+                  icon: const Icon(
+                    Icons.qr_code_2_rounded,
+                    color: Color(0xFF00C6FF),
+                  ),
+                  onPressed: () {
+                    final canonicalUrl = AppLinkService.userLink(
+                      username: profile.username,
+                      userId: profile.userId,
+                    );
+                    TelegramQrSheet.show(
+                      context,
+                      title: profile.displayName ?? profile.username ?? 'My Profile',
+                      subtitle: AppLinkService.userDisplay(
+                        username: profile.username,
+                        userId: profile.userId,
+                      ),
+                      avatarUrl: profile.avatarUrl,
+                      qrData: canonicalUrl,
+                      entityType: AppLinkEntityType.user,
                     );
                   },
                 ),

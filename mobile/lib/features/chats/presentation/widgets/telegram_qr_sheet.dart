@@ -5,13 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 class TelegramQrSheet extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? avatarUrl;
   final String qrData;
+  final AppLinkEntityType entityType;
+  final IconData? fallbackIcon;
 
   const TelegramQrSheet({
     super.key,
@@ -19,6 +24,8 @@ class TelegramQrSheet extends StatelessWidget {
     required this.subtitle,
     this.avatarUrl,
     required this.qrData,
+    this.entityType = AppLinkEntityType.user,
+    this.fallbackIcon,
   });
 
   static Future<void> show(
@@ -27,6 +34,8 @@ class TelegramQrSheet extends StatelessWidget {
     required String subtitle,
     String? avatarUrl,
     required String qrData,
+    AppLinkEntityType entityType = AppLinkEntityType.user,
+    IconData? fallbackIcon,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -37,8 +46,41 @@ class TelegramQrSheet extends StatelessWidget {
         subtitle: subtitle,
         avatarUrl: avatarUrl,
         qrData: qrData,
+        entityType: entityType,
+        fallbackIcon: fallbackIcon,
       ),
     );
+  }
+
+  String _typeLabel() {
+    switch (entityType) {
+      case AppLinkEntityType.group:
+      case AppLinkEntityType.groupInvite:
+        return 'Group QR Code';
+      case AppLinkEntityType.channel:
+        return 'Channel QR Code';
+      case AppLinkEntityType.chat:
+        return 'Chat QR Code';
+      case AppLinkEntityType.user:
+      default:
+        return 'Profile QR Code';
+    }
+  }
+
+  IconData _typeIcon() {
+    if (fallbackIcon != null) return fallbackIcon!;
+    switch (entityType) {
+      case AppLinkEntityType.group:
+      case AppLinkEntityType.groupInvite:
+        return Icons.group_rounded;
+      case AppLinkEntityType.channel:
+        return Icons.campaign_rounded;
+      case AppLinkEntityType.chat:
+        return Icons.chat_bubble_rounded;
+      case AppLinkEntityType.user:
+      default:
+        return Icons.person_rounded;
+    }
   }
 
   @override
@@ -46,11 +88,12 @@ class TelegramQrSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
+    final cleanDisplayUrl = AppLinkService.displayLink(qrData);
 
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: SafeArea(
@@ -59,103 +102,140 @@ class TelegramQrSheet extends StatelessWidget {
           children: [
             // Drag Handle
             Container(
-              width: 36,
+              width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: Colors.grey.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
 
-            // Header Title
-            Text(
-              'QR Code',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+            // Header Title with Entity Badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _typeIcon(),
+                  size: 20,
+                  color: const Color(0xFF00C6FF),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _typeLabel(),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             // QR Card
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: cardBg,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
                 ],
+                border: Border.all(
+                  color: const Color(0xFF00C6FF).withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
               ),
               child: Column(
                 children: [
-                  // QR Matrix Simulation
+                  // Real Scannable QR Matrix with Center Badge
                   Stack(
                     alignment: Alignment.center,
                     children: [
                       Container(
-                        width: 200,
-                        height: 200,
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0E1621)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(
-                              0xFF00C6FF,
-                            ).withValues(alpha: 0.3),
-                            width: 2,
-                          ),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        child: CustomPaint(
-                          painter: _QrPatternPainter(
-                            color: isDark ? Colors.white : Colors.black87,
+                        child: QrImageView(
+                          data: qrData,
+                          version: QrVersions.auto,
+                          size: 200,
+                          padding: EdgeInsets.zero,
+                          errorCorrectionLevel: QrErrorCorrectLevel.H,
+                          gapless: true,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: Color(0xFF0072FF),
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: Color(0xFF0E1621),
                           ),
                         ),
                       ),
-                      // Center Avatar
+
+                      // Center Avatar / Badge overlay
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
-                          color: cardBg,
+                          color: Colors.white,
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
                         child: CircleAvatar(
                           radius: 20,
-                          backgroundColor: const Color(
-                            0xFF00C6FF,
-                          ).withValues(alpha: 0.2),
+                          backgroundColor: const Color(0xFF00C6FF),
                           backgroundImage:
-                              avatarUrl != null && avatarUrl!.isNotEmpty
-                              ? CachedNetworkImageProvider(avatarUrl!)
-                              : null,
-                          child: avatarUrl == null || avatarUrl!.isEmpty
-                              ? Text(
-                                  title.isNotEmpty
-                                      ? title[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    color: Color(0xFF00C6FF),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
+                              (avatarUrl != null && avatarUrl!.trim().isNotEmpty)
+                                  ? CachedNetworkImageProvider(avatarUrl!)
+                                  : null,
+                          child: (avatarUrl == null || avatarUrl!.trim().isEmpty)
+                              ? (title.isNotEmpty
+                                  ? Text(
+                                      title[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    )
+                                  : Icon(
+                                      _typeIcon(),
+                                      size: 18,
+                                      color: Colors.black,
+                                    ))
                               : null,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
-                  // Name
+                  // Name / Title
                   Text(
                     title,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -164,20 +244,87 @@ class TelegramQrSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
 
-                  // Subtitle / username
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  // Subtitle / handle (e.g. @sara_bi or group slug)
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF00C6FF),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+
+                  // Clickable Canonical URL chip
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: qrData));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Link copied to clipboard!'),
+                          backgroundColor: Color(0xFF10B981),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF0E1621)
+                            : Colors.grey.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.link_rounded,
+                            size: 16,
+                            color: Color(0xFF00C6FF),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              cleanDisplayUrl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.copy_rounded,
+                            size: 14,
+                            color: isDark ? Colors.white54 : Colors.black45,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Buttons: Share QR Code & Copy Link
+            // Buttons: Copy Link & Share Link
             Row(
               children: [
                 Expanded(
@@ -189,6 +336,7 @@ class TelegramQrSheet extends StatelessWidget {
                         const SnackBar(
                           content: Text('Link copied to clipboard!'),
                           backgroundColor: Color(0xFF10B981),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
@@ -200,15 +348,15 @@ class TelegramQrSheet extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: isDark
                           ? Colors.white
-                          : const Color(0xFF00C6FF),
+                          : const Color(0xFF0072FF),
                       side: BorderSide(
                         color: isDark
-                            ? Colors.white.withValues(alpha: 0.2)
-                            : const Color(0xFF00C6FF).withValues(alpha: 0.4),
+                            ? Colors.white.withValues(alpha: 0.25)
+                            : const Color(0xFF0072FF).withValues(alpha: 0.4),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
@@ -216,14 +364,10 @@ class TelegramQrSheet extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('QR Code shared!'),
-                          backgroundColor: Color(0xFF00C6FF),
-                        ),
-                      );
+                      final shareMessage = '$title\n$qrData';
+                      await Share.share(shareMessage, subject: title);
                     },
                     icon: const Icon(Icons.share_rounded, size: 18),
                     label: Consumer(
@@ -235,7 +379,7 @@ class TelegramQrSheet extends StatelessWidget {
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),
@@ -258,7 +402,7 @@ class TelegramQrSheet extends StatelessWidget {
                       : Colors.grey.withValues(alpha: 0.15),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 icon: const Icon(
@@ -280,81 +424,4 @@ class TelegramQrSheet extends StatelessWidget {
       ),
     );
   }
-}
-
-class _QrPatternPainter extends CustomPainter {
-  final Color color;
-
-  const _QrPatternPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final dotSize = size.width / 18;
-
-    // Corner Markers
-    _drawMarker(canvas, const Offset(12, 12), dotSize * 3.5, paint);
-    _drawMarker(
-      canvas,
-      Offset(size.width - 12 - dotSize * 3.5, 12),
-      dotSize * 3.5,
-      paint,
-    );
-    _drawMarker(
-      canvas,
-      Offset(12, size.height - 12 - dotSize * 3.5),
-      dotSize * 3.5,
-      paint,
-    );
-
-    // Decorative grid dots
-    for (int r = 3; r < 15; r++) {
-      for (int c = 3; c < 15; c++) {
-        if ((r >= 7 && r <= 11) && (c >= 7 && c <= 11)) {
-          continue; // Center hole for avatar
-        }
-        if ((r * 7 + c * 13) % 3 == 0) {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                c * dotSize + 6,
-                r * dotSize + 6,
-                dotSize * 0.8,
-                dotSize * 0.8,
-              ),
-              const Radius.circular(2),
-            ),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  void _drawMarker(Canvas canvas, Offset offset, double size, Paint paint) {
-    // Outer square
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 3.5;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(offset.dx, offset.dy, size, size),
-        const Radius.circular(6),
-      ),
-      paint,
-    );
-
-    // Inner filled square
-    paint.style = PaintingStyle.fill;
-    final innerOffset = offset + Offset(size * 0.28, size * 0.28);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(innerOffset.dx, innerOffset.dy, size * 0.44, size * 0.44),
-        const Radius.circular(3),
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

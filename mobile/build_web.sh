@@ -24,3 +24,11 @@ flutter pub get
 flutter build web \
   --release \
   -t lib/main.dart
+
+# Ensure Render SPA rewrite rule is present in publish directory
+if [ -f web/_redirects ]; then
+  cp web/_redirects build/web/_redirects
+else
+  echo "/*    /index.html   200" > build/web/_redirects
+fi
+echo "✓ Web build complete with SPA rewrite rules."

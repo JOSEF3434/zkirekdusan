@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/error/exceptions.dart';
@@ -89,7 +90,14 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
     final membersState = ref.watch(groupMembersProvider(widget.groupId));
     final members = membersState.members;
 
-    final inviteLink = 't.me/${groupContext.slug.isNotEmpty ? groupContext.slug : widget.groupId}';
+    final canonicalInviteUrl = AppLinkService.groupLink(
+      slug: groupContext.slug,
+      groupId: widget.groupId,
+    );
+    final displayInviteLink = AppLinkService.groupDisplay(
+      slug: groupContext.slug,
+      groupId: widget.groupId,
+    );
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
@@ -129,12 +137,13 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                 TelegramQrSheet.show(
                   context,
                   title: groupContext.name,
-                  subtitle: inviteLink,
+                  subtitle: displayInviteLink,
                   avatarUrl: groupContext.avatarUrl,
-                  qrData: 'https://$inviteLink',
+                  qrData: canonicalInviteUrl,
+                  entityType: AppLinkEntityType.group,
                 );
               } else if (value == 'copy') {
-                Clipboard.setData(ClipboardData(text: 'https://$inviteLink'));
+                Clipboard.setData(ClipboardData(text: canonicalInviteUrl));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Invite link copied!'),
@@ -375,7 +384,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                           vertical: 4,
                         ),
                         title: Text(
-                          inviteLink,
+                          displayInviteLink,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -400,15 +409,16 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                             TelegramQrSheet.show(
                               context,
                               title: groupContext.name,
-                              subtitle: inviteLink,
+                              subtitle: displayInviteLink,
                               avatarUrl: groupContext.avatarUrl,
-                              qrData: 'https://$inviteLink',
+                              qrData: canonicalInviteUrl,
+                              entityType: AppLinkEntityType.group,
                             );
                           },
                         ),
                         onTap: () {
                           Clipboard.setData(
-                            ClipboardData(text: 'https://$inviteLink'),
+                            ClipboardData(text: canonicalInviteUrl),
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

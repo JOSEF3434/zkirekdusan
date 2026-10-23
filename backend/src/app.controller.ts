@@ -68,8 +68,13 @@ export class AppController {
     @Param('username') username: string,
     @Res() res: Response,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: username, mode: 'insensitive' } },
+          { id: username },
+        ],
+      },
       include: {
         profile: {
           select: {
@@ -85,7 +90,11 @@ export class AppController {
       },
     });
 
-    const appSchemeUrl = `zikrekidusan://profile/user/${encodeURIComponent(username)}`;
+    const userParam = user?.username ?? user?.id ?? username;
+    const appSchemeUrl = `zikrekidusan://profile/user/${encodeURIComponent(userParam)}`;
+    const frontendBase =
+      process.env.FRONTEND_BASE_URL ?? 'https://zikire-kdusan.onrender.com';
+    const webAppUrl = `${frontendBase}/u/${encodeURIComponent(userParam)}`;
     const playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.zikrekidusan.mobile';
     const appStoreUrl = 'https://apps.apple.com/app/zikre-kidusan/id123456789';
@@ -213,10 +222,11 @@ export class AppController {
         <div class="card">
           <img class="avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" onerror="this.src='https://via.placeholder.com/150'">
           <h1>${escapeHtml(displayName)}</h1>
-          <div class="username">@${escapeHtml(username)}</div>
+          ${user.username ? `<div class="username">@${escapeHtml(user.username)}</div>` : ''}
           <div class="bio">${escapeHtml(bio)}</div>
           
-          <a href="${appSchemeUrl}" class="btn-main">Open in Zikre Kidusan</a>
+          <a href="${appSchemeUrl}" class="btn-main">Open in Zikre Kidusan App</a>
+          <a href="${webAppUrl}" class="btn-main" style="background: #232E3C; margin-top: 8px;">Open in Web</a>
           
           <div class="store-buttons">
             <a href="${playStoreUrl}" class="btn-store">Google Play</a>

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
@@ -76,17 +77,28 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
               if (val == 'share') {
                 final profile = profileState.value;
                 if (profile != null) {
-                  final canonicalUrl = 'https://app.zikrekidusan.com/u/${profile.username ?? widget.username}';
+                  final canonicalUrl = AppLinkService.userLink(
+                    username: profile.username ?? widget.username,
+                    userId: profile.userId,
+                  );
                   TelegramQrSheet.show(
                     context,
                     title: profile.displayName ?? profile.username ?? 'User',
-                    subtitle: '@${profile.username ?? ""}',
+                    subtitle: AppLinkService.userDisplay(
+                      username: profile.username ?? widget.username,
+                      userId: profile.userId,
+                    ),
                     avatarUrl: profile.avatarUrl,
                     qrData: canonicalUrl,
+                    entityType: AppLinkEntityType.user,
                   );
                 }
               } else if (val == 'copy') {
-                final canonicalUrl = 'https://app.zikrekidusan.com/u/${widget.username}';
+                final profile = profileState.value;
+                final canonicalUrl = AppLinkService.userLink(
+                  username: profile?.username ?? widget.username,
+                  userId: profile?.userId ?? widget.username,
+                );
                 Clipboard.setData(ClipboardData(text: canonicalUrl));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -484,13 +496,20 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                             ),
                             tooltip: tr('profile.qr_and_share'),
                             onPressed: () {
-                              final canonicalUrl = 'https://app.zikrekidusan.com/u/${profile.username ?? widget.username}';
+                              final canonicalUrl = AppLinkService.userLink(
+                                username: profile.username ?? widget.username,
+                                userId: profile.userId,
+                              );
                               TelegramQrSheet.show(
                                 context,
                                 title: displayName,
-                                subtitle: '@${profile.username ?? ""}',
+                                subtitle: AppLinkService.userDisplay(
+                                  username: profile.username ?? widget.username,
+                                  userId: profile.userId,
+                                ),
                                 avatarUrl: profile.avatarUrl,
                                 qrData: canonicalUrl,
+                                entityType: AppLinkEntityType.user,
                               );
                             },
                           ),

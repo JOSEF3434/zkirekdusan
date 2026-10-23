@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/data/video_repository.dart';
@@ -288,7 +289,7 @@ class VideoManagementSheet extends ConsumerWidget {
                 Navigator.pop(context);
                 Clipboard.setData(
                   ClipboardData(
-                    text: 'https://zikrekidusan.onrender.com/video/${video.id}',
+                    text: AppLinkService.videoLink(video.id),
                   ),
                 );
                 ScaffoldMessenger.of(context).showSnackBar(
