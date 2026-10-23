@@ -94,7 +94,9 @@ export class AppController {
     const appSchemeUrl = `zikrekidusan://profile/user/${encodeURIComponent(userParam)}`;
     const frontendBase =
       process.env.FRONTEND_BASE_URL ?? 'https://zikire-kdusan.onrender.com';
-    const webAppUrl = `${frontendBase}/u/${encodeURIComponent(userParam)}`;
+    const webAppUrl = user?.username
+      ? `${frontendBase}/${encodeURIComponent(user.username)}`
+      : `${frontendBase}/u/${encodeURIComponent(user?.id ?? username)}`;
     const playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.zikrekidusan.mobile';
     const appStoreUrl = 'https://apps.apple.com/app/zikre-kidusan/id123456789';

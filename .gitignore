@@ -70,9 +70,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 *.spec.tsx
 
 # Test directories
-test/
+/test/
 tests/
 __tests__/
+!mobile/test/
 
 # Test coverage
 coverage/

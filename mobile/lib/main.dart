@@ -19,9 +19,13 @@ import 'package:mobile/features/calendar/data/calendar_connectivity_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 import 'package:mobile/core/services/app_lifecycle_observer.dart';
+import 'package:mobile/core/utils/url_strategy/url_strategy.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure clean path-based URLs on web (e.g. /jj and /u/:userId without hash fragments)
+  configureUrlStrategy();
 
   // 1. Initialize environment variables
   await Env.init();

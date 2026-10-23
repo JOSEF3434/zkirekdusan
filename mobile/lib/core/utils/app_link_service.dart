@@ -99,6 +99,21 @@ class AppLinkService {
     'qr-scan',
     'lock',
     'onboarding',
+    // Static web files and framework endpoints
+    'index.html',
+    'flutter_bootstrap.js',
+    'flutter_service_worker.js',
+    'main.dart.js',
+    'favicon.ico',
+    'favicon.png',
+    'manifest.json',
+    'version.json',
+    'assets',
+    'icons',
+    'splash',
+    'canvaskit',
+    'api',
+    'auth',
   };
 
   /// Returns true if the string is formatted as a standard UUID (v4/etc).

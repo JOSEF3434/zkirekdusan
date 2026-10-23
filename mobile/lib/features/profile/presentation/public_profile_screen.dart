@@ -64,7 +64,13 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         actions: [
           PopupMenuButton<String>(
@@ -190,12 +196,19 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                   color: Colors.redAccent,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'User not found or error loading profile',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
+                Builder(
+                  builder: (context) {
+                    final rawMsg = e.toString().replaceFirst(RegExp(r'^(AppException|Exception):\s*'), '');
+                    final displayMsg = rawMsg.isNotEmpty ? rawMsg : 'User not found or error loading profile';
+                    return Text(
+                      displayMsg,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 FilledButton(

@@ -23,6 +23,7 @@ flutter pub get
 
 flutter build web \
   --release \
+  --base-href / \
   -t lib/main.dart
 
 # Ensure Render SPA rewrite rule is present in publish directory

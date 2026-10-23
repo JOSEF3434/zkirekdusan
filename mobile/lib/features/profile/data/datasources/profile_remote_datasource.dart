@@ -75,7 +75,7 @@ class ProfileRemoteDatasource {
   String _parseDioError(DioException e) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
-      final msg = data['message'];
+      final msg = data['message'] ?? data['error'];
       if (msg is String) return msg;
       if (msg is List) return msg.join(', ');
     }

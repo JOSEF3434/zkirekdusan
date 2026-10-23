@@ -432,17 +432,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/u/:username',
         parentNavigatorKey: rootNavigatorKey,
-        redirect: (context, state) {
-          final username = state.pathParameters['username'];
-          return '/profile/user/$username';
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return PublicProfileScreen(username: username);
         },
       ),
       GoRoute(
         path: '/@:username',
         parentNavigatorKey: rootNavigatorKey,
-        redirect: (context, state) {
-          final username = state.pathParameters['username'];
-          return '/profile/user/$username';
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          final clean = AppLinkService.cleanIdentifier(username) ?? username;
+          return PublicProfileScreen(username: clean);
         },
       ),
       GoRoute(
@@ -898,18 +899,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      // Top-level username fallback route (e.g. /john1 or /sara_bi)
+      // Top-level username route (e.g. /jj or /john1)
       GoRoute(
         path: '/:username',
         parentNavigatorKey: rootNavigatorKey,
         redirect: (context, state) {
           final username = state.pathParameters['username'];
           final clean = AppLinkService.cleanIdentifier(username);
-          if (clean != null &&
-              !AppLinkService.reservedPaths.contains(clean.toLowerCase())) {
-            return '/profile/user/$clean';
+          if (clean == null ||
+              AppLinkService.reservedPaths.contains(clean.toLowerCase())) {
+            return '/home';
           }
           return null;
+        },
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          final clean = AppLinkService.cleanIdentifier(username) ?? username;
+          return PublicProfileScreen(username: clean);
         },
       ),
     ],
