@@ -510,7 +510,8 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
 // ---------------------------------------------------------------------------
 
 final liveRoomProvider =
-    StateNotifierProvider.family<LiveRoomNotifier, LiveRoomState, String>((
+    StateNotifierProvider.autoDispose
+        .family<LiveRoomNotifier, LiveRoomState, String>((
       ref,
       streamId,
     ) {

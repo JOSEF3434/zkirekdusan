@@ -141,9 +141,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   void dispose() {
     _seekFeedbackTimer?.cancel();
     // End any active media session so the inactivity timer restarts.
-    try {
-      _mediaActivityNotifier?.endSession(_mediaSessionId);
-    } catch (_) {}
+    final notifier = _mediaActivityNotifier;
+    final sessionId = _mediaSessionId;
+    Future.microtask(() {
+      try {
+        notifier?.endSession(sessionId);
+      } catch (_) {}
+    });
     // Restore orientation when leaving player
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

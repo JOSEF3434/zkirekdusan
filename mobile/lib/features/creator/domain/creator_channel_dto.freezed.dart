@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CreatorChannelDto {
 
- String get id; String get groupId; String get name; String get slug; String get handle; String? get description; ChannelStatus get status; bool get isVerified; UploadPermission get uploadPermission; int get subscribersCount; int get videosCount; String? get totalViewsCount; List<String> get categories; List<String> get tags; DateTime get createdAt; DateTime get updatedAt;
+ String get id; String get groupId; String get name; String get slug; String get handle; String? get description; ChannelStatus get status; bool get isVerified; UploadPermission get uploadPermission; int get subscribersCount; int get videosCount;@JsonKey(fromJson: _parseTotalViews) String? get totalViewsCount; List<String> get categories; List<String> get tags; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of CreatorChannelDto
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $CreatorChannelDtoCopyWith<$Res>  {
   factory $CreatorChannelDtoCopyWith(CreatorChannelDto value, $Res Function(CreatorChannelDto) _then) = _$CreatorChannelDtoCopyWithImpl;
 @useResult
 $Res call({
- String id, String groupId, String name, String slug, String handle, String? description, ChannelStatus status, bool isVerified, UploadPermission uploadPermission, int subscribersCount, int videosCount, String? totalViewsCount, List<String> categories, List<String> tags, DateTime createdAt, DateTime updatedAt
+ String id, String groupId, String name, String slug, String handle, String? description, ChannelStatus status, bool isVerified, UploadPermission uploadPermission, int subscribersCount, int videosCount,@JsonKey(fromJson: _parseTotalViews) String? totalViewsCount, List<String> categories, List<String> tags, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -168,7 +168,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount,  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount, @JsonKey(fromJson: _parseTotalViews)  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CreatorChannelDto() when $default != null:
 return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.description,_that.status,_that.isVerified,_that.uploadPermission,_that.subscribersCount,_that.videosCount,_that.totalViewsCount,_that.categories,_that.tags,_that.createdAt,_that.updatedAt);case _:
@@ -189,7 +189,7 @@ return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount,  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount, @JsonKey(fromJson: _parseTotalViews)  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _CreatorChannelDto():
 return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.description,_that.status,_that.isVerified,_that.uploadPermission,_that.subscribersCount,_that.videosCount,_that.totalViewsCount,_that.categories,_that.tags,_that.createdAt,_that.updatedAt);case _:
@@ -209,7 +209,7 @@ return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount,  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String groupId,  String name,  String slug,  String handle,  String? description,  ChannelStatus status,  bool isVerified,  UploadPermission uploadPermission,  int subscribersCount,  int videosCount, @JsonKey(fromJson: _parseTotalViews)  String? totalViewsCount,  List<String> categories,  List<String> tags,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _CreatorChannelDto() when $default != null:
 return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.description,_that.status,_that.isVerified,_that.uploadPermission,_that.subscribersCount,_that.videosCount,_that.totalViewsCount,_that.categories,_that.tags,_that.createdAt,_that.updatedAt);case _:
@@ -224,7 +224,7 @@ return $default(_that.id,_that.groupId,_that.name,_that.slug,_that.handle,_that.
 @JsonSerializable()
 
 class _CreatorChannelDto implements CreatorChannelDto {
-  const _CreatorChannelDto({required this.id, required this.groupId, required this.name, required this.slug, required this.handle, this.description, required this.status, required this.isVerified, required this.uploadPermission, this.subscribersCount = 0, this.videosCount = 0, this.totalViewsCount, final  List<String> categories = const [], final  List<String> tags = const [], required this.createdAt, required this.updatedAt}): _categories = categories,_tags = tags;
+  const _CreatorChannelDto({required this.id, required this.groupId, required this.name, required this.slug, required this.handle, this.description, required this.status, required this.isVerified, required this.uploadPermission, this.subscribersCount = 0, this.videosCount = 0, @JsonKey(fromJson: _parseTotalViews) this.totalViewsCount, final  List<String> categories = const [], final  List<String> tags = const [], required this.createdAt, required this.updatedAt}): _categories = categories,_tags = tags;
   factory _CreatorChannelDto.fromJson(Map<String, dynamic> json) => _$CreatorChannelDtoFromJson(json);
 
 @override final  String id;
@@ -238,7 +238,7 @@ class _CreatorChannelDto implements CreatorChannelDto {
 @override final  UploadPermission uploadPermission;
 @override@JsonKey() final  int subscribersCount;
 @override@JsonKey() final  int videosCount;
-@override final  String? totalViewsCount;
+@override@JsonKey(fromJson: _parseTotalViews) final  String? totalViewsCount;
  final  List<String> _categories;
 @override@JsonKey() List<String> get categories {
   if (_categories is EqualUnmodifiableListView) return _categories;
@@ -289,7 +289,7 @@ abstract mixin class _$CreatorChannelDtoCopyWith<$Res> implements $CreatorChanne
   factory _$CreatorChannelDtoCopyWith(_CreatorChannelDto value, $Res Function(_CreatorChannelDto) _then) = __$CreatorChannelDtoCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String groupId, String name, String slug, String handle, String? description, ChannelStatus status, bool isVerified, UploadPermission uploadPermission, int subscribersCount, int videosCount, String? totalViewsCount, List<String> categories, List<String> tags, DateTime createdAt, DateTime updatedAt
+ String id, String groupId, String name, String slug, String handle, String? description, ChannelStatus status, bool isVerified, UploadPermission uploadPermission, int subscribersCount, int videosCount,@JsonKey(fromJson: _parseTotalViews) String? totalViewsCount, List<String> categories, List<String> tags, DateTime createdAt, DateTime updatedAt
 });
 
 

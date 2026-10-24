@@ -9,6 +9,7 @@ import 'package:mobile/core/database/daos/watch_history_dao.dart';
 import 'package:mobile/core/database/daos/sync_queue_dao.dart';
 import 'package:mobile/core/database/daos/feed_dao.dart';
 import 'package:mobile/core/database/daos/search_history_dao.dart';
+import 'package:mobile/core/database/daos/live_recordings_dao.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -46,4 +47,8 @@ final feedDaoProvider = Provider<FeedDao>((ref) {
 
 final searchHistoryDaoProvider = Provider<SearchHistoryDao>((ref) {
   return ref.watch(appDatabaseProvider).searchHistoryDao;
+});
+
+final liveRecordingsDaoProvider = Provider<LiveRecordingsDao>((ref) {
+  return ref.watch(appDatabaseProvider).liveRecordingsDao;
 });

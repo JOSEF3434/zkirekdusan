@@ -91,6 +91,14 @@ class MockPinService extends _i1.Mock implements _i5.PinService {
   }
 
   @override
+  _i5.PinValidationError validate(String? pin, _i5.PinType? type) =>
+      (super.noSuchMethod(
+            Invocation.method(#validate, [pin, type]),
+            returnValue: _i5.PinValidationError.none,
+          )
+          as _i5.PinValidationError);
+
+  @override
   _i3.Future<bool> hasPin() =>
       (super.noSuchMethod(
             Invocation.method(#hasPin, []),

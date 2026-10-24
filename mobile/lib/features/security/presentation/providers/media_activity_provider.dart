@@ -25,6 +25,8 @@
 //   [AppLockNotifier.onMediaSessionEnded] which starts a fresh countdown.
 // * No timer resets on every video frame, stream event, or periodic callback.
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ---------------------------------------------------------------------------
@@ -114,33 +116,55 @@ class MediaActivityState {
 class MediaActivityNotifier extends StateNotifier<MediaActivityState> {
   MediaActivityNotifier() : super(const MediaActivityState.empty());
 
+  final Map<String, MediaSessionKind> _sessions = {};
+  bool _scheduled = false;
+
+  void _notifyStateChange() {
+    if (_scheduled) return;
+    _scheduled = true;
+    Future.microtask(() {
+      _scheduled = false;
+      if (!mounted) return;
+      state = MediaActivityState(sessions: Map.unmodifiable(_sessions));
+    });
+  }
+
   // ── Registration API (called by media screens) ──────────────────────────
 
   /// Register a foreground media session.
   /// Idempotent — safe to call repeatedly with the same [sessionId]+[kind].
   void startSession(String sessionId, MediaSessionKind kind) {
-    if (state.sessions[sessionId] == kind) return; // already registered
-    state = state.add(sessionId, kind);
+    if (_sessions[sessionId] == kind) return; // already registered
+    _sessions[sessionId] = kind;
+    _notifyStateChange();
   }
 
   /// Unregister a foreground media session (playback ended, paused,
   /// screen exited, stream ended/failed).
+  /// Safe to call during widget lifecycle (build, initState, dispose, etc.)
+  /// as state modification is deferred to a microtask.
   void endSession(String sessionId) {
-    if (!state.sessions.containsKey(sessionId)) return;
-    state = state.remove(sessionId);
+    if (!_sessions.containsKey(sessionId)) return;
+    _sessions.remove(sessionId);
+    _notifyStateChange();
   }
 
   /// Remove all sessions of a given kind (e.g., clear all video sessions on
   /// forced security lock so no stale exemptions survive).
   void clearSessionsOfKind(MediaSessionKind kind) {
-    state = state.clearKind(kind);
+    final before = _sessions.length;
+    _sessions.removeWhere((_, v) => v == kind);
+    if (_sessions.length != before) {
+      _notifyStateChange();
+    }
   }
 
   /// Clear all active sessions — used on logout, account switch, or
   /// forced security lock.
   void clearAll() {
-    if (state.sessions.isEmpty) return;
-    state = const MediaActivityState.empty();
+    if (_sessions.isEmpty) return;
+    _sessions.clear();
+    _notifyStateChange();
   }
 }
 

@@ -71,6 +71,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   bool _playerInitialized = false;
   bool _isPlayerInitializing = false;
   bool _playerError = false;
+  // True when all retry attempts returned 404 (stream not yet publishing).
+  bool _streamNotYetPublishing = false;
   int _initAttemptCount = 0;
   static const int _maxInitAttempts = 8;
   Timer? _playerRetryTimer;
@@ -94,7 +96,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   // Media-session ID for App Lock inactivity exemption.
   String get _mediaSessionId => 'live-viewer:${widget.streamId}';
 
+  // Cached notifier reference so we can call endSession in dispose() without
+  // touching ref (which throws after widget disposal in Riverpod 2.x).
+  late final Object _mediaActivityNotifier;
+
   void _checkCreatorRedirect(LiveRoomState roomState) {
+    // Guard: never call ref.read after the widget element is disposed.
+    if (!mounted) return;
     if (_redirectedToStudio) return;
     final stream = roomState.stream;
     if (stream == null || roomState.phase == LiveStreamPhase.ended) return;
@@ -123,6 +131,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   @override
   void initState() {
     super.initState();
+    // Cache the notifier reference NOW (before any async work) so dispose() can
+    // call endSession without invoking ref.read on a disposed element.
+    _mediaActivityNotifier =
+        ref.read(mediaActivityProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable().ignore();
     _scheduleHideControls();
@@ -179,8 +191,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
     _playerRetryTimer?.cancel();
-    // End media session so the inactivity countdown restarts.
-    ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+    // Use the cached notifier — never call ref.read here; the element is being
+    // disposed and Riverpod will throw "Cannot use ref after disposal".
+    // We defer via Future.microtask to avoid modifying providers during widget teardown.
+    final notifier = _mediaActivityNotifier;
+    final sessionId = _mediaSessionId;
+    Future.microtask(() {
+      try {
+        (notifier as dynamic).endSession(sessionId);
+      } catch (_) {}
+    });
     // Note: _playerCtrl may have been transferred to miniPlayerProvider
     // (in that case it's null here because we call _minimizeToMiniPlayer).
     _playerCtrl?.dispose();
@@ -236,7 +256,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // ── Player ─────────────────────────────────────────────────────────────────
 
-  Future<void> _initPlayer(String hlsUrl, {bool force = false}) async {
+  Future<void> _initPlayer(String hlsUrl, {bool force = false, bool warmupRetry = false}) async {
     final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
     if (currentPhase == LiveStreamPhase.ended || currentPhase.isTerminal) return;
     if ((_playerInitialized && !force) || _isPlayerInitializing) return;
@@ -244,7 +264,12 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     final resolved = MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
     if (resolved.isEmpty) return;
 
-    _playerRetryTimer?.cancel();
+    // Only cancel the retry timer if we are not being called FROM that timer.
+    // When warmupRetry=true, the periodic timer is still running and handles
+    // the next retry — we must not cancel it here.
+    if (!warmupRetry) {
+      _playerRetryTimer?.cancel();
+    }
     _isPlayerInitializing = true;
     if (force) {
       _initAttemptCount = 0;
@@ -323,29 +348,88 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           debugPrint('[LiveRoom] Connected to live stream successfully!');
           return;
         } catch (attemptErr) {
+          final errMsg = attemptErr.toString();
+          final is404 = errMsg.contains('404') ||
+              errMsg.contains('Response code: 404') ||
+              errMsg.contains('InvalidResponseCodeException');
           debugPrint(
-            '[LiveRoom] Player attempt $_initAttemptCount failed: $attemptErr',
+            '[LiveRoom] Player attempt $_initAttemptCount failed '
+            '(is404=$is404): $attemptErr',
           );
           if (testCtrl != null) {
             try {
               await testCtrl.dispose();
             } catch (_) {}
+            testCtrl = null;
           }
 
-          // If more attempts remain, delay before next attempt while HLS stream warms up
+          // If more attempts remain, delay before next attempt while HLS stream warms up.
+          // Use a longer delay on 404 (Cloudinary HLS not yet available) to reduce
+          // BLASTBufferQueue surface churn.
           if (_initAttemptCount < _maxInitAttempts && mounted) {
-            await Future<void>.delayed(const Duration(milliseconds: 2500));
+            final delayMs = is404 ? 4000 : 2500;
+            await Future<void>.delayed(Duration(milliseconds: delayMs));
           }
         }
       }
 
-      // If all attempts failed
+      // All attempts exhausted.
       debugPrint(
         '[LiveRoom] All $_maxInitAttempts connection attempts failed for: $resolved',
       );
-      if (mounted) {
+      if (!mounted) return;
+
+      // Re-check the current phase: if the backend still reports the stream as
+      // LIVE but Cloudinary returned 404 on every attempt, the broadcaster has
+      // not yet started pushing video (or just started and HLS isn't warm yet).
+      // Show a friendly "Waiting for broadcast to begin" screen rather than
+      // crashing the ExoPlayer surface in a tight loop.
+      final phaseAfterFail = ref.read(liveRoomProvider(widget.streamId)).phase;
+      if (phaseAfterFail == LiveStreamPhase.live ||
+          phaseAfterFail == LiveStreamPhase.starting) {
+        debugPrint(
+          '[LiveRoom] Stream is LIVE in DB but HLS is not yet available — '
+          'showing "waiting for broadcast" standby screen.',
+        );
+        setState(() {
+          _streamNotYetPublishing = true;
+          _playerError = false;
+          _isPlayerInitializing = false;
+          _initAttemptCount = 0;
+        });
+
+        // Only create the warm-up retry timer if one is NOT already running.
+        // When called from the timer itself (warmupRetry=true), the periodic
+        // timer is still alive — do not create a competing one.
+        if (!warmupRetry && (_playerRetryTimer == null || !_playerRetryTimer!.isActive)) {
+          _playerRetryTimer?.cancel();
+          // Retry every 15s. Guard: skip tick if already initialising or
+          // if the player succeeded via another code path.
+          _playerRetryTimer = Timer.periodic(const Duration(seconds: 15), (t) {
+            if (!mounted || _playerInitialized) {
+              t.cancel();
+              return;
+            }
+            final phase = ref.read(liveRoomProvider(widget.streamId)).phase;
+            if (phase.isTerminal || phase == LiveStreamPhase.ended) {
+              t.cancel();
+              return;
+            }
+            // Skip tick if a previous attempt is still running.
+            if (_isPlayerInitializing) return;
+            final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
+            if (hls != null && hls.isNotEmpty && mounted) {
+              setState(() => _streamNotYetPublishing = false);
+              // Pass warmupRetry=true so _initPlayer does NOT cancel this timer.
+              // The timer auto-cancels when _playerInitialized becomes true.
+              _initPlayer(hls, force: true, warmupRetry: true);
+            }
+          });
+        }
+      } else {
         setState(() {
           _playerError = true;
+          _streamNotYetPublishing = false;
           _isPlayerInitializing = false;
         });
         ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
@@ -355,6 +439,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       if (mounted) {
         setState(() {
           _playerError = true;
+          _streamNotYetPublishing = false;
           _isPlayerInitializing = false;
         });
         ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
@@ -755,6 +840,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       case LiveStreamPhase.live:
         if (_playerInitialized && _playerCtrl != null) {
           return VideoPlayer(_playerCtrl!);
+        } else if (_streamNotYetPublishing) {
+          return _buildWaitingForBroadcast();
         } else if (_playerError) {
           return _buildPlayerError();
         } else {
@@ -767,7 +854,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       case LiveStreamPhase.ended:
         return _buildStreamEnded(state);
       case LiveStreamPhase.error:
-        return _buildPlayerError();
+        return _playerError ? _buildPlayerError() : _buildBuffering();
     }
   }
 
@@ -1164,6 +1251,67 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             child: Text(tr('common.retry')),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Shown when the backend confirms the stream is LIVE but Cloudinary's HLS
+  /// manifest returns HTTP 404 — the broadcaster has not yet begun publishing
+  /// video to the ingest endpoint.  Auto-retries via `_playerRetryTimer`.
+  Widget _buildWaitingForBroadcast() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white54,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Broadcaster is getting ready…',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'The live stream will begin shortly.\nThis screen refreshes automatically.',
+              style: TextStyle(color: Colors.white60, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () {
+                _playerRetryTimer?.cancel();
+                setState(() {
+                  _streamNotYetPublishing = false;
+                  _initAttemptCount = 0;
+                });
+                final hls =
+                    ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
+                if (hls != null && hls.isNotEmpty) {
+                  _initPlayer(hls, force: true);
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white30),
+              ),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Try Now'),
+            ),
+          ],
+        ),
       ),
     );
   }

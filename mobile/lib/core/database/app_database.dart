@@ -1,4 +1,3 @@
-// lib/core/database/app_database.dart
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +13,7 @@ import 'tables/local_feed_items_table.dart';
 import 'tables/local_calendar_notes_table.dart';
 import 'tables/sync_queue_table.dart';
 import 'tables/local_downloaded_books_table.dart';
+import 'tables/local_live_recordings_table.dart';
 
 
 import 'daos/users_dao.dart';
@@ -26,6 +26,7 @@ import 'daos/feed_dao.dart';
 import 'daos/search_history_dao.dart';
 import 'daos/calendar_notes_dao.dart';
 import 'daos/downloaded_books_dao.dart';
+import 'daos/live_recordings_dao.dart';
 
 
 part 'app_database.g.dart';
@@ -44,6 +45,7 @@ part 'app_database.g.dart';
     LocalCalendarNoteMedia,
     SyncQueue,
     LocalDownloadedBooks,
+    LocalLiveRecordings,
   ],
   daos: [
     UsersDao,
@@ -56,6 +58,7 @@ part 'app_database.g.dart';
     SearchHistoryDao,
     CalendarNotesDao,
     DownloadedBooksDao,
+    LiveRecordingsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -71,7 +74,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -140,6 +143,11 @@ class AppDatabase extends _$AppDatabase {
       // Version 5: Add downloaded books table for offline reading
       if (from < 5) {
         await m.createTable(localDownloadedBooks);
+      }
+
+      // Version 6: Add local live recordings table
+      if (from < 6) {
+        await m.createTable(localLiveRecordings);
       }
     },
     beforeOpen: (OpeningDetails details) async {

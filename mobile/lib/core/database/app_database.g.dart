@@ -11941,6 +11941,971 @@ class LocalDownloadedBooksCompanion
   }
 }
 
+class $LocalLiveRecordingsTable extends LocalLiveRecordings
+    with TableInfo<$LocalLiveRecordingsTable, LocalLiveRecordingData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalLiveRecordingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamTitleMeta = const VerificationMeta(
+    'streamTitle',
+  );
+  @override
+  late final GeneratedColumn<String> streamTitle = GeneratedColumn<String>(
+    'stream_title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _localFilePathMeta = const VerificationMeta(
+    'localFilePath',
+  );
+  @override
+  late final GeneratedColumn<String> localFilePath = GeneratedColumn<String>(
+    'local_file_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('audio/mp4'),
+  );
+  static const VerificationMeta _recordingTypeMeta = const VerificationMeta(
+    'recordingType',
+  );
+  @override
+  late final GeneratedColumn<String> recordingType = GeneratedColumn<String>(
+    'recording_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('audioOnly'),
+  );
+  static const VerificationMeta _fileSizeBytesMeta = const VerificationMeta(
+    'fileSizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> fileSizeBytes = GeneratedColumn<int>(
+    'file_size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('recording'),
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uploadedUrlMeta = const VerificationMeta(
+    'uploadedUrl',
+  );
+  @override
+  late final GeneratedColumn<String> uploadedUrl = GeneratedColumn<String>(
+    'uploaded_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uploadProgressMeta = const VerificationMeta(
+    'uploadProgress',
+  );
+  @override
+  late final GeneratedColumn<double> uploadProgress = GeneratedColumn<double>(
+    'upload_progress',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _uploadAttemptsMeta = const VerificationMeta(
+    'uploadAttempts',
+  );
+  @override
+  late final GeneratedColumn<int> uploadAttempts = GeneratedColumn<int>(
+    'upload_attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _finishedAtMeta = const VerificationMeta(
+    'finishedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> finishedAt = GeneratedColumn<DateTime>(
+    'finished_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    streamId,
+    streamTitle,
+    localFilePath,
+    mimeType,
+    recordingType,
+    fileSizeBytes,
+    durationSeconds,
+    status,
+    errorMessage,
+    uploadedUrl,
+    uploadProgress,
+    uploadAttempts,
+    startedAt,
+    finishedAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_live_recordings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalLiveRecordingData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('stream_title')) {
+      context.handle(
+        _streamTitleMeta,
+        streamTitle.isAcceptableOrUnknown(
+          data['stream_title']!,
+          _streamTitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('local_file_path')) {
+      context.handle(
+        _localFilePathMeta,
+        localFilePath.isAcceptableOrUnknown(
+          data['local_file_path']!,
+          _localFilePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    }
+    if (data.containsKey('recording_type')) {
+      context.handle(
+        _recordingTypeMeta,
+        recordingType.isAcceptableOrUnknown(
+          data['recording_type']!,
+          _recordingTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('file_size_bytes')) {
+      context.handle(
+        _fileSizeBytesMeta,
+        fileSizeBytes.isAcceptableOrUnknown(
+          data['file_size_bytes']!,
+          _fileSizeBytesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('uploaded_url')) {
+      context.handle(
+        _uploadedUrlMeta,
+        uploadedUrl.isAcceptableOrUnknown(
+          data['uploaded_url']!,
+          _uploadedUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upload_progress')) {
+      context.handle(
+        _uploadProgressMeta,
+        uploadProgress.isAcceptableOrUnknown(
+          data['upload_progress']!,
+          _uploadProgressMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upload_attempts')) {
+      context.handle(
+        _uploadAttemptsMeta,
+        uploadAttempts.isAcceptableOrUnknown(
+          data['upload_attempts']!,
+          _uploadAttemptsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('finished_at')) {
+      context.handle(
+        _finishedAtMeta,
+        finishedAt.isAcceptableOrUnknown(data['finished_at']!, _finishedAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalLiveRecordingData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalLiveRecordingData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      streamTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_title'],
+      )!,
+      localFilePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_file_path'],
+      ),
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      recordingType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recording_type'],
+      )!,
+      fileSizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}file_size_bytes'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      uploadedUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uploaded_url'],
+      ),
+      uploadProgress: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}upload_progress'],
+      )!,
+      uploadAttempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}upload_attempts'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      finishedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}finished_at'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalLiveRecordingsTable createAlias(String alias) {
+    return $LocalLiveRecordingsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalLiveRecordingData extends DataClass
+    implements Insertable<LocalLiveRecordingData> {
+  /// Unique local UUID for this recording row.
+  final String id;
+
+  /// Server-side stream ID this recording belongs to.
+  final String streamId;
+
+  /// Stream title at the time of recording (denormalized for display).
+  final String streamTitle;
+
+  /// Absolute path of the recording file on this device.
+  /// Null until recording starts successfully.
+  final String? localFilePath;
+
+  /// MIME type: 'audio/mp4' for M4A or 'video/mp4' for future AV files.
+  final String mimeType;
+
+  /// What media the file contains (see [LocalRecordingType]).
+  final String recordingType;
+
+  /// File size in bytes — filled after finalization.
+  final int fileSizeBytes;
+
+  /// Recorded duration in seconds — filled after finalization.
+  final int durationSeconds;
+
+  /// Current status (see [LocalRecordingStatus]).
+  final String status;
+
+  /// Human-readable error if status == 'failed' or 'uploadFailed'.
+  final String? errorMessage;
+
+  /// URL of the uploaded file on the server (filled after successful upload).
+  final String? uploadedUrl;
+
+  /// Upload progress 0.0–1.0 (transient, may be 0 after app restart).
+  final double uploadProgress;
+
+  /// Number of upload attempts made so far.
+  final int uploadAttempts;
+
+  /// When the recording started (UTC).
+  final DateTime startedAt;
+
+  /// When recording stopped / finalized (UTC). Null while still recording.
+  final DateTime? finishedAt;
+
+  /// When the row was last updated.
+  final DateTime updatedAt;
+  const LocalLiveRecordingData({
+    required this.id,
+    required this.streamId,
+    required this.streamTitle,
+    this.localFilePath,
+    required this.mimeType,
+    required this.recordingType,
+    required this.fileSizeBytes,
+    required this.durationSeconds,
+    required this.status,
+    this.errorMessage,
+    this.uploadedUrl,
+    required this.uploadProgress,
+    required this.uploadAttempts,
+    required this.startedAt,
+    this.finishedAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['stream_id'] = Variable<String>(streamId);
+    map['stream_title'] = Variable<String>(streamTitle);
+    if (!nullToAbsent || localFilePath != null) {
+      map['local_file_path'] = Variable<String>(localFilePath);
+    }
+    map['mime_type'] = Variable<String>(mimeType);
+    map['recording_type'] = Variable<String>(recordingType);
+    map['file_size_bytes'] = Variable<int>(fileSizeBytes);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    if (!nullToAbsent || uploadedUrl != null) {
+      map['uploaded_url'] = Variable<String>(uploadedUrl);
+    }
+    map['upload_progress'] = Variable<double>(uploadProgress);
+    map['upload_attempts'] = Variable<int>(uploadAttempts);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    if (!nullToAbsent || finishedAt != null) {
+      map['finished_at'] = Variable<DateTime>(finishedAt);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalLiveRecordingsCompanion toCompanion(bool nullToAbsent) {
+    return LocalLiveRecordingsCompanion(
+      id: Value(id),
+      streamId: Value(streamId),
+      streamTitle: Value(streamTitle),
+      localFilePath: localFilePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localFilePath),
+      mimeType: Value(mimeType),
+      recordingType: Value(recordingType),
+      fileSizeBytes: Value(fileSizeBytes),
+      durationSeconds: Value(durationSeconds),
+      status: Value(status),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      uploadedUrl: uploadedUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(uploadedUrl),
+      uploadProgress: Value(uploadProgress),
+      uploadAttempts: Value(uploadAttempts),
+      startedAt: Value(startedAt),
+      finishedAt: finishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(finishedAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LocalLiveRecordingData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalLiveRecordingData(
+      id: serializer.fromJson<String>(json['id']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      streamTitle: serializer.fromJson<String>(json['streamTitle']),
+      localFilePath: serializer.fromJson<String?>(json['localFilePath']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      recordingType: serializer.fromJson<String>(json['recordingType']),
+      fileSizeBytes: serializer.fromJson<int>(json['fileSizeBytes']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      status: serializer.fromJson<String>(json['status']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      uploadedUrl: serializer.fromJson<String?>(json['uploadedUrl']),
+      uploadProgress: serializer.fromJson<double>(json['uploadProgress']),
+      uploadAttempts: serializer.fromJson<int>(json['uploadAttempts']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      finishedAt: serializer.fromJson<DateTime?>(json['finishedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'streamId': serializer.toJson<String>(streamId),
+      'streamTitle': serializer.toJson<String>(streamTitle),
+      'localFilePath': serializer.toJson<String?>(localFilePath),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'recordingType': serializer.toJson<String>(recordingType),
+      'fileSizeBytes': serializer.toJson<int>(fileSizeBytes),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'status': serializer.toJson<String>(status),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'uploadedUrl': serializer.toJson<String?>(uploadedUrl),
+      'uploadProgress': serializer.toJson<double>(uploadProgress),
+      'uploadAttempts': serializer.toJson<int>(uploadAttempts),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'finishedAt': serializer.toJson<DateTime?>(finishedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  LocalLiveRecordingData copyWith({
+    String? id,
+    String? streamId,
+    String? streamTitle,
+    Value<String?> localFilePath = const Value.absent(),
+    String? mimeType,
+    String? recordingType,
+    int? fileSizeBytes,
+    int? durationSeconds,
+    String? status,
+    Value<String?> errorMessage = const Value.absent(),
+    Value<String?> uploadedUrl = const Value.absent(),
+    double? uploadProgress,
+    int? uploadAttempts,
+    DateTime? startedAt,
+    Value<DateTime?> finishedAt = const Value.absent(),
+    DateTime? updatedAt,
+  }) => LocalLiveRecordingData(
+    id: id ?? this.id,
+    streamId: streamId ?? this.streamId,
+    streamTitle: streamTitle ?? this.streamTitle,
+    localFilePath: localFilePath.present
+        ? localFilePath.value
+        : this.localFilePath,
+    mimeType: mimeType ?? this.mimeType,
+    recordingType: recordingType ?? this.recordingType,
+    fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    status: status ?? this.status,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    uploadedUrl: uploadedUrl.present ? uploadedUrl.value : this.uploadedUrl,
+    uploadProgress: uploadProgress ?? this.uploadProgress,
+    uploadAttempts: uploadAttempts ?? this.uploadAttempts,
+    startedAt: startedAt ?? this.startedAt,
+    finishedAt: finishedAt.present ? finishedAt.value : this.finishedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  LocalLiveRecordingData copyWithCompanion(LocalLiveRecordingsCompanion data) {
+    return LocalLiveRecordingData(
+      id: data.id.present ? data.id.value : this.id,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      streamTitle: data.streamTitle.present
+          ? data.streamTitle.value
+          : this.streamTitle,
+      localFilePath: data.localFilePath.present
+          ? data.localFilePath.value
+          : this.localFilePath,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      recordingType: data.recordingType.present
+          ? data.recordingType.value
+          : this.recordingType,
+      fileSizeBytes: data.fileSizeBytes.present
+          ? data.fileSizeBytes.value
+          : this.fileSizeBytes,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      status: data.status.present ? data.status.value : this.status,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      uploadedUrl: data.uploadedUrl.present
+          ? data.uploadedUrl.value
+          : this.uploadedUrl,
+      uploadProgress: data.uploadProgress.present
+          ? data.uploadProgress.value
+          : this.uploadProgress,
+      uploadAttempts: data.uploadAttempts.present
+          ? data.uploadAttempts.value
+          : this.uploadAttempts,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      finishedAt: data.finishedAt.present
+          ? data.finishedAt.value
+          : this.finishedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalLiveRecordingData(')
+          ..write('id: $id, ')
+          ..write('streamId: $streamId, ')
+          ..write('streamTitle: $streamTitle, ')
+          ..write('localFilePath: $localFilePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('recordingType: $recordingType, ')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('uploadedUrl: $uploadedUrl, ')
+          ..write('uploadProgress: $uploadProgress, ')
+          ..write('uploadAttempts: $uploadAttempts, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('finishedAt: $finishedAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    streamId,
+    streamTitle,
+    localFilePath,
+    mimeType,
+    recordingType,
+    fileSizeBytes,
+    durationSeconds,
+    status,
+    errorMessage,
+    uploadedUrl,
+    uploadProgress,
+    uploadAttempts,
+    startedAt,
+    finishedAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalLiveRecordingData &&
+          other.id == this.id &&
+          other.streamId == this.streamId &&
+          other.streamTitle == this.streamTitle &&
+          other.localFilePath == this.localFilePath &&
+          other.mimeType == this.mimeType &&
+          other.recordingType == this.recordingType &&
+          other.fileSizeBytes == this.fileSizeBytes &&
+          other.durationSeconds == this.durationSeconds &&
+          other.status == this.status &&
+          other.errorMessage == this.errorMessage &&
+          other.uploadedUrl == this.uploadedUrl &&
+          other.uploadProgress == this.uploadProgress &&
+          other.uploadAttempts == this.uploadAttempts &&
+          other.startedAt == this.startedAt &&
+          other.finishedAt == this.finishedAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalLiveRecordingsCompanion
+    extends UpdateCompanion<LocalLiveRecordingData> {
+  final Value<String> id;
+  final Value<String> streamId;
+  final Value<String> streamTitle;
+  final Value<String?> localFilePath;
+  final Value<String> mimeType;
+  final Value<String> recordingType;
+  final Value<int> fileSizeBytes;
+  final Value<int> durationSeconds;
+  final Value<String> status;
+  final Value<String?> errorMessage;
+  final Value<String?> uploadedUrl;
+  final Value<double> uploadProgress;
+  final Value<int> uploadAttempts;
+  final Value<DateTime> startedAt;
+  final Value<DateTime?> finishedAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalLiveRecordingsCompanion({
+    this.id = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.streamTitle = const Value.absent(),
+    this.localFilePath = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.recordingType = const Value.absent(),
+    this.fileSizeBytes = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.status = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.uploadedUrl = const Value.absent(),
+    this.uploadProgress = const Value.absent(),
+    this.uploadAttempts = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.finishedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalLiveRecordingsCompanion.insert({
+    required String id,
+    required String streamId,
+    this.streamTitle = const Value.absent(),
+    this.localFilePath = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.recordingType = const Value.absent(),
+    this.fileSizeBytes = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.status = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.uploadedUrl = const Value.absent(),
+    this.uploadProgress = const Value.absent(),
+    this.uploadAttempts = const Value.absent(),
+    required DateTime startedAt,
+    this.finishedAt = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       streamId = Value(streamId),
+       startedAt = Value(startedAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<LocalLiveRecordingData> custom({
+    Expression<String>? id,
+    Expression<String>? streamId,
+    Expression<String>? streamTitle,
+    Expression<String>? localFilePath,
+    Expression<String>? mimeType,
+    Expression<String>? recordingType,
+    Expression<int>? fileSizeBytes,
+    Expression<int>? durationSeconds,
+    Expression<String>? status,
+    Expression<String>? errorMessage,
+    Expression<String>? uploadedUrl,
+    Expression<double>? uploadProgress,
+    Expression<int>? uploadAttempts,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? finishedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (streamId != null) 'stream_id': streamId,
+      if (streamTitle != null) 'stream_title': streamTitle,
+      if (localFilePath != null) 'local_file_path': localFilePath,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (recordingType != null) 'recording_type': recordingType,
+      if (fileSizeBytes != null) 'file_size_bytes': fileSizeBytes,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (status != null) 'status': status,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (uploadedUrl != null) 'uploaded_url': uploadedUrl,
+      if (uploadProgress != null) 'upload_progress': uploadProgress,
+      if (uploadAttempts != null) 'upload_attempts': uploadAttempts,
+      if (startedAt != null) 'started_at': startedAt,
+      if (finishedAt != null) 'finished_at': finishedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalLiveRecordingsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? streamId,
+    Value<String>? streamTitle,
+    Value<String?>? localFilePath,
+    Value<String>? mimeType,
+    Value<String>? recordingType,
+    Value<int>? fileSizeBytes,
+    Value<int>? durationSeconds,
+    Value<String>? status,
+    Value<String?>? errorMessage,
+    Value<String?>? uploadedUrl,
+    Value<double>? uploadProgress,
+    Value<int>? uploadAttempts,
+    Value<DateTime>? startedAt,
+    Value<DateTime?>? finishedAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalLiveRecordingsCompanion(
+      id: id ?? this.id,
+      streamId: streamId ?? this.streamId,
+      streamTitle: streamTitle ?? this.streamTitle,
+      localFilePath: localFilePath ?? this.localFilePath,
+      mimeType: mimeType ?? this.mimeType,
+      recordingType: recordingType ?? this.recordingType,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
+      uploadedUrl: uploadedUrl ?? this.uploadedUrl,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
+      uploadAttempts: uploadAttempts ?? this.uploadAttempts,
+      startedAt: startedAt ?? this.startedAt,
+      finishedAt: finishedAt ?? this.finishedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (streamTitle.present) {
+      map['stream_title'] = Variable<String>(streamTitle.value);
+    }
+    if (localFilePath.present) {
+      map['local_file_path'] = Variable<String>(localFilePath.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (recordingType.present) {
+      map['recording_type'] = Variable<String>(recordingType.value);
+    }
+    if (fileSizeBytes.present) {
+      map['file_size_bytes'] = Variable<int>(fileSizeBytes.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (uploadedUrl.present) {
+      map['uploaded_url'] = Variable<String>(uploadedUrl.value);
+    }
+    if (uploadProgress.present) {
+      map['upload_progress'] = Variable<double>(uploadProgress.value);
+    }
+    if (uploadAttempts.present) {
+      map['upload_attempts'] = Variable<int>(uploadAttempts.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (finishedAt.present) {
+      map['finished_at'] = Variable<DateTime>(finishedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalLiveRecordingsCompanion(')
+          ..write('id: $id, ')
+          ..write('streamId: $streamId, ')
+          ..write('streamTitle: $streamTitle, ')
+          ..write('localFilePath: $localFilePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('recordingType: $recordingType, ')
+          ..write('fileSizeBytes: $fileSizeBytes, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('uploadedUrl: $uploadedUrl, ')
+          ..write('uploadProgress: $uploadProgress, ')
+          ..write('uploadAttempts: $uploadAttempts, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('finishedAt: $finishedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11963,6 +12928,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   late final $LocalDownloadedBooksTable localDownloadedBooks =
       $LocalDownloadedBooksTable(this);
+  late final $LocalLiveRecordingsTable localLiveRecordings =
+      $LocalLiveRecordingsTable(this);
   late final UsersDao usersDao = UsersDao(this as AppDatabase);
   late final VideosDao videosDao = VideosDao(this as AppDatabase);
   late final ConversationsDao conversationsDao = ConversationsDao(
@@ -11983,6 +12950,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final DownloadedBooksDao downloadedBooksDao = DownloadedBooksDao(
     this as AppDatabase,
   );
+  late final LiveRecordingsDao liveRecordingsDao = LiveRecordingsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -12000,6 +12970,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localCalendarNoteMedia,
     syncQueue,
     localDownloadedBooks,
+    localLiveRecordings,
   ];
 }
 
@@ -17420,6 +18391,451 @@ typedef $$LocalDownloadedBooksTableProcessedTableManager =
       LocalDownloadedBookData,
       PrefetchHooks Function()
     >;
+typedef $$LocalLiveRecordingsTableCreateCompanionBuilder =
+    LocalLiveRecordingsCompanion Function({
+      required String id,
+      required String streamId,
+      Value<String> streamTitle,
+      Value<String?> localFilePath,
+      Value<String> mimeType,
+      Value<String> recordingType,
+      Value<int> fileSizeBytes,
+      Value<int> durationSeconds,
+      Value<String> status,
+      Value<String?> errorMessage,
+      Value<String?> uploadedUrl,
+      Value<double> uploadProgress,
+      Value<int> uploadAttempts,
+      required DateTime startedAt,
+      Value<DateTime?> finishedAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalLiveRecordingsTableUpdateCompanionBuilder =
+    LocalLiveRecordingsCompanion Function({
+      Value<String> id,
+      Value<String> streamId,
+      Value<String> streamTitle,
+      Value<String?> localFilePath,
+      Value<String> mimeType,
+      Value<String> recordingType,
+      Value<int> fileSizeBytes,
+      Value<int> durationSeconds,
+      Value<String> status,
+      Value<String?> errorMessage,
+      Value<String?> uploadedUrl,
+      Value<double> uploadProgress,
+      Value<int> uploadAttempts,
+      Value<DateTime> startedAt,
+      Value<DateTime?> finishedAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalLiveRecordingsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalLiveRecordingsTable> {
+  $$LocalLiveRecordingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamTitle => $composableBuilder(
+    column: $table.streamTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localFilePath => $composableBuilder(
+    column: $table.localFilePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordingType => $composableBuilder(
+    column: $table.recordingType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uploadedUrl => $composableBuilder(
+    column: $table.uploadedUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get uploadProgress => $composableBuilder(
+    column: $table.uploadProgress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get uploadAttempts => $composableBuilder(
+    column: $table.uploadAttempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalLiveRecordingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalLiveRecordingsTable> {
+  $$LocalLiveRecordingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamTitle => $composableBuilder(
+    column: $table.streamTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localFilePath => $composableBuilder(
+    column: $table.localFilePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordingType => $composableBuilder(
+    column: $table.recordingType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get uploadedUrl => $composableBuilder(
+    column: $table.uploadedUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get uploadProgress => $composableBuilder(
+    column: $table.uploadProgress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get uploadAttempts => $composableBuilder(
+    column: $table.uploadAttempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalLiveRecordingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalLiveRecordingsTable> {
+  $$LocalLiveRecordingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get streamTitle => $composableBuilder(
+    column: $table.streamTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localFilePath => $composableBuilder(
+    column: $table.localFilePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<String> get recordingType => $composableBuilder(
+    column: $table.recordingType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get fileSizeBytes => $composableBuilder(
+    column: $table.fileSizeBytes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get uploadedUrl => $composableBuilder(
+    column: $table.uploadedUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get uploadProgress => $composableBuilder(
+    column: $table.uploadProgress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get uploadAttempts => $composableBuilder(
+    column: $table.uploadAttempts,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get finishedAt => $composableBuilder(
+    column: $table.finishedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalLiveRecordingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalLiveRecordingsTable,
+          LocalLiveRecordingData,
+          $$LocalLiveRecordingsTableFilterComposer,
+          $$LocalLiveRecordingsTableOrderingComposer,
+          $$LocalLiveRecordingsTableAnnotationComposer,
+          $$LocalLiveRecordingsTableCreateCompanionBuilder,
+          $$LocalLiveRecordingsTableUpdateCompanionBuilder,
+          (
+            LocalLiveRecordingData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalLiveRecordingsTable,
+              LocalLiveRecordingData
+            >,
+          ),
+          LocalLiveRecordingData,
+          PrefetchHooks Function()
+        > {
+  $$LocalLiveRecordingsTableTableManager(
+    _$AppDatabase db,
+    $LocalLiveRecordingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalLiveRecordingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalLiveRecordingsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalLiveRecordingsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<String> streamTitle = const Value.absent(),
+                Value<String?> localFilePath = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<String> recordingType = const Value.absent(),
+                Value<int> fileSizeBytes = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<String?> uploadedUrl = const Value.absent(),
+                Value<double> uploadProgress = const Value.absent(),
+                Value<int> uploadAttempts = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime?> finishedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalLiveRecordingsCompanion(
+                id: id,
+                streamId: streamId,
+                streamTitle: streamTitle,
+                localFilePath: localFilePath,
+                mimeType: mimeType,
+                recordingType: recordingType,
+                fileSizeBytes: fileSizeBytes,
+                durationSeconds: durationSeconds,
+                status: status,
+                errorMessage: errorMessage,
+                uploadedUrl: uploadedUrl,
+                uploadProgress: uploadProgress,
+                uploadAttempts: uploadAttempts,
+                startedAt: startedAt,
+                finishedAt: finishedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String streamId,
+                Value<String> streamTitle = const Value.absent(),
+                Value<String?> localFilePath = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<String> recordingType = const Value.absent(),
+                Value<int> fileSizeBytes = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<String?> uploadedUrl = const Value.absent(),
+                Value<double> uploadProgress = const Value.absent(),
+                Value<int> uploadAttempts = const Value.absent(),
+                required DateTime startedAt,
+                Value<DateTime?> finishedAt = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalLiveRecordingsCompanion.insert(
+                id: id,
+                streamId: streamId,
+                streamTitle: streamTitle,
+                localFilePath: localFilePath,
+                mimeType: mimeType,
+                recordingType: recordingType,
+                fileSizeBytes: fileSizeBytes,
+                durationSeconds: durationSeconds,
+                status: status,
+                errorMessage: errorMessage,
+                uploadedUrl: uploadedUrl,
+                uploadProgress: uploadProgress,
+                uploadAttempts: uploadAttempts,
+                startedAt: startedAt,
+                finishedAt: finishedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalLiveRecordingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalLiveRecordingsTable,
+      LocalLiveRecordingData,
+      $$LocalLiveRecordingsTableFilterComposer,
+      $$LocalLiveRecordingsTableOrderingComposer,
+      $$LocalLiveRecordingsTableAnnotationComposer,
+      $$LocalLiveRecordingsTableCreateCompanionBuilder,
+      $$LocalLiveRecordingsTableUpdateCompanionBuilder,
+      (
+        LocalLiveRecordingData,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalLiveRecordingsTable,
+          LocalLiveRecordingData
+        >,
+      ),
+      LocalLiveRecordingData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -17454,4 +18870,6 @@ class $AppDatabaseManager {
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
   $$LocalDownloadedBooksTableTableManager get localDownloadedBooks =>
       $$LocalDownloadedBooksTableTableManager(_db, _db.localDownloadedBooks);
+  $$LocalLiveRecordingsTableTableManager get localLiveRecordings =>
+      $$LocalLiveRecordingsTableTableManager(_db, _db.localLiveRecordings);
 }

@@ -38,6 +38,11 @@ import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart
 import 'package:mobile/core/utils/ethiopian_calendar.dart';
 import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
 import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
+import 'package:mobile/features/live/data/live_recording_service.dart';
+import 'package:mobile/features/live/domain/camera_source.dart';
+import 'package:mobile/features/live/presentation/widgets/camera_source_picker_sheet.dart';
+import 'package:mobile/features/live/presentation/widgets/pre_broadcast_mode_dialog.dart';
+import 'package:mobile/features/live/presentation/widgets/live_network_diagnostics_widget.dart';
 
 // ─── Studio Floating Particle (Live Reactions) ──────────────────────────────
 
@@ -212,6 +217,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   String? _streamingError;
   String? _cameraErrorMessage;
   String? _lastStreamKey;
+  // Auto-reconnect timer fired when the RTMP connection drops unexpectedly.
+  Timer? _rtmpReconnectTimer;
+  // True only when the user intentionally ended / stopped the broadcast.
+  // Prevents auto-reconnect from firing after a deliberate disconnect.
+  bool _intentionalDisconnect = false;
 
   // Web WHIP broadcaster (flutter_webrtc → MediaMTX → Cloudinary)
   WebWhipBroadcaster? _whipBroadcaster;
@@ -220,7 +230,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   WhipState _whipState = WhipState.idle;
   String? _whipError;
 
+  // Camera & Encoder Source selection
+  CameraSource _selectedCameraSource = const BuiltInCameraSource();
+  CameraSource get selectedCameraSource => _selectedCameraSource;
+
   bool get _isCameraReady {
+    if (!_selectedCameraSource.requiresLocalHardware) {
+      // External encoders (OBS/ATEM) or RTSP network cameras do not use phone hardware
+      return true;
+    }
     if (kIsWeb) {
       // On Web, camera readiness is confirmed once flutter_webrtc has acquired
       // a local MediaStream — either from the standby preview or WHIP broadcaster.
@@ -233,6 +251,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   bool get _isBroadcastTransportReady {
+    if (!_selectedCameraSource.requiresLocalHardware) {
+      // External encoders push directly to ingest server
+      return true;
+    }
     if (kIsWeb) {
       // WebRTC WHIP transport is available via flutter_webrtc + MediaMTX.
       // Transport is considered ready when WHIP is connected.
@@ -257,9 +279,29 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   final _rng = Random();
   StreamSubscription? _reactionSub;
 
+  // ── Local recording state ────────────────────────────────────────────────
+  // NOTE: Recording via LiveRecordingService is AUDIO-ONLY (M4A/AAC) on mobile.
+  // The apivideo_live_stream broadcaster does not expose a local video-file
+  // output; encoded video goes exclusively to the RTMP ingest. Full AV local
+  // recording requires a native platform plugin (future enhancement).
+  // Recording is completely disabled on Flutter Web (see LiveRecordingService).
+  String? _activeRecordingId;   // non-null while recording is active
+  String? get activeRecordingId => _activeRecordingId;
+  bool _isLocalRecording = false;
+
+  // Pre-cached service references used in dispose() to avoid calling
+  // ref.read on a disposed ConsumerStatefulElement (Riverpod 2.x throws).
+  late final dynamic _cachedMediaNotifier;
+  late final dynamic _cachedSocketService;
+  late final LiveRecordingService _cachedRecordingService;
+
   @override
   void initState() {
     super.initState();
+    // Cache service references BEFORE any async work so dispose() is safe.
+    _cachedMediaNotifier = ref.read(mediaActivityProvider.notifier);
+    _cachedSocketService = ref.read(liveSocketServiceProvider);
+    _cachedRecordingService = ref.read(liveRecordingServiceProvider);
     if (widget.streamId != null) {
       _streamId = widget.streamId;
       _initBroadcasterSocket(widget.streamId!);
@@ -269,6 +311,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       _loadChannels();
     }
     _setupCamera(front: true);
+    // Reconcile any recordings orphaned by a previous crash.
+    _cachedRecordingService.reconcileOrphanedRecordings();
   }
 
   Future<void> _fetchStreamChannelId(String streamId) async {
@@ -325,14 +369,28 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   @override
   void dispose() {
     _reactionSub?.cancel();
+    _rtmpReconnectTimer?.cancel();
+    _intentionalDisconnect = true; // prevent auto-reconnect on dispose
     for (final p in _particles) {
       p.ctrl.dispose();
     }
+    // Use pre-cached service references — never call ref.read in dispose();
+    // the ConsumerStatefulElement is already being torn down at this point.
     if (_streamId != null) {
-      ref
-          .read(mediaActivityProvider.notifier)
-          .endSession('live-broadcaster:$_streamId');
-      ref.read(liveSocketServiceProvider).leaveStream(_streamId!);
+      final sId = _streamId!;
+      final notifier = _cachedMediaNotifier;
+      Future.microtask(() {
+        try {
+          (notifier as dynamic)?.endSession('live-broadcaster:$sId');
+        } catch (_) {}
+      });
+      (_cachedSocketService as dynamic).leaveStream(_streamId!);
+    }
+    // Stop local audio recording (if active) before tearing down the broadcaster.
+    // This is a fire-and-forget best-effort; the recording service also handles
+    // orphan cleanup at next startup via reconcileOrphanedRecordings().
+    if (_isLocalRecording) {
+      _cachedRecordingService.stopRecording().ignore();
     }
     _stopRtmpBroadcast();
     _liveStreamController?.stop();
@@ -376,12 +434,42 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   void _onDisconnection() {
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = false;
-        _streamingError = 'Disconnected from RTMP broadcast';
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isStreamingRtmp = false;
+      _streamingError = 'Disconnected — reconnecting...';
+    });
+
+    // Skip auto-reconnect when the user intentionally ended the stream.
+    if (_intentionalDisconnect) return;
+
+    final key = _lastStreamKey;
+    if (key == null || key.isEmpty) return;
+
+    // Look up the live stream object so we can pass it to _startRtmpBroadcast.
+    final streamId = _streamId;
+    if (streamId == null) return;
+
+    _rtmpReconnectTimer?.cancel();
+    _rtmpReconnectTimer = Timer(const Duration(seconds: 3), () async {
+      if (!mounted || _isStreamingRtmp || _intentionalDisconnect) return;
+      debugPrint('[LiveStudio] RTMP dropped unexpectedly — auto-reconnecting...');
+      if (mounted) {
+        setState(() => _streamingError = 'Reconnecting to live server...');
+      }
+      try {
+        final stream = ref
+            .read(broadcasterProvider((streamId, _effectiveChannelId)))
+            .stream;
+        if (stream != null && stream.status == LiveStreamStatus.live) {
+          await _startRtmpBroadcast(stream, key);
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _streamingError = 'Auto-reconnect failed. Tap Reconnect.');
+        }
+      }
+    });
   }
 
   void _onError(Exception error) {
@@ -516,6 +604,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.folder_special_outlined),
+            tooltip: 'Local Recordings',
+            onPressed: () => context.push('/live/recordings'),
+          ),
+          IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'Close',
             onPressed: () => context.pop(),
@@ -649,7 +742,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                 setState(() => _isVideoStream = set.first);
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // ── Camera / Video Source Selector ──
+            if (_isVideoStream) ...[
+              _buildCameraSourceCard(theme),
+            ],
+
+            // ── Live Network & Interface Diagnostics ──
+            LiveNetworkDiagnosticsWidget(
+              cameraSource: _selectedCameraSource,
+              onConfigureCamera: _openCameraSourcePicker,
+            ),
+            const SizedBox(height: 14),
 
             // ── Checkbox: Notify All Users in Database ──
             _buildNotificationScopeSection(theme),
@@ -712,6 +817,222 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   const SizedBox(height: 32),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Camera Source Management ────────────────────────────────────────────────
+
+  Future<void> _openCameraSourcePicker() async {
+    final newSource = await CameraSourcePickerSheet.show(
+      context,
+      initialSource: _selectedCameraSource,
+    );
+    if (newSource != null && mounted) {
+      setState(() => _selectedCameraSource = newSource);
+      if (newSource.requiresLocalHardware) {
+        if (!_isCameraInitialized && !_isInitializingCamera) {
+          _setupCamera();
+        }
+      } else {
+        // Stop local camera controller if it was running to free resources
+        if (_liveStreamController != null) {
+          try {
+            await _liveStreamController!.stop();
+            await _liveStreamController!.dispose();
+          } catch (_) {}
+          _liveStreamController = null;
+          if (mounted) {
+            setState(() {
+              _isCameraInitialized = false;
+            });
+          }
+        }
+      }
+    }
+  }
+
+  Widget _buildCameraSourceCard(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _selectedCameraSource.icon,
+              color: theme.colorScheme.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _selectedCameraSource.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (!_selectedCameraSource.requiresLocalHardware)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'EXTERNAL',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _selectedCameraSource.subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed: _openCameraSourcePicker,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Change', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExternalCameraMonitor(
+    ThemeData theme,
+    LiveStreamDto stream,
+    BroadcasterState bState,
+  ) {
+    final isLive = stream.status == LiveStreamStatus.live;
+    return Container(
+      width: double.infinity,
+      height: 220,
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF1E222D),
+            Color(0xFF12141A),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _selectedCameraSource.icon,
+                color: isLive ? Colors.greenAccent : Colors.orangeAccent,
+                size: 28,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _selectedCameraSource.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: isLive
+                  ? Colors.green.withValues(alpha: 0.2)
+                  : Colors.amber.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isLive ? Colors.green : Colors.amber,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isLive ? Colors.green : Colors.amber,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isLive ? 'BROADCAST INGEST ACTIVE' : 'WAITING FOR ENCODER STREAM',
+                  style: TextStyle(
+                    color: isLive ? Colors.green : Colors.amber,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isLive
+                ? 'Direct video feed received by live media server.'
+                : 'Transmit RTMP stream from your external encoder to go live.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _openCameraSourcePicker,
+            icon: const Icon(Icons.tune_rounded, size: 14, color: Colors.white70),
+            label: const Text(
+              'Change Source / Settings',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
             ),
           ),
         ],
@@ -794,6 +1115,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/creator');
+              },
+            ),
+            _drawerItem(
+              context,
+              icon: Icons.folder_special_outlined,
+              label: 'Local Recordings',
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/live/recordings');
               },
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
@@ -2932,6 +3262,97 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     }
   }
 
+  // ── Local Recording Helpers ─────────────────────────────────────────────────
+
+  /// Start a local audio recording for the active stream session.
+  ///
+  /// This records the device microphone as an M4A/AAC file alongside the RTMP
+  /// broadcast.  It is AUDIO-ONLY — the video bitstream is not captured locally
+  /// (apivideo_live_stream does not expose a local mux output).
+  /// Recording is automatically skipped on Flutter Web (not supported).
+  Future<void> _startLocalRecording(String streamTitle) async {
+    if (_streamId == null || _isLocalRecording) return;
+    // Honour the "Record and Stream" toggle set by the user.
+    if (!_isRecordingEnabled) return;
+
+    try {
+      final id = await _cachedRecordingService.startRecording(
+        streamId: _streamId!,
+        streamTitle: streamTitle,
+      );
+
+      if (id != null && mounted) {
+        setState(() {
+          _activeRecordingId = id;
+          _isLocalRecording = true;
+        });
+        debugPrint('[LiveStudio] Local audio recording started: $id');
+
+        // Inform the user about the audio-only limitation via a brief snackbar.
+        if (mounted && !kIsWeb) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 14),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Audio recording started (audio-only; video is server-recorded)',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      } else if (id == null && mounted) {
+        // Platform unsupported or permission denied — notify user.
+        final rs = _cachedRecordingService.state;
+        if (rs.platformUnsupported) {
+          debugPrint('[LiveStudio] Recording not supported: ${rs.unsupportedReason}');
+          // Silent on web — this is expected behaviour.
+        } else if (rs.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Recording unavailable: ${rs.error}')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[LiveStudio] _startLocalRecording error: $e');
+    }
+  }
+
+  /// Stop the active local recording and persist the finalized file to DB.
+  Future<void> _stopLocalRecording() async {
+    if (!_isLocalRecording) return;
+    try {
+      final row = await _cachedRecordingService.stopRecording();
+      if (mounted) {
+        setState(() {
+          _isLocalRecording = false;
+          _activeRecordingId = null;
+        });
+      }
+      if (row != null) {
+        debugPrint(
+          '[LiveStudio] Local recording saved: ${row.localFilePath} '
+          '(${row.durationSeconds}s, ${row.fileSizeBytes}B)',
+        );
+      }
+    } catch (e) {
+      debugPrint('[LiveStudio] _stopLocalRecording error: $e');
+      if (mounted) {
+        setState(() {
+          _isLocalRecording = false;
+          _activeRecordingId = null;
+        });
+      }
+    }
+  }
+
   static bool _isValidRtmpUrl(String? url) {
     if (url == null || url.trim().isEmpty) return false;
     final trimmed = url.trim();
@@ -3221,6 +3642,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   Future<void> _stopRtmpBroadcast() async {
+    // Mark as intentional so _onDisconnection does NOT trigger auto-reconnect.
+    _intentionalDisconnect = true;
+    _rtmpReconnectTimer?.cancel();
+
+    // Stop local audio recording before the RTMP broadcast is torn down so
+    // the final audio file is properly finalized on disk.
+    await _stopLocalRecording();
+
     if (kIsWeb) {
       // Web: stop the WHIP broadcaster
       if (_whipBroadcaster != null) {
@@ -3253,6 +3682,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   Future<void> _handleGoLive(String streamId, BroadcasterState bState) async {
+    // Reset intentional-disconnect flag so auto-reconnect is active for this
+    // new broadcast session.
+    _intentionalDisconnect = false;
     try {
       final isOnline = ref.read(connectivityProvider).isOnline;
       if (!isOnline) {
@@ -3273,6 +3705,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       if (channelId.isEmpty) {
         throw Exception('Please select a streaming channel first.');
       }
+
+      // Pre-broadcast mode confirmation dialog (Stream Only vs Stream & Record Locally)
+      final confirmedMode = await PreBroadcastModeDialog.show(
+        context,
+        cameraSource: _selectedCameraSource,
+        initialRecordLocally: _isRecordingEnabled,
+        rtmpServerUrl: bState.stream?.rtmpIngestUrl ??
+            'rtmp://stream.zikrekidusan.org/live',
+        streamKey: bState.streamKey?.rawKey ?? _lastStreamKey,
+      );
+      if (confirmedMode == null) {
+        // Broadcaster cancelled
+        return;
+      }
+      final shouldRecordLocally =
+          confirmedMode == BroadcastRecordingMode.streamAndRecordLocally;
+      setState(() => _isRecordingEnabled = shouldRecordLocally);
 
       // On Web: preview is already live via flutter_webrtc getUserMedia.
       // On Mobile: require camera to be initialized before going live.
@@ -3353,7 +3802,31 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
       final currentStream = updatedState.stream;
       if (currentStream != null) {
-        await _startRtmpBroadcast(currentStream, key);
+        if (_selectedCameraSource.requiresLocalHardware) {
+          await _startRtmpBroadcast(currentStream, key);
+        } else {
+          // External hardware/software encoder (OBS, ATEM Mini, vMix) or Network camera
+          // The external device is responsible for encoding and transmitting to the RTMP/RTSP ingest.
+          // The mobile studio updates local state to active monitor mode.
+          if (mounted) {
+            setState(() {
+              _isStreamingRtmp = true;
+              _streamingError = null;
+            });
+          }
+          debugPrint(
+            '[LiveStudio] External camera/encoder (${_selectedCameraSource.label}) '
+            'active for stream $streamId. Ingest: ${currentStream.rtmpIngestUrl}',
+          );
+        }
+
+        // Start local audio recording if enabled by user
+        if (_isRecordingEnabled) {
+          final title = currentStream.title.isNotEmpty
+              ? currentStream.title
+              : _titleCtrl.text.trim();
+          unawaited(_startLocalRecording(title));
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -3393,7 +3866,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         children: [
           // ── Video Preview or Audio Waveform ──
           if (_isVideoStream)
-            if (_isCameraReady)
+            if (!_selectedCameraSource.requiresLocalHardware)
+              _buildExternalCameraMonitor(theme, stream, bState)
+            else if (_isCameraReady)
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
@@ -3833,6 +4308,40 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     ],
                   ),
                 ),
+                // Local audio recording indicator — only visible when recording.
+                // Clearly labeled "AUDIO REC" to distinguish from full AV capture.
+                if (_isLocalRecording && !kIsWeb) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrangeAccent.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.mic,
+                          color: Colors.white,
+                          size: 9,
+                        ),
+                        SizedBox(width: 3),
+                        Text(
+                          'AUDIO REC',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Flexible(
                   child: SingleChildScrollView(

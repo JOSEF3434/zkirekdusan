@@ -56,6 +56,7 @@ import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/live/presentation/screens/live_discovery_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_room_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_studio_screen.dart';
+import 'package:mobile/features/live/presentation/screens/local_recordings_screen.dart';
 import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/notifications/presentation/notifications_screen.dart';
@@ -380,6 +381,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               (state.extra is Map ? (state.extra as Map)['channelId'] as String? : null);
           return LiveStudioScreen(streamId: streamId, channelId: channelId);
         },
+      ),
+      GoRoute(
+        path: '/live/recordings',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const LocalRecordingsScreen(),
       ),
       GoRoute(
         path: '/live/:id',
