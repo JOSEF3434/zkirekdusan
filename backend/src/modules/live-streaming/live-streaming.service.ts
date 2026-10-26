@@ -604,10 +604,13 @@ export class LiveStreamingService {
             if (cldData?.input?.stream_key) {
               cldStreamId = cldIdFromKey;
               activeStreamKey = cldData.input.stream_key;
-              hlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
+              // Prefer actual HLS URL from Cloudinary API (account-agnostic)
+              const existingHlsOutput = cldData.outputs?.find((o: any) => o.type === 'hls');
+              hlsUrl = existingHlsOutput?.uri ||
+                `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
               archivePublicId = `live_stream_${cldStreamId}_archive`;
-              rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
-              rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
+              rtmpBaseUrl = cldData.input?.uri || 'rtmp://live.cloudinary.com/streams';
+              rtmpIngestUrl = cldData.input?.uri || 'rtmp://live.cloudinary.com/streams';
             }
           } catch (err: any) {
             this.logger.warn(
@@ -792,7 +795,7 @@ export class LiveStreamingService {
         'https://zikrekidusan.onrender.com';
       const vodHlsUrl =
         this.cloudinaryProvider?.configured && stream.dashUrl
-          ? `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${stream.dashUrl}.m3u8`
+          ? `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/upload/sp_hd/${stream.dashUrl}.m3u8`
           : (stream.hlsUrl ??
             `${appUrl}/uploads/streams/${streamId}/index.m3u8`);
 
@@ -886,7 +889,7 @@ export class LiveStreamingService {
       cldArchivePublicId &&
       this.cloudinaryProvider?.configured
     ) {
-      playbackUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${cldArchivePublicId}.m3u8`;
+      playbackUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/upload/sp_hd/${cldArchivePublicId}.m3u8`;
     }
     if (!playbackUrl) {
       playbackUrl = stream.hlsUrl || '';
@@ -1163,7 +1166,7 @@ export class LiveStreamingService {
     }
 
     // Update or create recording with the Cloudinary VOD URL
-    const vodHlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/sp_hd/${publicId}.m3u8`;
+    const vodHlsUrl = `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/upload/sp_hd/${publicId}.m3u8`;
     const recording = await this.prisma.streamRecording.findFirst({
       where: { liveStreamId: stream.id },
       orderBy: { startedAt: 'desc' },

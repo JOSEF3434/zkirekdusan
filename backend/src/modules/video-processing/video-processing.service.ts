@@ -155,7 +155,7 @@ export class VideoProcessingService {
       const posterThumbnailUrl =
         video.thumbnailUrl && !video.thumbnailUrl.includes('localhost')
           ? video.thumbnailUrl
-          : `https://res.cloudinary.com/${cloudinaryProvider.currentCloudName || 'v6zdpkoh'}/video/upload/so_1,q_auto,f_jpg/${publicId}.jpg`;
+          : `https://res.cloudinary.com/${cloudinaryProvider.currentCloudName}/video/upload/so_1,q_auto,f_jpg/${publicId}.jpg`;
 
       // Determine playback URL: Use sourceFile.url or direct MP4 URL as primary playback URL
       // (Do NOT use sp_hd .m3u8 as primary because free/standard Cloudinary accounts lack adaptive streaming profiles)

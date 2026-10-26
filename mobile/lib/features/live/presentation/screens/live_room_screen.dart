@@ -403,9 +403,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         // timer is still alive — do not create a competing one.
         if (!warmupRetry && (_playerRetryTimer == null || !_playerRetryTimer!.isActive)) {
           _playerRetryTimer?.cancel();
-          // Retry every 15s. Guard: skip tick if already initialising or
+          // Retry every 10s. Guard: skip tick if already initialising or
           // if the player succeeded via another code path.
-          _playerRetryTimer = Timer.periodic(const Duration(seconds: 15), (t) {
+          _playerRetryTimer = Timer.periodic(const Duration(seconds: 10), (t) {
             if (!mounted || _playerInitialized) {
               t.cancel();
               return;
@@ -417,6 +417,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             }
             // Skip tick if a previous attempt is still running.
             if (_isPlayerInitializing) return;
+            // Refresh stream from backend to pick up new hlsUrl if reprovisioned.
+            ref.read(liveRoomProvider(widget.streamId).notifier).refresh();
             final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
             if (hls != null && hls.isNotEmpty && mounted) {
               setState(() => _streamNotYetPublishing = false);
@@ -594,6 +596,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           hls.isNotEmpty &&
           !_playerInitialized &&
           !_isPlayerInitializing) {
+        // Reset the warmup state when the phase changes so the player
+        // tries again immediately rather than waiting for the timer.
+        if (_streamNotYetPublishing) {
+          setState(() => _streamNotYetPublishing = false);
+        }
         _initPlayer(hls);
       }
 
@@ -836,7 +843,15 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       case LiveStreamPhase.scheduled:
         return _buildStreamScheduled(state);
       case LiveStreamPhase.starting:
-        return _buildStreamStarting(state);
+        if (_playerInitialized && _playerCtrl != null) {
+          return VideoPlayer(_playerCtrl!);
+        } else if (_isPlayerInitializing) {
+          return _buildBuffering();
+        } else if (_streamNotYetPublishing) {
+          return _buildWaitingForBroadcast();
+        } else {
+          return _buildStreamStarting(state);
+        }
       case LiveStreamPhase.live:
         if (_playerInitialized && _playerCtrl != null) {
           return VideoPlayer(_playerCtrl!);
@@ -854,6 +869,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       case LiveStreamPhase.ended:
         return _buildStreamEnded(state);
       case LiveStreamPhase.error:
+        if (_streamNotYetPublishing) return _buildWaitingForBroadcast();
         return _playerError ? _buildPlayerError() : _buildBuffering();
     }
   }

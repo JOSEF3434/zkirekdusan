@@ -128,9 +128,9 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
   // Reconnect loop
   Timer? _reconnectTimer;
   bool _reconnectCancelled = false;
-  static const _maxRetries = 6;
-  // Backoff delays: 2, 4, 8, 16, 32, 60 seconds
-  static const _backoffDelays = [2, 4, 8, 16, 32, 60];
+  static const _maxRetries = 10;
+  // Backoff delays: 2, 4, 8, 16, 32, 60, 60, 60, 60, 60 seconds
+  static const _backoffDelays = [2, 4, 8, 16, 32, 60, 60, 60, 60, 60];
 
   // Guard: prevents duplicate joinStream calls
   bool _hasJoined = false;
@@ -335,6 +335,10 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
   void notifyPlayerInterruption() {
     if (!mounted) return;
     if (state.phase.isTerminal) return;
+    // If the stream is 'starting' (HLS warming up), player errors are expected.
+    // Do not trigger the interrupted→reconnect loop; the warmup timer in
+    // LiveRoomScreen handles retrying the HLS connection independently.
+    if (state.phase == LiveStreamPhase.starting) return;
     if (state.phase == LiveStreamPhase.interrupted ||
         state.phase == LiveStreamPhase.reconnecting) {
       return;
@@ -351,7 +355,7 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
 
   void _startReconnectRetry() {
     if (_reconnectTimer != null) return; // Already retrying
-    _reconnectCancelled = false;
+    _reconnectCancelled = false; // Reset cancel flag for new retry cycle
     _doRetry(0);
   }
 
@@ -405,15 +409,21 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
         // Stream is still live — update stream metadata (new HLS URL if changed)
         state = state.copyWith(
           stream: stream,
-          // Phase stays reconnecting/interrupted — player layer will try to reconnect
-          // and call back here or receive socket event when successful
+          // Keep phase as 'starting' so the player layer keeps retrying HLS.
+          // Do NOT transition to error — the HLS endpoint may still be warming up
+          // on Cloudinary's side (this is normal for 30–90s after go-live).
+          phase: LiveStreamPhase.starting,
+          clearError: true,
         );
 
         if (isFinal) {
-          // Ran out of retries but stream is still live — signal error
+          // Ran out of retries but stream is still live — remain in starting phase
+          // so the periodic warmup timer in LiveRoomScreen keeps trying HLS.
+          // Only transition to error if the HLS has been consistently failing
+          // AND the backend never confirmed the stream was live.
           state = state.copyWith(
-            phase: LiveStreamPhase.error,
-            error: 'Could not restore stream connection. Please try again.',
+            phase: LiveStreamPhase.starting,
+            clearError: true,
           );
         } else {
           // Keep retrying with backoff

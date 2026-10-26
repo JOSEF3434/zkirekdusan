@@ -60,10 +60,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       } catch (_) {}
     }
 
-    // Default to verified project Cloudinary credentials if not provided in environment
-    cloud_name = cloud_name || 'v6zdpkoh';
-    api_key = api_key || '667751121616522';
-    api_secret = api_secret || '5f7EQfkTHv8XbGL2A3gzAVSVHaw';
+    // Do NOT fall back to hardcoded credentials — if credentials are missing
+    // the provider enters stub mode and logs a warning.
+    // (Stale defaults caused live streams to hit the wrong Cloudinary account.)
 
     if (cloud_name && api_key && api_secret) {
       cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
