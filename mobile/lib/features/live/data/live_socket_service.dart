@@ -1,4 +1,4 @@
-// lib/features/live/data/live_socket_service.dart
+﻿// lib/features/live/data/live_socket_service.dart
 // Manages the Socket.IO connection to the backend /live namespace.
 // Provides strongly-typed Dart Streams for all server-to-client events.
 
@@ -321,8 +321,19 @@ class LiveSocketService {
     });
   }
 
-  void sendReaction({required String streamId, required String emoji}) {
-    _socket?.emit(LiveEvents.sendReaction, {'streamId': streamId, 'emoji': emoji});
+  void sendReaction({
+    required String streamId,
+    required String emoji,
+    Map<String, dynamic>? sender,
+  }) {
+    final payload = <String, dynamic>{
+      'streamId': streamId,
+      'emoji': emoji,
+    };
+    if (sender != null) {
+      payload['sender'] = sender;
+    }
+    _socket?.emit(LiveEvents.sendReaction, payload);
   }
 
   void reactToChat({

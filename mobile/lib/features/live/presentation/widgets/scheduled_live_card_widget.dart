@@ -1,4 +1,4 @@
-// lib/features/live/presentation/widgets/scheduled_live_card_widget.dart
+﻿// lib/features/live/presentation/widgets/scheduled_live_card_widget.dart
 // Modern card for upcoming scheduled live streams with multi-interval reminder bell.
 
 import 'package:flutter/material.dart';
@@ -63,7 +63,7 @@ class ScheduledLiveCardWidget extends ConsumerWidget {
     final isCreator = currentUserId != null && currentUserId == stream.createdById;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
+      // margin handled by grid spacing
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),

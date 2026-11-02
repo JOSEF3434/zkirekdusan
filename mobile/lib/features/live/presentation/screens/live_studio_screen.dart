@@ -622,7 +622,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'Close',
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/live');
+              }
+            },
           ),
         ],
       ),
@@ -633,11 +639,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           const LiveSideRail(activeItem: LiveRailItem.studio),
           // â”€â”€ Main setup content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 880),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.of(context).size.width > 900 ? 48 : 20,
+                    vertical: 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // â”€â”€ Section header â”€â”€
                   Row(
                     children: [
@@ -830,6 +842,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               ),
             ),
           ),
+        ),
+      ),
         ],
       ),
     );
@@ -1274,22 +1288,27 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             ),
           ),
           const SizedBox(height: 12),
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.3)
-                    : Colors.black.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _thumbnailBytes != null
-                      ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-                ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 420,
               ),
-              clipBehavior: Clip.antiAlias,
-              child: _thumbnailBytes != null
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.3)
+                        : Colors.black.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _thumbnailBytes != null
+                          ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                          : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _thumbnailBytes != null
                   ? Stack(
                       fit: StackFit.expand,
                       children: [
@@ -1386,6 +1405,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                         ],
                       ),
                     ),
+            ),
+          ),
             ),
           ),
         ],
@@ -4648,8 +4669,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx);
-              context.pop();
+              Navigator.of(ctx, rootNavigator: true).pop();
+              if (context.mounted) {
+                context.go('/live');
+              }
             },
             child: Text(trFn('common.close')),
           ),
@@ -4672,7 +4695,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                       backgroundColor: Colors.green,
                     ),
                   );
-                  context.pop();
+                  context.go('/live');
                 }
               } catch (e) {
                 if (context.mounted) {

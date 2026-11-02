@@ -716,7 +716,7 @@ export class LiveGateway
   @SubscribeMessage(LIVE_EVENTS.SEND_REACTION)
   async handleSendReaction(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { streamId: string; emoji: string },
+    @MessageBody() payload: { streamId: string; emoji: string; sender?: any },
   ) {
     if (!payload?.streamId || !payload?.emoji) return;
     const userId = client.data.userId as string | null;
@@ -724,10 +724,36 @@ export class LiveGateway
     if (userId && !this.checkRateLimit(userId, 'reaction')) return; // Rate limited - silent
 
     try {
+      let senderInfo: { id: string; username: string | null; displayName: string | null; avatarUrl: string | null } | null = null;
       if (userId) {
         await this.prisma.streamReaction.create({
           data: { liveStreamId: payload.streamId, userId, emoji: payload.emoji },
         });
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            profile: {
+              include: {
+                avatar: true,
+              },
+            },
+          },
+        });
+        if (user) {
+          senderInfo = {
+            id: user.id,
+            username: user.username ?? null,
+            displayName: (user as any).profile?.displayName ?? user.username ?? null,
+            avatarUrl: (user as any).profile?.avatar?.url ?? null,
+          };
+        }
+      } else if (payload?.sender) {
+        senderInfo = {
+          id: payload.sender.id || 'anon',
+          username: payload.sender.username || null,
+          displayName: payload.sender.displayName || payload.sender.username || null,
+          avatarUrl: payload.sender.avatarUrl || null,
+        };
       }
 
       // Count recent reactions for this emoji (last 5 seconds)
@@ -745,6 +771,7 @@ export class LiveGateway
         .emit(LIVE_EVENTS.REACTION_BROADCAST, {
           emoji: payload.emoji,
           count: Math.max(1, count),
+          sender: senderInfo,
         });
 
       this.streamAnalyticsService
@@ -757,6 +784,7 @@ export class LiveGateway
         .emit(LIVE_EVENTS.REACTION_BROADCAST, {
           emoji: payload.emoji,
           count: 1,
+          sender: payload?.sender ?? null,
         });
     }
   }

@@ -8,6 +8,7 @@ import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/data/stream_chat_repository.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/auth/domain/entities/auth_user.dart';
 
 import 'package:mobile/core/storage/secure_storage.dart';
 
@@ -61,6 +62,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final LiveSocketService _socket;
   final StorageService _storage;
   final bool _isAuthenticated;
+  final AuthUser? _currentUser;
 
   final List<StreamSubscription> _subs = [];
 
@@ -70,11 +72,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
     required LiveSocketService socket,
     required StorageService storage,
     required bool isAuthenticated,
+    AuthUser? currentUser,
   }) : _streamId = streamId,
        _chatRepo = chatRepo,
        _socket = socket,
        _storage = storage,
        _isAuthenticated = isAuthenticated,
+       _currentUser = currentUser,
        super(const ChatState()) {
     _init();
   }
@@ -202,36 +206,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void _onChatReaction(ChatReactionEvent event) {
-    // Append emoji reaction as a system chat message so it appears in the feed
-    if (!mounted) return;
-    final id = 'reaction_${event.reactionId}';
-    if (state.messages.any((m) => m.id == id)) return; // deduplicate
-    final msg = ChatMessageDto(
-      id: id,
-      content: event.emoji,
-      type: ChatMessageType.system,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    state = state.copyWith(messages: [...state.messages, msg]);
+    // onChatReaction is a per-message reaction tally (not an emoji broadcast).
+    // _onReactionBroadcast handles the emoji-burst feed with full sender info.
+    // We intentionally do nothing here to avoid duplicate sender-less entries.
   }
 
   void _onReactionBroadcast(ReactionBroadcastEvent event) {
-    // Merge with the last message if it is the same emoji from the same sender,
-    // otherwise append a new reaction entry.
+    // Merge consecutive same-emoji reactions from the same sender in-place;
+    // otherwise append a new reaction entry with sender info.
     if (!mounted) return;
 
     final msgs = List<ChatMessageDto>.from(state.messages);
     final senderId = event.senderId ?? 'anon';
-    // Use a stable ID per sender+emoji combo so we can update in-place
+    // Stable ID per sender+emoji so we update in-place (not spam the feed).
     final id = 'rbcast_${senderId}_${event.emoji}';
 
     final existingIdx = msgs.indexWhere((m) => m.id == id);
     if (existingIdx != -1) {
-      // Update count in existing entry
+      // Increment the displayed count.
+      // Content format: "emoji" (count 1) or "emoji ×N" (count N).
       final prev = msgs[existingIdx];
-      final newCount = (int.tryParse(prev.content.split('×').last.trim()) ?? 1) + 1;
+      final raw = prev.content;
+      final xIdx = raw.indexOf('x');
+      final prevCount = xIdx == -1 ? 1 : (int.tryParse(raw.substring(xIdx + 1).trim()) ?? 1);
+      final newCount = prevCount + 1;
       msgs[existingIdx] = prev.copyWith(
-        content: '${event.emoji} ×$newCount',
+        content: '${event.emoji} x$newCount',
         createdAt: DateTime.now().toIso8601String(),
       );
     } else {
@@ -249,6 +249,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
     state = state.copyWith(messages: msgs);
   }
+
   void _onSocketError(String msg) {
     if (!mounted) return;
     // Mark pending messages as sent or clear pending state on error
@@ -302,7 +303,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   Future<void> sendReaction(String emoji) async {
     await _ensureSocketConnected();
-    _socket.sendReaction(streamId: _streamId, emoji: emoji);
+    final senderMap = _currentUser != null
+        ? {
+            'id': _currentUser.id,
+            if (_currentUser.username != null) 'username': _currentUser.username,
+            'displayName': _currentUser.username ?? _currentUser.email ?? 'Viewer',
+          }
+        : null;
+    _socket.sendReaction(
+      streamId: _streamId,
+      emoji: emoji,
+      sender: senderMap,
+    );
   }
 
   @override
@@ -332,5 +344,6 @@ final chatProvider =
         socket: socket,
         storage: storage,
         isAuthenticated: auth.status == AuthStatus.authenticated,
+        currentUser: auth.user,
       );
     });

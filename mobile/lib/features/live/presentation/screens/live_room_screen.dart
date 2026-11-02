@@ -1,4 +1,4 @@
-// lib/features/live/presentation/screens/live_room_screen.dart
+﻿// lib/features/live/presentation/screens/live_room_screen.dart
 // YouTube Live-style viewer experience:
 //   * 16:9 player pinned at the top
 //   * Live badge + viewer count overlay on the player
@@ -7,6 +7,7 @@
 //   * Emoji reaction picker bar at the very bottom
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -630,7 +631,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    // Large-screen / web: ≥ 900 logical px wide → YouTube desktop side-by-side layout
+    final screenW = MediaQuery.sizeOf(context).width;
+    final isWideScreen = kIsWeb || screenW >= 900;
 
+    if (isWideScreen && !_isFullscreen) {
+      return _buildWideScreen(roomState, socket, theme);
+    }
     if (isLandscape || _isFullscreen) {
       return _buildLandscape(roomState, socket, theme);
     }
@@ -716,6 +723,136 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // ── Landscape layout ───────────────────────────────────────────────────────
 
+  // ── Wide-screen / Web layout (≥ 900 px) ─────────────────────────────────
+  // YouTube desktop style: 16:9 player fills left, chat panel right.
+
+  Widget _buildWideScreen(
+    LiveRoomState roomState,
+    LiveSocketService socket,
+    ThemeData theme,
+  ) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _minimizeToMiniPlayer(roomState);
+      },
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: SafeArea(
+          child: roomState.isLoading
+              ? _buildLoading()
+              : roomState.error != null
+                  ? _buildError(roomState.error!, theme)
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Player width = remaining width after chat panel (360 px fixed)
+                        const chatPanelW = 360.0;
+                        final playerW =
+                            constraints.maxWidth - chatPanelW;
+                        final playerH = playerW * 9 / 16;
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── Left: player + stream meta ───────────────
+                            SizedBox(
+                              width: playerW,
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  // 16:9 player
+                                  SizedBox(
+                                    width: playerW,
+                                    height: playerH,
+                                    child: GestureDetector(
+                                      onTap: _onTapPlayer,
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Container(color: Colors.black),
+                                          _buildPlayerContent(roomState),
+                                          AnimatedOpacity(
+                                            opacity:
+                                                _controlsVisible ? 1.0 : 0.0,
+                                            duration: const Duration(
+                                                milliseconds: 250),
+                                            child:
+                                                _buildControls(roomState),
+                                          ),
+                                          _buildParticleLayer(),
+                                          if (roomState.phase ==
+                                              LiveStreamPhase.live)
+                                            Positioned(
+                                              bottom: 0,
+                                              left: 0,
+                                              right: 0,
+                                              child: LiveStreamProgressBar(
+                                                startedAt: roomState
+                                                    .stream?.startedAt,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // Stream title / meta below player
+                                  Expanded(
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.all(16),
+                                      child:
+                                          _buildStreamMeta(roomState, theme),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // ── Right: chat panel ────────────────────────
+                            SizedBox(
+                              width: chatPanelW,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: theme
+                                          .colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child:
+                                          roomState.stream?.isChatEnabled !=
+                                                  false
+                                              ? LiveChatWidget(
+                                                  streamId: widget.streamId,
+                                                )
+                                              : Center(
+                                                  child: Text(
+                                                    'Chat is disabled',
+                                                    style: theme
+                                                        .textTheme.bodyMedium
+                                                        ?.copyWith(
+                                                      color: theme.colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                                  ),
+                                                ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+        ),
+      ),
+    );
+  }
   Widget _buildLandscape(
     LiveRoomState roomState,
     LiveSocketService socket,

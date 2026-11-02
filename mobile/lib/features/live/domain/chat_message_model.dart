@@ -81,6 +81,7 @@ class ReactionBroadcastEvent {
   final String? senderId;
   final String? senderUsername;
   final String? senderDisplayName;
+  final String? senderAvatarUrl;
 
   const ReactionBroadcastEvent({
     required this.emoji,
@@ -88,6 +89,7 @@ class ReactionBroadcastEvent {
     this.senderId,
     this.senderUsername,
     this.senderDisplayName,
+    this.senderAvatarUrl,
   });
 
   String get senderName =>
@@ -101,6 +103,7 @@ class ReactionBroadcastEvent {
       senderId: sender?['id'] as String?,
       senderUsername: sender?['username'] as String?,
       senderDisplayName: sender?['displayName'] as String?,
+      senderAvatarUrl: sender?['avatarUrl'] as String?,
     );
   }
 }

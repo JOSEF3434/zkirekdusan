@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -85,7 +85,7 @@ class LiveCardWidget extends ConsumerWidget {
 
   Widget _buildVerticalCard(ThemeData theme, {required LiveStreamStatus effectiveStatus}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      // margin handled by grid spacing
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: theme.colorScheme.surfaceContainerHighest,

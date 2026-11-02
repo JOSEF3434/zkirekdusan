@@ -1,4 +1,4 @@
-// lib/features/live/presentation/screens/live_discovery_screen.dart
+﻿// lib/features/live/presentation/screens/live_discovery_screen.dart
 // Shows LIVE NOW, SCHEDULED, and MY SCHEDULES streams with categories and reminders.
 
 import 'package:flutter/material.dart';
@@ -10,6 +10,13 @@ import 'package:mobile/features/live/presentation/widgets/live_card_widget.dart'
 import 'package:mobile/features/live/presentation/widgets/live_category_bar.dart';
 import 'package:mobile/features/live/presentation/widgets/scheduled_live_card_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
+
+int _gridColumnCount(double width) {
+  if (width >= 1350) return 4;
+  if (width >= 900) return 3;
+  if (width >= 600) return 2;
+  return 1;
+}
 
 class LiveDiscoveryScreen extends ConsumerWidget {
   const LiveDiscoveryScreen({super.key});
@@ -402,19 +409,30 @@ class _LiveStreamsList extends ConsumerWidget {
       },
       child: RefreshIndicator(
         onRefresh: () => ref.read(liveStreamsProvider.notifier).refresh(),
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
-          itemBuilder: (_, i) {
-            if (i == state.streams.length) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            return LiveCardWidget(stream: state.streams[i]);
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = _gridColumnCount(constraints.maxWidth);
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 0.98,
+              ),
+              itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i == state.streams.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                return LiveCardWidget(stream: state.streams[i]);
+              },
+            );
           },
         ),
       ),
@@ -459,19 +477,30 @@ class _ScheduledStreamsList extends ConsumerWidget {
       },
       child: RefreshIndicator(
         onRefresh: () => ref.read(scheduledStreamsProvider.notifier).refresh(),
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
-          itemBuilder: (_, i) {
-            if (i == state.streams.length) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            return ScheduledLiveCardWidget(stream: state.streams[i]);
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = _gridColumnCount(constraints.maxWidth);
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 0.98,
+              ),
+              itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i == state.streams.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                return ScheduledLiveCardWidget(stream: state.streams[i]);
+              },
+            );
           },
         ),
       ),
@@ -530,11 +559,22 @@ class _MyScheduledStreamsList extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () => ref.read(myScheduledStreamsProvider.notifier).refresh(),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        itemCount: state.streams.length,
-        itemBuilder: (_, i) {
-          return ScheduledLiveCardWidget(stream: state.streams[i]);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = _gridColumnCount(constraints.maxWidth);
+          return GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+              childAspectRatio: 0.98,
+            ),
+            itemCount: state.streams.length,
+            itemBuilder: (_, i) {
+              return ScheduledLiveCardWidget(stream: state.streams[i]);
+            },
+          );
         },
       ),
     );
@@ -546,10 +586,21 @@ class _MyScheduledStreamsList extends ConsumerWidget {
 class _Skeletons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      itemCount: 4,
-      itemBuilder: (context, index) => _SkeletonCard(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _gridColumnCount(constraints.maxWidth);
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            childAspectRatio: 0.98,
+          ),
+          itemCount: 4,
+          itemBuilder: (context, index) => _SkeletonCard(),
+        );
+      },
     );
   }
 }
@@ -559,7 +610,7 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      // margin handled by grid spacing
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: theme.colorScheme.surfaceContainerHighest,
