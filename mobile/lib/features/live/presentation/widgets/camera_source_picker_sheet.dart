@@ -1,4 +1,4 @@
-// lib/features/live/presentation/widgets/camera_source_picker_sheet.dart
+﻿// lib/features/live/presentation/widgets/camera_source_picker_sheet.dart
 //
 // Interactive bottom sheet for selecting and configuring camera / encoder sources.
 //
@@ -240,36 +240,46 @@ class _CameraSourcePickerSheetState extends State<CameraSourcePickerSheet> {
             ),
             const SizedBox(height: 16),
 
-            // Source Radio List
-            _buildSourceOption(
-              type: CameraSourceType.builtIn,
-              title: 'Device Camera',
-              subtitle: 'Front / back camera on this phone',
-              icon: Icons.camera_alt_outlined,
-              theme: theme,
-            ),
-            _buildSourceOption(
-              type: CameraSourceType.externalEncoder,
-              title: 'Hardware / Software Encoder',
-              subtitle: 'OBS Studio, ATEM Mini, vMix, Teradek, Yolobox',
-              icon: Icons.settings_input_hdmi_rounded,
-              theme: theme,
-            ),
-            _buildSourceOption(
-              type: CameraSourceType.networkCamera,
-              title: 'IP Camera (RTSP)',
-              subtitle: 'Local/LAN PTZ camera streaming RTSP over TCP/UDP',
-              icon: Icons.videocam_outlined,
-              theme: theme,
-            ),
-            _buildSourceOption(
-              type: CameraSourceType.srtEncoder,
-              title: 'SRT Encoder',
-              subtitle: 'Ultra-low latency Secure Reliable Transport',
-              icon: Icons.speed_rounded,
-              theme: theme,
-            ),
+            RadioGroup<CameraSourceType>(
+              groupValue: _selectedType,
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedType = v);
+              },
+              child: Column(
+                children: [
+              // Source Radio List
+              _buildSourceOption(
+                type: CameraSourceType.builtIn,
+                title: 'Device Camera',
+                subtitle: 'Front / back camera on this phone',
+                icon: Icons.camera_alt_outlined,
+                theme: theme,
+              ),
+              _buildSourceOption(
+                type: CameraSourceType.externalEncoder,
+                title: 'Hardware / Software Encoder',
+                subtitle: 'OBS Studio, ATEM Mini, vMix, Teradek, Yolobox',
+                icon: Icons.settings_input_hdmi_rounded,
+                theme: theme,
+              ),
+              _buildSourceOption(
+                type: CameraSourceType.networkCamera,
+                title: 'IP Camera (RTSP)',
+                subtitle: 'Local/LAN PTZ camera streaming RTSP over TCP/UDP',
+                icon: Icons.videocam_outlined,
+                theme: theme,
+              ),
+              _buildSourceOption(
+                type: CameraSourceType.srtEncoder,
+                title: 'SRT Encoder',
+                subtitle: 'Ultra-low latency Secure Reliable Transport',
+                icon: Icons.speed_rounded,
+                theme: theme,
+              ),
 
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
@@ -385,10 +395,6 @@ class _CameraSourcePickerSheetState extends State<CameraSourcePickerSheet> {
             ),
             Radio<CameraSourceType>(
               value: type,
-              groupValue: _selectedType,
-              onChanged: (v) {
-                if (v != null) setState(() => _selectedType = v);
-              },
             ),
           ],
         ),

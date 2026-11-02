@@ -1,4 +1,4 @@
-// lib/features/live/presentation/screens/live_studio_screen.dart
+﻿// lib/features/live/presentation/screens/live_studio_screen.dart
 // Broadcaster dashboard: setup, stream key, go-live, health monitoring, end stream.
 
 import 'dart:async';
@@ -43,8 +43,12 @@ import 'package:mobile/features/live/domain/camera_source.dart';
 import 'package:mobile/features/live/presentation/widgets/camera_source_picker_sheet.dart';
 import 'package:mobile/features/live/presentation/widgets/pre_broadcast_mode_dialog.dart';
 import 'package:mobile/features/live/presentation/widgets/live_network_diagnostics_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/cast_panel_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/multi_camera_switcher_widget.dart';
+import 'package:mobile/features/live/domain/cast_device.dart';
+import 'package:mobile/features/live/presentation/providers/cast_provider.dart';
 
-// ─── Studio Floating Particle (Live Reactions) ──────────────────────────────
+// â”€â”€â”€ Studio Floating Particle (Live Reactions) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _StudioParticle {
   final String emoji;
@@ -65,7 +69,7 @@ class _StudioParticle {
   }
 }
 
-// ─── Studio Channel Item (YouTube style) ──────────────────────────────────────
+// â”€â”€â”€ Studio Channel Item (YouTube style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class LiveStudioChannelItem {
   final VideoChannelDto channel;
@@ -205,7 +209,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   // Camera & Streaming hardware state (apivideo_live_stream for mobile, flutter_webrtc for web)
   ApiVideoLiveStreamController? _liveStreamController;
-  // camera_web controller — MOBILE only. On Web we use flutter_webrtc getUserMedia directly.
+  // camera_web controller â€” MOBILE only. On Web we use flutter_webrtc getUserMedia directly.
   cam.CameraController? _webCameraController;
   // Web standby preview stream (acquired eagerly at init, before WHIP starts)
   rtc.MediaStream? _webPreviewStream;
@@ -223,7 +227,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   // Prevents auto-reconnect from firing after a deliberate disconnect.
   bool _intentionalDisconnect = false;
 
-  // Web WHIP broadcaster (flutter_webrtc → MediaMTX → Cloudinary)
+  // Web WHIP broadcaster (flutter_webrtc â†’ MediaMTX â†’ Cloudinary)
   WebWhipBroadcaster? _whipBroadcaster;
   final rtc.RTCVideoRenderer _webVideoRenderer = rtc.RTCVideoRenderer();
   bool _webRendererInitialized = false;
@@ -241,7 +245,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     }
     if (kIsWeb) {
       // On Web, camera readiness is confirmed once flutter_webrtc has acquired
-      // a local MediaStream — either from the standby preview or WHIP broadcaster.
+      // a local MediaStream â€” either from the standby preview or WHIP broadcaster.
       if (_whipBroadcaster?.localStream != null) return true;
       return _webPreviewStream != null && _isCameraInitialized;
     }
@@ -279,7 +283,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   final _rng = Random();
   StreamSubscription? _reactionSub;
 
-  // ── Local recording state ────────────────────────────────────────────────
+  // â”€â”€ Local recording state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // NOTE: Recording via LiveRecordingService is AUDIO-ONLY (M4A/AAC) on mobile.
   // The apivideo_live_stream broadcaster does not expose a local video-file
   // output; encoded video goes exclusively to the RTMP ingest. Full AV local
@@ -374,7 +378,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     for (final p in _particles) {
       p.ctrl.dispose();
     }
-    // Use pre-cached service references — never call ref.read in dispose();
+    // Use pre-cached service references â€” never call ref.read in dispose();
     // the ConsumerStatefulElement is already being torn down at this point.
     if (_streamId != null) {
       final sId = _streamId!;
@@ -414,7 +418,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     super.dispose();
   }
 
-  // ─── apivideo_live_stream callbacks ──────────────────────────────
+  // â”€â”€â”€ apivideo_live_stream callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   void _onConnectionSuccess() {
     if (mounted) {
       setState(() {
@@ -435,13 +439,20 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   void _onDisconnection() {
     if (!mounted) return;
+    if (_intentionalDisconnect) {
+      if (mounted) {
+        setState(() {
+          _isStreamingRtmp = false;
+          _streamingError = null;
+        });
+      }
+      return;
+    }
+
     setState(() {
       _isStreamingRtmp = false;
-      _streamingError = 'Disconnected — reconnecting...';
+      _streamingError = 'Disconnected â€” reconnecting...';
     });
-
-    // Skip auto-reconnect when the user intentionally ended the stream.
-    if (_intentionalDisconnect) return;
 
     final key = _lastStreamKey;
     if (key == null || key.isEmpty) return;
@@ -453,7 +464,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _rtmpReconnectTimer?.cancel();
     _rtmpReconnectTimer = Timer(const Duration(seconds: 3), () async {
       if (!mounted || _isStreamingRtmp || _intentionalDisconnect) return;
-      debugPrint('[LiveStudio] RTMP dropped unexpectedly — auto-reconnecting...');
+      debugPrint('[LiveStudio] RTMP dropped unexpectedly â€” auto-reconnecting...');
       if (mounted) {
         setState(() => _streamingError = 'Reconnecting to live server...');
       }
@@ -583,7 +594,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     return _buildStudioPage(context, _streamId!);
   }
 
-  // ─── Setup page (create stream) ────────────────────────────────────────────
+  // â”€â”€â”€ Setup page (create stream) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildSetupPage(BuildContext context) {
     final tr = ref.read(trProvider);
@@ -618,16 +629,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       drawer: _buildSideDrawer(context),
       body: Row(
         children: [
-          // ── Left circular-icon rail ────────────────────────────────
+          // â”€â”€ Left circular-icon rail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           const LiveSideRail(activeItem: LiveRailItem.studio),
-          // ── Main setup content ────────────────────────────────
+          // â”€â”€ Main setup content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Section header ──
+                  // â”€â”€ Section header â”€â”€
                   Row(
                     children: [
                 Container(
@@ -650,7 +661,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             ),
             const SizedBox(height: 20),
 
-            // ── Channel Picker (YouTube style, only if no channelId pre-supplied) ──
+            // â”€â”€ Channel Picker (YouTube style, only if no channelId pre-supplied) â”€â”€
             if (widget.channelId == null) ...[
               _buildChannelPicker(theme),
               const SizedBox(height: 16),
@@ -681,10 +692,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             ),
             const SizedBox(height: 16),
 
-            // ── Stream Thumbnail (Optional) ──
+            // â”€â”€ Stream Thumbnail (Optional) â”€â”€
             _buildThumbnailSection(theme, tr),
 
-            // ── Broadcast Timing: Go Live Now vs Schedule for Later ──
+            // â”€â”€ Broadcast Timing: Go Live Now vs Schedule for Later â”€â”€
             Text(
               'Broadcast Timing',
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -715,7 +726,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               _buildSchedulingSection(theme),
             ],
 
-            // ── One-level Category Dropdown with inline Add Category ──
+            // â”€â”€ One-level Category Dropdown with inline Add Category â”€â”€
             _buildCategoryDropdown(theme),
 
             // Stream Type Selector (Video with Camera vs Audio-Only)
@@ -744,19 +755,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             ),
             const SizedBox(height: 14),
 
-            // ── Camera / Video Source Selector ──
+            // â”€â”€ Camera / Video Source Selector â”€â”€
             if (_isVideoStream) ...[
               _buildCameraSourceCard(theme),
             ],
 
-            // ── Live Network & Interface Diagnostics ──
+            // â”€â”€ Live Network & Interface Diagnostics â”€â”€
             LiveNetworkDiagnosticsWidget(
               cameraSource: _selectedCameraSource,
               onConfigureCamera: _openCameraSourcePicker,
             ),
             const SizedBox(height: 14),
 
-            // ── Checkbox: Notify All Users in Database ──
+            // â”€â”€ Checkbox: Notify All Users in Database â”€â”€
             _buildNotificationScopeSection(theme),
 
             // Options
@@ -824,7 +835,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     );
   }
 
-  // ─── Camera Source Management ────────────────────────────────────────────────
+  // â”€â”€â”€ Camera Source Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Future<void> _openCameraSourcePicker() async {
     final newSource = await CameraSourcePickerSheet.show(
@@ -1040,7 +1051,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     );
   }
 
-  // ─── Side Drawer ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Side Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildSideDrawer(BuildContext context) {
     final theme = Theme.of(context);
@@ -1444,7 +1455,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           ),
           const SizedBox(height: 10),
 
-          // ── Ethiopian Calendar Display ──────────────────────────
+          // â”€â”€ Ethiopian Calendar Display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1460,10 +1471,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               children: [
                 Row(
                   children: [
-                    const Text('🇪🇹', style: TextStyle(fontSize: 14)),
+                    const Text('ðŸ‡ªðŸ‡¹', style: TextStyle(fontSize: 14)),
                     const SizedBox(width: 6),
                     Text(
-                      'Ethiopian Calendar (ኢትዮጵያ ቀን)',
+                      'Ethiopian Calendar (áŠ¢á‰µá‹®áŒµá‹« á‰€áŠ•)',
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: theme.colorScheme.primary,
@@ -1489,7 +1500,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'ሰዓት: $ethTimeStr',
+                            'áˆ°á‹“á‰µ: $ethTimeStr',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -1667,7 +1678,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         ),
         subtitle: Text(
           _notifyAllUsers
-              ? '✅ An immediate broadcast notification will be sent to ALL users in the database, with reminders at 1d, 5h, 1h, 30m before and when you start live.'
+              ? 'âœ… An immediate broadcast notification will be sent to ALL users in the database, with reminders at 1d, 5h, 1h, 30m before and when you start live.'
               : 'Notifications will be sent only to your channel followers and group members.',
           style: TextStyle(
             fontSize: 11,
@@ -1721,7 +1732,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      DateFormat('EEEE, MMM d, yyyy • h:mm a').format(scheduledDate),
+                      DateFormat('EEEE, MMM d, yyyy â€¢ h:mm a').format(scheduledDate),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -1743,8 +1754,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   children: [
                     Text(
                       _notifyAllUsers
-                          ? '📢 Notification dispatched to ALL users in database'
-                          : '🔔 Notification dispatched to channel followers',
+                          ? 'ðŸ“¢ Notification dispatched to ALL users in database'
+                          : 'ðŸ”” Notification dispatched to channel followers',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2379,7 +2390,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                           child: TextField(
                             controller: searchCtrl,
                             decoration: InputDecoration(
-                              hintText: 'Search channels…',
+                              hintText: 'Search channelsâ€¦',
                               prefixIcon: const Icon(Icons.search, size: 20),
                               suffixIcon: searchCtrl.text.isNotEmpty
                                   ? IconButton(
@@ -2703,7 +2714,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
 
-  // ─── Studio page (after stream created) ───────────────────────────────────
+  // â”€â”€â”€ Studio page (after stream created) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildStudioPage(BuildContext context, String streamId) {
     final bState = ref.watch(
@@ -2745,8 +2756,18 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           ),
           // Viewer count
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 4),
             child: Center(child: ViewerCountWidget(count: bState.viewerCount)),
+          ),
+          // Cast & Connect button
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: _CastAppBarButton(
+              streamId: streamId,
+              streamTitle: stream?.title ?? '',
+              thumbnailUrl: stream?.thumbnailUrl,
+              hlsUrl: stream?.hlsUrl,
+            ),
           ),
         ],
       ),
@@ -2754,7 +2775,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // ── YouTube Studio Live Monitor Banner / Camera Preview ──
+                // â”€â”€ YouTube Studio Live Monitor Banner / Camera Preview â”€â”€
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   height: MediaQuery.of(context).viewInsets.bottom > 0
@@ -2764,6 +2785,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                       ? const SizedBox.shrink()
                       : _buildLiveMonitor(theme, stream, bState),
                 ),
+
+                // -- Multi-Camera Director Switcher --------------------------
+                if (streamId.isNotEmpty)
+                  MultiCameraSwitcherWidget(
+                    streamId: streamId,
+                    onSourceSelected: (sourceId) {
+                      // TODO: route audio mix if needed based on active source
+                      debugPrint('[LiveStudio] Switched on-air source: ');
+                    },
+                  ),
 
                 Expanded(
                   child:
@@ -2792,7 +2823,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                               _StatusBanner(status: stream.status),
                               const SizedBox(height: 16),
 
-                              // ── Web WHIP Status Banner ──────────────────
+                              // â”€â”€ Web WHIP Status Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                               if (kIsWeb) ...[
                                 _WhipStatusBanner(
                                   whipState: _whipState,
@@ -2934,8 +2965,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     isTransportReady: kIsWeb ? true : _isBroadcastTransportReady,
                     whipState: kIsWeb ? _whipState : null,
                     onGoLive: () => _handleGoLive(streamId, bState),
-                    onEndStream: () =>
-                        _confirmEndStream(context, streamId, bState),
+                    onEndStream: () => _confirmEndStream(streamId, bState),
                     onPublishVod: () => ref
                         .read(
                           broadcasterProvider((
@@ -2993,7 +3023,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               tr('live.end_stream_btn'),
               style: const TextStyle(fontSize: 12),
             ),
-            onPressed: () => _confirmEndStream(context, stream.id, bState),
+            onPressed: () => _confirmEndStream(stream.id, bState),
           ),
         ],
       ),
@@ -3011,8 +3041,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       final isFront = front ?? _isFrontCamera;
 
       if (kIsWeb) {
-        // ── Web: use flutter_webrtc getUserMedia directly ──────────────────────
-        // Do NOT use camera_web / CameraController on Web — it conflicts with
+        // â”€â”€ Web: use flutter_webrtc getUserMedia directly â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Do NOT use camera_web / CameraController on Web â€” it conflicts with
         // flutter_webrtc's internal getUserMedia and causes cameraNotReadable.
         debugPrint('[WEB CAMERA] Acquiring preview stream via flutter_webrtc getUserMedia');
 
@@ -3031,9 +3061,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           _webRendererInitialized = true;
         }
 
-        // ── 3-tier getUserMedia fallback ─────────────────────────────────────
+        // â”€â”€ 3-tier getUserMedia fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Tier 1: ideal facingMode + resolution hints (best for phones/laptops)
-        // Tier 2: video:true (any device, no constraints) + audio — for desktop
+        // Tier 2: video:true (any device, no constraints) + audio â€” for desktop
         //         webcams that don't declare facingMode and reject exact matches
         // Tier 3: video:true only (mics blocked by site policy)
         rtc.MediaStream? stream;
@@ -3043,7 +3073,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             'width': {'ideal': 1280},
             'height': {'ideal': 720},
             'frameRate': {'ideal': 30},
-            // Use 'ideal' not a bare string — makes facingMode advisory, not required.
+            // Use 'ideal' not a bare string â€” makes facingMode advisory, not required.
             // Desktop webcams have no declared facingMode and reject required constraints.
             'facingMode': {'ideal': isFront ? 'user' : 'environment'},
           },
@@ -3058,7 +3088,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           stream = await rtc.navigator.mediaDevices.getUserMedia(tier1);
           debugPrint('[WEB CAMERA] Tier-1 constraints succeeded');
         } catch (e1) {
-          debugPrint('[WEB CAMERA] Tier-1 failed ($e1) — retrying with bare constraints');
+          debugPrint('[WEB CAMERA] Tier-1 failed ($e1) â€” retrying with bare constraints');
           try {
             stream = await rtc.navigator.mediaDevices.getUserMedia({
               'video': true,
@@ -3066,7 +3096,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             });
             debugPrint('[WEB CAMERA] Tier-2 (video:true, audio:true) succeeded');
           } catch (e2) {
-            debugPrint('[WEB CAMERA] Tier-2 failed ($e2) — retrying video-only');
+            debugPrint('[WEB CAMERA] Tier-2 failed ($e2) â€” retrying video-only');
             try {
               stream = await rtc.navigator.mediaDevices.getUserMedia({
                 'video': true,
@@ -3084,15 +3114,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                 }
                 debugPrint('[WEB CAMERA] Separate audio track attached');
               } catch (audioErr) {
-                debugPrint('[WEB CAMERA] Audio track attach failed ($audioErr) — continuing video-only');
+                debugPrint('[WEB CAMERA] Audio track attach failed ($audioErr) â€” continuing video-only');
               }
             } catch (e3) {
               throw Exception(
                 'Unable to access your camera.\n'
                 'Please check:\n'
-                '• Camera is connected and not in use by another app\n'
-                '• Browser has camera permission for this site\n'
-                '• No other tab/app is using the camera\n'
+                'â€¢ Camera is connected and not in use by another app\n'
+                'â€¢ Browser has camera permission for this site\n'
+                'â€¢ No other tab/app is using the camera\n'
                 'Detail: $e3',
               );
             }
@@ -3122,11 +3152,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           _cameraErrorMessage = null;
         });
 
-        debugPrint('[WEB CAMERA] ✓ Preview ready — RTCVideoRenderer wired to local stream');
+        debugPrint('[WEB CAMERA] âœ“ Preview ready â€” RTCVideoRenderer wired to local stream');
         return;
       }
 
-      // ── Mobile Native path (Android / iOS) ──
+      // â”€â”€ Mobile Native path (Android / iOS) â”€â”€
       final camStatus = await Permission.camera.request();
       final micStatus = await Permission.microphone.request();
 
@@ -3262,12 +3292,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     }
   }
 
-  // ── Local Recording Helpers ─────────────────────────────────────────────────
+  // â”€â”€ Local Recording Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /// Start a local audio recording for the active stream session.
   ///
   /// This records the device microphone as an M4A/AAC file alongside the RTMP
-  /// broadcast.  It is AUDIO-ONLY — the video bitstream is not captured locally
+  /// broadcast.  It is AUDIO-ONLY â€” the video bitstream is not captured locally
   /// (apivideo_live_stream does not expose a local mux output).
   /// Recording is automatically skipped on Flutter Web (not supported).
   Future<void> _startLocalRecording(String streamTitle) async {
@@ -3309,11 +3339,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           );
         }
       } else if (id == null && mounted) {
-        // Platform unsupported or permission denied — notify user.
+        // Platform unsupported or permission denied â€” notify user.
         final rs = _cachedRecordingService.state;
         if (rs.platformUnsupported) {
           debugPrint('[LiveStudio] Recording not supported: ${rs.unsupportedReason}');
-          // Silent on web — this is expected behaviour.
+          // Silent on web â€” this is expected behaviour.
         } else if (rs.error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Recording unavailable: ${rs.error}')),
@@ -3404,9 +3434,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
 
     if (kIsWeb) {
-      // ── Web: WebRTC WHIP via MediaMTX ──────────────────────────────────────
-      // Flow: Browser getUserMedia → flutter_webrtc RTCPeerConnection
-      //       → WHIP POST to MediaMTX → MediaMTX ffmpeg → Cloudinary RTMP
+      // â”€â”€ Web: WebRTC WHIP via MediaMTX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // Flow: Browser getUserMedia â†’ flutter_webrtc RTCPeerConnection
+      //       â†’ WHIP POST to MediaMTX â†’ MediaMTX ffmpeg â†’ Cloudinary RTMP
       debugPrint('[WEB BROADCAST] Starting WebRTC WHIP ingest...');
 
       try {
@@ -3492,8 +3522,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           throw Exception(_whipError ?? 'WebRTC connection failed. Please retry.');
         }
 
-        debugPrint('[WEB BROADCAST] ✓ WHIP session active — streaming to Cloudinary via MediaMTX');
-        return; // Success — do not fall through to mobile RTMP path
+        debugPrint('[WEB BROADCAST] âœ“ WHIP session active â€” streaming to Cloudinary via MediaMTX');
+        return; // Success â€” do not fall through to mobile RTMP path
       } catch (e) {
         final msg = e.toString().replaceFirst('Exception: ', '');
         debugPrint('[WEB BROADCAST] error: $msg');
@@ -3610,7 +3640,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
         final waitMs = retryDelays[attempt];
         debugPrint(
-          '[LiveStudio] RTMP connectStream retry $attemptNumber/$maxAttempts — waiting ${waitMs}ms',
+          '[LiveStudio] RTMP connectStream retry $attemptNumber/$maxAttempts â€” waiting ${waitMs}ms',
         );
         if (mounted) {
           setState(() {
@@ -3646,15 +3676,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _intentionalDisconnect = true;
     _rtmpReconnectTimer?.cancel();
 
-    // Stop local audio recording before the RTMP broadcast is torn down so
-    // the final audio file is properly finalized on disk.
-    await _stopLocalRecording();
+    if (mounted) {
+      setState(() {
+        _isStreamingRtmp = false;
+        _streamingError = null;
+        _whipState = WhipState.stopped;
+      });
+    }
+
+    // Stop local audio recording with safe timeout
+    try {
+      await _stopLocalRecording().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => debugPrint('[LiveStudio] stopLocalRecording timed out'),
+      );
+    } catch (_) {}
 
     if (kIsWeb) {
       // Web: stop the WHIP broadcaster
       if (_whipBroadcaster != null) {
         try {
-          await _whipBroadcaster!.stop();
+          await _whipBroadcaster!.stop().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => debugPrint('[LiveStudio] whipBroadcaster stop timed out'),
+          );
         } catch (_) {}
         _whipBroadcaster = null;
       }
@@ -3666,18 +3711,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         _webVideoRenderer.srcObject = _webPreviewStream;
       }
     } else {
-      // Mobile: stop apivideo RTMP stream
-      if (_isStreamingRtmp && _liveStreamController != null) {
+      // Mobile: stop apivideo RTMP stream with safe timeout so it never hangs
+      if (_liveStreamController != null) {
         try {
-          await _liveStreamController!.stopStreaming();
+          await _liveStreamController!.stopStreaming().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => debugPrint('[LiveStudio] stopStreaming timed out'),
+          );
         } catch (_) {}
       }
-    }
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = false;
-        _whipState = WhipState.stopped;
-      });
     }
   }
 
@@ -3726,7 +3768,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       // On Web: preview is already live via flutter_webrtc getUserMedia.
       // On Mobile: require camera to be initialized before going live.
       if (!kIsWeb && !_isCameraReady) {
-        debugPrint('[LiveStudio] Camera not ready — attempting re-init');
+        debugPrint('[LiveStudio] Camera not ready â€” attempting re-init');
         await _setupCamera(front: _isFrontCamera);
         if (!_isCameraReady) {
           throw Exception('Camera is not ready. Please allow camera access and retry.');
@@ -3750,7 +3792,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         broadcasterProvider((streamId, channelId)).notifier,
       );
 
-      // Step 1: Call go-live — backend provisions Cloudinary and embeds the key in response
+      // Step 1: Call go-live â€” backend provisions Cloudinary and embeds the key in response
       await notifier.goLive();
 
       final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
@@ -3864,7 +3906,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // ── Video Preview or Audio Waveform ──
+          // â”€â”€ Video Preview or Audio Waveform â”€â”€
           if (_isVideoStream)
             if (!_selectedCameraSource.requiresLocalHardware)
               _buildExternalCameraMonitor(theme, stream, bState)
@@ -4023,7 +4065,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     Text(
                       _isMicMuted
                           ? 'Tap mic to unmute'
-                          : 'High Quality Audio • 128kbps AAC',
+                          : 'High Quality Audio â€¢ 128kbps AAC',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -4243,7 +4285,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               ),
             ),
 
-          // ── Real-time floating reaction particles ──
+          // â”€â”€ Real-time floating reaction particles â”€â”€
           Positioned.fill(
             child: IgnorePointer(
               child: Stack(
@@ -4308,7 +4350,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                     ],
                   ),
                 ),
-                // Local audio recording indicator — only visible when recording.
+                // Local audio recording indicator â€” only visible when recording.
                 // Clearly labeled "AUDIO REC" to distinguish from full AV capture.
                 if (_isLocalRecording && !kIsWeb) ...[
                   const SizedBox(width: 6),
@@ -4454,14 +4496,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 
   Future<void> _confirmEndStream(
-    BuildContext context,
     String streamId,
     BroadcasterState bState,
   ) async {
     final trFn = ref.read(trProvider);
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Text(trFn('live.end_broadcast_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4491,11 +4532,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: Text(trFn('common.cancel')),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: Text(trFn('profile.end_stream_btn')),
           ),
@@ -4504,13 +4545,60 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     );
 
     if (confirm == true && mounted) {
-      await _stopRtmpBroadcast();
-      await ref
-          .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
-          .endStream();
+      // Immediate visual feedback with non-dismissible progress modal so the app
+      // feels responsive and prevents duplicate endStream requests.
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  SizedBox(width: 18),
+                  Expanded(
+                    child: Text(
+                      'Ending live stream...',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      try {
+        // Fast teardown of local hardware broadcast in parallel with backend cloud endStream
+        await Future.wait([
+          _stopRtmpBroadcast(),
+          ref
+              .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
+              .endStream()
+              .timeout(
+                const Duration(seconds: 8),
+                onTimeout: () => debugPrint('[LiveStudio] endStream timed out'),
+              ),
+        ]);
+      } catch (e) {
+        debugPrint('[LiveStudio] Error ending broadcast: $e');
+      } finally {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
 
       if (mounted) {
-        _showPostStreamSummaryDialog(this.context, streamId, bState);
+        _showPostStreamSummaryDialog(context, streamId, bState);
       }
     }
   }
@@ -4656,7 +4744,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }
 }
 
-// ─── Status banner ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Status banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _StatusBanner extends StatelessWidget {
   final LiveStreamStatus status;
@@ -4667,7 +4755,7 @@ class _StatusBanner extends StatelessWidget {
     final (color, label, icon) = switch (status) {
       LiveStreamStatus.draft => (
         Colors.grey,
-        'Draft — Not live yet',
+        'Draft â€” Not live yet',
         Icons.edit_outlined,
       ),
       LiveStreamStatus.scheduled => (Colors.blue, 'Scheduled', Icons.schedule),
@@ -4709,7 +4797,7 @@ class _StatusBanner extends StatelessWidget {
   }
 }
 
-// ─── Web WHIP Status Banner ─────────────────────────────────────────────────
+// â”€â”€â”€ Web WHIP Status Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _WhipStatusBanner extends StatelessWidget {
   final WhipState whipState;
@@ -4744,7 +4832,7 @@ class _WhipStatusBanner extends StatelessWidget {
       ),
       WhipState.connected => (
         Colors.green,
-        'WebRTC Connected — streaming via MediaMTX → Cloudinary',
+        'WebRTC Connected â€” streaming via MediaMTX â†’ Cloudinary',
         Icons.broadcast_on_personal,
         false,
       ),
@@ -4907,7 +4995,7 @@ class _StreamKeyCard extends StatelessWidget {
                         child: Text(
                           keyVisible
                               ? (sk.rawKey ?? sk.keyPrefix ?? '****')
-                              : '••••••••••••••••',
+                              : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢',
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 13,
@@ -4955,7 +5043,7 @@ class _StreamKeyCard extends StatelessWidget {
   }
 }
 
-// ─── Action bar ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Action bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _ActionBar extends ConsumerWidget {
   final LiveStreamStatus status;
@@ -5066,7 +5154,7 @@ class _ActionBar extends ConsumerWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     SizedBox(width: 8),
-                    Text('Processing recording…'),
+                    Text('Processing recordingâ€¦'),
                   ],
                 )
               else
@@ -5099,4 +5187,77 @@ class RtmpBroadcastException implements Exception {
 
   @override
   String toString() => message;
+}
+
+// --- Cast AppBar Button -------------------------------------------------------
+// Shown in the Live Studio AppBar - opens the Cast & Connect panel.
+
+class _CastAppBarButton extends ConsumerWidget {
+  final String streamId;
+  final String streamTitle;
+  final String? thumbnailUrl;
+  final String? hlsUrl;
+
+  const _CastAppBarButton({
+    required this.streamId,
+    required this.streamTitle,
+    this.thumbnailUrl,
+    this.hlsUrl,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final devicesAsync = ref.watch(castDevicesProvider);
+    final connectedCount = devicesAsync.when(
+      data: (d) => d
+          .where((dev) => dev.status == CastSessionStatus.connected)
+          .length,
+      loading: () => 0,
+      error: (_, _) => 0,
+    );
+
+    return Stack(
+      alignment: Alignment.topRight,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.cast_rounded),
+          tooltip: 'Cast & Connect',
+          onPressed: () => showCastPanel(
+            context,
+            streamId: streamId,
+            hlsUrl: hlsUrl,
+            streamTitle: streamTitle,
+            thumbnailUrl: thumbnailUrl,
+          ),
+        ),
+        if (connectedCount > 0)
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

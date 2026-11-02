@@ -1,4 +1,4 @@
-// lib/features/live/presentation/widgets/pre_broadcast_mode_dialog.dart
+﻿// lib/features/live/presentation/widgets/pre_broadcast_mode_dialog.dart
 //
 // Modal dialog displayed prior to Go-Live, allowing broadcasters to choose
 // between "Stream Only" vs "Stream & Record Audio Locally (Backup)", and confirming
@@ -227,127 +227,129 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
             ),
             const SizedBox(height: 8),
 
-            // Option 1: Stream Only
-            InkWell(
-              onTap: () => setState(() => _mode = BroadcastRecordingMode.streamOnly),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _mode == BroadcastRecordingMode.streamOnly
-                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                      : Colors.transparent,
+            RadioGroup<BroadcastRecordingMode>(
+              groupValue: _mode,
+              onChanged: (v) {
+                if (v != null) setState(() => _mode = v);
+              },
+              child: Column(
+                children: [
+                // Option 1: Stream Only
+                InkWell(
+                  onTap: () => setState(() => _mode = BroadcastRecordingMode.streamOnly),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _mode == BroadcastRecordingMode.streamOnly
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Radio<BroadcastRecordingMode>(
-                      value: BroadcastRecordingMode.streamOnly,
-                      groupValue: _mode,
-                      onChanged: (v) {
-                        if (v != null) setState(() => _mode = v);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Live Stream Only',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          Text(
-                            'Broadcast live to viewers. Server-side VOD recording created if enabled on channel.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _mode == BroadcastRecordingMode.streamOnly
+                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _mode == BroadcastRecordingMode.streamOnly
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Option 2: Stream & Record Locally
-            InkWell(
-              onTap: () => setState(
-                () => _mode = BroadcastRecordingMode.streamAndRecordLocally,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _mode == BroadcastRecordingMode.streamAndRecordLocally
-                      ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _mode == BroadcastRecordingMode.streamAndRecordLocally
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Radio<BroadcastRecordingMode>(
-                      value: BroadcastRecordingMode.streamAndRecordLocally,
-                      groupValue: _mode,
-                      onChanged: (v) {
-                        if (v != null) setState(() => _mode = v);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    child: Row(
+                      children: [
+                        Radio<BroadcastRecordingMode>(
+                            value: BroadcastRecordingMode.streamOnly,
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Stream & Record Audio Locally',
+                                'Live Stream Only',
                                 style: TextStyle(fontWeight: FontWeight.w700),
                               ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade100,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'M4A Backup',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade800,
-                                  ),
+                              Text(
+                                'Broadcast live to viewers. Server-side VOD recording created if enabled on channel.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            'Saves microphone audio directly to phone storage as an immediate backup alongside the live broadcast.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Option 2: Stream & Record Locally
+                InkWell(
+                  onTap: () => setState(
+                    () => _mode = BroadcastRecordingMode.streamAndRecordLocally,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _mode == BroadcastRecordingMode.streamAndRecordLocally
+                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _mode == BroadcastRecordingMode.streamAndRecordLocally
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                       ),
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        Radio<BroadcastRecordingMode>(
+                            value: BroadcastRecordingMode.streamAndRecordLocally,
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Stream & Record Audio Locally',
+                                    style: TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'M4A Backup',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                'Saves microphone audio directly to phone storage as an immediate backup alongside the live broadcast.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
+                ],
               ),
             ),
           ],

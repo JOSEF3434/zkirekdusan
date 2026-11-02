@@ -197,9 +197,21 @@ class BroadcasterNotifier extends StateNotifier<BroadcasterState> {
       final updated = await _repo.endStream(_streamId);
       _elapsedTimer?.cancel();
       _elapsedTimer = null;
-      state = state.copyWith(stream: updated, isEndingStream: false);
+      state = state.copyWith(stream: updated, isEndingStream: false, clearError: true);
     } catch (e) {
-      state = state.copyWith(isEndingStream: false, error: e.toString());
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('not currently live') || msg.contains('not live')) {
+        _elapsedTimer?.cancel();
+        _elapsedTimer = null;
+        final endedStream = state.stream?.copyWith(status: LiveStreamStatus.ended);
+        state = state.copyWith(
+          stream: endedStream,
+          isEndingStream: false,
+          clearError: true,
+        );
+      } else {
+        state = state.copyWith(isEndingStream: false, error: e.toString());
+      }
     }
   }
 

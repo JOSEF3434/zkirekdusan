@@ -248,12 +248,119 @@ class LiveDiscoveryScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Use as Camera card
+                InkWell(
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showStreamIdDialog(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrange.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.deepOrange.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.deepOrange.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.phone_android_rounded,
+                              color: Colors.deepOrange, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Use This Phone as Camera',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Let a broadcaster use your phone as a wireless camera input',
+                                style:
+                                    TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right,
+                            color: Colors.deepOrange),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  void _showStreamIdDialog(BuildContext context) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.phone_android_rounded, color: Colors.deepOrange),
+            SizedBox(width: 10),
+            Text('Use as Camera'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter the Stream ID provided by the broadcaster, or ask them to share their Live Studio cast code.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              decoration: const InputDecoration(
+                labelText: 'Stream ID',
+                hintText: 'e.g. clx7abc123def',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.tag_rounded),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final id = ctrl.text.trim();
+              if (id.isEmpty) return;
+              Navigator.pop(ctx);
+              context.push('/live/cast-camera?streamId=');
+            },
+            icon: const Icon(Icons.videocam_rounded, size: 16),
+            label: const Text('Join as Camera'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 // lib/features/live/data/live_socket_service.dart
 // Manages the Socket.IO connection to the backend /live namespace.
-// Provides strongly-typed Dart Streams for all server→client events.
+// Provides strongly-typed Dart Streams for all server-to-client events.
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +10,10 @@ import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/domain/stream_health_model.dart';
 
-// ─── Event name constants (mirror backend LIVE_EVENTS) ───────────────────────
+// Event name constants (mirror backend LIVE_EVENTS)
 
 class LiveEvents {
-  // Client → Server
+  // Client to Server
   static const joinStream = 'stream:join';
   static const leaveStream = 'stream:leave';
   static const sendChat = 'chat:send';
@@ -24,7 +24,15 @@ class LiveEvents {
   static const sendReaction = 'reaction:send';
   static const qualityReport = 'quality:report';
 
-  // Server → Client
+  // Cast - Client to Server
+  static const castAnnounce = 'cast:announce';
+  static const castCameraOffer = 'cast:camera-offer';
+  static const castCameraAnswer = 'cast:camera-answer';
+  static const castCameraIce = 'cast:camera-ice';
+  static const castSwitchSource = 'cast:switch-source';
+  static const castLeave = 'cast:leave';
+
+  // Server to Client
   static const streamStarted = 'stream:started';
   static const streamEnded = 'stream:ended';
   static const streamUpdated = 'stream:updated';
@@ -41,9 +49,15 @@ class LiveEvents {
   static const qualityRecommend = 'quality:recommend';
   static const streamHealth = 'stream:health';
   static const error = 'error';
-}
 
-// ─── Stream ended payload ─────────────────────────────────────────────────────
+  // Cast - Server to Client
+  static const castDeviceAnnounce = 'cast:device-announce';
+  static const castCameraOfferIn = 'cast:camera-offer-in';
+  static const castCameraAnswerIn = 'cast:camera-answer-in';
+  static const castCameraIceIn = 'cast:camera-ice-in';
+  static const castDeviceReady = 'cast:device-ready';
+  static const castSourceSwitched = 'cast:source-switched';
+}
 
 class StreamEndedEvent {
   final String streamId;
@@ -60,11 +74,8 @@ class StreamEndedEvent {
       );
 }
 
-// ─── Stream interrupted payload ─────────────────────────────────────────────
-
 class StreamInterruptedEvent {
   final String streamId;
-  /// Grace period in milliseconds before backend auto-ends the stream.
   final int gracePeriodMs;
 
   const StreamInterruptedEvent({
@@ -79,8 +90,6 @@ class StreamInterruptedEvent {
       );
 }
 
-// ─── Connection state ─────────────────────────────────────────────────────────
-
 enum SocketConnectionState {
   connecting,
   connected,
@@ -89,23 +98,19 @@ enum SocketConnectionState {
   failed,
 }
 
-// ─── LiveSocketService ────────────────────────────────────────────────────────
-
 class LiveSocketService {
   io.Socket? _socket;
   String? _currentToken;
 
-  // Connection state
   final _connectionStateCtrl =
       StreamController<SocketConnectionState>.broadcast();
   Stream<SocketConnectionState> get connectionState =>
       _connectionStateCtrl.stream;
 
-  // Typed event streams
   final _chatMessageCtrl = StreamController<ChatMessageDto>.broadcast();
   Stream<ChatMessageDto> get onChatMessage => _chatMessageCtrl.stream;
 
-  final _chatDeletedCtrl = StreamController<String>.broadcast(); // messageId
+  final _chatDeletedCtrl = StreamController<String>.broadcast();
   Stream<String> get onChatDeleted => _chatDeletedCtrl.stream;
 
   final _chatPinnedCtrl = StreamController<ChatMessageDto>.broadcast();
@@ -139,21 +144,48 @@ class LiveSocketService {
   Stream<ReactionBroadcastEvent> get onReactionBroadcast =>
       _reactionBroadcastCtrl.stream;
 
+  final _qualityRecommendCtrl = StreamController<String>.broadcast();
+  Stream<String> get onQualityRecommend => _qualityRecommendCtrl.stream;
+
   final _errorCtrl = StreamController<String>.broadcast();
   Stream<String> get onError => _errorCtrl.stream;
 
-  final _qualityRecommendCtrl =
-      StreamController<String>.broadcast(); // quality string
-  Stream<String> get onQualityRecommend => _qualityRecommendCtrl.stream;
+  // Cast streams
+  final _castDeviceAnnounceCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastDeviceAnnounce =>
+      _castDeviceAnnounceCtrl.stream;
+
+  final _castCameraOfferCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastCameraOffer =>
+      _castCameraOfferCtrl.stream;
+
+  final _castCameraAnswerCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastCameraAnswer =>
+      _castCameraAnswerCtrl.stream;
+
+  final _castCameraIceCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastCameraIce =>
+      _castCameraIceCtrl.stream;
+
+  final _castDeviceReadyCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastDeviceReady =>
+      _castDeviceReadyCtrl.stream;
+
+  final _castSourceSwitchedCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastSourceSwitched =>
+      _castSourceSwitchedCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
-
-  // ─── Connect ───────────────────────────────────────────────────────────────
 
   Future<void> connect(String token) async {
     if (_socket != null && _socket!.connected && token == _currentToken) return;
 
-    // Disconnect existing if any
     _socket?.disconnect();
     _socket?.dispose();
 
@@ -187,117 +219,87 @@ class LiveSocketService {
     s.onConnect((_) {
       _connectionStateCtrl.add(SocketConnectionState.connected);
     });
-
     s.onDisconnect((_) {
       _connectionStateCtrl.add(SocketConnectionState.disconnected);
     });
-
     s.onReconnecting((_) {
       _connectionStateCtrl.add(SocketConnectionState.reconnecting);
     });
-
     s.onConnectError((e) {
       _connectionStateCtrl.add(SocketConnectionState.failed);
     });
 
-    // Chat
     s.on(LiveEvents.chatMessage, (data) {
-      try {
-        final json = _toMap(data);
-        _chatMessageCtrl.add(ChatMessageDto.fromJson(json));
-      } catch (_) {}
+      try { _chatMessageCtrl.add(ChatMessageDto.fromJson(_toMap(data))); } catch (_) {}
     });
-
     s.on(LiveEvents.chatDeleted, (data) {
       try {
-        final json = _toMap(data);
-        final id = json['messageId'] as String?;
+        final id = _toMap(data)['messageId'] as String?;
         if (id != null) _chatDeletedCtrl.add(id);
       } catch (_) {}
     });
-
     s.on(LiveEvents.chatPinned, (data) {
       try {
-        final json = _toMap(data);
-        final msgJson = json['message'] as Map<String, dynamic>?;
-        if (msgJson != null) {
-          _chatPinnedCtrl.add(ChatMessageDto.fromJson(msgJson));
-        }
+        final m = _toMap(data)['message'] as Map<String, dynamic>?;
+        if (m != null) _chatPinnedCtrl.add(ChatMessageDto.fromJson(m));
       } catch (_) {}
     });
-
     s.on(LiveEvents.chatReaction, (data) {
-      try {
-        _chatReactionCtrl.add(ChatReactionEvent.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _chatReactionCtrl.add(ChatReactionEvent.fromJson(_toMap(data))); } catch (_) {}
     });
-
-    // Viewer count
     s.on(LiveEvents.viewerCount, (data) {
-      try {
-        _viewerCountCtrl.add(_toMap(data));
-      } catch (_) {}
+      try { _viewerCountCtrl.add(_toMap(data)); } catch (_) {}
     });
-
-    // Stream lifecycle
     s.on(LiveEvents.streamStarted, (data) {
-      try {
-        _streamStartedCtrl.add(LiveStreamDto.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _streamStartedCtrl.add(LiveStreamDto.fromJson(_toMap(data))); } catch (_) {}
     });
-
     s.on(LiveEvents.streamEnded, (data) {
-      try {
-        _streamEndedCtrl.add(StreamEndedEvent.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _streamEndedCtrl.add(StreamEndedEvent.fromJson(_toMap(data))); } catch (_) {}
     });
-
     s.on(LiveEvents.streamUpdated, (data) {
-      try {
-        _streamUpdatedCtrl.add(LiveStreamDto.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _streamUpdatedCtrl.add(LiveStreamDto.fromJson(_toMap(data))); } catch (_) {}
     });
-
     s.on(LiveEvents.streamInterrupted, (data) {
-      try {
-        _streamInterruptedCtrl.add(StreamInterruptedEvent.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _streamInterruptedCtrl.add(StreamInterruptedEvent.fromJson(_toMap(data))); } catch (_) {}
     });
-
-    // Health
     s.on(LiveEvents.streamHealth, (data) {
-      try {
-        _streamHealthCtrl.add(StreamHealthDto.fromJson(_toMap(data)));
-      } catch (_) {}
+      try { _streamHealthCtrl.add(StreamHealthDto.fromJson(_toMap(data))); } catch (_) {}
     });
-
-    // Reactions
     s.on(LiveEvents.reactionBroadcast, (data) {
-      try {
-        _reactionBroadcastCtrl.add(
-          ReactionBroadcastEvent.fromJson(_toMap(data)),
-        );
-      } catch (_) {}
+      try { _reactionBroadcastCtrl.add(ReactionBroadcastEvent.fromJson(_toMap(data))); } catch (_) {}
     });
-
-    // Quality
     s.on(LiveEvents.qualityRecommend, (data) {
       try {
         final q = _toMap(data)['quality'] as String?;
         if (q != null) _qualityRecommendCtrl.add(q);
       } catch (_) {}
     });
-
-    // Errors
     s.on(LiveEvents.error, (data) {
-      try {
-        final msg = _toMap(data)['message'] as String? ?? 'Socket error';
-        _errorCtrl.add(msg);
-      } catch (_) {}
+      try { _errorCtrl.add(_toMap(data)['message'] as String? ?? 'Socket error'); } catch (_) {}
+    });
+
+    // Cast
+    s.on(LiveEvents.castDeviceAnnounce, (data) {
+      try { _castDeviceAnnounceCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castCameraOfferIn, (data) {
+      try { _castCameraOfferCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castCameraAnswerIn, (data) {
+      try { _castCameraAnswerCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castCameraIceIn, (data) {
+      try { _castCameraIceCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castDeviceReady, (data) {
+      try { _castDeviceReadyCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castSourceSwitched, (data) {
+      try { _castSourceSwitchedCtrl.add(_toMap(data)); } catch (_) {}
     });
   }
 
-  // ─── Room operations ───────────────────────────────────────────────────────
+  // Room operations
 
   void joinStream(String streamId) {
     _socket?.emit(LiveEvents.joinStream, {'streamId': streamId});
@@ -320,10 +322,7 @@ class LiveSocketService {
   }
 
   void sendReaction({required String streamId, required String emoji}) {
-    _socket?.emit(LiveEvents.sendReaction, {
-      'streamId': streamId,
-      'emoji': emoji,
-    });
+    _socket?.emit(LiveEvents.sendReaction, {'streamId': streamId, 'emoji': emoji});
   }
 
   void reactToChat({
@@ -339,10 +338,7 @@ class LiveSocketService {
   }
 
   void deleteChat({required String streamId, required String messageId}) {
-    _socket?.emit(LiveEvents.deleteChat, {
-      'streamId': streamId,
-      'messageId': messageId,
-    });
+    _socket?.emit(LiveEvents.deleteChat, {'streamId': streamId, 'messageId': messageId});
   }
 
   void pinChat({
@@ -369,7 +365,67 @@ class LiveSocketService {
     });
   }
 
-  // ─── Disconnect ────────────────────────────────────────────────────────────
+  // Cast emit helpers
+
+  void emitCastAnnounce({
+    required String streamId,
+    required String deviceName,
+    String? deviceModel,
+    int? signalStrength,
+  }) {
+    _socket?.emit(LiveEvents.castAnnounce, {
+      'streamId': streamId,
+      'deviceName': deviceName,
+      'deviceModel': ?deviceModel,
+      'signalStrength': ?signalStrength,
+    });
+  }
+
+  void emitCastCameraOffer({
+    required String streamId,
+    required String peerId,
+    required String sdp,
+  }) {
+    _socket?.emit(LiveEvents.castCameraOffer, {
+      'streamId': streamId,
+      'peerId': peerId,
+      'sdp': sdp,
+    });
+  }
+
+  void emitCastCameraAnswer({required String peerId, required String sdp}) {
+    _socket?.emit(LiveEvents.castCameraAnswer, {'peerId': peerId, 'sdp': sdp});
+  }
+
+  void emitCastCameraIce({
+    required String streamId,
+    required String peerId,
+    required Map<String, dynamic> candidate,
+  }) {
+    _socket?.emit(LiveEvents.castCameraIce, {
+      'streamId': streamId,
+      'peerId': peerId,
+      'candidate': candidate,
+    });
+  }
+
+  void emitCastSwitchSource({
+    required String streamId,
+    required String sourceId,
+    required String sourceType,
+  }) {
+    _socket?.emit(LiveEvents.castSwitchSource, {
+      'streamId': streamId,
+      'sourceId': sourceId,
+      'sourceType': sourceType,
+    });
+  }
+
+  void emitCastLeave({required String streamId, required String peerId}) {
+    _socket?.emit(LiveEvents.castLeave, {'streamId': streamId, 'peerId': peerId});
+  }
+
+  // Disconnect
 
   void disconnect() {
     _socket?.disconnect();
@@ -393,11 +449,15 @@ class LiveSocketService {
     _streamInterruptedCtrl.close();
     _streamHealthCtrl.close();
     _reactionBroadcastCtrl.close();
-    _errorCtrl.close();
     _qualityRecommendCtrl.close();
+    _errorCtrl.close();
+    _castDeviceAnnounceCtrl.close();
+    _castCameraOfferCtrl.close();
+    _castCameraAnswerCtrl.close();
+    _castCameraIceCtrl.close();
+    _castDeviceReadyCtrl.close();
+    _castSourceSwitchedCtrl.close();
   }
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   Map<String, dynamic> _toMap(dynamic data) {
     if (data is Map<String, dynamic>) return data;
@@ -406,7 +466,7 @@ class LiveSocketService {
   }
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// Provider
 
 final liveSocketServiceProvider = Provider<LiveSocketService>((ref) {
   final service = LiveSocketService();

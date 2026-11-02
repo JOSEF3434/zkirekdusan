@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_initializing_formals
+﻿// ignore_for_file: prefer_initializing_formals
 // lib/features/live/presentation/providers/chat_provider.dart
 // Real-time chat state with history loading, deduplication, and send states.
 
@@ -208,7 +208,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     if (state.messages.any((m) => m.id == id)) return; // deduplicate
     final msg = ChatMessageDto(
       id: id,
-      content: '${event.emoji}  reacted',
+      content: event.emoji,
       type: ChatMessageType.system,
       createdAt: DateTime.now().toIso8601String(),
     );
@@ -216,19 +216,39 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   void _onReactionBroadcast(ReactionBroadcastEvent event) {
-    // Show emoji burst reactions as a chat feed entry (e.g. "❤️ x3")
+    // Merge with the last message if it is the same emoji from the same sender,
+    // otherwise append a new reaction entry.
     if (!mounted) return;
-    final id = 'rbcast_${DateTime.now().millisecondsSinceEpoch}';
-    final countLabel = event.count > 1 ? ' ×${event.count}' : '';
-    final msg = ChatMessageDto(
-      id: id,
-      content: '${event.emoji}$countLabel',
-      type: ChatMessageType.system,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    state = state.copyWith(messages: [...state.messages, msg]);
-  }
 
+    final msgs = List<ChatMessageDto>.from(state.messages);
+    final senderId = event.senderId ?? 'anon';
+    // Use a stable ID per sender+emoji combo so we can update in-place
+    final id = 'rbcast_${senderId}_${event.emoji}';
+
+    final existingIdx = msgs.indexWhere((m) => m.id == id);
+    if (existingIdx != -1) {
+      // Update count in existing entry
+      final prev = msgs[existingIdx];
+      final newCount = (int.tryParse(prev.content.split('×').last.trim()) ?? 1) + 1;
+      msgs[existingIdx] = prev.copyWith(
+        content: '${event.emoji} ×$newCount',
+        createdAt: DateTime.now().toIso8601String(),
+      );
+    } else {
+      msgs.add(ChatMessageDto(
+        id: id,
+        content: event.emoji,
+        type: ChatMessageType.system,
+        createdAt: DateTime.now().toIso8601String(),
+        sender: ChatSenderDto(
+          id: senderId,
+          username: event.senderUsername,
+          displayName: event.senderDisplayName,
+        ),
+      ));
+    }
+    state = state.copyWith(messages: msgs);
+  }
   void _onSocketError(String msg) {
     if (!mounted) return;
     // Mark pending messages as sent or clear pending state on error

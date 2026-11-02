@@ -753,6 +753,9 @@ export class LiveStreamingService {
       throw new NotFoundException('Stream not found');
 
     if (stream.status !== LiveStreamStatus.LIVE) {
+      if (stream.status === LiveStreamStatus.ENDED) {
+        return stream;
+      }
       throw new BadRequestException('Stream is not currently live');
     }
 

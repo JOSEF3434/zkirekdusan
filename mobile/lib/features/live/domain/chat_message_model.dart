@@ -1,4 +1,4 @@
-// lib/features/live/domain/chat_message_model.dart
+﻿// lib/features/live/domain/chat_message_model.dart
 // Models for live stream chat messages, reactions, and related events.
 
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -78,12 +78,29 @@ abstract class ChatHistoryResponse with _$ChatHistoryResponse {
 class ReactionBroadcastEvent {
   final String emoji;
   final int count;
+  final String? senderId;
+  final String? senderUsername;
+  final String? senderDisplayName;
 
-  const ReactionBroadcastEvent({required this.emoji, required this.count});
+  const ReactionBroadcastEvent({
+    required this.emoji,
+    required this.count,
+    this.senderId,
+    this.senderUsername,
+    this.senderDisplayName,
+  });
 
-  factory ReactionBroadcastEvent.fromJson(Map<String, dynamic> json) =>
-      ReactionBroadcastEvent(
-        emoji: json['emoji'] as String? ?? '❤️',
-        count: json['count'] as int? ?? 1,
-      );
+  String get senderName =>
+      senderDisplayName ?? senderUsername ?? 'Viewer';
+
+  factory ReactionBroadcastEvent.fromJson(Map<String, dynamic> json) {
+    final sender = json['sender'] as Map<String, dynamic>?;
+    return ReactionBroadcastEvent(
+      emoji: json['emoji'] as String? ?? '❤️',
+      count: json['count'] as int? ?? 1,
+      senderId: sender?['id'] as String?,
+      senderUsername: sender?['username'] as String?,
+      senderDisplayName: sender?['displayName'] as String?,
+    );
+  }
 }

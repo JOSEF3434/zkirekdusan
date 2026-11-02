@@ -57,6 +57,7 @@ import 'package:mobile/features/live/presentation/screens/live_discovery_screen.
 import 'package:mobile/features/live/presentation/screens/live_room_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_studio_screen.dart';
 import 'package:mobile/features/live/presentation/screens/local_recordings_screen.dart';
+import 'package:mobile/features/live/presentation/screens/cast_camera_screen.dart';
 import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/notifications/presentation/notifications_screen.dart';
@@ -386,6 +387,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/live/recordings',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const LocalRecordingsScreen(),
+      ),
+      GoRoute(
+        // 'Use as Camera' remote camera mode
+        path: '/live/cast-camera',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final streamId = state.uri.queryParameters['streamId'] ?? '';
+          return CastCameraScreen(streamId: streamId);
+        },
       ),
       GoRoute(
         path: '/live/:id',

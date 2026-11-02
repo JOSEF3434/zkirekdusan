@@ -1,4 +1,4 @@
-import {
+﻿import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
@@ -35,6 +35,24 @@ export const LIVE_EVENTS = {
   SEND_REACTION: 'reaction:send',
   STREAM_REPORT: 'stream:report',
   QUALITY_REPORT: 'quality:report',
+
+  // Cast events � Client ? Server
+  CAST_ANNOUNCE: 'cast:announce',
+  CAST_CAMERA_OFFER: 'cast:camera-offer',
+  CAST_CAMERA_ANSWER: 'cast:camera-answer',
+  CAST_CAMERA_ICE: 'cast:camera-ice',
+  CAST_SWITCH_SOURCE: 'cast:switch-source',
+  CAST_LEAVE: 'cast:leave',
+
+  // Cast events � Server ? Client
+  CAST_DEVICE_ANNOUNCE: 'cast:device-announce',
+  CAST_CAMERA_OFFER_IN: 'cast:camera-offer-in',
+  CAST_CAMERA_ANSWER_IN: 'cast:camera-answer-in',
+  CAST_CAMERA_ICE_IN: 'cast:camera-ice-in',
+  CAST_DEVICE_READY: 'cast:device-ready',
+  CAST_SOURCE_SWITCHED: 'cast:source-switched',
+  CAST_ICE: 'cast:camera-ice',
+  CAST_DEVICE_LEFT: 'cast:device-left',
   BROADCASTER_HEARTBEAT: 'broadcaster:heartbeat',
 
   // Server → Client
@@ -762,5 +780,133 @@ export class LiveGateway
       this.qualityReports.set(payload.streamId, []);
     }
     this.qualityReports.get(payload.streamId)!.push(payload.bandwidth);
+  }
+  // --------------------------------------------------------------------------
+  // CAST & CONNECT HANDLERS
+  // --------------------------------------------------------------------------
+
+  /**
+   * cast:announce — A remote phone/device announces itself as a camera to
+   * the broadcaster's stream room. The broadcaster receives cast:device-announce.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_ANNOUNCE)
+  handleCastAnnounce(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      streamId: string;
+      deviceName: string;
+      deviceModel?: string;
+      signalStrength?: number;
+    },
+  ) {
+    if (!payload?.streamId) return;
+
+    const peerId = client.id;
+    const userId = client.data.userId as string | null;
+
+    this.logger.log(
+      `[Cast] Device announced: ${payload.deviceName} (${peerId}) for stream ${payload.streamId}`,
+    );
+
+    // Relay device announcement to the broadcaster's stream room
+    // (broadcaster clients listen for cast:device-announce)
+    this.server.to(`stream:${payload.streamId}`).emit(LIVE_EVENTS.CAST_DEVICE_ANNOUNCE, {
+      peerId,
+      socketId: peerId,
+      userId,
+      deviceName: payload.deviceName,
+      deviceModel: payload.deviceModel ?? null,
+      signalStrength: payload.signalStrength ?? null,
+    });
+  }
+
+  /**
+   * cast:camera-offer — Broadcaster sends WebRTC SDP offer to a remote camera device.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_CAMERA_OFFER)
+  handleCastCameraOffer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: { streamId: string; peerId: string; sdp: string },
+  ) {
+    if (!payload?.peerId) return;
+    this.logger.log(`[Cast] SDP offer: ${client.id} -> ${payload.peerId}`);
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_OFFER, {
+      fromId: client.id,
+      sdp: payload.sdp,
+      streamId: payload.streamId,
+    });
+  }
+
+  /**
+   * cast:camera-answer — Remote camera sends WebRTC SDP answer back to broadcaster.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_CAMERA_ANSWER)
+  handleCastCameraAnswer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: { streamId: string; peerId: string; sdp: string },
+  ) {
+    if (!payload?.peerId) return;
+    this.logger.log(`[Cast] SDP answer: ${client.id} -> ${payload.peerId}`);
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_ANSWER, {
+      fromId: client.id,
+      sdp: payload.sdp,
+      streamId: payload.streamId,
+    });
+  }
+
+  /**
+   * cast:ice — Relay ICE candidates between broadcaster and remote camera.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_ICE)
+  handleCastCameraIce(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: { streamId: string; peerId: string; candidate: unknown },
+  ) {
+    if (!payload?.peerId) return;
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_ICE, {
+      fromId: client.id,
+      candidate: payload.candidate,
+      streamId: payload.streamId,
+    });
+  }
+
+  /**
+   * cast:switch-source — Broadcaster switches the active on-air camera source.
+   * Informs all viewers/observers in the stream room.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_SWITCH_SOURCE)
+  handleCastSwitchSource(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: { streamId: string; sourceId: string; sourceName: string },
+  ) {
+    if (!payload?.streamId) return;
+    this.logger.log(
+      `[Cast] Source switch: ${payload.sourceName} (${payload.sourceId}) on ${payload.streamId}`,
+    );
+    this.server.to(`stream:${payload.streamId}`).emit(LIVE_EVENTS.CAST_SOURCE_SWITCHED, {
+      sourceId: payload.sourceId,
+      sourceName: payload.sourceName,
+      switchedAt: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * cast:leave — Remote camera device disconnects from the cast session.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_LEAVE)
+  handleCastLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { streamId: string },
+  ) {
+    if (!payload?.streamId) return;
+    this.logger.log(`[Cast] Device left: ${client.id} from stream ${payload.streamId}`);
+    this.server.to(`stream:${payload.streamId}`).emit(LIVE_EVENTS.CAST_DEVICE_LEFT, {
+      peerId: client.id,
+    });
   }
 }
