@@ -1,6 +1,7 @@
 // lib/features/media_experience/presentation/providers/continue_watching_provider.dart
 // Exposes a list of in-progress videos from local progress storage.
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
 import 'package:mobile/features/media_experience/domain/playback_progress.dart';
@@ -38,9 +39,11 @@ final continueWatchingProvider =
 
 class ContinueWatchingNotifier extends StateNotifier<ContinueWatchingState> {
   final PlaybackProgressRepository _repo;
+  StreamSubscription<void>? _sub;
 
   ContinueWatchingNotifier(this._repo) : super(const ContinueWatchingState()) {
     _load();
+    _sub = _repo.onProgressChanged.listen((_) => _load());
   }
 
   void _load() {
@@ -62,4 +65,10 @@ class ContinueWatchingNotifier extends StateNotifier<ContinueWatchingState> {
   /// Called by player to update local progress. Does not rebuild unnecessarily
   /// if the item is not in the current list — player provider handles persistence.
   void onProgressUpdated() => _load();
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 }

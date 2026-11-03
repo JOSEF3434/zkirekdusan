@@ -19,6 +19,8 @@ import 'package:mobile/features/calendar/data/calendar_connectivity_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 import 'package:mobile/core/services/app_lifecycle_observer.dart';
+import 'package:mobile/core/services/pip_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:mobile/core/utils/url_strategy/url_strategy.dart';
 
 void main() async {
@@ -29,6 +31,19 @@ void main() async {
 
   // 1. Initialize environment variables
   await Env.init();
+
+  // Initialize native Picture-in-Picture service & background media audio session
+  try {
+    await PipService.instance.initialize();
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+    }
+  } catch (e) {
+    debugPrint('[Main] PiP/AudioSession initialization error: $e');
+  }
 
   // 2. Initialize Firebase safely
   try {

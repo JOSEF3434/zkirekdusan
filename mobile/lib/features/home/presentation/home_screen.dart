@@ -138,6 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _onRefresh() async {
+    ref.read(continueWatchingProvider.notifier).refresh();
     if (_tabController.index == 0) {
       await Future.wait([
         ref.read(videoFeedProvider.notifier).refresh(),

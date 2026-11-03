@@ -18,6 +18,7 @@ import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/navigation/navigation_service.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/core/presentation/providers/pip_provider.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/scheduled_live_sync_provider.dart';
@@ -381,6 +382,28 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
       _isExpanding = false;
     }
     if (!mp.isVisible || !mp.hasContent) {
+      return const SizedBox.shrink();
+    }
+
+    final pipState = ref.watch(pipProvider);
+    if (pipState.isInPip) {
+      final activeCtrl = mp.controller ?? _liveController;
+      final isInitialized = activeCtrl != null && activeCtrl.value.isInitialized;
+      if (activeCtrl != null && isInitialized) {
+        return Positioned.fill(
+          child: Container(
+            color: Colors.black,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: activeCtrl.value.aspectRatio > 0
+                    ? activeCtrl.value.aspectRatio
+                    : 16 / 9,
+                child: VideoPlayer(activeCtrl),
+              ),
+            ),
+          ),
+        );
+      }
       return const SizedBox.shrink();
     }
 

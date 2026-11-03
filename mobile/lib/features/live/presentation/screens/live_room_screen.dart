@@ -310,7 +310,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             uri,
             videoPlayerOptions: VideoPlayerOptions(
               mixWithOthers: false,
-              allowBackgroundPlayback: false,
+              allowBackgroundPlayback: true,
             ),
           );
 

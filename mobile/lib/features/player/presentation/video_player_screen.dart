@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/core/presentation/providers/pip_provider.dart';
+import 'package:mobile/core/services/pip_service.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
@@ -46,11 +48,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   String get _mediaSessionId => 'video:${widget.videoId}';
 
   MediaActivityNotifier? _mediaActivityNotifier;
+  PipNotifier? _pipNotifier;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _mediaActivityNotifier = ref.read(mediaActivityProvider.notifier);
+    _pipNotifier = ref.read(pipProvider.notifier);
   }
 
   @override
@@ -80,6 +84,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               .read(playerProvider(widget.videoId).notifier)
               .adoptController(reclaimed, wasPlaying: wasPlaying);
         }
+      }
+
+      final playerState = ref.read(playerProvider(widget.videoId));
+      final ctrl = playerState.controller;
+      if (ctrl != null && ctrl.value.isInitialized) {
+        final isPlaying = ctrl.value.isPlaying;
+        final ratio = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
+        ref.read(pipProvider.notifier).registerActiveMedia(
+          contentId: widget.videoId,
+          isPlaying: isPlaying,
+          aspectRatio: ratio,
+          title: playerState.video?.title,
+        );
       }
     });
   }
@@ -147,6 +164,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    final pipNotifier = _pipNotifier;
+    final mediaId = widget.videoId;
+    PipService.instance.disableAutoPip();
+    Future.microtask(() {
+      try {
+        pipNotifier?.unregisterActiveMedia(mediaId);
+      } catch (_) {}
+    });
     _seekFeedbackTimer?.cancel();
     // End any active media session so the inactivity timer restarts.
     final notifier = _mediaActivityNotifier;
@@ -184,6 +209,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         // Failed or loading — end any active session so the timer is not
         // suspended indefinitely.
         ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+        ref.read(pipProvider.notifier).unregisterActiveMedia(widget.videoId);
         return;
       }
 
@@ -192,11 +218,40 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           _mediaSessionId,
           MediaSessionKind.videoPlayback,
         );
+        final ratio = (next.controller?.value.aspectRatio ?? 0) > 0
+            ? next.controller!.value.aspectRatio
+            : 16 / 9;
+        ref.read(pipProvider.notifier).registerActiveMedia(
+          contentId: widget.videoId,
+          isPlaying: true,
+          aspectRatio: ratio,
+          title: next.video?.title,
+        );
       } else if (!isPlaying && wasPlaying) {
         // Paused: end the session so the normal inactivity countdown resumes.
         ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
+        ref.read(pipProvider.notifier).updatePlaybackState(isPlaying: false);
       }
     });
+
+    final pipState = ref.watch(pipProvider);
+    if (pipState.isInPip) {
+      final ctrl = state.controller;
+      final isInitialized = ctrl != null && ctrl.value.isInitialized;
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: isInitialized
+              ? AspectRatio(
+                  aspectRatio: ctrl.value.aspectRatio > 0
+                      ? ctrl.value.aspectRatio
+                      : 16 / 9,
+                  child: VideoPlayer(ctrl),
+                )
+              : const SizedBox.shrink(),
+        ),
+      );
+    }
 
     if (state.isLoading || state.video == null) {
       return const Scaffold(
@@ -1288,6 +1343,23 @@ class _PlayerControlsOverlay extends StatelessWidget {
                       PlayerSpeedSheet.show(context, videoId).then((_) {
                         notifier.setInteractingWithControls(false);
                       });
+                    },
+                  ),
+                  // Picture-in-Picture
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final pipState = ref.watch(pipProvider);
+                      if (!pipState.isSupported) return const SizedBox.shrink();
+                      return IconButton(
+                        icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white),
+                        tooltip: 'Picture-in-Picture',
+                        onPressed: () {
+                          final ratio = controller.value.aspectRatio > 0
+                              ? controller.value.aspectRatio
+                              : 16 / 9;
+                          ref.read(pipProvider.notifier).enterPip(aspectRatio: ratio);
+                        },
+                      );
                     },
                   ),
                   // Settings / Quality

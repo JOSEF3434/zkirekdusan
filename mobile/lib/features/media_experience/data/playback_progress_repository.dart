@@ -2,6 +2,7 @@
 // Persists per-video playback positions locally via SharedPreferences.
 // This supplements (does not replace) the backend PATCH /videos/:id/progress.
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,14 +14,25 @@ const _kProgressKey = 'local_playback_progress';
 final playbackProgressRepositoryProvider = Provider<PlaybackProgressRepository>(
   (ref) {
     final prefs = ref.watch(sharedPreferencesProvider);
-    return PlaybackProgressRepository(prefs);
+    final repo = PlaybackProgressRepository(prefs);
+    ref.onDispose(() => repo.dispose());
+    return repo;
   },
 );
 
 class PlaybackProgressRepository {
   final SharedPreferences _prefs;
+  final StreamController<void> _changeController =
+      StreamController<void>.broadcast();
 
   PlaybackProgressRepository(this._prefs);
+
+  /// Broadcast stream notifying whenever progress is saved, removed, or cleared.
+  Stream<void> get onProgressChanged => _changeController.stream;
+
+  void dispose() {
+    _changeController.close();
+  }
 
   /// Load all persisted progress entries.
   Map<String, PlaybackProgress> loadAll() {
@@ -47,11 +59,14 @@ class PlaybackProgressRepository {
   /// Load progress for a single video. Returns null if not found.
   PlaybackProgress? load(String videoId) => loadAll()[videoId];
 
-  /// Persist progress for a video.
+  /// Persist progress for a video and notify active listeners.
   Future<void> save(PlaybackProgress progress) async {
     final all = loadAll();
     all[progress.videoId] = progress;
     await _persist(all);
+    if (!_changeController.isClosed) {
+      _changeController.add(null);
+    }
   }
 
   /// Remove a video's progress entry (e.g. when user removes from CW).
@@ -59,11 +74,17 @@ class PlaybackProgressRepository {
     final all = loadAll();
     all.remove(videoId);
     await _persist(all);
+    if (!_changeController.isClosed) {
+      _changeController.add(null);
+    }
   }
 
   /// Clear all progress entries.
   Future<void> clearAll() async {
     await _prefs.remove(_kProgressKey);
+    if (!_changeController.isClosed) {
+      _changeController.add(null);
+    }
   }
 
   /// Returns only in-progress (not complete, not trivial) entries sorted newest first.

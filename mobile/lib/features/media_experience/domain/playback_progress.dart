@@ -31,11 +31,14 @@ class PlaybackProgress {
   int get remainingSeconds =>
       (durationSeconds - positionSeconds).clamp(0, durationSeconds);
 
-  /// True when the video is considered complete (within 30s of end).
-  bool get isComplete => durationSeconds > 0 && remainingSeconds <= 30;
+  /// True when the video is considered complete (watched >= 95% or <= 5s left).
+  bool get isComplete {
+    if (durationSeconds <= 0) return false;
+    return fraction >= 0.95 || remainingSeconds <= 5;
+  }
 
-  /// True when the user just started — less than 10s in; restart from 0.
-  bool get isTrivial => positionSeconds < 10;
+  /// True when the user just started — less than 3s in; restart from 0.
+  bool get isTrivial => positionSeconds < 3;
 
   Map<String, dynamic> toJson() => {
     'videoId': videoId,

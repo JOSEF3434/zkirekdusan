@@ -18,6 +18,7 @@ import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 import 'package:mobile/features/media_experience/domain/playback_preferences.dart';
 import 'package:mobile/features/media_experience/presentation/providers/playback_preferences_provider.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/core/services/pip_service.dart';
 import 'package:mobile/features/player/data/player_repository.dart';
 
 class PlayerState {
@@ -384,6 +385,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   @override
   void dispose() {
+    PipService.instance.disableAutoPip();
     _handoffTimer?.cancel();
     _cancelRetryTimers();
     _progressTimer?.cancel();
@@ -598,7 +600,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
               File(path),
               videoPlayerOptions: VideoPlayerOptions(
                 mixWithOthers: false,
-                allowBackgroundPlayback: false,
+                allowBackgroundPlayback: true,
               ),
             );
           } else {
@@ -608,7 +610,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
               uri,
               videoPlayerOptions: VideoPlayerOptions(
                 mixWithOthers: false,
-                allowBackgroundPlayback: false,
+                allowBackgroundPlayback: true,
               ),
             );
           }
@@ -658,6 +660,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
       controller.play();
       controller.addListener(_onControllerUpdate);
+      final ratio = controller.value.aspectRatio > 0 ? controller.value.aspectRatio : 16 / 9;
+      PipService.instance.enableAutoPip(
+        isPlaying: true,
+        aspectRatio: ratio,
+        title: video.title,
+      );
 
       // Throttled progress timer every 5 seconds
       _progressTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -717,6 +725,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       ctrl.play().catchError((_) {});
       return;
     }
+    PipService.instance.updatePlaybackState(isPlaying: isPlaying);
     // When video pauses (e.g. ended or buffering pause), reveal controls automatically
     if (!isPlaying && !state.showControls) {
       state = state.copyWith(showControls: true);
@@ -764,6 +773,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       updatedAt: DateTime.now(),
     );
     _progressRepo.save(progress);
+    _repository.saveProgress(_videoId, positionSec);
   }
 
   // ── Public control methods ────────────────────────────────────────────────
@@ -783,11 +793,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void togglePlayPause() {
     final ctrl = state.controller;
     if (ctrl == null || !ctrl.value.isInitialized) return;
+    final willPlay = !ctrl.value.isPlaying;
     if (ctrl.value.isPlaying) {
       ctrl.pause();
+      _flushProgress();
     } else {
       ctrl.play();
     }
+    PipService.instance.updatePlaybackState(isPlaying: willPlay);
     _resetControlsTimer();
   }
 
@@ -795,6 +808,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     if (isLiveStream) return;
     state.controller?.seekTo(position);
     _resetControlsTimer();
+    _flushProgress();
   }
 
   void seekForward([int? seconds]) {
@@ -886,6 +900,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           MediaUrlResolver.resolve(rendition.url) ?? rendition.url;
       final newController = VideoPlayerController.networkUrl(
         Uri.parse(resolvedUrl),
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: false,
+          allowBackgroundPlayback: true,
+        ),
       );
       await newController.initialize();
       await newController.seekTo(currentPosition);

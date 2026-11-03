@@ -8,6 +8,9 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:mobile/core/services/pip_service.dart';
+import 'package:mobile/features/media_experience/data/playback_progress_repository.dart';
+import 'package:mobile/features/media_experience/domain/playback_progress.dart';
 
 enum MiniPlayerType { video, live }
 
@@ -112,7 +115,9 @@ class MiniPlayerState {
 }
 
 class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
-  MiniPlayerNotifier() : super(const MiniPlayerState());
+  final PlaybackProgressRepository? _progressRepo;
+
+  MiniPlayerNotifier([this._progressRepo]) : super(const MiniPlayerState());
 
   VoidCallback? _controllerListener;
   Timer? _handoffTimer;
@@ -191,6 +196,11 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     final isActuallyPlaying = wasPlaying ?? controller.value.isPlaying;
     _lastReclaimedWasPlaying = isActuallyPlaying;
     _startHandoffGracePeriod(controller, isActuallyPlaying);
+    PipService.instance.enableAutoPip(
+      isPlaying: isActuallyPlaying,
+      aspectRatio: 16 / 9,
+      title: title,
+    );
 
     state = MiniPlayerState(
       isVisible: true,
@@ -234,6 +244,11 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     if (controller != null) {
       _bindController(controller);
       _startHandoffGracePeriod(controller, isActuallyPlaying);
+      PipService.instance.enableAutoPip(
+        isPlaying: isActuallyPlaying,
+        aspectRatio: 16 / 9,
+        title: title,
+      );
     }
 
     state = MiniPlayerState(
@@ -261,6 +276,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   /// Does NOT auto-dismiss — user controls when to close.
   void markEnded({int? durationSeconds}) {
     if (!state.hasContent) return;
+    PipService.instance.disableAutoPip();
     try {
       final ctrl = state.controller;
       if (ctrl != null && ctrl.value.isInitialized && ctrl.value.isPlaying) {
@@ -357,8 +373,31 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
         ctrl.play();
       } else {
         ctrl.pause();
+        _flushProgress();
       }
+      PipService.instance.updatePlaybackState(isPlaying: willPlay);
     }
+  }
+
+  void _flushProgress() {
+    final repo = _progressRepo;
+    final ctrl = state.controller;
+    final contentId = state.contentId;
+    if (repo == null || ctrl == null || !ctrl.value.isInitialized || contentId == null) return;
+    if (state.type != MiniPlayerType.video) return; // Do not save progress for live streams
+    final positionSec = ctrl.value.position.inSeconds;
+    final durationSec = ctrl.value.duration.inSeconds;
+    if (positionSec <= 0) return;
+
+    final progress = PlaybackProgress(
+      videoId: contentId,
+      videoTitle: state.title ?? '',
+      thumbnailUrl: state.thumbnailUrl,
+      positionSeconds: positionSec,
+      durationSeconds: durationSec,
+      updatedAt: DateTime.now(),
+    );
+    repo.save(progress);
   }
 
   void updatePosition(Offset newPos) {
@@ -420,6 +459,8 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   /// Completely close and terminate playback, releasing decoders and memory.
   void dismiss() {
+    _flushProgress();
+    PipService.instance.disableAutoPip();
     _handoffTimer?.cancel();
     _cancelRetryTimers();
     _unbindController();
@@ -451,5 +492,11 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
 final miniPlayerProvider =
     StateNotifierProvider<MiniPlayerNotifier, MiniPlayerState>(
-  (_) => MiniPlayerNotifier(),
+  (ref) {
+    PlaybackProgressRepository? repo;
+    try {
+      repo = ref.watch(playbackProgressRepositoryProvider);
+    } catch (_) {}
+    return MiniPlayerNotifier(repo);
+  },
 );
