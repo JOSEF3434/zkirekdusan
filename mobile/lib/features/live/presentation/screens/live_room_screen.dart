@@ -51,9 +51,6 @@ class _Particle {
   }
 }
 
-// ─── Emoji reaction picker emojis ─────────────────────────────────────────────
-
-const _kPickerEmojis = ['❤️', '🔥', '👏', '😂', '😮', '💯', '🎉', '👍'];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -543,11 +540,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // ── Reactions ──────────────────────────────────────────────────────────────
 
-  void _sendReaction(String emoji) {
-    final socket = ref.read(liveSocketServiceProvider);
-    socket.sendReaction(streamId: widget.streamId, emoji: emoji);
-    _spawnParticles(emoji, 3);
-  }
+
 
   void _onReactionReceived(ReactionBroadcastEvent event) {
     if (!mounted) return;
@@ -708,10 +701,6 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                                   ),
                                 ),
                         ),
-
-                        // ── Emoji reaction picker (hidden when keyboard is active) ──
-                        if (MediaQuery.of(context).viewInsets.bottom == 0)
-                          _buildEmojiBar(),
                       ],
                     ),
             ),
@@ -891,7 +880,6 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                               ),
                             ),
                     ),
-                    _buildEmojiBar(dark: true),
                   ],
                 ),
               ),
@@ -1770,35 +1758,6 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           const SizedBox(width: 8),
           ViewerCountWidget(count: state.viewerCount),
         ],
-      ),
-    );
-  }
-
-  // ── Emoji reaction picker bar ──────────────────────────────────────────────
-
-  Widget _buildEmojiBar({bool dark = false}) {
-    final bg = dark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.grey.shade100;
-    return Container(
-      color: bg,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: _kPickerEmojis
-              .map(
-                (e) => GestureDetector(
-                  onTap: () => _sendReaction(e),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(e, style: const TextStyle(fontSize: 24)),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
       ),
     );
   }

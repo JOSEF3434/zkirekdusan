@@ -418,7 +418,7 @@ class _LiveStreamsList extends ConsumerWidget {
                 crossAxisCount: columns,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: 0.98,
+                childAspectRatio: columns == 1 ? 1.08 : 0.94,
               ),
               itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
               itemBuilder: (_, i) {
@@ -486,7 +486,7 @@ class _ScheduledStreamsList extends ConsumerWidget {
                 crossAxisCount: columns,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: 0.98,
+                childAspectRatio: columns == 1 ? 1.08 : 0.94,
               ),
               itemCount: state.streams.length + (state.isLoadingMore ? 1 : 0),
               itemBuilder: (_, i) {
@@ -568,7 +568,7 @@ class _MyScheduledStreamsList extends ConsumerWidget {
               crossAxisCount: columns,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
-              childAspectRatio: 0.98,
+              childAspectRatio: columns == 1 ? 1.08 : 0.94,
             ),
             itemCount: state.streams.length,
             itemBuilder: (_, i) {
@@ -595,7 +595,7 @@ class _Skeletons extends StatelessWidget {
             crossAxisCount: columns,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
-            childAspectRatio: 0.98,
+            childAspectRatio: columns == 1 ? 1.08 : 0.94,
           ),
           itemCount: 4,
           itemBuilder: (context, index) => _SkeletonCard(),

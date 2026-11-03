@@ -93,7 +93,10 @@ class LiveCardWidget extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _thumbnail(height: 190, radius: 14, onlyTop: true, effectiveStatus: effectiveStatus),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _thumbnail(radius: 14, onlyTop: true, effectiveStatus: effectiveStatus),
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -137,7 +140,7 @@ class LiveCardWidget extends ConsumerWidget {
   }
 
   Widget _thumbnail({
-    required double height,
+    double? height,
     required double radius,
     required bool onlyTop,
     required LiveStreamStatus effectiveStatus,
@@ -243,7 +246,7 @@ class LiveCardWidget extends ConsumerWidget {
 
   }
 
-  Widget _fallbackThumb(double height) {
+  Widget _fallbackThumb(double? height) {
     return Container(
       width: double.infinity,
       height: height,

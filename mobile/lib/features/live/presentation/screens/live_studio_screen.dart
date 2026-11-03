@@ -967,12 +967,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   Widget _buildExternalCameraMonitor(
     ThemeData theme,
     LiveStreamDto stream,
-    BroadcasterState bState,
-  ) {
+    BroadcasterState bState, {
+    double? height,
+  }) {
     final isLive = stream.status == LiveStreamStatus.live;
     return Container(
       width: double.infinity,
-      height: 220,
+      height: height,
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -2794,7 +2795,258 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       ),
       body: stream == null
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : (kIsWeb || MediaQuery.sizeOf(context).width >= 900)
+              ? _buildStudioWideScreen(context, streamId, stream, bState, theme)
+              : _buildStudioPortrait(context, streamId, stream, bState, theme),
+      ),
+    );
+  }
+
+  // ─── Creator Wide-Screen (YouTube Studio Desktop Side-by-Side) ─────────────
+
+  Widget _buildStudioWideScreen(
+    BuildContext context,
+    String streamId,
+    LiveStreamDto stream,
+    BroadcasterState bState,
+    ThemeData theme,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Chat panel width (matching guest/viewer page: 360.0 px)
+        const chatPanelW = 360.0;
+        final leftW = constraints.maxWidth - chatPanelW;
+        final monitorH = (leftW * 9 / 16).clamp(280.0, constraints.maxHeight * 0.70);
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Left: Video Monitor Preview + Meta + Controls ──────
+            SizedBox(
+              width: leftW,
+              height: constraints.maxHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 16:9 Live Monitor Banner / Camera Preview
+                  SizedBox(
+                    width: leftW,
+                    height: monitorH,
+                    child: _buildLiveMonitor(theme, stream, bState, height: monitorH),
+                  ),
+
+                  // Multi-Camera Director Switcher
+                  if (streamId.isNotEmpty)
+                    MultiCameraSwitcherWidget(
+                      streamId: streamId,
+                      onSourceSelected: (sourceId) {
+                        debugPrint('[LiveStudio] Switched on-air source: $sourceId');
+                      },
+                    ),
+
+                  // Below Monitor: Title, Channel, Stats, Controls
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title + Channel Name + Viewers + End / Go Live
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      stream.title.isNotEmpty ? stream.title : 'Live Stream',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      stream.videoChannel?.name ?? 'Live Studio Stream',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (stream.status == LiveStreamStatus.live) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.red.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.people_alt_outlined, size: 16, color: Colors.red),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${bState.viewerCount} watching',
+                                        style: const TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  ),
+                                  icon: const Icon(Icons.stop_circle_rounded, size: 18),
+                                  label: const Text(
+                                    'End Stream',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  onPressed: () => _confirmEndStream(stream.id, bState),
+                                ),
+                              ] else ...[
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  ),
+                                  icon: const Icon(Icons.sensors_rounded, size: 18),
+                                  label: const Text(
+                                    'Go Live',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  onPressed: () => _handleGoLive(streamId, bState),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          const Divider(height: 1),
+                          const SizedBox(height: 14),
+
+                          // Technical details chips
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            children: [
+                              if (stream.status == LiveStreamStatus.live)
+                                _metaChip(
+                                  icon: Icons.timer_outlined,
+                                  label: 'Duration: ${_formatElapsed(bState.elapsed)}',
+                                  theme: theme,
+                                ),
+                              if (bState.health != null)
+                                _metaChip(
+                                  icon: Icons.speed_rounded,
+                                  label: 'Health: ${bState.health!.health.name.toUpperCase()}',
+                                  theme: theme,
+                                ),
+                              _metaChip(
+                                icon: Icons.videocam_outlined,
+                                label: 'Source: ${_selectedCameraSource.label}',
+                                theme: theme,
+                              ),
+                            ],
+                          ),
+
+                          if (stream.description != null && stream.description!.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              stream.description!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+
+                          // If stream is not live yet: Show setup status / keys / retry
+                          if (stream.status != LiveStreamStatus.live) ...[
+                            const SizedBox(height: 16),
+                            _StatusBanner(status: stream.status),
+                            const SizedBox(height: 16),
+                            if (kIsWeb) ...[
+                              _WhipStatusBanner(
+                                whipState: _whipState,
+                                error: _whipError,
+                                onRetry: () => _handleGoLive(streamId, bState),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            _StreamKeyCard(
+                              streamKey: bState.streamKey,
+                              isLoading: bState.isLoadingKey,
+                              keyVisible: _keyVisible,
+                              onToggleVisible: () => setState(() => _keyVisible = !_keyVisible),
+                              onRegenerate: () => ref
+                                  .read(broadcasterProvider((streamId, _effectiveChannelId)).notifier)
+                                  .regenerateStreamKey(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Right: Live Chat Panel (360px, exact same as guest page) ──
+            SizedBox(
+              width: chatPanelW,
+              height: constraints.maxHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+                ),
+                child: stream.isChatEnabled
+                    ? LiveChatWidget(
+                        streamId: streamId,
+                        isModerator: true,
+                      )
+                    : Center(
+                        child: Text(
+                          'Chat is disabled',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ─── Creator Portrait (Stacked for Phone Screens) ──────────────────────────
+
+  Widget _buildStudioPortrait(
+    BuildContext context,
+    String streamId,
+    LiveStreamDto stream,
+    BroadcasterState bState,
+    ThemeData theme,
+  ) {
+    final tr = ref.read(trProvider);
+    return Column(
               children: [
                 // â”€â”€ YouTube Studio Live Monitor Banner / Camera Preview â”€â”€
                 AnimatedContainer(
@@ -2997,7 +3249,37 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                         .publishVod(),
                   ),
               ],
+            );
+  }
+
+  Widget _metaChip({
+    required IconData icon,
+    required String label,
+    required ThemeData theme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+        ],
       ),
     );
   }
@@ -3013,15 +3295,25 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
       child: Row(
         children: [
-          const Icon(Icons.chat_bubble_outline, size: 16),
-          const SizedBox(width: 6),
-          const Flexible(
-            child: Text(
-              'Live Chat',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.redAccent,
+              borderRadius: BorderRadius.circular(4),
             ),
+            child: const Text(
+              'LIVE',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _formatElapsed(bState.elapsed),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const Spacer(),
           const Icon(Icons.people_outline, size: 16),
@@ -3916,13 +4208,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   Widget _buildLiveMonitor(
     ThemeData theme,
     LiveStreamDto stream,
-    BroadcasterState bState,
-  ) {
+    BroadcasterState bState, {
+    double? height,
+  }) {
     final isLive = stream.status == LiveStreamStatus.live;
 
     return Container(
       width: double.infinity,
-      height: 220,
+      height: height,
       color: Colors.black,
       child: Stack(
         alignment: Alignment.center,
@@ -3930,7 +4223,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           // â”€â”€ Video Preview or Audio Waveform â”€â”€
           if (_isVideoStream)
             if (!_selectedCameraSource.requiresLocalHardware)
-              _buildExternalCameraMonitor(theme, stream, bState)
+              _buildExternalCameraMonitor(theme, stream, bState, height: height)
             else if (_isCameraReady)
               SizedBox.expand(
                 child: FittedBox(
