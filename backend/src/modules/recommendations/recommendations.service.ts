@@ -6,6 +6,27 @@ export class RecommendationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Rewrites localhost/loopback URLs to the production Render host so the
+   * Flutter client always receives a reachable URL.
+   */
+  private sanitizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    const RENDER_HOST = 'https://zikrekidusan.onrender.com';
+    const LOCALHOST_PATTERNS = [
+      /^http:\/\/localhost:\d+/,
+      /^http:\/\/127\.0\.0\.1:\d+/,
+      /^http:\/\/0\.0\.0\.0:\d+/,
+      /^http:\/\/10\.0\.2\.2:\d+/,
+    ];
+    for (const pattern of LOCALHOST_PATTERNS) {
+      if (pattern.test(url)) {
+        return url.replace(pattern, RENDER_HOST);
+      }
+    }
+    return url;
+  }
+
+  /**
    * Home feed: if user has interaction history, rank content by weighted
    * RecommendationEvent signals. Otherwise fall back to popularity-sorted content.
    */
@@ -13,6 +34,7 @@ export class RecommendationsService {
     userId: string | undefined,
     page: number,
     limit: number,
+    refresh?: boolean,
   ) {
     const skip = (page - 1) * limit;
 
@@ -93,31 +115,57 @@ export class RecommendationsService {
     });
 
     if (videos.length > 0) {
-      const mappedVideos = videos.map((v) => ({
-        ...v,
-        viewsCount: Number(v.viewsCount ?? 0),
-        duration: v.duration ?? 0,
-        author: v.uploadedBy
-          ? {
-              id: v.uploadedBy.id ?? '',
-              username: v.uploadedBy.username ?? '',
-              displayName: v.uploadedBy.profile?.displayName ?? null,
-              avatarUrl: null,
-            }
-          : { id: '', username: '', displayName: null, avatarUrl: null },
-        channelId: v.videoChannelId ?? v.videoChannel?.id ?? null,
-        channelName: v.videoChannel?.name ?? null,
-        content: v.title,
-        type: 'VIDEO',
-        media: [
-          {
-            id: v.id,
-            url: v.hlsUrl || v.sourceFile?.url || '',
-            fileType: 'video/mp4',
-            order: 0,
-          },
-        ],
-      }));
+      let finalVideos = videos;
+      if (refresh) {
+        // Shuffle on refresh so user sees a fresh varied feed
+        finalVideos = [...videos].sort(() => Math.random() - 0.5);
+      }
+      const mappedVideos = finalVideos.map((v) => {
+        const sanitizedThumbnail = this.sanitizeUrl(v.thumbnailUrl);
+        const sanitizedHls = this.sanitizeUrl(
+          v.hlsUrl || v.sourceFile?.url || '',
+        );
+        const sanitizedSourceFile = this.sanitizeUrl(v.sourceFile?.url || '');
+
+        return {
+          ...v,
+          thumbnailUrl: sanitizedThumbnail,
+          hlsUrl: sanitizedHls,
+          sourceFileUrl: sanitizedSourceFile,
+          viewsCount: Number(v.viewsCount ?? 0),
+          duration: v.duration ?? 0,
+          author: v.uploadedBy
+            ? {
+                id: v.uploadedBy.id ?? '',
+                username: v.uploadedBy.username ?? '',
+                displayName: v.uploadedBy.profile?.displayName ?? null,
+                avatarUrl: null,
+              }
+            : { id: '', username: '', displayName: null, avatarUrl: null },
+          channelId: v.videoChannelId ?? v.videoChannel?.id ?? null,
+          channelName: v.videoChannel?.name ?? null,
+          content: v.title,
+          type: 'VIDEO',
+          media: [
+            ...(sanitizedThumbnail
+              ? [
+                  {
+                    id: `${v.id}-thumb`,
+                    url: sanitizedThumbnail,
+                    fileType: 'image/jpeg',
+                    order: 0,
+                  },
+                ]
+              : []),
+            {
+              id: v.id,
+              url: sanitizedHls || '',
+              fileType: 'video/mp4',
+              order: sanitizedThumbnail ? 1 : 0,
+            },
+          ],
+        };
+      });
       return { data: mappedVideos, page, limit, source: 'videos' };
     }
 

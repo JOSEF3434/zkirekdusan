@@ -10,9 +10,25 @@ import 'package:mobile/features/home/domain/post_model.dart';
 
 extension PostResponseDtoToVideo on PostResponseDto {
   VideoResponseDto toVideoResponseDto() {
+    String? thumb = thumbnailUrl;
+    if (thumb == null || thumb.isEmpty) {
+      final img = media
+          .where((m) => m.fileType.toLowerCase().startsWith('image'))
+          .firstOrNull;
+      thumb = img?.url;
+    }
+
+    String? videoUrl = hlsUrl;
+    if (videoUrl == null || videoUrl.isEmpty) {
+      final vid = media
+          .where((m) => m.fileType.toLowerCase().startsWith('video'))
+          .firstOrNull;
+      videoUrl = vid?.url;
+    }
+
     return VideoResponseDto(
       id: id,
-      title: content ?? 'Recommended Video',
+      title: title ?? content ?? 'Recommended Video',
       description: content,
       status: VideoStatus.ready, // Assumption for recommendations
       visibility: visibility,
@@ -22,12 +38,15 @@ extension PostResponseDtoToVideo on PostResponseDto {
       commentsCount: commentsCount,
       isLiked: isLiked,
       isSaved: isSaved,
-      thumbnailUrl: media.isNotEmpty && media.first.fileType.startsWith('image')
-          ? media.first.url
-          : null,
-      hlsUrl: media.isNotEmpty && media.first.fileType.startsWith('video')
-          ? media.first.url
-          : null,
+      thumbnailUrl: thumb,
+      hlsUrl: videoUrl,
+      sourceFileUrl: sourceFileUrl,
+      channelId: channelId,
+      channelName: channelName,
+      duration: duration,
+      renditions: renditions
+          .map((r) => VideoRenditionDto.fromJson(r))
+          .toList(),
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -85,7 +104,10 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
     return _fetchInitial(_currentCategory);
   }
 
-  Future<VideoFeedState> _fetchInitial(VideoFeedCategory category) async {
+  Future<VideoFeedState> _fetchInitial(
+    VideoFeedCategory category, {
+    bool isRefresh = false,
+  }) async {
     final repo = ref.read(videoRepositoryProvider);
     final feedRepo = ref.read(feedRepositoryProvider);
     VideoListResponseDto response = const VideoListResponseDto(
@@ -94,21 +116,14 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
     );
 
     if (category == VideoFeedCategory.recommended) {
-      try {
-        response = await repo.getLatestVideos(
-          page: 1,
-          limit: 10,
-          cancelToken: _cancelToken,
-        );
-      } catch (e) {
-        // Network/parsing error: fall back
-      }
-
-      if (response.data.isEmpty) {
+      if (isRefresh) {
+        // When refreshed (e.g. user double-clicks Home or pulls to refresh):
+        // Fetch recommendations so the feed reorders and gives a fresh mix
         try {
           final feedResponse = await feedRepo.getRecommendations(
             page: 1,
             limit: 10,
+            refresh: true,
             cancelToken: _cancelToken,
           );
           final videos = feedResponse.data
@@ -121,6 +136,47 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
             );
           }
         } catch (_) {}
+
+        if (response.data.isEmpty) {
+          try {
+            response = await repo.getLatestVideos(
+              page: 1,
+              limit: 10,
+              cancelToken: _cancelToken,
+            );
+          } catch (_) {}
+        }
+      } else {
+        // Initial load: show latest videos first (matching initial layout)
+        // or recommendations if latest is empty
+        try {
+          response = await repo.getLatestVideos(
+            page: 1,
+            limit: 10,
+            cancelToken: _cancelToken,
+          );
+        } catch (e) {
+          // Network/parsing error: fall back
+        }
+
+        if (response.data.isEmpty) {
+          try {
+            final feedResponse = await feedRepo.getRecommendations(
+              page: 1,
+              limit: 10,
+              cancelToken: _cancelToken,
+            );
+            final videos = feedResponse.data
+                .map((p) => p.toVideoResponseDto())
+                .toList();
+            if (videos.isNotEmpty) {
+              response = VideoListResponseDto(
+                data: videos,
+                meta: feedResponse.meta,
+              );
+            }
+          } catch (_) {}
+        }
       }
     } else if (category == VideoFeedCategory.latest) {
       response = await repo.getLatestVideos(
@@ -179,7 +235,7 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
     _cancelToken = CancelToken();
 
     try {
-      final newState = await _fetchInitial(_currentCategory)
+      final newState = await _fetchInitial(_currentCategory, isRefresh: true)
           .timeout(const Duration(seconds: 15));
       state = AsyncValue.data(newState);
     } catch (e, st) {
@@ -211,28 +267,30 @@ class VideoFeedNotifier extends AsyncNotifier<VideoFeedState> {
       );
       if (_currentCategory == VideoFeedCategory.recommended) {
         try {
-          response = await repo.getLatestVideos(
+          final feedResponse = await feedRepo.getRecommendations(
             page: nextPage,
             limit: 10,
             cancelToken: _cancelToken,
           );
-        } catch (_) {
-          try {
-            final feedResponse = await feedRepo.getRecommendations(
-              page: nextPage,
-              limit: 10,
-              cancelToken: _cancelToken,
-            );
-            final videos = feedResponse.data
-                .map((p) => p.toVideoResponseDto())
-                .toList();
+          final videos = feedResponse.data
+              .map((p) => p.toVideoResponseDto())
+              .toList();
+          if (videos.isNotEmpty) {
             response = VideoListResponseDto(
               data: videos,
               meta: feedResponse.meta,
             );
-          } catch (_) {
-            // Keep safe empty default
           }
+        } catch (_) {}
+
+        if (response.data.isEmpty) {
+          try {
+            response = await repo.getLatestVideos(
+              page: nextPage,
+              limit: 10,
+              cancelToken: _cancelToken,
+            );
+          } catch (_) {}
         }
       } else if (_currentCategory == VideoFeedCategory.latest ||
           _currentCategory == VideoFeedCategory.all) {

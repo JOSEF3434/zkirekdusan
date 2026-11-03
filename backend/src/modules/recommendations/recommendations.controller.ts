@@ -30,15 +30,20 @@ export class RecommendationsController {
     @CurrentUser('sub') userId: string | undefined,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('refresh') refresh?: string,
   ) {
+    const isRefresh = refresh === 'true' || refresh === '1';
     const cacheKey = `recommendations:home:user:${userId || 'anon'}:page:${page}:limit:${limit}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
+    if (!isRefresh) {
+      const cached = await this.cacheManager.get(cacheKey);
+      if (cached) return cached;
+    }
 
     const result = await this.recommendationsService.getHomeRecommendations(
       userId,
       page,
       limit,
+      isRefresh,
     );
     await this.cacheManager.set(cacheKey, result, 60000); // 60s TTL
     return result;

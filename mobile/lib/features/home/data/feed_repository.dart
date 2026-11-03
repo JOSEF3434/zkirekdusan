@@ -40,11 +40,16 @@ class FeedRepository {
   Future<FeedResponseDto> getRecommendations({
     int page = 1,
     int limit = 20,
+    bool refresh = false,
     CancelToken? cancelToken,
   }) async {
     final response = await _dio.get(
       '/recommendations/home',
-      queryParameters: {'page': page, 'limit': limit},
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (refresh) 'refresh': 'true',
+      },
       cancelToken: cancelToken,
     );
     final data = parsePaginatedEnvelope(response.data);
