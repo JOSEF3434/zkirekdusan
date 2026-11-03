@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Patch,
@@ -16,20 +16,23 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminContentService } from './services/admin-content.service.js';
 
 @ApiTags('Admin Content')
 @Controller('admin/content')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminContentController {
   constructor(private readonly contentService: AdminContentService) {}
 
   @Get('posts')
+  @Permissions('media.view')
   @ApiOperation({ summary: 'List platform posts with pagination and filters' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -56,12 +59,14 @@ export class AdminContentController {
   }
 
   @Get('posts/:id')
+  @Permissions('media.view')
   @ApiOperation({ summary: 'Get detailed post by ID' })
   async getPostDetail(@Param('id') id: string) {
     return this.contentService.getPostDetail(id);
   }
 
   @Patch('posts/:id/status')
+  @Permissions('media.moderate')
   @ApiOperation({ summary: 'Update post publication status' })
   async updatePostStatus(
     @Param('id') id: string,
@@ -77,6 +82,7 @@ export class AdminContentController {
   }
 
   @Delete('posts/:id')
+  @Permissions('media.delete')
   @ApiOperation({ summary: 'Delete post' })
   async deletePost(
     @Param('id') id: string,
@@ -87,6 +93,7 @@ export class AdminContentController {
   }
 
   @Get('videos')
+  @Permissions('videos.view')
   @ApiOperation({ summary: 'List videos with pagination and filters' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -110,6 +117,7 @@ export class AdminContentController {
   }
 
   @Patch('videos/:id/status')
+  @Permissions('videos.moderate')
   @ApiOperation({ summary: 'Update video status' })
   async updateVideoStatus(
     @Param('id') id: string,
@@ -125,6 +133,7 @@ export class AdminContentController {
   }
 
   @Delete('videos/:id')
+  @Permissions('videos.delete')
   @ApiOperation({ summary: 'Delete video' })
   async deleteVideo(
     @Param('id') id: string,
@@ -135,6 +144,7 @@ export class AdminContentController {
   }
 
   @Get('reels')
+  @Permissions('media.view')
   @ApiOperation({ summary: 'List reels' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -150,6 +160,7 @@ export class AdminContentController {
   }
 
   @Delete('reels/:id')
+  @Permissions('media.delete')
   @ApiOperation({ summary: 'Delete reel' })
   async deleteReel(
     @Param('id') id: string,
@@ -160,6 +171,7 @@ export class AdminContentController {
   }
 
   @Get('comments')
+  @Permissions('media.view')
   @ApiOperation({ summary: 'List comments' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -175,6 +187,7 @@ export class AdminContentController {
   }
 
   @Delete('comments/:id')
+  @Permissions('media.delete')
   @ApiOperation({ summary: 'Delete comment' })
   async deleteComment(
     @Param('id') id: string,

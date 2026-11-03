@@ -16,20 +16,23 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminLiveService } from './services/admin-live.service.js';
 
 @ApiTags('Admin Live Streams')
 @Controller('admin/live')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminLiveController {
   constructor(private readonly liveService: AdminLiveService) {}
 
   @Get()
+  @Permissions('live.view')
   @ApiOperation({ summary: 'List platform live streams with filters' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -45,12 +48,14 @@ export class AdminLiveController {
   }
 
   @Get(':id')
+  @Permissions('live.view')
   @ApiOperation({ summary: 'Get live stream detail' })
   async getStreamDetail(@Param('id') id: string) {
     return this.liveService.getStreamDetail(id);
   }
 
   @Post(':id/terminate')
+  @Permissions('live.stop')
   @ApiOperation({ summary: 'Immediately terminate a live stream' })
   async terminateStream(
     @Param('id') id: string,
@@ -61,6 +66,7 @@ export class AdminLiveController {
   }
 
   @Delete(':id')
+  @Permissions('live.manage')
   @ApiOperation({ summary: 'Delete a live stream record' })
   async deleteStream(
     @Param('id') id: string,
@@ -71,6 +77,7 @@ export class AdminLiveController {
   }
 
   @Get(':id/chat')
+  @Permissions('live.view')
   @ApiOperation({ summary: 'List chat messages for a live stream' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
@@ -83,6 +90,7 @@ export class AdminLiveController {
   }
 
   @Delete('chat/:messageId')
+  @Permissions('live.moderate')
   @ApiOperation({ summary: 'Delete a live stream chat message' })
   async deleteChatMessage(
     @Param('messageId') messageId: string,

@@ -15,26 +15,30 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminStorageService } from './services/admin-storage.service.js';
 
 @ApiTags('Admin Storage')
 @Controller('admin/storage')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
 @ApiBearerAuth()
 export class AdminStorageController {
   constructor(private readonly storageService: AdminStorageService) {}
 
   @Get('stats')
+  @Permissions('storage.view')
   @ApiOperation({ summary: 'Get aggregated storage utilization statistics' })
   async getStats() {
     return this.storageService.getStorageStats();
   }
 
   @Get('files')
+  @Permissions('storage.view')
   @ApiOperation({
     summary: 'List platform storage files with pagination and filters',
   })
@@ -60,6 +64,7 @@ export class AdminStorageController {
   }
 
   @Delete('files/:id')
+  @Permissions('storage.manage')
   @ApiOperation({ summary: 'Delete file from storage' })
   async deleteFile(
     @Param('id') id: string,

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -17,7 +17,9 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -25,7 +27,7 @@ import { AdminAuditService } from './services/admin-audit.service.js';
 
 @ApiTags('Admin Channels')
 @Controller('admin/channels')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminChannelsController {
@@ -35,6 +37,7 @@ export class AdminChannelsController {
   ) {}
 
   @Get()
+  @Permissions('channels.view')
   @ApiOperation({
     summary: 'List platform channels with pagination and search',
   })
@@ -85,6 +88,7 @@ export class AdminChannelsController {
   }
 
   @Post(':id/archive')
+  @Permissions('channels.manage_members')
   @ApiOperation({ summary: 'Archive a channel' })
   async archiveChannel(
     @Param('id') id: string,
@@ -112,6 +116,7 @@ export class AdminChannelsController {
 
   @Delete(':id')
   @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
+  @Permissions('channels.delete')
   @ApiOperation({ summary: 'Delete channel permanently' })
   async deleteChannel(
     @Param('id') id: string,

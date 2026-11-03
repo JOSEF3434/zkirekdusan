@@ -15,20 +15,23 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminChatService } from './services/admin-chat.service.js';
 
 @ApiTags('Admin Chat')
 @Controller('admin/chat')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminChatController {
   constructor(private readonly chatService: AdminChatService) {}
 
   @Get('conversations')
+  @Permissions('chat.view')
   @ApiOperation({
     summary: 'List chat conversations with pagination and filters',
   })
@@ -46,6 +49,7 @@ export class AdminChatController {
   }
 
   @Get('conversations/:id/messages')
+  @Permissions('chat.view')
   @ApiOperation({ summary: 'List messages in conversation' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 30 })
@@ -60,6 +64,7 @@ export class AdminChatController {
   }
 
   @Delete('messages/:id')
+  @Permissions('chat.delete')
   @ApiOperation({ summary: 'Delete individual chat message' })
   async deleteMessage(
     @Param('id') id: string,
@@ -70,6 +75,7 @@ export class AdminChatController {
   }
 
   @Delete('conversations/:id/purge')
+  @Permissions('chat.delete')
   @ApiOperation({ summary: 'Purge messages from conversation' })
   async purgeConversation(
     @Param('id') id: string,

@@ -2,8 +2,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { DEFAULT_ROLES, AppRole } from '../../src/common/constants/roles.js';
-import { DEFAULT_PERMISSIONS } from '../../src/common/constants/permissions.js';
-import { ROLE_PERMISSIONS } from './role-permissions.js';
+import { PERMISSION_REGISTRY, ROLE_PERMISSIONS } from '../../src/common/constants/permissions.js';
 
 export async function seed(prisma: PrismaClient) {
   console.log('🌱 Starting database seed for enterprise social platform...');
@@ -21,25 +20,45 @@ export async function seed(prisma: PrismaClient) {
   console.log('✅ Global Roles seeded (SUPER_ADMIN, ADMIN, MODERATOR, SUPPORT, USER)');
 
   /**
-   * 2. Seed Permissions
+   * 2. Seed Permissions with rich metadata.
+   * Upsert ensures new permissions are added; existing records get metadata refreshed.
+   * This never deletes permissions (safe for running on an existing database).
    */
-  for (const permission of DEFAULT_PERMISSIONS) {
+  for (const perm of PERMISSION_REGISTRY) {
     await prisma.permission.upsert({
-      where: { name: permission.name },
-      update: { description: permission.description },
-      create: permission,
+      where: { name: perm.code },
+      update: {
+        displayName: perm.displayName,
+        description: perm.description,
+        category: perm.category,
+        riskLevel: perm.riskLevel,
+      },
+      create: {
+        name: perm.code,
+        displayName: perm.displayName,
+        description: perm.description,
+        category: perm.category,
+        riskLevel: perm.riskLevel,
+      },
     });
   }
-  console.log('✅ Global Permissions seeded');
+  console.log(`✅ ${PERMISSION_REGISTRY.length} permissions seeded with metadata`);
 
   /**
-   * 3. Assign Role Permissions
+   * 3. Assign Role Permissions — ADDITIVE ONLY, never deletes custom assignments.
+   *
+   * Strategy:
+   * - SUPER_ADMIN: upsert ALL permissions (idempotent full grant)
+   * - Other roles: only CREATE missing RolePermission rows; existing rows are untouched.
+   *
+   * This preserves any permission changes made via the RBAC Management UI.
    */
   for (const [roleName, permissionNames] of Object.entries(ROLE_PERMISSIONS)) {
     const role = await prisma.role.findUnique({ where: { name: roleName } });
     if (!role) continue;
 
     if (permissionNames.includes('*')) {
+      // SUPER_ADMIN: ensure all registered permissions are linked
       const allPermissions = await prisma.permission.findMany();
       for (const perm of allPermissions) {
         await prisma.rolePermission.upsert({
@@ -50,29 +69,41 @@ export async function seed(prisma: PrismaClient) {
           create: { roleId: role.id, permissionId: perm.id },
         });
       }
+      console.log(`✅ SUPER_ADMIN: ensured all ${allPermissions.length} permissions`);
       continue;
     }
 
+    // For other roles: only ADD missing permission links, never remove
+    let added = 0;
     for (const permName of permissionNames) {
       const perm = await prisma.permission.findUnique({ where: { name: permName } });
-      if (!perm) continue;
+      if (!perm) {
+        console.warn(`  ⚠️  Permission '${permName}' not found for role ${roleName} — skipping`);
+        continue;
+      }
 
-      await prisma.rolePermission.upsert({
-        where: {
-          roleId_permissionId: { roleId: role.id, permissionId: perm.id },
-        },
-        update: {},
-        create: { roleId: role.id, permissionId: perm.id },
+      const exists = await prisma.rolePermission.findUnique({
+        where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
       });
+      if (!exists) {
+        await prisma.rolePermission.create({
+          data: { roleId: role.id, permissionId: perm.id },
+        });
+        added++;
+      }
+    }
+    if (added > 0) {
+      console.log(`✅ ${roleName}: added ${added} new default permission(s)`);
+    } else {
+      console.log(`   ${roleName}: no new permissions to add`);
     }
   }
-  console.log('✅ Role permissions mapped');
+  console.log('✅ Role permissions synced (additive only — admin customizations preserved)');
 
   /**
-   * 4. Seed Super Admin & Regular Admin Accounts
+   * 4. Seed Super Admin Account
    */
   const superAdminRole = await prisma.role.findUnique({ where: { name: AppRole.SUPER_ADMIN } });
-  const userRole = await prisma.role.findUnique({ where: { name: AppRole.USER } });
 
   const passwordHash = await bcrypt.hash('Admin@123456', 12);
 
@@ -96,7 +127,7 @@ export async function seed(prisma: PrismaClient) {
         },
       },
     });
-    console.log(`✅ Super Admin created: ${adminUser.email}`);
+    console.log(`✅ Super Admin created/verified: ${adminUser.email}`);
   }
 
   /**

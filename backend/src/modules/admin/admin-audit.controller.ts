@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+﻿import { Controller, Get, UseGuards, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,19 +7,22 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminAuditService } from './services/admin-audit.service.js';
 
 @ApiTags('Audit Logs')
 @Controller('admin/audit')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
 @ApiBearerAuth()
 export class AdminAuditController {
   constructor(private readonly auditService: AdminAuditService) {}
 
   @Get()
+  @Permissions('audit.view')
   @ApiOperation({
     summary: 'Get system audit logs with pagination and filters',
   })

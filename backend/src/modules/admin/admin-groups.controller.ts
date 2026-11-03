@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -16,20 +16,23 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminGroupsService } from './services/admin-groups.service.js';
 
 @ApiTags('Admin Groups')
 @Controller('admin/groups')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminGroupsController {
   constructor(private readonly groupsService: AdminGroupsService) {}
 
   @Get()
+  @Permissions('groups.view')
   @ApiOperation({ summary: 'List platform groups with pagination and filters' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -56,12 +59,14 @@ export class AdminGroupsController {
   }
 
   @Get(':id')
+  @Permissions('groups.view')
   @ApiOperation({ summary: 'Get detailed view of a group' })
   async getGroupDetail(@Param('id') id: string) {
     return this.groupsService.getGroupDetail(id);
   }
 
   @Post(':id/approve')
+  @Permissions('groups.approve')
   @ApiOperation({ summary: 'Approve a pending group' })
   async approveGroup(
     @Param('id') id: string,
@@ -72,6 +77,7 @@ export class AdminGroupsController {
   }
 
   @Post(':id/reject')
+  @Permissions('groups.approve')
   @ApiOperation({ summary: 'Reject a pending group' })
   async rejectGroup(
     @Param('id') id: string,
@@ -82,6 +88,7 @@ export class AdminGroupsController {
   }
 
   @Post(':id/suspend')
+  @Permissions('groups.suspend')
   @ApiOperation({ summary: 'Suspend a group' })
   async suspendGroup(
     @Param('id') id: string,
@@ -92,6 +99,7 @@ export class AdminGroupsController {
   }
 
   @Post(':id/restore')
+  @Permissions('groups.approve')
   @ApiOperation({ summary: 'Restore a suspended or rejected group' })
   async restoreGroup(
     @Param('id') id: string,
@@ -103,6 +111,7 @@ export class AdminGroupsController {
 
   @Delete(':id')
   @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
+  @Permissions('groups.delete')
   @ApiOperation({ summary: 'Delete group permanently' })
   async deleteGroup(
     @Param('id') id: string,
@@ -113,6 +122,7 @@ export class AdminGroupsController {
   }
 
   @Delete(':id/members/:memberId')
+  @Permissions('groups.manage_members')
   @ApiOperation({ summary: 'Force remove a member from group' })
   async removeMember(
     @Param('id') id: string,

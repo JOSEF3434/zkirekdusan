@@ -7,6 +7,61 @@ export 'package:mobile/core/network/api_client.dart' show safeMap;
 import 'package:mobile/features/creator/domain/creator_group_dto.dart';
 import 'package:mobile/features/creator/data/creator_repository.dart';
 
+// ─────────────────────────────────────────────
+// RBAC Permission Catalogue DTOs
+// ─────────────────────────────────────────────
+
+/// Rich metadata for one registered platform permission.
+class RbacPermissionMeta {
+  final String code;
+  final String displayName;
+  final String description;
+  final String category;
+  final String riskLevel;
+
+  const RbacPermissionMeta({
+    required this.code,
+    required this.displayName,
+    required this.description,
+    required this.category,
+    required this.riskLevel,
+  });
+
+  factory RbacPermissionMeta.fromJson(Map<String, dynamic> json) {
+    return RbacPermissionMeta(
+      code: json['code'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? json['code'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      category: json['category'] as String? ?? 'Other',
+      riskLevel: json['riskLevel'] as String? ?? 'low',
+    );
+  }
+}
+
+/// One permission category group returned by GET /admin/rbac/permissions.
+class RbacPermissionCategoryDto {
+  final String category;
+  final List<RbacPermissionMeta> permissions;
+
+  const RbacPermissionCategoryDto({
+    required this.category,
+    required this.permissions,
+  });
+}
+
+/// Full permission catalogue returned by GET /admin/rbac/permissions.
+class RbacPermissionCatalogueDto {
+  final int total;
+  final List<RbacPermissionMeta> permissions;
+  final List<RbacPermissionCategoryDto> categories;
+
+  const RbacPermissionCatalogueDto({
+    required this.total,
+    required this.permissions,
+    required this.categories,
+  });
+}
+
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
   return AdminRepository(ref.watch(apiClientProvider));
 });
@@ -1073,6 +1128,46 @@ class AdminRepository {
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Fetches the complete permission catalogue from GET /admin/rbac/permissions.
+  /// Used by the RBAC screen as the authoritative list of all registered permissions.
+  Future<RbacPermissionCatalogueDto?> getPermissionCatalogue() async {
+    try {
+      final res = await _dio.get('/admin/rbac/permissions');
+      final envelope = parseEnvelope(res.data);
+      final total = (envelope['total'] as num?)?.toInt() ?? 0;
+      final permsList = envelope['permissions'] as List?;
+      final categoriesList = envelope['categories'] as List?;
+      if (permsList == null) return null;
+
+      final permissions = permsList
+          .whereType<Map>()
+          .map((e) => RbacPermissionMeta.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+
+      final categories = (categoriesList ?? [])
+          .whereType<Map>()
+          .map((e) {
+            final perms = ((e['permissions'] as List?) ?? [])
+                .whereType<Map>()
+                .map((p) => RbacPermissionMeta.fromJson(Map<String, dynamic>.from(p)))
+                .toList();
+            return RbacPermissionCategoryDto(
+              category: e['category'] as String? ?? 'Other',
+              permissions: perms,
+            );
+          })
+          .toList();
+
+      return RbacPermissionCatalogueDto(
+        total: total,
+        permissions: permissions,
+        categories: categories,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

@@ -1,8 +1,8 @@
 // lib/features/admin/presentation/screens/admin_rbac_screen.dart
 //
-// Full Role-Based Access Control (RBAC) Management Screen.
-// Allows Super Admins (and Admins) to view and toggle every platform-level
-// permission for each role, with audit-safe confirmation dialogs.
+// RBAC Management Screen — fully database-driven.
+// Loads the permission catalogue and role assignments from the backend.
+// All toggles are saved back to the DB via PUT /admin/rbac/roles/:name/permissions.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,12 +11,11 @@ import 'package:mobile/features/admin/data/admin_repository.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
 
-
 // ─────────────────────────────────────────────
-// Domain models
+// Local domain models
 // ─────────────────────────────────────────────
 
-/// One specific permission that can be granted/revoked per role.
+/// One permission entry displayed in a row, sourced from the backend catalogue.
 class RbacPermission {
   final String key;
   final String label;
@@ -33,15 +32,27 @@ class RbacPermission {
     required this.color,
     required this.category,
   });
+
+  /// Build from backend metadata. Icon and color are derived client-side.
+  factory RbacPermission.fromMeta(RbacPermissionMeta meta) {
+    return RbacPermission(
+      key: meta.code,
+      label: meta.displayName,
+      description: meta.description,
+      icon: _iconForCode(meta.code),
+      color: _colorForRisk(meta.riskLevel),
+      category: meta.category,
+    );
+  }
 }
 
-/// A platform role with its current permission map.
+/// A platform role with its granted permission map.
 class RbacRole {
   final String name;
   final Color color;
   final IconData icon;
   final String description;
-  final bool isEditable; // Super Admin itself is never editable
+  final bool isEditable;
   final Map<String, bool> permissions;
 
   const RbacRole({
@@ -64,403 +75,163 @@ class RbacRole {
 }
 
 // ─────────────────────────────────────────────
-// Static catalogue of all permissions
+// Helper mappings (icon / colour by code/risk)
 // ─────────────────────────────────────────────
 
-const List<RbacPermission> _allPermissions = [
-  // ── User Management ──
-  RbacPermission(
-    key: 'users.read',
-    label: 'View Users',
-    description: 'List and search platform users',
-    icon: Icons.person_search_rounded,
-    color: Color(0xFF2196F3),
-    category: 'User Management',
-  ),
-  RbacPermission(
-    key: 'users.update',
-    label: 'Edit Users',
-    description: 'Update user profile and metadata',
-    icon: Icons.edit_rounded,
-    color: Color(0xFF2196F3),
-    category: 'User Management',
-  ),
-  RbacPermission(
-    key: 'users.ban',
-    label: 'Ban Users',
-    description: 'Permanently ban a user from the platform',
-    icon: Icons.block_rounded,
-    color: Color(0xFFE53935),
-    category: 'User Management',
-  ),
-  RbacPermission(
-    key: 'users.suspend',
-    label: 'Suspend Users',
-    description: 'Temporarily suspend user accounts',
-    icon: Icons.pause_circle_rounded,
-    color: Color(0xFFFF9800),
-    category: 'User Management',
-  ),
-  RbacPermission(
-    key: 'users.activate',
-    label: 'Activate Users',
-    description: 'Reactivate suspended or deactivated accounts',
-    icon: Icons.check_circle_rounded,
-    color: Color(0xFF4CAF50),
-    category: 'User Management',
-  ),
-  RbacPermission(
-    key: 'users.assign_role',
-    label: 'Assign Roles',
-    description: 'Change the platform role of any user',
-    icon: Icons.manage_accounts_rounded,
-    color: Color(0xFF9C27B0),
-    category: 'User Management',
-  ),
-  // ── Groups & Channels ──
-  RbacPermission(
-    key: 'groups.read',
-    label: 'View Groups',
-    description: 'List and inspect all groups',
-    icon: Icons.groups_rounded,
-    color: Color(0xFF673AB7),
-    category: 'Groups & Channels',
-  ),
-  RbacPermission(
-    key: 'groups.approve',
-    label: 'Approve Groups',
-    description: 'Approve pending group creation requests',
-    icon: Icons.thumb_up_rounded,
-    color: Color(0xFF4CAF50),
-    category: 'Groups & Channels',
-  ),
-  RbacPermission(
-    key: 'groups.suspend',
-    label: 'Suspend Groups',
-    description: 'Temporarily suspend a group',
-    icon: Icons.pause_circle_outline_rounded,
-    color: Color(0xFFFF9800),
-    category: 'Groups & Channels',
-  ),
-  RbacPermission(
-    key: 'groups.delete',
-    label: 'Delete Groups',
-    description: 'Permanently delete groups and their content',
-    icon: Icons.delete_forever_rounded,
-    color: Color(0xFFE53935),
-    category: 'Groups & Channels',
-  ),
-  RbacPermission(
-    key: 'channels.read',
-    label: 'View Channels',
-    description: 'List and inspect group channels',
-    icon: Icons.tag_rounded,
-    color: Color(0xFF3F51B5),
-    category: 'Groups & Channels',
-  ),
-  RbacPermission(
-    key: 'channels.delete',
-    label: 'Delete Channels',
-    description: 'Delete specific group channels',
-    icon: Icons.delete_outline_rounded,
-    color: Color(0xFFE53935),
-    category: 'Groups & Channels',
-  ),
-  // ── Content Moderation ──
-  RbacPermission(
-    key: 'content.read',
-    label: 'View Content',
-    description: 'View posts, videos and reels for moderation',
-    icon: Icons.article_rounded,
-    color: Color(0xFF009688),
-    category: 'Content Moderation',
-  ),
-  RbacPermission(
-    key: 'content.update_status',
-    label: 'Update Content Status',
-    description: 'Feature, pin, or change content visibility',
-    icon: Icons.edit_note_rounded,
-    color: Color(0xFF00BCD4),
-    category: 'Content Moderation',
-  ),
-  RbacPermission(
-    key: 'content.delete',
-    label: 'Delete Content',
-    description: 'Remove posts, videos and reels',
-    icon: Icons.delete_rounded,
-    color: Color(0xFFE53935),
-    category: 'Content Moderation',
-  ),
-  RbacPermission(
-    key: 'reports.read',
-    label: 'View Reports',
-    description: 'See all user-submitted reports',
-    icon: Icons.flag_rounded,
-    color: Color(0xFFFF9800),
-    category: 'Content Moderation',
-  ),
-  RbacPermission(
-    key: 'reports.resolve',
-    label: 'Resolve Reports',
-    description: 'Mark reports as resolved or dismissed',
-    icon: Icons.verified_rounded,
-    color: Color(0xFF4CAF50),
-    category: 'Content Moderation',
-  ),
-  // ── Live & Chat ──
-  RbacPermission(
-    key: 'live.read',
-    label: 'View Live Streams',
-    description: 'Monitor active and past live streams',
-    icon: Icons.live_tv_rounded,
-    color: Color(0xFFE53935),
-    category: 'Live & Chat',
-  ),
-  RbacPermission(
-    key: 'live.terminate',
-    label: 'Terminate Streams',
-    description: 'Force-end any active live stream',
-    icon: Icons.stop_circle_rounded,
-    color: Color(0xFFE53935),
-    category: 'Live & Chat',
-  ),
-  RbacPermission(
-    key: 'chat.read',
-    label: 'View Chats',
-    description: 'Inspect conversations for moderation',
-    icon: Icons.chat_bubble_rounded,
-    color: Color(0xFF2196F3),
-    category: 'Live & Chat',
-  ),
-  RbacPermission(
-    key: 'chat.delete_message',
-    label: 'Delete Messages',
-    description: 'Remove individual chat messages',
-    icon: Icons.remove_circle_rounded,
-    color: Color(0xFFFF5722),
-    category: 'Live & Chat',
-  ),
-  RbacPermission(
-    key: 'chat.purge',
-    label: 'Purge Conversations',
-    description: 'Delete all messages in a conversation',
-    icon: Icons.cleaning_services_rounded,
-    color: Color(0xFFE53935),
-    category: 'Live & Chat',
-  ),
-  // ── Platform Operations ──
-  RbacPermission(
-    key: 'storage.read',
-    label: 'View Storage',
-    description: 'Inspect platform storage statistics',
-    icon: Icons.cloud_queue_rounded,
-    color: Color(0xFF00BCD4),
-    category: 'Platform Operations',
-  ),
-  RbacPermission(
-    key: 'storage.cleanup',
-    label: 'Cleanup Storage',
-    description: 'Run orphan file cleanup tasks',
-    icon: Icons.delete_sweep_rounded,
-    color: Color(0xFFFF9800),
-    category: 'Platform Operations',
-  ),
-  RbacPermission(
-    key: 'notifications.broadcast',
-    label: 'Broadcast Notifications',
-    description: 'Send platform-wide push notifications',
-    icon: Icons.campaign_rounded,
-    color: Color(0xFFFF5722),
-    category: 'Platform Operations',
-  ),
-  RbacPermission(
-    key: 'audit.read',
-    label: 'View Audit Logs',
-    description: 'Read the platform admin audit trail',
-    icon: Icons.history_rounded,
-    color: Color(0xFF607D8B),
-    category: 'Platform Operations',
-  ),
-  RbacPermission(
-    key: 'system.settings',
-    label: 'System Settings',
-    description: 'Manage platform-level configuration',
-    icon: Icons.settings_applications_rounded,
-    color: Color(0xFF795548),
-    category: 'Platform Operations',
-  ),
-  RbacPermission(
-    key: 'rbac.manage',
-    label: 'Manage RBAC',
-    description: 'Edit role permissions (this screen)',
-    icon: Icons.key_rounded,
-    color: Color(0xFF9C27B0),
-    category: 'Platform Operations',
-  ),
-];
+IconData _iconForCode(String code) {
+  if (code.startsWith('users.')) {
+    if (code.contains('ban')) return Icons.block_rounded;
+    if (code.contains('suspend')) return Icons.pause_circle_rounded;
+    if (code.contains('delete')) return Icons.delete_forever_rounded;
+    if (code.contains('reset')) return Icons.lock_reset_rounded;
+    if (code.contains('create')) return Icons.person_add_rounded;
+    if (code.contains('update')) return Icons.edit_rounded;
+    return Icons.person_search_rounded;
+  }
+  if (code.startsWith('roles.')) {
+    if (code.contains('assign')) return Icons.manage_accounts_rounded;
+    if (code.contains('update')) return Icons.key_rounded;
+    return Icons.shield_rounded;
+  }
+  if (code.startsWith('groups.')) {
+    if (code.contains('approve')) return Icons.thumb_up_rounded;
+    if (code.contains('suspend')) return Icons.pause_circle_outline_rounded;
+    if (code.contains('delete')) return Icons.delete_forever_rounded;
+    if (code.contains('member')) return Icons.group_remove_rounded;
+    if (code.contains('create')) return Icons.group_add_rounded;
+    return Icons.groups_rounded;
+  }
+  if (code.startsWith('channels.')) {
+    if (code.contains('delete')) return Icons.delete_outline_rounded;
+    if (code.contains('member')) return Icons.group_remove_rounded;
+    return Icons.tag_rounded;
+  }
+  if (code.startsWith('media.') || code.startsWith('videos.')) {
+    if (code.contains('delete')) return Icons.delete_rounded;
+    if (code.contains('moderate')) return Icons.gavel_rounded;
+    if (code.contains('upload')) return Icons.upload_rounded;
+    return Icons.article_rounded;
+  }
+  if (code.startsWith('reports.') || code.startsWith('spam.')) {
+    if (code.contains('block')) return Icons.block_rounded;
+    if (code.contains('resolve') || code.contains('dismiss')) return Icons.verified_rounded;
+    return Icons.flag_rounded;
+  }
+  if (code.startsWith('chat.')) {
+    if (code.contains('delete')) return Icons.remove_circle_rounded;
+    return Icons.chat_bubble_rounded;
+  }
+  if (code.startsWith('live.')) {
+    if (code.contains('stop')) return Icons.stop_circle_rounded;
+    if (code.contains('moderate')) return Icons.gavel_rounded;
+    return Icons.live_tv_rounded;
+  }
+  if (code.startsWith('notifications.')) return Icons.campaign_rounded;
+  if (code.startsWith('system.')) return Icons.settings_applications_rounded;
+  if (code.startsWith('audit.')) return Icons.history_rounded;
+  if (code.startsWith('storage.')) return Icons.cloud_queue_rounded;
+  if (code.startsWith('auth.')) return Icons.lock_rounded;
+  if (code.startsWith('books.')) {
+    if (code.contains('publish')) return Icons.publish_rounded;
+    if (code.contains('delete')) return Icons.delete_rounded;
+    if (code.contains('download')) return Icons.download_rounded;
+    if (code.contains('categor')) return Icons.category_rounded;
+    return Icons.menu_book_rounded;
+  }
+  if (code.startsWith('alephat.')) return Icons.translate_rounded;
+  if (code.startsWith('profile.')) return Icons.badge_rounded;
+  if (code.startsWith('posts.')) return Icons.post_add_rounded;
+  if (code.startsWith('comments.')) return Icons.comment_rounded;
+  if (code.startsWith('messages.')) return Icons.message_rounded;
+  if (code.startsWith('stories.')) return Icons.auto_stories_rounded;
+  if (code.startsWith('reels.')) return Icons.video_library_rounded;
+  if (code.startsWith('uploads.')) return Icons.upload_file_rounded;
+  if (code.startsWith('streams.')) return Icons.stream_rounded;
+  if (code.startsWith('analytics.')) return Icons.analytics_rounded;
+  return Icons.security_rounded;
+}
 
-// Default permission sets per role (mirrors backend defaults)
-Map<String, bool> _defaultPermsFor(String roleName) {
-  const all = true;
-  const no = false;
-  switch (roleName) {
-    case 'SUPER_ADMIN':
-      return {for (final p in _allPermissions) p.key: all};
-    case 'ADMIN':
-      return {
-        'users.read': all,
-        'users.update': all,
-        'users.ban': all,
-        'users.suspend': all,
-        'users.activate': all,
-        'users.assign_role': all,
-        'groups.read': all,
-        'groups.approve': all,
-        'groups.suspend': all,
-        'groups.delete': all,
-        'channels.read': all,
-        'channels.delete': all,
-        'content.read': all,
-        'content.update_status': all,
-        'content.delete': all,
-        'reports.read': all,
-        'reports.resolve': all,
-        'live.read': all,
-        'live.terminate': all,
-        'chat.read': all,
-        'chat.delete_message': all,
-        'chat.purge': all,
-        'storage.read': all,
-        'storage.cleanup': all,
-        'notifications.broadcast': all,
-        'audit.read': all,
-        'system.settings': no,
-        'rbac.manage': no,
-      };
-    case 'MODERATOR':
-      return {
-        'users.read': all,
-        'users.update': no,
-        'users.ban': no,
-        'users.suspend': all,
-        'users.activate': all,
-        'users.assign_role': no,
-        'groups.read': all,
-        'groups.approve': all,
-        'groups.suspend': all,
-        'groups.delete': no,
-        'channels.read': all,
-        'channels.delete': no,
-        'content.read': all,
-        'content.update_status': all,
-        'content.delete': all,
-        'reports.read': all,
-        'reports.resolve': all,
-        'live.read': all,
-        'live.terminate': all,
-        'chat.read': all,
-        'chat.delete_message': all,
-        'chat.purge': no,
-        'storage.read': no,
-        'storage.cleanup': no,
-        'notifications.broadcast': no,
-        'audit.read': no,
-        'system.settings': no,
-        'rbac.manage': no,
-      };
-    case 'SUPPORT':
-      return {
-        'users.read': all,
-        'users.update': all,
-        'users.ban': no,
-        'users.suspend': no,
-        'users.activate': all,
-        'users.assign_role': no,
-        'groups.read': all,
-        'groups.approve': no,
-        'groups.suspend': no,
-        'groups.delete': no,
-        'channels.read': all,
-        'channels.delete': no,
-        'content.read': all,
-        'content.update_status': no,
-        'content.delete': no,
-        'reports.read': all,
-        'reports.resolve': all,
-        'live.read': all,
-        'live.terminate': no,
-        'chat.read': all,
-        'chat.delete_message': no,
-        'chat.purge': no,
-        'storage.read': no,
-        'storage.cleanup': no,
-        'notifications.broadcast': no,
-        'audit.read': no,
-        'system.settings': no,
-        'rbac.manage': no,
-      };
-    default: // USER
-      return {for (final p in _allPermissions) p.key: false};
+Color _colorForRisk(String risk) {
+  switch (risk) {
+    case 'critical':
+      return const Color(0xFFE53935);
+    case 'high':
+      return const Color(0xFFFF9800);
+    case 'medium':
+      return const Color(0xFF2196F3);
+    default:
+      return const Color(0xFF4CAF50);
   }
 }
 
-List<RbacRole> _buildDefaultRoles() => [
-      RbacRole(
-        name: 'SUPER_ADMIN',
+RbacRole _roleTemplate(String name) {
+  switch (name) {
+    case 'SUPER_ADMIN':
+      return RbacRole(
+        name: name,
         color: const Color(0xFFE53935),
         icon: Icons.military_tech_rounded,
         description: 'Full platform authority. Cannot be restricted.',
         isEditable: false,
-        permissions: _defaultPermsFor('SUPER_ADMIN'),
-      ),
-      RbacRole(
-        name: 'ADMIN',
+        permissions: {},
+      );
+    case 'ADMIN':
+      return RbacRole(
+        name: name,
         color: Colors.indigo,
         icon: Icons.admin_panel_settings_rounded,
         description: 'Platform administrator with broad operational access.',
         isEditable: true,
-        permissions: _defaultPermsFor('ADMIN'),
-      ),
-      RbacRole(
-        name: 'MODERATOR',
+        permissions: {},
+      );
+    case 'MODERATOR':
+      return RbacRole(
+        name: name,
         color: const Color(0xFFF57C00),
         icon: Icons.gavel_rounded,
         description: 'Trust & Safety moderator. Content and community focus.',
         isEditable: true,
-        permissions: _defaultPermsFor('MODERATOR'),
-      ),
-      RbacRole(
-        name: 'SUPPORT',
+        permissions: {},
+      );
+    case 'SUPPORT':
+      return RbacRole(
+        name: name,
         color: Colors.teal,
         icon: Icons.support_agent_rounded,
         description: 'Customer & user operations. Account support.',
         isEditable: true,
-        permissions: _defaultPermsFor('SUPPORT'),
-      ),
-      RbacRole(
-        name: 'USER',
+        permissions: {},
+      );
+    default:
+      return RbacRole(
+        name: name,
         color: Colors.blueGrey,
         icon: Icons.person_outline_rounded,
         description: 'Standard registered user. No admin permissions.',
         isEditable: false,
-        permissions: _defaultPermsFor('USER'),
-      ),
-    ];
+        permissions: {},
+      );
+  }
+}
 
 // ─────────────────────────────────────────────
-// Provider
+// State & Notifier
 // ─────────────────────────────────────────────
 
 class RbacState {
   final List<RbacRole> roles;
+  final List<RbacPermission> catalogue; // authoritative list from backend
+  final Map<String, List<RbacPermission>> catalogueByCategory;
   final bool isLoading;
   final bool isSaving;
   final String? error;
-  final Set<String> pendingChanges; // role names with unsaved changes
+  final Set<String> pendingChanges;
 
   const RbacState({
-    required this.roles,
-    this.isLoading = false,
+    this.roles = const [],
+    this.catalogue = const [],
+    this.catalogueByCategory = const {},
+    this.isLoading = true,
     this.isSaving = false,
     this.error,
     this.pendingChanges = const {},
@@ -468,16 +239,21 @@ class RbacState {
 
   RbacState copyWith({
     List<RbacRole>? roles,
+    List<RbacPermission>? catalogue,
+    Map<String, List<RbacPermission>>? catalogueByCategory,
     bool? isLoading,
     bool? isSaving,
     String? error,
+    bool clearError = false,
     Set<String>? pendingChanges,
   }) =>
       RbacState(
         roles: roles ?? this.roles,
+        catalogue: catalogue ?? this.catalogue,
+        catalogueByCategory: catalogueByCategory ?? this.catalogueByCategory,
         isLoading: isLoading ?? this.isLoading,
         isSaving: isSaving ?? this.isSaving,
-        error: error,
+        error: clearError ? null : (error ?? this.error),
         pendingChanges: pendingChanges ?? this.pendingChanges,
       );
 }
@@ -485,34 +261,61 @@ class RbacState {
 class RbacNotifier extends StateNotifier<RbacState> {
   final AdminRepository _repo;
 
-  RbacNotifier(this._repo)
-      : super(RbacState(roles: _buildDefaultRoles(), isLoading: true)) {
+  RbacNotifier(this._repo) : super(const RbacState()) {
     _load();
   }
 
   Future<void> _load() async {
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final serverRoles = await _repo.getRbacRoles();
-      if (serverRoles != null && serverRoles.isNotEmpty) {
-        final merged = _buildDefaultRoles().map((localRole) {
-          final serverPerms = serverRoles[localRole.name];
-          if (serverPerms != null) {
-            return localRole.copyWith(permissions: {
-              ...localRole.permissions,
-              ...serverPerms,
-            });
-          }
-          return localRole;
-        }).toList();
-        state = state.copyWith(roles: merged, isLoading: false, error: null);
-      } else {
-        state = state.copyWith(isLoading: false);
+      // Fetch catalogue and roles in parallel
+      final results = await Future.wait([
+        _repo.getPermissionCatalogue(),
+        _repo.getRbacRoles(),
+      ]);
+
+      final catalogueDto = results[0] as RbacPermissionCatalogueDto?;
+      final serverRoles = results[1] as Map<String, Map<String, bool>>?;
+
+      // Build local catalogue from backend metadata
+      final catalogue = (catalogueDto?.permissions ?? [])
+          .map((m) => RbacPermission.fromMeta(m))
+          .toList();
+
+      // Group by category (preserve backend order)
+      final Map<String, List<RbacPermission>> byCategory = {};
+      if (catalogueDto?.categories != null) {
+        for (final cat in catalogueDto!.categories) {
+          byCategory[cat.category] = cat.permissions
+              .map((m) => RbacPermission.fromMeta(m))
+              .toList();
+        }
       }
-    } catch (_) {
-      // Gracefully fall back to defaults
-      state = state.copyWith(isLoading: false);
+
+      // Build roles: use server permissions only (no local defaults merged)
+      const roleOrder = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'USER'];
+      final roles = roleOrder.map((name) {
+        final template = _roleTemplate(name);
+        final serverPerms = serverRoles?[name] ?? {};
+        return template.copyWith(permissions: Map<String, bool>.from(serverPerms));
+      }).toList();
+
+      state = state.copyWith(
+        roles: roles,
+        catalogue: catalogue,
+        catalogueByCategory: byCategory,
+        isLoading: false,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to load permissions: $e',
+      );
     }
   }
+
+  void reload() => _load();
 
   void togglePermission(String roleName, String permKey, bool value) {
     final updated = state.roles.map((r) {
@@ -524,14 +327,44 @@ class RbacNotifier extends StateNotifier<RbacState> {
     state = state.copyWith(roles: updated, pendingChanges: pending);
   }
 
+  void toggleCategory(String roleName, String category, bool grantAll) {
+    final permsInCat = state.catalogueByCategory[category] ?? [];
+    final updated = state.roles.map((r) {
+      if (r.name != roleName || !r.isEditable) return r;
+      final newPerms = Map<String, bool>.from(r.permissions);
+      for (final p in permsInCat) {
+        newPerms[p.key] = grantAll;
+      }
+      return r.copyWith(permissions: newPerms);
+    }).toList();
+    final pending = Set<String>.from(state.pendingChanges)..add(roleName);
+    state = state.copyWith(roles: updated, pendingChanges: pending);
+  }
+
   Future<bool> saveRole(String roleName) async {
     final role = state.roles.firstWhere((r) => r.name == roleName);
     state = state.copyWith(isSaving: true);
     try {
-      final ok = await _repo.updateRbacRolePermissions(
-          roleName, role.permissions);
-      final pending = Set<String>.from(state.pendingChanges)..remove(roleName);
-      state = state.copyWith(isSaving: false, pendingChanges: pending);
+      final ok = await _repo.updateRbacRolePermissions(roleName, role.permissions);
+      if (ok) {
+        // Reload from server so UI reflects real DB state
+        final serverRoles = await _repo.getRbacRoles();
+        if (serverRoles != null) {
+          final updated = state.roles.map((r) {
+            final sp = serverRoles[r.name];
+            if (sp == null) return r;
+            return r.copyWith(permissions: Map<String, bool>.from(sp));
+          }).toList();
+          final pending = Set<String>.from(state.pendingChanges)..remove(roleName);
+          state = state.copyWith(
+            roles: updated,
+            isSaving: false,
+            pendingChanges: pending,
+          );
+          return true;
+        }
+      }
+      state = state.copyWith(isSaving: false);
       return ok;
     } catch (_) {
       state = state.copyWith(isSaving: false);
@@ -539,19 +372,27 @@ class RbacNotifier extends StateNotifier<RbacState> {
     }
   }
 
-  void resetRole(String roleName) {
-    final defaultPerms = _defaultPermsFor(roleName);
-    final updated = state.roles.map((r) {
-      if (r.name != roleName) return r;
-      return r.copyWith(permissions: defaultPerms);
-    }).toList();
-    final pending = Set<String>.from(state.pendingChanges)..remove(roleName);
-    state = state.copyWith(roles: updated, pendingChanges: pending);
+  void discardChanges(String roleName) {
+    // Reload the specific role from the server
+    _reloadRole(roleName);
+  }
+
+  Future<void> _reloadRole(String roleName) async {
+    try {
+      final serverRoles = await _repo.getRbacRoles();
+      if (serverRoles == null) return;
+      final serverPerms = serverRoles[roleName] ?? {};
+      final updated = state.roles.map((r) {
+        if (r.name != roleName) return r;
+        return r.copyWith(permissions: Map<String, bool>.from(serverPerms));
+      }).toList();
+      final pending = Set<String>.from(state.pendingChanges)..remove(roleName);
+      state = state.copyWith(roles: updated, pendingChanges: pending);
+    } catch (_) {}
   }
 }
 
-final rbacProvider =
-    StateNotifierProvider<RbacNotifier, RbacState>((ref) {
+final rbacProvider = StateNotifierProvider<RbacNotifier, RbacState>((ref) {
   return RbacNotifier(ref.watch(adminRepositoryProvider));
 });
 
@@ -569,7 +410,7 @@ class AdminRbacScreen extends ConsumerStatefulWidget {
 class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _roleOrder = [
+  static const _roleOrder = [
     'SUPER_ADMIN',
     'ADMIN',
     'MODERATOR',
@@ -611,15 +452,16 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.key_rounded,
-                  color: Colors.white, size: 18),
+              child: const Icon(Icons.key_rounded, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('admin.rbac_management'))),
+            Consumer(
+              builder: (context, ref, child) =>
+                  Text(ref.watch(trProvider)('admin.rbac_management')),
+            ),
           ],
         ),
-        backgroundColor:
-            isDark ? const Color(0xFF0E1621) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF0E1621) : Colors.white,
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -629,9 +471,12 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
                   controller: _tabController,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  tabs: rbacState.roles.map((role) {
-                    final hasPending =
-                        rbacState.pendingChanges.contains(role.name);
+                  tabs: _roleOrder.map((roleName) {
+                    final role = rbacState.roles.firstWhere(
+                      (r) => r.name == roleName,
+                      orElse: () => _roleTemplate(roleName),
+                    );
+                    final hasPending = rbacState.pendingChanges.contains(roleName);
                     return Tab(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -639,7 +484,7 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
                           Icon(role.icon, size: 14, color: role.color),
                           const SizedBox(width: 6),
                           Text(
-                            _shortName(role.name),
+                            _shortName(roleName),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -668,29 +513,43 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
             IconButton(
               icon: const Icon(Icons.refresh_rounded),
               tooltip: 'Reload from server',
-              onPressed: () => ref.invalidate(rbacProvider),
+              onPressed: () => ref.read(rbacProvider.notifier).reload(),
             ),
         ],
       ),
       body: rbacState.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: rbacState.roles
-                  .map((role) => _RolePermissionsTab(
-                        role: role,
-                        canEdit: canEdit && role.isEditable,
-                        hasPendingChanges:
-                            rbacState.pendingChanges.contains(role.name),
-                        isSaving: rbacState.isSaving,
-                        onToggle: (permKey, value) => ref
-                            .read(rbacProvider.notifier)
-                            .togglePermission(role.name, permKey, value),
-                        onSave: () => _onSave(role.name),
-                        onReset: () => _onReset(role.name),
-                      ))
-                  .toList(),
-            ),
+          : rbacState.error != null && rbacState.roles.isEmpty
+              ? _ErrorView(
+                  message: rbacState.error!,
+                  onRetry: () => ref.read(rbacProvider.notifier).reload(),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: _roleOrder.map((roleName) {
+                    final role = rbacState.roles.firstWhere(
+                      (r) => r.name == roleName,
+                      orElse: () => _roleTemplate(roleName),
+                    );
+                    return _RolePermissionsTab(
+                      role: role,
+                      catalogue: rbacState.catalogue,
+                      catalogueByCategory: rbacState.catalogueByCategory,
+                      canEdit: canEdit && role.isEditable,
+                      hasPendingChanges:
+                          rbacState.pendingChanges.contains(role.name),
+                      isSaving: rbacState.isSaving,
+                      onToggle: (permKey, value) => ref
+                          .read(rbacProvider.notifier)
+                          .togglePermission(role.name, permKey, value),
+                      onToggleCategory: (cat, grantAll) => ref
+                          .read(rbacProvider.notifier)
+                          .toggleCategory(role.name, cat, grantAll),
+                      onSave: () => _onSave(role.name),
+                      onDiscard: () => _onDiscard(role.name),
+                    );
+                  }).toList(),
+                ),
     );
   }
 
@@ -714,7 +573,10 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.save_rounded, color: Color(0xFF9C27B0), size: 32),
-        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.settings.save'))),
+        title: Consumer(
+          builder: (context, ref, child) =>
+              Text(ref.watch(trProvider)('groups.settings.save')),
+        ),
         content: Text(
           'You are about to apply the updated permission set for the $roleName role.\n\n'
           'This change will take effect immediately for all users with this role.',
@@ -722,13 +584,19 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(
+              builder: (context, ref, child) =>
+                  Text(ref.watch(trProvider)('common.cancel')),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF9C27B0)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('groups.settings.save'))),
+            child: Consumer(
+              builder: (context, ref, child) =>
+                  Text(ref.watch(trProvider)('groups.settings.save')),
+            ),
           ),
         ],
       ),
@@ -747,33 +615,71 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
     ));
   }
 
-  Future<void> _onReset(String roleName) async {
+  Future<void> _onDiscard(String roleName) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.restore_rounded,
-            color: Colors.orange, size: 32),
-        title: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.reset'))),
+        icon: const Icon(Icons.restore_rounded, color: Colors.orange, size: 32),
+        title: const Text('Discard Changes'),
         content: Text(
-          'This will reset the permission set for the $roleName role to '
-          'the platform defaults.\n\nYour unsaved edits will be discarded.',
+          'Discard unsaved changes to $roleName and reload from the server?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.cancel'))),
+            child: Consumer(
+              builder: (context, ref, child) =>
+                  Text(ref.watch(trProvider)('common.cancel')),
+            ),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.reset'))),
+            child: const Text('Discard'),
           ),
         ],
       ),
     );
     if (confirmed == true && mounted) {
-      ref.read(rbacProvider.notifier).resetRole(roleName);
+      ref.read(rbacProvider.notifier).discardChanges(roleName);
     }
+  }
+}
+
+// ─────────────────────────────────────────────
+// Error View
+// ─────────────────────────────────────────────
+
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -781,39 +687,74 @@ class _AdminRbacScreenState extends ConsumerState<AdminRbacScreen>
 // Per-Role Tab Content
 // ─────────────────────────────────────────────
 
-class _RolePermissionsTab extends StatelessWidget {
+class _RolePermissionsTab extends StatefulWidget {
   final RbacRole role;
+  final List<RbacPermission> catalogue;
+  final Map<String, List<RbacPermission>> catalogueByCategory;
   final bool canEdit;
   final bool hasPendingChanges;
   final bool isSaving;
   final void Function(String permKey, bool value) onToggle;
+  final void Function(String category, bool grantAll) onToggleCategory;
   final VoidCallback onSave;
-  final VoidCallback onReset;
+  final VoidCallback onDiscard;
 
   const _RolePermissionsTab({
     required this.role,
+    required this.catalogue,
+    required this.catalogueByCategory,
     required this.canEdit,
     required this.hasPendingChanges,
     required this.isSaving,
     required this.onToggle,
+    required this.onToggleCategory,
     required this.onSave,
-    required this.onReset,
+    required this.onDiscard,
   });
+
+  @override
+  State<_RolePermissionsTab> createState() => _RolePermissionsTabState();
+}
+
+class _RolePermissionsTabState extends State<_RolePermissionsTab> {
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Group permissions by category
-    final grouped = <String, List<RbacPermission>>{};
-    for (final p in _allPermissions) {
-      grouped.putIfAbsent(p.category, () => []).add(p);
-    }
-
+    // Use the authoritative backend catalogue for totals
+    final totalCount = widget.catalogue.length;
     final grantedCount =
-        role.permissions.values.where((v) => v).length;
-    final totalCount = _allPermissions.length;
+        widget.catalogue.where((p) => widget.role.permissions[p.key] == true).length;
+
+    // Filter by search query
+    final query = _searchQuery.toLowerCase();
+    Map<String, List<RbacPermission>> displayCats;
+    if (query.isEmpty) {
+      displayCats = widget.catalogueByCategory;
+    } else {
+      displayCats = {};
+      for (final entry in widget.catalogueByCategory.entries) {
+        final filtered = entry.value
+            .where((p) =>
+                p.label.toLowerCase().contains(query) ||
+                p.description.toLowerCase().contains(query) ||
+                p.key.toLowerCase().contains(query))
+            .toList();
+        if (filtered.isNotEmpty) {
+          displayCats[entry.key] = filtered;
+        }
+      }
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -823,23 +764,56 @@ class _RolePermissionsTab extends StatelessWidget {
           children: [
             // ── Role header card ──
             _RoleHeaderCard(
-              role: role,
+              role: widget.role,
               grantedCount: grantedCount,
               totalCount: totalCount,
               isDark: isDark,
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // ── Search box ──
+            TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: InputDecoration(
+                hintText: 'Search permissions…',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                isDense: true,
+                filled: true,
+                fillColor: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             // ── Read-only notice for non-editable roles ──
-            if (!role.isEditable)
+            if (!widget.role.isEditable)
               Container(
                 padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.4)),
+                  border:
+                      Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
@@ -848,7 +822,7 @@ class _RolePermissionsTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        role.name == 'SUPER_ADMIN'
+                        widget.role.name == 'SUPER_ADMIN'
                             ? 'Super Admin has all permissions by design. This role cannot be restricted.'
                             : 'Standard users have no admin permissions. This role is read-only.',
                         style: TextStyle(
@@ -863,27 +837,37 @@ class _RolePermissionsTab extends StatelessWidget {
                 ),
               ),
 
-            if (!role.isEditable) const SizedBox(height: 16),
-
             // ── Permission categories ──
-            ...grouped.entries.map((entry) => _PermissionCategoryCard(
-                  category: entry.key,
-                  permissions: entry.value,
-                  role: role,
-                  canEdit: canEdit,
-                  onToggle: onToggle,
-                  isDark: isDark,
-                )),
+            if (displayCats.isEmpty && _searchQuery.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'No permissions match "$_searchQuery"',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ),
+              )
+            else
+              ...displayCats.entries.map((entry) => _PermissionCategoryCard(
+                    category: entry.key,
+                    permissions: entry.value,
+                    role: widget.role,
+                    canEdit: widget.canEdit,
+                    onToggle: widget.onToggle,
+                    onToggleCategory: widget.onToggleCategory,
+                    isDark: isDark,
+                  )),
 
-            // ── Action buttons ──
-            if (canEdit) ...[
+            // ── Action bar ──
+            if (widget.canEdit) ...[
               const SizedBox(height: 8),
               _ActionBar(
-                hasPendingChanges: hasPendingChanges,
-                isSaving: isSaving,
-                roleName: role.name,
-                onSave: onSave,
-                onReset: onReset,
+                hasPendingChanges: widget.hasPendingChanges,
+                isSaving: widget.isSaving,
+                roleName: widget.role.name,
+                onSave: widget.onSave,
+                onDiscard: widget.onDiscard,
               ),
             ],
           ],
@@ -912,7 +896,9 @@ class _RoleHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fraction = totalCount == 0 ? 0.0 : grantedCount / totalCount;
+    // Clamp to [0, 1] so percentage never exceeds 100%
+    final fraction =
+        totalCount == 0 ? 0.0 : (grantedCount / totalCount).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -999,8 +985,7 @@ class _RoleHeaderCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: fraction,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 6,
             ),
           ),
@@ -1028,6 +1013,7 @@ class _PermissionCategoryCard extends StatelessWidget {
   final RbacRole role;
   final bool canEdit;
   final void Function(String permKey, bool value) onToggle;
+  final void Function(String category, bool grantAll) onToggleCategory;
   final bool isDark;
 
   const _PermissionCategoryCard({
@@ -1036,6 +1022,7 @@ class _PermissionCategoryCard extends StatelessWidget {
     required this.role,
     required this.canEdit,
     required this.onToggle,
+    required this.onToggleCategory,
     required this.isDark,
   });
 
@@ -1044,9 +1031,10 @@ class _PermissionCategoryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cardColor =
         isDark ? theme.colorScheme.surfaceContainer : Colors.white;
-
     final grantedInCategory =
         permissions.where((p) => role.permissions[p.key] == true).length;
+    final allGranted = grantedInCategory == permissions.length;
+    final noneGranted = grantedInCategory == 0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1057,10 +1045,9 @@ class _PermissionCategoryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category header
+            // Category header with bulk toggle
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.04)
@@ -1076,13 +1063,33 @@ class _PermissionCategoryCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  // Bulk Grant All / Revoke All
+                  if (canEdit) ...[
+                    if (!allGranted)
+                      _BulkButton(
+                        label: 'Grant All',
+                        color: Colors.green,
+                        onTap: () => onToggleCategory(category, true),
+                      ),
+                    if (!noneGranted) ...[
+                      const SizedBox(width: 6),
+                      _BulkButton(
+                        label: 'Revoke All',
+                        color: Colors.red,
+                        onTap: () => onToggleCategory(category, false),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (allGranted) const SizedBox(width: 8),
+                  ],
+                  // Count badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: grantedInCategory == permissions.length
+                      color: allGranted
                           ? Colors.green.withValues(alpha: 0.15)
-                          : grantedInCategory == 0
+                          : noneGranted
                               ? Colors.red.withValues(alpha: 0.12)
                               : Colors.orange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -1092,9 +1099,9 @@ class _PermissionCategoryCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: grantedInCategory == permissions.length
+                        color: allGranted
                             ? Colors.green.shade700
-                            : grantedInCategory == 0
+                            : noneGranted
                                 ? Colors.red.shade700
                                 : Colors.orange.shade800,
                       ),
@@ -1124,6 +1131,46 @@ class _PermissionCategoryCard extends StatelessWidget {
               );
             }),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Bulk action button
+// ─────────────────────────────────────────────
+
+class _BulkButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BulkButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
       ),
     );
@@ -1206,7 +1253,7 @@ class _PermissionRow extends StatelessWidget {
               ],
             ),
           ),
-          // Toggle / badge
+          // Toggle or read-only badge
           if (canEdit)
             Switch(
               value: granted,
@@ -1260,7 +1307,7 @@ class _StatusChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Action Bar (Save / Reset)
+// Action Bar (Save / Discard)
 // ─────────────────────────────────────────────
 
 class _ActionBar extends StatelessWidget {
@@ -1268,14 +1315,14 @@ class _ActionBar extends StatelessWidget {
   final bool isSaving;
   final String roleName;
   final VoidCallback onSave;
-  final VoidCallback onReset;
+  final VoidCallback onDiscard;
 
   const _ActionBar({
     required this.hasPendingChanges,
     required this.isSaving,
     required this.roleName,
     required this.onSave,
-    required this.onReset,
+    required this.onDiscard,
   });
 
   @override
@@ -1306,8 +1353,7 @@ class _ActionBar extends StatelessWidget {
             if (hasPendingChanges)
               const Row(
                 children: [
-                  Icon(Icons.edit_rounded,
-                      color: Color(0xFFFF9800), size: 16),
+                  Icon(Icons.edit_rounded, color: Color(0xFFFF9800), size: 16),
                   SizedBox(width: 6),
                   Text(
                     'Unsaved changes',
@@ -1321,9 +1367,9 @@ class _ActionBar extends StatelessWidget {
               ),
             const Spacer(),
             TextButton.icon(
-              onPressed: hasPendingChanges ? onReset : null,
+              onPressed: hasPendingChanges ? onDiscard : null,
               icon: const Icon(Icons.restore_rounded, size: 16),
-              label: Consumer(builder: (context, ref, child) => Text(ref.watch(trProvider)('common.reset'))),
+              label: const Text('Discard'),
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
@@ -1346,5 +1392,3 @@ class _ActionBar extends StatelessWidget {
     );
   }
 }
-
-

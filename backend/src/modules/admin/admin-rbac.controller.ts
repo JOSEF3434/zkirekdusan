@@ -1,20 +1,34 @@
 // src/modules/admin/admin-rbac.controller.ts
-import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Put,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminRbacService } from './services/admin-rbac.service.js';
+import { AdminAuditService } from './services/admin-audit.service.js';
 
 @ApiTags('Admin RBAC')
 @Controller('admin/rbac')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
 @ApiBearerAuth()
 export class AdminRbacController {
-  constructor(private readonly rbacService: AdminRbacService) {}
+  constructor(
+    private readonly rbacService: AdminRbacService,
+    private readonly auditService: AdminAuditService,
+  ) {}
 
   @Get('roles')
   @ApiOperation({
@@ -24,10 +38,18 @@ export class AdminRbacController {
     return this.rbacService.getRbacRoles();
   }
 
-  @Put('roles/:roleName/permissions')
+  @Get('permissions')
   @ApiOperation({
-    summary:
-      'Update and insert permissions for a specific role into the database',
+    summary: 'Get the full platform permission catalogue with metadata',
+  })
+  async getPermissions() {
+    return this.rbacService.getPermissionCatalogue();
+  }
+
+  @Put('roles/:roleName/permissions')
+  @Permissions('roles.update')
+  @ApiOperation({
+    summary: 'Update permission assignments for a specific role (database-persisted)',
   })
   async updateRolePermissions(
     @Param('roleName') roleName: string,
@@ -38,6 +60,21 @@ export class AdminRbacController {
       roleName,
       body.permissions ?? {},
       actorId,
+    );
+  }
+
+  @Get('audit')
+  @Permissions('audit.view')
+  @ApiOperation({ summary: 'Get RBAC permission change audit history' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 30 })
+  async getRbacAuditHistory(
+    @Query('page') page = 1,
+    @Query('limit') limit = 30,
+  ) {
+    return this.auditService.listAuditLogs(
+      { targetType: 'ROLE', action: 'RBAC' },
+      { page: Number(page), limit: Number(limit) },
     );
   }
 }

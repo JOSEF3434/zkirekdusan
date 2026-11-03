@@ -18,6 +18,7 @@ export class AdminRbacService {
 
   /**
    * Retrieves all platform roles along with their assigned permissions from the database.
+   * Returns a map of { permissions: { [code]: true } } per role.
    */
   async getRbacRoles() {
     const roles = await this.prisma.role.findMany({
@@ -50,8 +51,52 @@ export class AdminRbacService {
   }
 
   /**
-   * Updates permission grants for a specific role and persists them into the database.
-   * Inserts new permissions into `permissions` and role links into `role_permissions`.
+   * Returns the full platform permission catalogue with metadata.
+   * This is the authoritative list the frontend uses to display permission rows.
+   * Permissions are grouped by category for convenience.
+   */
+  async getPermissionCatalogue() {
+    const permissions = await this.prisma.permission.findMany({
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+
+    // Group by category
+    const byCategory: Record<string, typeof permissions> = {};
+    for (const perm of permissions) {
+      const cat = perm.category ?? 'Other';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(perm);
+    }
+
+    const categories = Object.entries(byCategory).map(([category, perms]) => ({
+      category,
+      permissions: perms.map((p) => ({
+        code: p.name,
+        displayName: p.displayName ?? p.name,
+        description: p.description ?? '',
+        category: p.category ?? 'Other',
+        riskLevel: p.riskLevel ?? 'low',
+      })),
+    }));
+
+    return {
+      total: permissions.length,
+      categories,
+      permissions: permissions.map((p) => ({
+        code: p.name,
+        displayName: p.displayName ?? p.name,
+        description: p.description ?? '',
+        category: p.category ?? 'Other',
+        riskLevel: p.riskLevel ?? 'low',
+      })),
+    };
+  }
+
+  /**
+   * Updates permission grants for a specific role and persists them atomically.
+   * - SUPER_ADMIN is immutable and cannot be modified.
+   * - All changes are recorded in the audit log.
+   * - Uses a Prisma transaction for atomicity.
    */
   async updateRolePermissions(
     roleName: string,
@@ -87,6 +132,7 @@ export class AdminRbacService {
       );
     }
 
+    // Snapshot before state for audit log
     const beforePerms: Record<string, boolean> = {};
     for (const rp of role.permissions) {
       if (rp.permission?.name) {
@@ -99,7 +145,7 @@ export class AdminRbacService {
       for (const [permKey, isGranted] of Object.entries(permissions)) {
         if (!permKey || typeof permKey !== 'string') continue;
 
-        // Ensure permission record exists in database
+        // Ensure permission record exists in database (upsert for safety)
         const perm = await tx.permission.upsert({
           where: { name: permKey },
           update: {},
@@ -110,7 +156,6 @@ export class AdminRbacService {
         });
 
         if (isGranted) {
-          // Grant permission: link role to permission in database
           await tx.rolePermission.upsert({
             where: {
               roleId_permissionId: {
@@ -125,7 +170,6 @@ export class AdminRbacService {
             },
           });
         } else {
-          // Revoke permission: remove link from database
           await tx.rolePermission.deleteMany({
             where: {
               roleId: role.id,
@@ -136,7 +180,7 @@ export class AdminRbacService {
       }
     });
 
-    // Record audit log for security compliance
+    // Record audit log for security compliance (non-blocking)
     if (actorId) {
       try {
         await this.auditService.emit({
@@ -150,7 +194,7 @@ export class AdminRbacService {
           reason: `Updated RBAC permissions for role ${normalizedRole}`,
         });
       } catch {
-        // Non-blocking audit log emission
+        // Non-blocking — audit failure must not break the operation
       }
     }
 

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Param,
@@ -16,20 +16,23 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminUsersService } from './services/admin-users.service.js';
 
 @ApiTags('Admin Users')
 @Controller('admin/users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN, AppRole.SUPPORT)
 @ApiBearerAuth()
 export class AdminUsersController {
   constructor(private readonly usersService: AdminUsersService) {}
 
   @Get()
+  @Permissions('users.view')
   @ApiOperation({
     summary: 'List platform users with server pagination and filtering',
   })
@@ -53,18 +56,21 @@ export class AdminUsersController {
   }
 
   @Get(':id')
+  @Permissions('users.view')
   @ApiOperation({ summary: 'Get detailed user view with roles and counts' })
   async getUserDetail(@Param('id') id: string) {
     return this.usersService.getUserDetail(id);
   }
 
   @Get(':id/permissions')
+  @Permissions('users.view')
   @ApiOperation({ summary: 'Get effective permissions for a user' })
   async getUserPermissions(@Param('id') id: string) {
     return this.usersService.getUserEffectivePermissions(id);
   }
 
   @Patch(':id/status')
+  @Permissions('users.update')
   @ApiOperation({
     summary: 'Update user status with audit logging and protection',
   })
@@ -87,6 +93,7 @@ export class AdminUsersController {
 
   @Post(':id/role')
   @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
+  @Permissions('roles.assign')
   @ApiOperation({
     summary: 'Assign platform role with escalation guard and audit log',
   })
@@ -99,6 +106,7 @@ export class AdminUsersController {
   }
 
   @Post(':id/ban')
+  @Permissions('users.ban')
   @ApiOperation({ summary: 'Ban user account' })
   async banUser(
     @Param('id') id: string,
@@ -118,6 +126,7 @@ export class AdminUsersController {
   }
 
   @Post(':id/deactivate')
+  @Permissions('users.suspend')
   @ApiOperation({ summary: 'Deactivate user account' })
   async deactivateUser(
     @Param('id') id: string,
@@ -137,6 +146,7 @@ export class AdminUsersController {
   }
 
   @Post(':id/activate')
+  @Permissions('users.update')
   @ApiOperation({ summary: 'Reactivate user account' })
   async activateUser(
     @Param('id') id: string,

@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,14 +14,16 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { AdminNotificationsService } from './services/admin-notifications.service.js';
 
 @ApiTags('Admin Notifications')
 @Controller('admin/notifications')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(AppRole.SUPER_ADMIN, AppRole.ADMIN)
 @ApiBearerAuth()
 export class AdminNotificationsController {
@@ -23,6 +32,7 @@ export class AdminNotificationsController {
   ) {}
 
   @Post('broadcast')
+  @Permissions('notifications.manage')
   @ApiOperation({ summary: 'Broadcast system notification to users or roles' })
   async broadcastNotification(
     @CurrentUser('sub') actorId: string,
@@ -41,6 +51,7 @@ export class AdminNotificationsController {
   }
 
   @Get()
+  @Permissions('notifications.view')
   @ApiOperation({ summary: 'List recent administrative system announcements' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
