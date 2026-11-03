@@ -3,6 +3,7 @@
 // Supports both live streams and VOD videos with seamless handoff,
 // draggable position persistence, play/pause controls, and clean resource release.
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,9 +115,63 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   MiniPlayerNotifier() : super(const MiniPlayerState());
 
   VoidCallback? _controllerListener;
+  Timer? _handoffTimer;
+  final List<Timer> _retryTimers = [];
   bool _lastReclaimedWasPlaying = false;
 
   bool get lastReclaimedWasPlaying => _lastReclaimedWasPlaying;
+
+  void _cancelRetryTimers() {
+    for (final t in _retryTimers) {
+      t.cancel();
+    }
+    _retryTimers.clear();
+  }
+
+  void _ensurePlayback(VideoPlayerController ctrl) {
+    if (!ctrl.value.isInitialized) return;
+    ctrl.play().catchError((_) {});
+    _cancelRetryTimers();
+    _retryTimers.add(Timer(const Duration(milliseconds: 150), () {
+      if (mounted &&
+          state.controller == ctrl &&
+          (state.isPlaying || state.wasPlayingBeforeHandoff)) {
+        if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+          ctrl.play().catchError((_) {});
+        }
+      }
+    }));
+    _retryTimers.add(Timer(const Duration(milliseconds: 400), () {
+      if (mounted &&
+          state.controller == ctrl &&
+          (state.isPlaying || state.wasPlayingBeforeHandoff)) {
+        if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+          ctrl.play().catchError((_) {});
+        }
+      }
+    }));
+    _retryTimers.add(Timer(const Duration(milliseconds: 800), () {
+      if (mounted &&
+          state.controller == ctrl &&
+          (state.isPlaying || state.wasPlayingBeforeHandoff)) {
+        if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+          ctrl.play().catchError((_) {});
+        }
+      }
+    }));
+  }
+
+  void _startHandoffGracePeriod(VideoPlayerController ctrl, bool shouldPlay) {
+    _handoffTimer?.cancel();
+    if (shouldPlay) {
+      _ensurePlayback(ctrl);
+    }
+    _handoffTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted && state.isHandoffInProgress) {
+        state = state.copyWith(isHandoffInProgress: false);
+      }
+    });
+  }
 
   // ── Show Video MiniPlayer ──────────────────────────────────────────────
 
@@ -134,6 +189,9 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     }
     _bindController(controller);
     final isActuallyPlaying = wasPlaying ?? controller.value.isPlaying;
+    _lastReclaimedWasPlaying = isActuallyPlaying;
+    _startHandoffGracePeriod(controller, isActuallyPlaying);
+
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.video,
@@ -162,15 +220,22 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     String? avatarUrl,
     required String hlsUrl,
     VideoPlayerController? controller,
+    bool? wasPlaying,
   }) {
     if (state.controller != null &&
         controller != null &&
         state.controller != controller) {
       _disposeCurrentController();
     }
+    final isActuallyPlaying =
+        wasPlaying ?? (controller?.value.isPlaying ?? true);
+    _lastReclaimedWasPlaying = isActuallyPlaying;
+
     if (controller != null) {
       _bindController(controller);
+      _startHandoffGracePeriod(controller, isActuallyPlaying);
     }
+
     state = MiniPlayerState(
       isVisible: true,
       type: MiniPlayerType.live,
@@ -182,7 +247,9 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       hlsUrl: hlsUrl,
       controller: controller,
       isEnded: false,
-      isPlaying: controller?.value.isPlaying ?? true,
+      isPlaying: isActuallyPlaying,
+      wasPlayingBeforeHandoff: isActuallyPlaying,
+      isHandoffInProgress: true,
       position: state.position,
       isNavigatingToFull: false,
     );
@@ -200,7 +267,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
         ctrl.pause();
       }
     } catch (e) {
-      debugPrint('[MiniPlayer] markEnded pause error: ');
+      debugPrint('[MiniPlayer] markEnded pause error: $e');
     }
     state = state.copyWith(
       isEnded: true,
@@ -229,10 +296,11 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     // On Web (and during navigation transitions on all platforms), unmounting a platform
     // VideoPlayer widget involuntarily emits a pause event from the browser DOM element.
     // When a handoff is in progress and the video was actively playing, we preserve isPlaying
-    // so the incoming player container (mini-player or full-screen) seamlessly resumes playback.
+    // and re-issue play() so the incoming player container seamlessly resumes playback.
     if (state.isHandoffInProgress &&
         state.wasPlayingBeforeHandoff &&
         !ctrl.value.isPlaying) {
+      ctrl.play().catchError((_) {});
       return;
     }
     final playing = ctrl.value.isPlaying;
@@ -243,6 +311,8 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   /// Called when the target container has mounted and resumed playback
   void completeHandoff() {
+    _handoffTimer?.cancel();
+    _cancelRetryTimers();
     if (state.isHandoffInProgress) {
       state = state.copyWith(isHandoffInProgress: false);
     }
@@ -273,12 +343,21 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     if (state.isEnded) return;
     final ctrl = state.controller;
     if (ctrl != null && ctrl.value.isInitialized) {
-      if (ctrl.value.isPlaying) {
-        ctrl.pause();
-      } else {
+      final willPlay = !ctrl.value.isPlaying;
+      // Terminate handoff protection BEFORE calling pause/play so synchronous
+      // listener notifications in syncPlaybackState do not intercept the user's action.
+      _handoffTimer?.cancel();
+      _cancelRetryTimers();
+      state = state.copyWith(
+        isPlaying: willPlay,
+        wasPlayingBeforeHandoff: willPlay,
+        isHandoffInProgress: false,
+      );
+      if (willPlay) {
         ctrl.play();
+      } else {
+        ctrl.pause();
       }
-      state = state.copyWith(isPlaying: ctrl.value.isPlaying);
     }
   }
 
@@ -290,12 +369,23 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
   void prepareExpand() {
     final wasPlaying =
         state.isPlaying || (state.controller?.value.isPlaying ?? false);
+    _lastReclaimedWasPlaying = wasPlaying;
+    final ctrl = state.controller;
+    if (ctrl != null && wasPlaying) {
+      ctrl.play().catchError((_) {});
+    }
     state = state.copyWith(
       isVisible: false,
       isNavigatingToFull: true,
       isHandoffInProgress: true,
       wasPlayingBeforeHandoff: wasPlaying,
     );
+    _handoffTimer?.cancel();
+    _handoffTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted && state.isHandoffInProgress) {
+        state = state.copyWith(isHandoffInProgress: false);
+      }
+    });
   }
 
   /// Restore visibility if expand navigation failed
@@ -315,6 +405,7 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
       final ctrl = state.controller;
       _lastReclaimedWasPlaying =
           state.isPlaying || state.wasPlayingBeforeHandoff;
+      _handoffTimer?.cancel();
       _unbindController();
       state = const MiniPlayerState();
       return ctrl;
@@ -329,6 +420,8 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
 
   /// Completely close and terminate playback, releasing decoders and memory.
   void dismiss() {
+    _handoffTimer?.cancel();
+    _cancelRetryTimers();
     _unbindController();
     _disposeCurrentController();
     state = const MiniPlayerState();
@@ -341,13 +434,15 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
         ctrl.pause();
         ctrl.dispose();
       } catch (e) {
-        debugPrint('[MiniPlayer] Controller dispose error: ');
+        debugPrint('[MiniPlayer] Controller dispose error: $e');
       }
     }
   }
 
   @override
   void dispose() {
+    _handoffTimer?.cancel();
+    _cancelRetryTimers();
     _unbindController();
     _disposeCurrentController();
     super.dispose();

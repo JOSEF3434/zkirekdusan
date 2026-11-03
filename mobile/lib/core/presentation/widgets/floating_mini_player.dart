@@ -2,12 +2,15 @@
 // Production-grade persistent floating MiniPlayer matching YouTube/Telegram UX & user visual reference.
 // Features:
 //   • Responsive 16:9 video preview with rounded corners and elevation
+//   • Single-click on preview / title restores to full-screen normal player
+//   • Double-click on preview toggles play/pause with visual indicator
 //   • Working Play/Pause, Fullscreen/Expand, and Close controls
 //   • Draggable across screen with safe-area & viewport edge bounds
 //   • Smooth magnetic snap-to-edge animation on drag release
 //   • Seamless zero-buffering handoff to full-screen player
 //   • Complete disposal and hardware decoder release on Close
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +45,11 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
   late AnimationController _snapAnimCtrl;
   Animation<Offset>? _snapAnimation;
 
+  // Double tap feedback
+  bool _showDoubleTapIcon = false;
+  IconData _doubleTapIcon = Icons.pause_rounded;
+  Timer? _doubleTapTimer;
+
   // Internal live stream controller if initialized directly inside mini-player
   VideoPlayerController? _liveController;
   bool _isLiveCtrlInitializing = false;
@@ -66,6 +74,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
   @override
   void dispose() {
     _snapAnimCtrl.dispose();
+    _doubleTapTimer?.cancel();
     _liveController?.dispose();
     super.dispose();
   }
@@ -103,6 +112,29 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
         setState(() => _isLiveCtrlInitializing = false);
       }
     }
+  }
+
+  // ── Double Tap Play / Pause Gesture Handler ───────────────────────────────
+
+  void _handleDoubleTapPlayPause() {
+    final mp = ref.read(miniPlayerProvider);
+    if (mp.isEnded) return;
+    final ctrl = mp.controller ?? _liveController;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+
+    final willPlay = !ctrl.value.isPlaying;
+    ref.read(miniPlayerProvider.notifier).togglePlayPause();
+    setState(() {
+      _doubleTapIcon =
+          willPlay ? Icons.play_arrow_rounded : Icons.pause_rounded;
+      _showDoubleTapIcon = true;
+    });
+    _doubleTapTimer?.cancel();
+    _doubleTapTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() => _showDoubleTapIcon = false);
+      }
+    });
   }
 
   // ── Open Full Player ──────────────────────────────────────────────────────
@@ -158,8 +190,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
     );
     _isExpanding = true;
 
-    // Immediately hide floating mini-player so the VideoPlayer widget unmounts cleanly
-    // before the full-screen player mounts, avoiding Web platform view collisions.
+    // Immediately prepare expand so the video state is preserved for full-screen handoff
     ref.read(miniPlayerProvider.notifier).prepareExpand();
 
     final navigated = NavigationService.instance.navigateTo(target);
@@ -346,8 +377,6 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
   Widget build(BuildContext context) {
     final mp = ref.watch(miniPlayerProvider);
 
-    // Keep the player visible above the keyboard instead of allowing it to
-    // extend into the keyboard/navigation-bar area.
     if (!mp.hasContent || !mp.isVisible) {
       _isExpanding = false;
     }
@@ -400,10 +429,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
             ctrl.value.isInitialized &&
             (current.isPlaying || current.wasPlayingBeforeHandoff) &&
             !ctrl.value.isPlaying) {
-          ctrl.play();
-        }
-        if (current.isHandoffInProgress) {
-          ref.read(miniPlayerProvider.notifier).completeHandoff();
+          ctrl.play().catchError((_) {});
         }
       });
     }
@@ -487,89 +513,114 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   borderRadius: BorderRadius.circular(15),
                   child: Column(
                     children: [
-                      // ── Video Player / Thumbnail Area (Expanded to avoid any overflow) ──
+                      // ── Video Player / Thumbnail Area ─────────────────────────
                       Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _restoreToFullPlayer(mp),
-                          child: SizedBox.expand(
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Container(color: Colors.black),
-                                if (mp.isEnded)
-                                  Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      _buildThumbnail(mp),
-                                      Container(color: Colors.black54),
-                                    ],
-                                  )
-                                else if (isInitialized)
-                                  FittedBox(
-                                    fit: BoxFit.cover,
-                                    clipBehavior: Clip.hardEdge,
-                                    child: SizedBox(
-                                      width: activeCtrl.value.size.width > 0
-                                          ? activeCtrl.value.size.width
-                                          : 16,
-                                      height: activeCtrl.value.size.height > 0
-                                          ? activeCtrl.value.size.height
-                                          : 9,
-                                      child: VideoPlayer(activeCtrl),
-                                    ),
-                                  )
-                                else
-                                  _buildThumbnail(mp),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _restoreToFullPlayer(mp),
+                            onDoubleTap: _handleDoubleTapPlayPause,
+                            child: SizedBox.expand(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Container(color: Colors.black),
+                                  if (mp.isEnded)
+                                    Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        _buildThumbnail(mp),
+                                        Container(color: Colors.black54),
+                                      ],
+                                    )
+                                  else if (isInitialized)
+                                    FittedBox(
+                                      fit: BoxFit.cover,
+                                      clipBehavior: Clip.hardEdge,
+                                      child: SizedBox(
+                                        width: activeCtrl.value.size.width > 0
+                                            ? activeCtrl.value.size.width
+                                            : 16,
+                                        height: activeCtrl.value.size.height > 0
+                                            ? activeCtrl.value.size.height
+                                            : 9,
+                                        child: VideoPlayer(activeCtrl),
+                                      ),
+                                    )
+                                  else
+                                    _buildThumbnail(mp),
 
-                                // LIVE or ENDED Tag overlay
-                                if (mp.isLive)
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: mp.isEnded
-                                            ? Colors.grey.shade800
-                                            : Colors.redAccent,
-                                        borderRadius: BorderRadius.circular(4),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: mp.isEnded
-                                                ? Colors.black.withValues(alpha: 0.5)
-                                                : Colors.red.withValues(alpha: 0.4),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            mp.isEnded
-                                                ? Icons.stop_circle_outlined
-                                                : Icons.sensors_rounded,
-                                            size: 10,
-                                            color: Colors.white,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            mp.isEnded ? 'ENDED' : 'LIVE',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
+                                  // LIVE or ENDED Tag overlay
+                                  if (mp.isLive)
+                                    Positioned(
+                                      top: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: mp.isEnded
+                                              ? Colors.grey.shade800
+                                              : Colors.redAccent,
+                                          borderRadius: BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: mp.isEnded
+                                                  ? Colors.black.withValues(alpha: 0.5)
+                                                  : Colors.red.withValues(alpha: 0.4),
+                                              blurRadius: 4,
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              mp.isEnded
+                                                  ? Icons.stop_circle_outlined
+                                                  : Icons.sensors_rounded,
+                                              size: 10,
+                                              color: Colors.white,
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              mp.isEnded ? 'ENDED' : 'LIVE',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                              ],
+
+                                  // Double tap play/pause indicator feedback
+                                  if (_showDoubleTapIcon)
+                                    Center(
+                                      child: AnimatedOpacity(
+                                        opacity: _showDoubleTapIcon ? 1.0 : 0.0,
+                                        duration: const Duration(milliseconds: 200),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black54,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            _doubleTapIcon,
+                                            color: Colors.white,
+                                            size: 30,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -585,9 +636,13 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                         child: Row(
                           children: [
                             // Channel / Creator Avatar
-                            GestureDetector(
-                              onTap: () => _restoreToFullPlayer(mp),
-                              child: _buildAvatar(mp),
+                            MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => _restoreToFullPlayer(mp),
+                                child: _buildAvatar(mp),
+                              ),
                             ),
                             const SizedBox(width: 6),
 
@@ -595,55 +650,59 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                             Expanded(
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
-                                  return GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => _restoreToFullPlayer(mp),
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth: constraints.maxWidth,
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            mp.title ?? (mp.isLive ? 'Live Stream' : 'Video'),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          if (mp.isEnded)
+                                  return MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _restoreToFullPlayer(mp),
+                                      onDoubleTap: _handleDoubleTapPlayPause,
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxWidth: constraints.maxWidth,
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              'Stream ended',
+                                              mp.title ?? (mp.isLive ? 'Live Stream' : 'Video'),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Colors.redAccent.shade100,
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w600,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
                                               ),
-                                            )
-                                          else if (mp.channelName != null &&
-                                              mp.channelName!.isNotEmpty)
-                                            Text(
-                                              mp.channelName!,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.65,
+                                            ),
+                                            if (mp.isEnded)
+                                              Text(
+                                                'Stream ended',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.redAccent.shade100,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w500,
+                                              )
+                                            else if (mp.channelName != null &&
+                                                mp.channelName!.isNotEmpty)
+                                              Text(
+                                                mp.channelName!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.white.withValues(
+                                                    alpha: 0.65,
+                                                  ),
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
-                                            ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   );
@@ -653,56 +712,71 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
 
                             // Play / Pause or Expand Button
                             if (!mp.isEnded)
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 26,
-                                  minHeight: 26,
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    ref
+                                        .read(miniPlayerProvider.notifier)
+                                        .togglePlayPause();
+                                  },
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      mp.isPlaying
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
+                                  ),
                                 ),
-                                icon: Icon(
-                                  mp.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  ref
-                                      .read(miniPlayerProvider.notifier)
-                                      .togglePlayPause();
-                                },
                               )
                             else
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 26,
-                                  minHeight: 26,
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _restoreToFullPlayer(mp),
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.open_in_full_rounded,
+                                      color: Colors.white70,
+                                      size: 18,
+                                    ),
+                                  ),
                                 ),
-                                icon: const Icon(
-                                  Icons.open_in_full_rounded,
-                                  color: Colors.white70,
-                                  size: 16,
-                                ),
-                                onPressed: () => _restoreToFullPlayer(mp),
                               ),
 
-                            // Close Button
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 26,
-                                minHeight: 26,
+                            const SizedBox(width: 4),
+
+                            // Close Button (Fixed: Dedicated unobstructed click target)
+                            MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _dismissMiniPlayer,
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: Colors.white70,
-                                size: 18,
-                              ),
-                              onPressed: _dismissMiniPlayer,
                             ),
                           ],
                         ),
@@ -710,6 +784,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                     ],
                   ),
                 ),
+
+                // ── Resize Handles (Corners and Edges - Kept Clear of Bottom Bar) ──
                 _buildResizeHandle(
                   alignment: Alignment.topLeft,
                   cursor: SystemMouseCursors.resizeUpLeft,
@@ -741,30 +817,10 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   padding: padding,
                 ),
                 _buildResizeHandle(
-                  alignment: Alignment.bottomRight,
-                  cursor: SystemMouseCursors.resizeDownRight,
-                  fromLeft: false,
-                  fromTop: false,
-                  fromHorizontalEdge: true,
-                  fromVerticalEdge: true,
-                  screenSize: screenSize,
-                  padding: padding,
-                ),
-                _buildResizeHandle(
                   alignment: Alignment.topCenter,
                   cursor: SystemMouseCursors.resizeUpDown,
                   fromLeft: false,
                   fromTop: true,
-                  fromHorizontalEdge: false,
-                  fromVerticalEdge: true,
-                  screenSize: screenSize,
-                  padding: padding,
-                ),
-                _buildResizeHandle(
-                  alignment: Alignment.bottomCenter,
-                  cursor: SystemMouseCursors.resizeUpDown,
-                  fromLeft: false,
-                  fromTop: false,
                   fromHorizontalEdge: false,
                   fromVerticalEdge: true,
                   screenSize: screenSize,
@@ -790,7 +846,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer>
                   screenSize: screenSize,
                   padding: padding,
                 ),
-                // Keep fullscreen above the top-left resize hit target.
+
+                // Keep fullscreen icon above top-left resize hit target
                 Positioned(
                   top: 6,
                   left: 6,

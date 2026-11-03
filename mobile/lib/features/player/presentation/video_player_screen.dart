@@ -68,6 +68,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             .read(miniPlayerProvider.notifier)
             .reclaimController(widget.videoId);
         if (reclaimed != null) {
+          if (wasPlaying) {
+            reclaimed.play().catchError((_) {});
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (reclaimed.value.isInitialized && !reclaimed.value.isPlaying) {
+                reclaimed.play().catchError((_) {});
+              }
+            });
+          }
           ref
               .read(playerProvider(widget.videoId).notifier)
               .adoptController(reclaimed, wasPlaying: wasPlaying);

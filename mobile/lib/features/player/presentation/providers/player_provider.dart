@@ -158,10 +158,44 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   Timer? _progressTimer;
   Timer? _controlsHideTimer;
+  Timer? _handoffTimer;
+  final List<Timer> _retryTimers = [];
+  bool _isHandoffInProgress = false;
   bool _qualitySwitching = false;
   int _lastSavedPosition = 0;
   bool _isInteractingWithControls = false;
   double _lastVolumeBeforeMute = 1.0;
+
+  void _cancelRetryTimers() {
+    for (final t in _retryTimers) {
+      t.cancel();
+    }
+    _retryTimers.clear();
+  }
+
+  void _ensurePlayback(VideoPlayerController ctrl) {
+    if (!ctrl.value.isInitialized) return;
+    ctrl.play().catchError((_) {});
+    _cancelRetryTimers();
+    _retryTimers.add(Timer(const Duration(milliseconds: 150), () {
+      if (!mounted || state.controller != ctrl) return;
+      if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+        ctrl.play().catchError((_) {});
+      }
+    }));
+    _retryTimers.add(Timer(const Duration(milliseconds: 400), () {
+      if (!mounted || state.controller != ctrl) return;
+      if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+        ctrl.play().catchError((_) {});
+      }
+    }));
+    _retryTimers.add(Timer(const Duration(milliseconds: 800), () {
+      if (!mounted || state.controller != ctrl) return;
+      if (!ctrl.value.isPlaying && ctrl.value.isInitialized) {
+        ctrl.play().catchError((_) {});
+      }
+    }));
+  }
 
   PlayerNotifier(
     this._repository,
@@ -188,8 +222,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
         existingController.removeListener(_onControllerUpdate);
       } catch (_) {}
       existingController.addListener(_onControllerUpdate);
-      if (wasPlayingOnHandOff == true && !existingController.value.isPlaying) {
-        existingController.play();
+      if (wasPlayingOnHandOff == true) {
+        _isHandoffInProgress = true;
+        _handoffTimer?.cancel();
+        _handoffTimer = Timer(const Duration(milliseconds: 1500), () {
+          _isHandoffInProgress = false;
+        });
+        _ensurePlayback(existingController);
       }
     }
     _initialize(existingController: existingController);
@@ -241,8 +280,13 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     ctrl.addListener(_onControllerUpdate);
 
     final shouldPlay = wasPlaying ?? ctrl.value.isPlaying;
-    if (shouldPlay && !ctrl.value.isPlaying && ctrl.value.isInitialized) {
-      ctrl.play();
+    if (shouldPlay) {
+      _isHandoffInProgress = true;
+      _handoffTimer?.cancel();
+      _handoffTimer = Timer(const Duration(milliseconds: 1500), () {
+        _isHandoffInProgress = false;
+      });
+      _ensurePlayback(ctrl);
     }
 
     state = state.copyWith(
@@ -340,6 +384,8 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   @override
   void dispose() {
+    _handoffTimer?.cancel();
+    _cancelRetryTimers();
     _progressTimer?.cancel();
     _controlsHideTimer?.cancel();
     _flushProgress();
@@ -665,6 +711,11 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     final isPlaying = ctrl.value.isPlaying;
     if (state.isBuffering != isBuffering) {
       state = state.copyWith(isBuffering: isBuffering);
+    }
+    // Involuntary pause during DOM attachment / platform view transfer on Web
+    if (_isHandoffInProgress && !isPlaying) {
+      ctrl.play().catchError((_) {});
+      return;
     }
     // When video pauses (e.g. ended or buffering pause), reveal controls automatically
     if (!isPlaying && !state.showControls) {

@@ -148,10 +148,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       if (mini.contentId == widget.streamId &&
           mini.controller != null &&
           mini.controller!.value.isInitialized) {
+        final wasPlaying = mini.isPlaying ||
+            mini.wasPlayingBeforeHandoff ||
+            ref.read(miniPlayerProvider.notifier).lastReclaimedWasPlaying;
         final reclaimed = ref
             .read(miniPlayerProvider.notifier)
             .reclaimController(widget.streamId);
         if (reclaimed != null) {
+          if (wasPlaying) {
+            reclaimed.play().catchError((_) {});
+          }
           debugPrint(
             '[LiveRoomScreen] Fullscreen player mounted; controller reclaimed '
             'for ${widget.streamId} position=${reclaimed.value.position} '
@@ -498,6 +504,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         null; // transfer ownership — prevents dispose() from killing it
     _playerInitialized = false;
 
+    final wasPlaying = ctrl?.value.isPlaying ?? true;
     ref
         .read(miniPlayerProvider.notifier)
         .showLive(
@@ -510,6 +517,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               stream?.videoChannel?.avatarUrl ?? stream?.createdBy?.avatarUrl,
           hlsUrl: hlsUrl,
           controller: ctrl,
+          wasPlaying: wasPlaying,
         );
 
     WakelockPlus.disable().ignore();
