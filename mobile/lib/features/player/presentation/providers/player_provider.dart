@@ -39,6 +39,7 @@ class PlayerState {
   final int resumePositionSeconds;
   final double volume;
   final bool isMuted;
+  final bool isEnded;
 
   const PlayerState({
     this.video,
@@ -56,6 +57,7 @@ class PlayerState {
     this.isOfflinePlayback = false,
     this.volume = 1.0,
     this.isMuted = false,
+    this.isEnded = false,
   });
 
   PlayerState copyWith({
@@ -75,6 +77,7 @@ class PlayerState {
     bool? isOfflinePlayback,
     double? volume,
     bool? isMuted,
+    bool? isEnded,
   }) {
     return PlayerState(
       video: video ?? this.video,
@@ -93,6 +96,7 @@ class PlayerState {
       isOfflinePlayback: isOfflinePlayback ?? this.isOfflinePlayback,
       volume: volume ?? this.volume,
       isMuted: isMuted ?? this.isMuted,
+      isEnded: isEnded ?? this.isEnded,
     );
   }
 }
@@ -726,6 +730,35 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       return;
     }
     PipService.instance.updatePlaybackState(isPlaying: isPlaying);
+
+    final isInitialized = ctrl.value.isInitialized;
+    final duration = ctrl.value.duration;
+    final position = ctrl.value.position;
+
+    // Detect if video has reached the end
+    final hasEnded = !isLiveStream &&
+        isInitialized &&
+        duration > const Duration(seconds: 1) &&
+        (position >= duration ||
+            (!isPlaying &&
+                position > Duration.zero &&
+                position >= duration - const Duration(milliseconds: 600)));
+
+    if (hasEnded) {
+      if (!state.isEnded) {
+        state = state.copyWith(isEnded: true, showControls: true);
+        if (state.recommendations.isEmpty) {
+          _repository.getRecommended(_videoId).then((res) {
+            if (mounted) {
+              state = state.copyWith(recommendations: res.data);
+            }
+          }).catchError((_) {});
+        }
+      }
+    } else if (state.isEnded && isPlaying) {
+      state = state.copyWith(isEnded: false);
+    }
+
     // When video pauses (e.g. ended or buffering pause), reveal controls automatically
     if (!isPlaying && !state.showControls) {
       state = state.copyWith(showControls: true);
@@ -793,6 +826,14 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void togglePlayPause() {
     final ctrl = state.controller;
     if (ctrl == null || !ctrl.value.isInitialized) return;
+    if (state.isEnded) {
+      state = state.copyWith(isEnded: false);
+      ctrl.seekTo(Duration.zero);
+      ctrl.play();
+      PipService.instance.updatePlaybackState(isPlaying: true);
+      _resetControlsTimer();
+      return;
+    }
     final willPlay = !ctrl.value.isPlaying;
     if (ctrl.value.isPlaying) {
       ctrl.pause();
@@ -807,6 +848,9 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   void seekTo(Duration position) {
     if (isLiveStream) return;
     state.controller?.seekTo(position);
+    if (state.isEnded) {
+      state = state.copyWith(isEnded: false);
+    }
     _resetControlsTimer();
     _flushProgress();
   }
@@ -932,7 +976,18 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
   }
 
   void toggleFullscreen() {
+    final ctrl = state.controller;
+    final wasPlaying = ctrl != null && ctrl.value.isInitialized && ctrl.value.isPlaying;
     state = state.copyWith(isFullscreen: !state.isFullscreen);
+    if (wasPlaying) {
+      _isHandoffInProgress = true;
+      _handoffTimer?.cancel();
+      _handoffTimer = Timer(const Duration(milliseconds: 1500), () {
+        _isHandoffInProgress = false;
+      });
+      _ensurePlayback(ctrl);
+      _resetControlsTimer();
+    }
   }
 
   void onAppPause() => _flushProgress();

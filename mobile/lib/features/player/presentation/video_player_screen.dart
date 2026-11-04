@@ -8,6 +8,7 @@ import 'package:mobile/core/presentation/providers/pip_provider.dart';
 import 'package:mobile/core/services/pip_service.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
 import 'package:mobile/features/player/presentation/providers/player_provider.dart';
 import 'package:mobile/features/security/presentation/providers/media_activity_provider.dart';
@@ -37,6 +38,56 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   bool? _isSeekingForward;
   Timer? _seekFeedbackTimer;
+
+  // GlobalKey to preserve video player element during fullscreen reparenting
+  final GlobalKey _videoPlayerKey = GlobalKey();
+
+  // Autoplay countdown state
+  Timer? _autoplayTimer;
+  int _autoplayCountdown = 5;
+  bool _isAutoplayCancelled = false;
+
+  void _handleVideoEnded(PlayerState state) {
+    final prefs = ref.read(playbackPreferencesProvider);
+    if (!prefs.autoplay || _isAutoplayCancelled || !mounted) return;
+
+    final nextVideos = state.recommendations.where((v) => v.id != widget.videoId).toList();
+    if (nextVideos.isEmpty) return;
+
+    final nextVideo = nextVideos.first;
+    _cancelAutoplayTimer();
+
+    setState(() {
+      _autoplayCountdown = 5;
+    });
+
+    _autoplayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_autoplayCountdown <= 1) {
+        timer.cancel();
+        _navigateToNextVideo(nextVideo.id);
+      } else {
+        setState(() {
+          _autoplayCountdown--;
+        });
+      }
+    });
+  }
+
+  void _navigateToNextVideo(String nextVideoId) {
+    _cancelAutoplayTimer();
+    if (context.mounted) {
+      context.pushReplacement('/video/$nextVideoId');
+    }
+  }
+
+  void _cancelAutoplayTimer() {
+    _autoplayTimer?.cancel();
+    _autoplayTimer = null;
+  }
 
   // Mini-player drag state
   double _dragOffset = 0;
@@ -163,7 +214,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   }
 
   @override
+  void didUpdateWidget(VideoPlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoId != widget.videoId) {
+      _cancelAutoplayTimer();
+      _isAutoplayCancelled = false;
+      _autoplayCountdown = 5;
+    }
+  }
+
+  @override
   void dispose() {
+    _cancelAutoplayTimer();
     final pipNotifier = _pipNotifier;
     final mediaId = widget.videoId;
     PipService.instance.disableAutoPip();
@@ -211,6 +273,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         ref.read(mediaActivityProvider.notifier).endSession(_mediaSessionId);
         ref.read(pipProvider.notifier).unregisterActiveMedia(widget.videoId);
         return;
+      }
+
+      // If fullscreen toggled while playing, ensure playback is preserved across transitions
+      if (prev != null && prev.isFullscreen != next.isFullscreen && wasPlaying) {
+        final ctrl = next.controller;
+        if (ctrl != null && ctrl.value.isInitialized && !ctrl.value.isPlaying) {
+          ctrl.play().catchError((_) {});
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (ctrl.value.isInitialized && !ctrl.value.isPlaying) {
+              ctrl.play().catchError((_) {});
+            }
+          });
+        }
+      }
+
+      // Autoplay next video when video reaches the end
+      if (next.isEnded && (prev == null || !prev.isEnded)) {
+        _handleVideoEnded(next);
+      } else if (!next.isEnded && prev?.isEnded == true) {
+        _cancelAutoplayTimer();
+        if (mounted) setState(() => _isAutoplayCancelled = false);
+      } else if (next.isEnded && (prev?.recommendations.isEmpty ?? true) && next.recommendations.isNotEmpty) {
+        _handleVideoEnded(next);
       }
 
       if (isPlaying && !wasPlaying) {
@@ -404,6 +489,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     isFullscreen: state.isFullscreen,
                     state: state,
                     prefs: prefs,
+                    autoplayRemainingSeconds: _autoplayTimer != null ? _autoplayCountdown : null,
+                    nextVideo: state.recommendations.where((v) => v.id != widget.videoId).firstOrNull,
+                    onCancelAutoplay: () {
+                      _cancelAutoplayTimer();
+                      setState(() => _isAutoplayCancelled = true);
+                    },
+                    onPlayNextNow: () {
+                      final next = state.recommendations.where((v) => v.id != widget.videoId).firstOrNull;
+                      if (next != null) _navigateToNextVideo(next.id);
+                    },
+                    onReplay: () {
+                      _cancelAutoplayTimer();
+                      setState(() => _isAutoplayCancelled = false);
+                      notifier.togglePlayPause();
+                    },
                     onMinimizeToMiniPlayer: () => _minimizeToMiniPlayer(state),
                     onDoubleTapSeek: (isForward) {
                       _triggerSeek(isForward);
@@ -436,53 +536,60 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             ],
           );
 
-    final Widget playerWidget = state.isFullscreen
-        ? Container(
-            color: Colors.black,
-            width: double.infinity,
-            height: double.infinity,
-            child: playerContent,
-          )
-        : AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(color: Colors.black, child: playerContent),
-          );
-
-    if (state.isFullscreen) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(child: Center(child: playerWidget)),
-      );
-    }
+    final Widget playerWidget = KeyedSubtree(
+      key: _videoPlayerKey,
+      child: state.isFullscreen
+          ? Container(
+              color: Colors.black,
+              width: double.infinity,
+              height: double.infinity,
+              child: playerContent,
+            )
+          : AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(color: Colors.black, child: playerContent),
+            ),
+    );
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _minimizeToMiniPlayer(state);
-      },
-      child: GestureDetector(
-        onVerticalDragStart: (_) => setState(() {
-          _isDragging = true;
-          _dragOffset = 0;
-        }),
-        onVerticalDragUpdate: (details) {
-          if (!_isDragging) return;
-          setState(() => _dragOffset += details.delta.dy);
-        },
-        onVerticalDragEnd: (_) {
-          if (_dragOffset > _kMiniDragThreshold) {
+        if (!didPop) {
+          if (state.isFullscreen) {
+            notifier.toggleFullscreen();
+          } else {
             _minimizeToMiniPlayer(state);
           }
-          setState(() {
-            _isDragging = false;
-            _dragOffset = 0;
-          });
-        },
-        child: Transform.translate(
-          offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
-          child: Scaffold(
-            body: SafeArea(
-              child: LayoutBuilder(
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: state.isFullscreen
+            ? SafeArea(child: Center(child: playerWidget))
+            : GestureDetector(
+                onVerticalDragStart: (_) => setState(() {
+                  _isDragging = true;
+                  _dragOffset = 0;
+                }),
+                onVerticalDragUpdate: (details) {
+                  if (!_isDragging) return;
+                  setState(() => _dragOffset += details.delta.dy);
+                },
+                onVerticalDragEnd: (_) {
+                  if (_dragOffset > _kMiniDragThreshold) {
+                    _minimizeToMiniPlayer(state);
+                  }
+                  setState(() {
+                    _isDragging = false;
+                    _dragOffset = 0;
+                  });
+                },
+                child: Transform.translate(
+                  offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
+                  child: Container(
+                    color: theme.colorScheme.surface,
+                    child: SafeArea(
+                      child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 1100;
 
@@ -560,8 +667,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── Like action that uses the existing LikeButton widget internally ──────────
@@ -1236,6 +1344,11 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final bool isFullscreen;
   final PlayerState state;
   final PlaybackPreferences prefs;
+  final int? autoplayRemainingSeconds;
+  final VideoResponseDto? nextVideo;
+  final VoidCallback? onCancelAutoplay;
+  final VoidCallback? onPlayNextNow;
+  final VoidCallback? onReplay;
   final VoidCallback onMinimizeToMiniPlayer;
   final void Function(bool isForward) onDoubleTapSeek;
 
@@ -1246,6 +1359,11 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.isFullscreen,
     required this.state,
     required this.prefs,
+    this.autoplayRemainingSeconds,
+    this.nextVideo,
+    this.onCancelAutoplay,
+    this.onPlayNextNow,
+    this.onReplay,
     required this.onMinimizeToMiniPlayer,
     required this.onDoubleTapSeek,
   });
@@ -1379,29 +1497,45 @@ class _PlayerControlsOverlay extends StatelessWidget {
           ),
         ),
 
-        // 3. Center controls - Play / Pause button
+        // 3. Center controls - Play / Pause / Replay / Autoplay Next
         Center(
-          child: ValueListenableBuilder(
-            valueListenable: controller,
-            builder: (context, VideoPlayerValue value, child) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
+          child: state.isEnded && autoplayRemainingSeconds != null && nextVideo != null
+              ? _AutoplayNextCard(
+                  nextVideo: nextVideo!,
+                  remainingSeconds: autoplayRemainingSeconds!,
+                  onCancel: onCancelAutoplay ?? () {},
+                  onPlayNow: onPlayNextNow ?? () {},
+                )
+              : ValueListenableBuilder(
+                  valueListenable: controller,
+                  builder: (context, VideoPlayerValue value, child) {
+                    final isEnded = state.isEnded;
+                    final icon = isEnded
+                        ? Icons.replay_rounded
+                        : (value.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded);
+                    final tooltip = isEnded
+                        ? 'Replay'
+                        : (value.isPlaying ? 'Pause' : 'Play');
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        iconSize: 64,
+                        color: Colors.white,
+                        tooltip: tooltip,
+                        icon: Icon(icon),
+                        onPressed: isEnded
+                            ? (onReplay ?? notifier.togglePlayPause)
+                            : notifier.togglePlayPause,
+                      ),
+                    );
+                  },
                 ),
-                child: IconButton(
-                  iconSize: 64,
-                  color: Colors.white,
-                  icon: Icon(
-                    value.isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                  ),
-                  onPressed: notifier.togglePlayPause,
-                ),
-              );
-            },
-          ),
         ),
 
         // 4. Bottom timeline bar
@@ -1505,5 +1639,156 @@ class _PlayerControlsOverlay extends StatelessWidget {
       return "${duration.inHours}:$twoDigitMinutes:$twoDigitSeconds";
     }
     return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+}
+
+// ── Autoplay Next Card Overlay ────────────────────────────────────────────────
+
+class _AutoplayNextCard extends StatelessWidget {
+  final VideoResponseDto nextVideo;
+  final int remainingSeconds;
+  final VoidCallback onCancel;
+  final VoidCallback onPlayNow;
+
+  const _AutoplayNextCard({
+    required this.nextVideo,
+    required this.remainingSeconds,
+    required this.onCancel,
+    required this.onPlayNow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 380),
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    value: remainingSeconds / 5.0,
+                    strokeWidth: 2.5,
+                    color: Theme.of(context).colorScheme.primary,
+                    backgroundColor: Colors.white24,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Up next in ${remainingSeconds}s...',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Thumbnail
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 90,
+                    height: 52,
+                    child: nextVideo.thumbnailUrl != null && nextVideo.thumbnailUrl!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: nextVideo.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey.shade900,
+                              child: const Icon(Icons.videocam, color: Colors.white38),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey.shade900,
+                            child: const Icon(Icons.videocam, color: Colors.white38),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        nextVideo.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        nextVideo.author.displayName ?? nextVideo.author.username ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  onPressed: onCancel,
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  onPressed: onPlayNow,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

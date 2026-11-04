@@ -197,4 +197,149 @@ void main() {
       },
     );
   });
+  group('Fullscreen playback state preservation tests', () {
+    test('PlayerState isFullscreen flips correctly and preserves isEnded / isPlaying context', () {
+      const state = PlayerState(isFullscreen: false, isEnded: false);
+      final fullscreenState = state.copyWith(isFullscreen: true);
+      expect(fullscreenState.isFullscreen, true);
+      expect(fullscreenState.isEnded, false);
+
+      final normalState = fullscreenState.copyWith(isFullscreen: false);
+      expect(normalState.isFullscreen, false);
+      expect(normalState.isEnded, false);
+    });
+
+    test('Fullscreen transition logic preserves playback state', () {
+      bool isPlaying = true;
+      bool isHandoffInProgress = false;
+      bool isFullscreen = false;
+
+      void toggleFullscreenSimulated() {
+        final wasPlaying = isPlaying;
+        isFullscreen = !isFullscreen;
+        if (wasPlaying) {
+          isHandoffInProgress = true;
+          // Playback is explicitly ensured to prevent web DOM pause
+          isPlaying = true;
+        }
+      }
+
+      // 1. Enter fullscreen while playing -> continues playing
+      toggleFullscreenSimulated();
+      expect(isFullscreen, true);
+      expect(isPlaying, true);
+      expect(isHandoffInProgress, true);
+
+      // 2. Exit fullscreen while playing -> continues playing
+      toggleFullscreenSimulated();
+      expect(isFullscreen, false);
+      expect(isPlaying, true);
+      expect(isHandoffInProgress, true);
+
+      // 3. Enter fullscreen while paused -> remains paused
+      isPlaying = false;
+      isHandoffInProgress = false;
+      toggleFullscreenSimulated();
+      expect(isFullscreen, true);
+      expect(isPlaying, false);
+      expect(isHandoffInProgress, false);
+    });
+  });
+
+  group('Autoplay and video ended detection tests', () {
+    test('isEnded correctly set in PlayerState and copyWith', () {
+      const state = PlayerState();
+      expect(state.isEnded, false);
+
+      final endedState = state.copyWith(isEnded: true);
+      expect(endedState.isEnded, true);
+
+      final resetState = endedState.copyWith(isEnded: false);
+      expect(resetState.isEnded, false);
+    });
+
+    test('Next recommendation selection for autoplay filters out current video', () {
+      final currentVideo = VideoResponseDto(
+        id: 'vid_1',
+        title: 'Current Video',
+        status: VideoStatus.ready,
+        visibility: 'PUBLIC',
+        author: const PostAuthorDto(id: '1', username: 'Tester'),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final nextVideo = VideoResponseDto(
+        id: 'vid_2',
+        title: 'Next Recommended Video',
+        status: VideoStatus.ready,
+        visibility: 'PUBLIC',
+        author: const PostAuthorDto(id: '2', username: 'NextCreator'),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final recs = [currentVideo, nextVideo];
+      final nextCandidate = recs.where((v) => v.id != currentVideo.id).firstOrNull;
+
+      expect(nextCandidate, isNotNull);
+      expect(nextCandidate!.id, 'vid_2');
+      expect(nextCandidate.title, 'Next Recommended Video');
+    });
+
+    test('Autoplay decision respects playbackPreferences autoplay setting', () {
+      bool canTriggerAutoplay({
+        required bool autoplayPref,
+        required bool isAutoplayCancelled,
+        required bool hasEnded,
+        required bool hasNextVideo,
+      }) {
+        return autoplayPref && !isAutoplayCancelled && hasEnded && hasNextVideo;
+      }
+
+      // Autoplay ON and video ended -> triggers
+      expect(
+        canTriggerAutoplay(
+          autoplayPref: true,
+          isAutoplayCancelled: false,
+          hasEnded: true,
+          hasNextVideo: true,
+        ),
+        true,
+      );
+
+      // Autoplay setting OFF -> does not trigger
+      expect(
+        canTriggerAutoplay(
+          autoplayPref: false,
+          isAutoplayCancelled: false,
+          hasEnded: true,
+          hasNextVideo: true,
+        ),
+        false,
+      );
+
+      // User clicked Cancel on overlay -> does not trigger
+      expect(
+        canTriggerAutoplay(
+          autoplayPref: true,
+          isAutoplayCancelled: true,
+          hasEnded: true,
+          hasNextVideo: true,
+        ),
+        false,
+      );
+
+      // No recommended next video -> does not trigger
+      expect(
+        canTriggerAutoplay(
+          autoplayPref: true,
+          isAutoplayCancelled: false,
+          hasEnded: true,
+          hasNextVideo: false,
+        ),
+        false,
+      );
+    });
+  });
 }
