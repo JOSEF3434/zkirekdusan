@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/core/presentation/providers/pip_provider.dart';
 import 'package:mobile/core/services/pip_service.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/core/utils/browser_fullscreen_helper.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/home/presentation/widgets/video_card.dart';
@@ -25,6 +28,54 @@ import '../../media_experience/presentation/widgets/player_settings_sheet.dart';
 import '../../media_experience/presentation/providers/playback_preferences_provider.dart';
 import '../../media_experience/domain/playback_preferences.dart';
 
+/// Dynamically detects the true video aspect ratio from the controller.
+///
+/// Handles portrait (9:16), landscape (16:9), ultra-wide (21:9), and square (1:1)
+/// gracefully with fallback to 16:9 before metadata loads.
+double _computeVideoAspectRatio(VideoPlayerController? ctrl) {
+  if (ctrl != null && ctrl.value.isInitialized) {
+    final size = ctrl.value.size;
+    if (size.width > 0 &&
+        size.height > 0 &&
+        !size.width.isNaN &&
+        !size.height.isNaN &&
+        !size.width.isInfinite &&
+        !size.height.isInfinite) {
+      return size.width / size.height;
+    }
+    final ratio = ctrl.value.aspectRatio;
+    if (ratio > 0 && !ratio.isNaN && !ratio.isInfinite) {
+      return ratio;
+    }
+  }
+  return 16 / 9;
+}
+
+/// Computes the container aspect ratio in normal (non-fullscreen) mode.
+///
+/// On desktop (wide), bounds portrait videos to a sleek ~1.15 ratio so they do
+/// not overflow vertically, while leaving ample room for metadata & sidebar.
+/// On mobile (narrow), expands portrait videos to ~0.75-0.80 so portrait videos
+/// are prominently sized without starving bottom metadata.
+double _computeContainerAspectRatio({
+  required double videoAspect,
+  required bool isWide,
+}) {
+  if (videoAspect < 0.95) {
+    // Portrait video (9:16 ~0.56, 4:5 ~0.8)
+    if (isWide) {
+      return 1.15;
+    } else {
+      return videoAspect.clamp(0.75, 16 / 9);
+    }
+  } else if (videoAspect <= 1.05) {
+    // Square video (1:1)
+    return isWide ? 1.15 : 1.0;
+  } else {
+    // Landscape / widescreen video (16:9, 21:9)
+    return videoAspect.clamp(16 / 9, 21 / 9);
+  }
+}
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String videoId;
@@ -151,7 +202,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       final ctrl = playerState.controller;
       if (ctrl != null && ctrl.value.isInitialized) {
         final isPlaying = ctrl.value.isPlaying;
-        final ratio = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
+        final ratio = _computeVideoAspectRatio(ctrl);
         ref.read(pipProvider.notifier).registerActiveMedia(
           contentId: widget.videoId,
           isPlaying: isPlaying,
@@ -163,6 +214,99 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   }
 
   int _seekFeedbackSeconds = 5;
+
+  bool? _currentFullscreenApplied;
+
+  bool _isEditableFocused() {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus != null && focus.context?.widget is EditableText;
+  }
+
+  void _updateFullscreenOrientationAndSystem(
+    bool isFullscreen,
+    VideoPlayerController? ctrl,
+  ) {
+    if (_currentFullscreenApplied == isFullscreen) return;
+    _currentFullscreenApplied = isFullscreen;
+
+    if (kIsWeb) {
+      if (isFullscreen) {
+        requestBrowserFullscreen();
+      } else {
+        exitBrowserFullscreen();
+      }
+      return;
+    }
+
+    if (isFullscreen) {
+      final videoAspect = _computeVideoAspectRatio(ctrl);
+      final isPortrait = videoAspect < 0.95;
+      if (isPortrait) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+      } else {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+
+  Widget _buildFullscreenPlayerWidget(Widget playerContent) {
+    return Container(
+      color: Colors.black,
+      width: double.infinity,
+      height: double.infinity,
+      child: KeyedSubtree(
+        key: _videoPlayerKey,
+        child: playerContent,
+      ),
+    );
+  }
+
+  Widget _buildNormalPlayerWidget({
+    required Widget playerContent,
+    required double videoAspect,
+    required bool isWide,
+    required BuildContext context,
+  }) {
+    final containerAspect = _computeContainerAspectRatio(
+      videoAspect: videoAspect,
+      isWide: isWide,
+    );
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = isWide
+        ? (screenHeight * 0.70).clamp(380.0, 640.0)
+        : (screenHeight * 0.60).clamp(220.0, 560.0);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: AspectRatio(
+        aspectRatio: containerAspect,
+        child: Container(
+          color: Colors.black,
+          child: ClipRect(
+            child: KeyedSubtree(
+              key: _videoPlayerKey,
+              child: playerContent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _triggerSeek(bool isForward, [int? seconds]) {
     final prefs = ref.read(playbackPreferencesProvider);
@@ -258,13 +402,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         notifier?.endSession(sessionId);
       } catch (_) {}
     });
-    // Restore orientation when leaving player
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Restore orientation and system UI when leaving player
+    if (kIsWeb) {
+      exitBrowserFullscreen();
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     super.dispose();
   }
 
@@ -302,15 +451,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       }
 
       // If fullscreen toggled while playing, ensure playback is preserved across transitions
-      if (prev != null && prev.isFullscreen != next.isFullscreen && wasPlaying) {
-        final ctrl = next.controller;
-        if (ctrl != null && ctrl.value.isInitialized && !ctrl.value.isPlaying) {
-          ctrl.play().catchError((_) {});
-          Future.delayed(const Duration(milliseconds: 200), () {
-            if (ctrl.value.isInitialized && !ctrl.value.isPlaying) {
-              ctrl.play().catchError((_) {});
-            }
-          });
+      if (prev != null && prev.isFullscreen != next.isFullscreen) {
+        _updateFullscreenOrientationAndSystem(next.isFullscreen, next.controller);
+        if (wasPlaying) {
+          final ctrl = next.controller;
+          if (ctrl != null && ctrl.value.isInitialized && !ctrl.value.isPlaying) {
+            ctrl.play().catchError((_) {});
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (ctrl.value.isInitialized && !ctrl.value.isPlaying) {
+                ctrl.play().catchError((_) {});
+              }
+            });
+          }
         }
       }
 
@@ -329,9 +481,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           _mediaSessionId,
           MediaSessionKind.videoPlayback,
         );
-        final ratio = (next.controller?.value.aspectRatio ?? 0) > 0
-            ? next.controller!.value.aspectRatio
-            : 16 / 9;
+        final ratio = _computeVideoAspectRatio(next.controller);
         ref.read(pipProvider.notifier).registerActiveMedia(
           contentId: widget.videoId,
           isPlaying: true,
@@ -354,9 +504,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         body: Center(
           child: isInitialized
               ? AspectRatio(
-                  aspectRatio: ctrl.value.aspectRatio > 0
-                      ? ctrl.value.aspectRatio
-                      : 16 / 9,
+                  aspectRatio: _computeVideoAspectRatio(ctrl),
                   child: VideoPlayer(ctrl),
                 )
               : const SizedBox.shrink(),
@@ -412,25 +560,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           .read(likesProvider.notifier)
           .seed(video.id, video.isLiked ?? false, video.likesCount);
       ref.read(saveProvider.notifier).seed(video.id, video.isSaved ?? false);
+      if (mounted) {
+        _updateFullscreenOrientationAndSystem(state.isFullscreen, state.controller);
+      }
     });
 
-    // Handle fullscreen
-    if (state.isFullscreen) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
-
-    // Force 16:9 aspect ratio for video player
-    final videoAspect = 16 / 9;
+    // Dynamically calculate aspect ratio from video metadata/controller
+    final double videoAspect = _computeVideoAspectRatio(state.controller);
 
     final resolvedThumb = MediaUrlResolver.resolveThumbnail(
       thumbnailUrl: state.video?.thumbnailUrl,
@@ -452,7 +588,36 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Video player maintaining natural aspect ratio (fixes X and Y stretching)
+                // 1. Ambient blurred background for letterboxed / pillarboxed areas
+                if (resolvedThumb != null && resolvedThumb.isNotEmpty)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: resolvedThumb,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) =>
+                                const SizedBox.shrink(),
+                            errorWidget: (context, url, error) =>
+                                const SizedBox.shrink(),
+                          ),
+                          ClipRect(
+                            child: BackdropFilter(
+                              filter:
+                                  ui.ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+                              child: Container(
+                                color: Colors.black.withValues(alpha: 0.65),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // 2. Video player maintaining natural aspect ratio
                 Center(
                   child: AspectRatio(
                     aspectRatio: videoAspect,
@@ -460,22 +625,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   ),
                 ),
 
-                // Show thumbnail preview at beginning when paused instead of black screen
+                // 3. Show thumbnail preview at beginning when paused instead of black screen
                 if (!isPlaying &&
                     state.controller!.value.position == Duration.zero &&
                     resolvedThumb != null &&
                     resolvedThumb.isNotEmpty)
                   Positioned.fill(
-                    child: CachedNetworkImage(
-                      imageUrl: resolvedThumb,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const SizedBox.shrink(),
-                      errorWidget: (context, url, error) =>
-                          const SizedBox.shrink(),
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: videoAspect,
+                        child: CachedNetworkImage(
+                          imageUrl: resolvedThumb,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) =>
+                              const SizedBox.shrink(),
+                          errorWidget: (context, url, error) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
                     ),
                   ),
 
-                // Tap detector when controls are hidden: single-tap reveals controls, double-tap seeks
+                // 4. Tap detector when controls are hidden: single-tap reveals controls, double-tap seeks
                 if (!state.showControls)
                   Positioned.fill(
                     child: GestureDetector(
@@ -500,13 +671,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     ),
                   ),
 
-                // YouTube-like double-tap seek feedback animation
+                // 5. YouTube-like double-tap seek feedback animation
                 if (_isSeekingForward != null)
                   _YouTubeSeekFeedback(
                     isForward: _isSeekingForward!,
                     seconds: _seekFeedbackSeconds,
                   ),
 
+                // 6. Controls overlay
                 if (state.showControls)
                   _PlayerControlsOverlay(
                     controller: state.controller!,
@@ -548,12 +720,38 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             children: [
               if (resolvedThumb != null && resolvedThumb.isNotEmpty)
                 Positioned.fill(
-                  child: CachedNetworkImage(
-                    imageUrl: resolvedThumb,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const SizedBox.shrink(),
-                    errorWidget: (context, url, error) =>
-                        const SizedBox.shrink(),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: resolvedThumb,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const SizedBox.shrink(),
+                        errorWidget: (context, url, error) =>
+                            const SizedBox.shrink(),
+                      ),
+                      ClipRect(
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (resolvedThumb != null && resolvedThumb.isNotEmpty)
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: videoAspect,
+                    child: CachedNetworkImage(
+                      imageUrl: resolvedThumb,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const SizedBox.shrink(),
+                      errorWidget: (context, url, error) =>
+                          const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               const Center(
@@ -562,140 +760,171 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
             ],
           );
 
-    final Widget playerWidget = KeyedSubtree(
-      key: _videoPlayerKey,
-      child: state.isFullscreen
-          ? Container(
-              color: Colors.black,
-              width: double.infinity,
-              height: double.infinity,
-              child: playerContent,
-            )
-          : AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(color: Colors.black, child: playerContent),
-            ),
-    );
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
           if (state.isFullscreen) {
             notifier.toggleFullscreen();
-          } else {
-            _minimizeToMiniPlayer(state);
           }
-        }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF): () {
+          if (!_isEditableFocused()) {
+            notifier.toggleFullscreen();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.space): () {
+          if (!_isEditableFocused()) {
+            notifier.togglePlayPause();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
+          if (!_isEditableFocused()) {
+            notifier.seekBackward();
+            _triggerSeek(false);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () {
+          if (!_isEditableFocused()) {
+            notifier.seekForward();
+            _triggerSeek(true);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyM): () {
+          if (!_isEditableFocused()) {
+            notifier.toggleMute();
+          }
+        },
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: state.isFullscreen
-            ? SafeArea(child: Center(child: playerWidget))
-            : GestureDetector(
-                onVerticalDragStart: (_) => setState(() {
-                  _isDragging = true;
-                  _dragOffset = 0;
-                }),
-                onVerticalDragUpdate: (details) {
-                  if (!_isDragging) return;
-                  setState(() => _dragOffset += details.delta.dy);
-                },
-                onVerticalDragEnd: (_) {
-                  if (_dragOffset > _kMiniDragThreshold) {
-                    _minimizeToMiniPlayer(state);
-                  }
-                  setState(() {
-                    _isDragging = false;
-                    _dragOffset = 0;
-                  });
-                },
-                child: Transform.translate(
-                  offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
-                  child: Container(
-                    color: theme.colorScheme.surface,
-                    child: SafeArea(
-                      child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 1100;
+      child: Focus(
+        autofocus: true,
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) {
+              if (state.isFullscreen) {
+                notifier.toggleFullscreen();
+              } else {
+                _minimizeToMiniPlayer(state);
+              }
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: state.isFullscreen
+                ? SafeArea(child: Center(child: _buildFullscreenPlayerWidget(playerContent)))
+                : GestureDetector(
+                    onVerticalDragStart: (_) => setState(() {
+                      _isDragging = true;
+                      _dragOffset = 0;
+                    }),
+                    onVerticalDragUpdate: (details) {
+                      if (!_isDragging) return;
+                      setState(() => _dragOffset += details.delta.dy);
+                    },
+                    onVerticalDragEnd: (_) {
+                      if (_dragOffset > _kMiniDragThreshold) {
+                        _minimizeToMiniPlayer(state);
+                      }
+                      setState(() {
+                        _isDragging = false;
+                        _dragOffset = 0;
+                      });
+                    },
+                    child: Transform.translate(
+                      offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
+                      child: Container(
+                        color: theme.colorScheme.surface,
+                        child: SafeArea(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isWide = constraints.maxWidth >= 1100;
 
-                  final metaSection = _VideoMetaSection(
-                    theme: theme,
-                    video: video,
-                    state: state,
-                    tr: tr,
-                  );
+                              final metaSection = _VideoMetaSection(
+                                theme: theme,
+                                video: video,
+                                state: state,
+                                tr: tr,
+                              );
 
-                  final contentColumn = Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      playerWidget,
-                      const SizedBox(height: 16),
-                      metaSection,
-                    ],
-                  );
+                              final normalPlayer = _buildNormalPlayerWidget(
+                                playerContent: playerContent,
+                                videoAspect: videoAspect,
+                                isWide: isWide,
+                                context: context,
+                              );
 
-                  if (isWide) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1400),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 3, child: contentColumn),
-                              const SizedBox(width: 24),
-                              SizedBox(
-                                width: 360,
-                                child: _VideoSidebar(
-                                  theme: theme,
-                                  video: video,
-                                  state: state,
-                                  tr: tr,
-                                ),
-                              ),
-                            ],
+                              final contentColumn = Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Center(child: normalPlayer),
+                                  const SizedBox(height: 16),
+                                  metaSection,
+                                ],
+                              );
+
+                              if (isWide) {
+                                return SingleChildScrollView(
+                                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 1400),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(flex: 3, child: contentColumn),
+                                          const SizedBox(width: 24),
+                                          SizedBox(
+                                            width: 360,
+                                            child: _VideoSidebar(
+                                              theme: theme,
+                                              video: video,
+                                              state: state,
+                                              tr: tr,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                children: [
+                                  Center(child: normalPlayer),
+                                  Expanded(
+                                    child: ListView(
+                                      padding: const EdgeInsets.all(16),
+                                      children: [
+                                        metaSection,
+                                        const SizedBox(height: 24),
+                                        Text(
+                                          tr('home.recommended'),
+                                          style: theme.textTheme.titleMedium,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        ...state.recommendations.map(
+                                          (rec) => Padding(
+                                            padding: const EdgeInsets.only(bottom: 16.0),
+                                            child: VideoCard(video: rec),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
-                    );
-                  }
-
-                  return Column(
-                    children: [
-                      playerWidget,
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            metaSection,
-                            const SizedBox(height: 24),
-                            Text(
-                              tr('home.recommended'),
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 16),
-                            ...state.recommendations.map(
-                              (rec) => Padding(
-                                padding: const EdgeInsets.only(bottom: 16.0),
-                                child: VideoCard(video: rec),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    ),
+                  ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 // ── Like action that uses the existing LikeButton widget internally ──────────
@@ -1498,9 +1727,7 @@ class _PlayerControlsOverlay extends StatelessWidget {
                         icon: const Icon(Icons.picture_in_picture_alt_rounded, color: Colors.white),
                         tooltip: 'Picture-in-Picture',
                         onPressed: () {
-                          final ratio = controller.value.aspectRatio > 0
-                              ? controller.value.aspectRatio
-                              : 16 / 9;
+                          final ratio = _computeVideoAspectRatio(controller);
                           ref.read(pipProvider.notifier).enterPip(aspectRatio: ratio);
                         },
                       );

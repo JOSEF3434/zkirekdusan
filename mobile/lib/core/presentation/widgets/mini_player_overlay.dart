@@ -195,14 +195,18 @@ class _MiniPlayerCard extends StatelessWidget {
                 // ── Video preview ──────────────────────────────────────
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
+                  child: Container(
+                    color: Colors.black,
                     width: 96,
                     height: 54,
                     child: isCtrlReady && controller != null
-                        ? AspectRatio(
-                            aspectRatio:
-                                controller!.value.aspectRatio.clamp(1.0, 2.0),
-                            child: VideoPlayer(controller!),
+                        ? Center(
+                            child: AspectRatio(
+                              aspectRatio: controller!.value.aspectRatio > 0
+                                  ? controller!.value.aspectRatio
+                                  : 16 / 9,
+                              child: VideoPlayer(controller!),
+                            ),
                           )
                         : _buildThumbnail(mp),
                   ),
