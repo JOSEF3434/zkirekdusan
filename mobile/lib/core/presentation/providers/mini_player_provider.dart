@@ -321,7 +321,14 @@ class MiniPlayerNotifier extends StateNotifier<MiniPlayerState> {
     }
     final playing = ctrl.value.isPlaying;
     if (playing != state.isPlaying) {
-      state = state.copyWith(isPlaying: playing);
+      // Defer state mutation so controller notifications occurring during
+      // widget lifecycle phases (e.g. initState / build) do not throw
+      // "Tried to modify a provider while the widget tree was building".
+      Future.microtask(() {
+        if (mounted && state.controller == ctrl && state.isPlaying != playing) {
+          state = state.copyWith(isPlaying: playing);
+        }
+      });
     }
   }
 

@@ -51,32 +51,6 @@ double _computeVideoAspectRatio(VideoPlayerController? ctrl) {
   return 16 / 9;
 }
 
-/// Computes the container aspect ratio in normal (non-fullscreen) mode.
-///
-/// On desktop (wide), bounds portrait videos to a sleek ~1.15 ratio so they do
-/// not overflow vertically, while leaving ample room for metadata & sidebar.
-/// On mobile (narrow), expands portrait videos to ~0.75-0.80 so portrait videos
-/// are prominently sized without starving bottom metadata.
-double _computeContainerAspectRatio({
-  required double videoAspect,
-  required bool isWide,
-}) {
-  if (videoAspect < 0.95) {
-    // Portrait video (9:16 ~0.56, 4:5 ~0.8)
-    if (isWide) {
-      return 1.15;
-    } else {
-      return videoAspect.clamp(0.75, 16 / 9);
-    }
-  } else if (videoAspect <= 1.05) {
-    // Square video (1:1)
-    return isWide ? 1.15 : 1.0;
-  } else {
-    // Landscape / widescreen video (16:9, 21:9)
-    return videoAspect.clamp(16 / 9, 21 / 9);
-  }
-}
-
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String videoId;
 
@@ -163,11 +137,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   void initState() {
     super.initState();
 
-    // Immediately pause any existing mini-player controller playing a different video
-    // so sound does not overlap before the post-frame dismiss callback executes.
+    // Pause any existing mini-player controller playing a different video
+    // in a microtask so it does not trigger synchronous provider mutations during initState.
     final initialMini = ref.read(miniPlayerProvider);
     if (initialMini.hasContent && initialMini.contentId != widget.videoId) {
-      initialMini.controller?.pause();
+      Future.microtask(() {
+        initialMini.controller?.pause();
+      });
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -280,32 +256,83 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     required Widget playerContent,
     required double videoAspect,
     required bool isWide,
+    required BoxConstraints constraints,
     required BuildContext context,
   }) {
-    final containerAspect = _computeContainerAspectRatio(
-      videoAspect: videoAspect,
-      isWide: isWide,
-    );
     final screenHeight = MediaQuery.of(context).size.height;
-    final maxHeight = isWide
-        ? (screenHeight * 0.70).clamp(380.0, 640.0)
-        : (screenHeight * 0.60).clamp(220.0, 560.0);
+    final isMobileLandscape = !isWide &&
+        constraints.maxWidth > constraints.maxHeight &&
+        constraints.maxHeight < 600;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: AspectRatio(
-        aspectRatio: containerAspect,
-        child: Container(
-          color: Colors.black,
-          child: ClipRect(
-            child: KeyedSubtree(
-              key: _videoPlayerKey,
-              child: playerContent,
-            ),
-          ),
-        ),
-      ),
+    final Widget playerKeyed = KeyedSubtree(
+      key: _videoPlayerKey,
+      child: playerContent,
     );
+
+    if (isWide) {
+      // Desktop / Web wide layout:
+      // The video container MUST span the full width of the content column (no left/right padding, exactly like YouTube).
+      // For landscape (16:9), it sizes naturally via AspectRatio.
+      // For portrait (9:16), it takes full column width with a fixed comfortable height,
+      // featuring the ambient blur background spanning the full width and the portrait video centered.
+      if (videoAspect < 1.05) {
+        final height = (screenHeight * 0.70).clamp(420.0, 580.0);
+        return Container(
+          width: double.infinity,
+          height: height,
+          color: Colors.black,
+          child: ClipRect(child: playerKeyed),
+        );
+      } else {
+        return AspectRatio(
+          aspectRatio: videoAspect.clamp(16 / 9, 21 / 9),
+          child: Container(
+            width: double.infinity,
+            color: Colors.black,
+            child: ClipRect(child: playerKeyed),
+          ),
+        );
+      }
+    } else {
+      // Mobile / narrow layout:
+      if (isMobileLandscape) {
+        // Mobile in landscape orientation:
+        // Take full width and prominent height with black backdrop and ambient glow,
+        // rather than floating in a white container.
+        final height = (constraints.maxHeight * 0.88).clamp(240.0, 480.0);
+        return Container(
+          width: double.infinity,
+          height: height,
+          color: Colors.black,
+          child: ClipRect(child: playerKeyed),
+        );
+      }
+
+      // Standard mobile portrait orientation:
+      if (videoAspect < 1.05) {
+        // Portrait video on mobile:
+        // Container takes full width (100% phone width) and prominent height (0.75 ratio)
+        // with black/ambient background spanning edge-to-edge.
+        final height =
+            (constraints.maxWidth / 0.75).clamp(240.0, screenHeight * 0.62);
+        return Container(
+          width: double.infinity,
+          height: height,
+          color: Colors.black,
+          child: ClipRect(child: playerKeyed),
+        );
+      } else {
+        // Landscape video on mobile:
+        return AspectRatio(
+          aspectRatio: videoAspect.clamp(16 / 9, 21 / 9),
+          child: Container(
+            width: double.infinity,
+            color: Colors.black,
+            child: ClipRect(child: playerKeyed),
+          ),
+        );
+      }
+    }
   }
 
   void _triggerSeek(bool isForward, [int? seconds]) {
@@ -811,7 +838,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           child: Scaffold(
             backgroundColor: Colors.black,
             body: state.isFullscreen
-                ? SafeArea(child: Center(child: _buildFullscreenPlayerWidget(playerContent)))
+                ? _buildFullscreenPlayerWidget(playerContent)
                 : GestureDetector(
                     onVerticalDragStart: (_) => setState(() {
                       _isDragging = true;
@@ -850,13 +877,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                 playerContent: playerContent,
                                 videoAspect: videoAspect,
                                 isWide: isWide,
+                                constraints: constraints,
                                 context: context,
                               );
 
                               final contentColumn = Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Center(child: normalPlayer),
+                                  normalPlayer,
                                   const SizedBox(height: 16),
                                   metaSection,
                                 ],
@@ -891,7 +919,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
                               return Column(
                                 children: [
-                                  Center(child: normalPlayer),
+                                  normalPlayer,
                                   Expanded(
                                     child: ListView(
                                       padding: const EdgeInsets.all(16),
