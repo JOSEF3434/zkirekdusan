@@ -112,6 +112,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   void initState() {
     super.initState();
 
+    // Immediately pause any existing mini-player controller playing a different video
+    // so sound does not overlap before the post-frame dismiss callback executes.
+    final initialMini = ref.read(miniPlayerProvider);
+    if (initialMini.hasContent && initialMini.contentId != widget.videoId) {
+      initialMini.controller?.pause();
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final mini = ref.read(miniPlayerProvider);
@@ -135,6 +142,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
               .read(playerProvider(widget.videoId).notifier)
               .adoptController(reclaimed, wasPlaying: wasPlaying);
         }
+      } else if (mini.hasContent || mini.controller != null) {
+        // Dismiss previous mini player so only the new video plays in normal mode
+        ref.read(miniPlayerProvider.notifier).dismiss();
       }
 
       final playerState = ref.read(playerProvider(widget.videoId));
@@ -220,6 +230,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       _cancelAutoplayTimer();
       _isAutoplayCancelled = false;
       _autoplayCountdown = 5;
+
+      final mini = ref.read(miniPlayerProvider);
+      if (mini.hasContent || mini.controller != null) {
+        ref.read(miniPlayerProvider.notifier).dismiss();
+      }
     }
   }
 
@@ -258,6 +273,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     final state = ref.watch(playerProvider(widget.videoId));
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+
+    // Ensure any background mini-player playing another video is dismissed while on normal player
+    ref.listen<MiniPlayerState>(miniPlayerProvider, (prev, next) {
+      if (next.hasContent && next.contentId != widget.videoId) {
+        Future.microtask(() {
+          if (mounted) {
+            ref.read(miniPlayerProvider.notifier).dismiss();
+          }
+        });
+      }
+    });
 
     // Media-session policy: suspend the App Lock inactivity timer while the
     // video is actively playing; restore the countdown when paused or the
