@@ -15,3 +15,4 @@ void exitBrowserFullscreen() {
     }
   } catch (_) {}
 }
+

@@ -64,6 +64,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   bool? _isSeekingForward;
   Timer? _seekFeedbackTimer;
 
+  // Video fill/cover mode state (defaults to true for full width cover)
+  bool _isCover = true;
+
   // GlobalKey to preserve video player element during fullscreen reparenting
   final GlobalKey _videoPlayerKey = GlobalKey();
 
@@ -605,6 +608,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         state.controller != null && state.controller!.value.isInitialized;
     final isPlaying = isInitialized && state.controller!.value.isPlaying;
 
+    final ctrlSize = state.controller?.value.size;
+    final ctrlW =
+        (ctrlSize != null && ctrlSize.width > 0) ? ctrlSize.width : 16.0;
+    final ctrlH =
+        (ctrlSize != null && ctrlSize.height > 0) ? ctrlSize.height : 9.0;
+
     final prefs = ref.watch(playbackPreferencesProvider);
     final notifier = ref.read(playerProvider(widget.videoId).notifier);
 
@@ -644,12 +653,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     ),
                   ),
 
-                // 2. Video player maintaining natural aspect ratio
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: videoAspect,
-                    child: VideoPlayer(state.controller!),
-                  ),
+                // 2. Video player maintaining natural aspect ratio or full-width cover
+                ClipRect(
+                  child: _isCover
+                      ? SizedBox.expand(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            child: SizedBox(
+                              width: ctrlW,
+                              height: ctrlH,
+                              child: VideoPlayer(state.controller!),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: AspectRatio(
+                            aspectRatio: videoAspect,
+                            child: VideoPlayer(state.controller!),
+                          ),
+                        ),
                 ),
 
                 // 3. Show thumbnail preview at beginning when paused instead of black screen
@@ -658,18 +681,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     resolvedThumb != null &&
                     resolvedThumb.isNotEmpty)
                   Positioned.fill(
-                    child: Center(
-                      child: AspectRatio(
-                        aspectRatio: videoAspect,
-                        child: CachedNetworkImage(
-                          imageUrl: resolvedThumb,
-                          fit: BoxFit.contain,
-                          placeholder: (context, url) =>
-                              const SizedBox.shrink(),
-                          errorWidget: (context, url, error) =>
-                              const SizedBox.shrink(),
-                        ),
-                      ),
+                    child: ClipRect(
+                      child: _isCover
+                          ? SizedBox.expand(
+                              child: CachedNetworkImage(
+                                imageUrl: resolvedThumb,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) =>
+                                    const SizedBox.shrink(),
+                                errorWidget: (context, url, error) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            )
+                          : Center(
+                              child: AspectRatio(
+                                aspectRatio: videoAspect,
+                                child: CachedNetworkImage(
+                                  imageUrl: resolvedThumb,
+                                  fit: BoxFit.contain,
+                                  placeholder: (context, url) =>
+                                      const SizedBox.shrink(),
+                                  errorWidget: (context, url, error) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
 
@@ -714,6 +750,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     isFullscreen: state.isFullscreen,
                     state: state,
                     prefs: prefs,
+                    isCover: _isCover,
+                    onToggleCover: () => setState(() => _isCover = !_isCover),
                     autoplayRemainingSeconds: _autoplayTimer != null ? _autoplayCountdown : null,
                     nextVideo: state.recommendations.where((v) => v.id != widget.videoId).firstOrNull,
                     onCancelAutoplay: () {
@@ -769,18 +807,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   ),
                 ),
               if (resolvedThumb != null && resolvedThumb.isNotEmpty)
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: videoAspect,
-                    child: CachedNetworkImage(
-                      imageUrl: resolvedThumb,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const SizedBox.shrink(),
-                      errorWidget: (context, url, error) =>
-                          const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
+                _isCover
+                    ? Positioned.fill(
+                        child: CachedNetworkImage(
+                          imageUrl: resolvedThumb,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const SizedBox.shrink(),
+                          errorWidget: (context, url, error) =>
+                              const SizedBox.shrink(),
+                        ),
+                      )
+                    : Center(
+                        child: AspectRatio(
+                          aspectRatio: videoAspect,
+                          child: CachedNetworkImage(
+                            imageUrl: resolvedThumb,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) =>
+                                const SizedBox.shrink(),
+                            errorWidget: (context, url, error) =>
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
               const Center(
                 child: CircularProgressIndicator(color: Colors.white),
               ),
@@ -819,6 +869,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         const SingleActivator(LogicalKeyboardKey.keyM): () {
           if (!_isEditableFocused()) {
             notifier.toggleMute();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyC): () {
+          if (!_isEditableFocused()) {
+            setState(() => _isCover = !_isCover);
           }
         },
       },
@@ -1627,6 +1682,8 @@ class _PlayerControlsOverlay extends StatelessWidget {
   final bool isFullscreen;
   final PlayerState state;
   final PlaybackPreferences prefs;
+  final bool isCover;
+  final VoidCallback onToggleCover;
   final int? autoplayRemainingSeconds;
   final VideoResponseDto? nextVideo;
   final VoidCallback? onCancelAutoplay;
@@ -1642,6 +1699,8 @@ class _PlayerControlsOverlay extends StatelessWidget {
     required this.isFullscreen,
     required this.state,
     required this.prefs,
+    required this.isCover,
+    required this.onToggleCover,
     this.autoplayRemainingSeconds,
     this.nextVideo,
     this.onCancelAutoplay,
@@ -1893,6 +1952,16 @@ class _PlayerControlsOverlay extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                  IconButton(
+                    icon: Icon(
+                      isCover
+                          ? Icons.fit_screen_rounded
+                          : Icons.crop_free_rounded,
+                      color: Colors.white,
+                    ),
+                    tooltip: isCover ? 'Fit to screen' : 'Full width cover',
+                    onPressed: onToggleCover,
+                  ),
                   IconButton(
                     icon: Icon(
                       isFullscreen
