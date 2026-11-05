@@ -1,10 +1,15 @@
--- CreateEnum
-CREATE TYPE "DictionaryProcessingStatus" AS ENUM ('PENDING', 'VALIDATING', 'EXTRACTING', 'PARSING', 'INDEXING', 'READY', 'FAILED', 'RETRYING');
+-- CreateEnum with IF NOT EXISTS guard
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DictionaryProcessingStatus') THEN
+        CREATE TYPE "DictionaryProcessingStatus" AS ENUM ('PENDING', 'VALIDATING', 'EXTRACTING', 'PARSING', 'INDEXING', 'READY', 'FAILED', 'RETRYING');
+    END IF;
+END $$;
 
--- AlterTable
+-- AlterTable books
 ALTER TABLE "books" ADD COLUMN IF NOT EXISTS "isDictionary" BOOLEAN NOT NULL DEFAULT false;
 
--- CreateTable
+-- CreateTable dictionary_languages
 CREATE TABLE IF NOT EXISTS "dictionary_languages" (
     "id" TEXT NOT NULL,
     "code" TEXT NOT NULL,
@@ -22,7 +27,7 @@ CREATE TABLE IF NOT EXISTS "dictionary_languages" (
     CONSTRAINT "dictionary_languages_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- CreateTable dictionary_book_configs
 CREATE TABLE IF NOT EXISTS "dictionary_book_configs" (
     "id" TEXT NOT NULL,
     "bookId" TEXT NOT NULL,
@@ -41,7 +46,7 @@ CREATE TABLE IF NOT EXISTS "dictionary_book_configs" (
     CONSTRAINT "dictionary_book_configs_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- CreateTable dictionary_entries
 CREATE TABLE IF NOT EXISTS "dictionary_entries" (
     "id" TEXT NOT NULL,
     "bookId" TEXT NOT NULL,
@@ -62,7 +67,7 @@ CREATE TABLE IF NOT EXISTS "dictionary_entries" (
     CONSTRAINT "dictionary_entries_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- CreateTable user_translation_histories
 CREATE TABLE IF NOT EXISTS "user_translation_histories" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -112,20 +117,34 @@ CREATE INDEX IF NOT EXISTS "user_translation_histories_userId_sourceLanguage_tar
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "books_isDictionary_idx" ON "books"("isDictionary");
 
--- AddForeignKey
-ALTER TABLE "dictionary_languages" ADD CONSTRAINT "dictionary_languages_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_sourceLanguageId_fkey" FOREIGN KEY ("sourceLanguageId") REFERENCES "dictionary_languages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_targetLanguageId_fkey" FOREIGN KEY ("targetLanguageId") REFERENCES "dictionary_languages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "dictionary_entries" ADD CONSTRAINT "dictionary_entries_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "dictionary_entries" ADD CONSTRAINT "dictionary_entries_configId_fkey" FOREIGN KEY ("configId") REFERENCES "dictionary_book_configs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_dictionaryBookId_fkey" FOREIGN KEY ("dictionaryBookId") REFERENCES "books"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_dictionaryEntryId_fkey" FOREIGN KEY ("dictionaryEntryId") REFERENCES "dictionary_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
+-- AddForeignKey with IF NOT EXISTS guards
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_languages_createdById_fkey') THEN
+        ALTER TABLE "dictionary_languages" ADD CONSTRAINT "dictionary_languages_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_book_configs_bookId_fkey') THEN
+        ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_book_configs_sourceLanguageId_fkey') THEN
+        ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_sourceLanguageId_fkey" FOREIGN KEY ("sourceLanguageId") REFERENCES "dictionary_languages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_book_configs_targetLanguageId_fkey') THEN
+        ALTER TABLE "dictionary_book_configs" ADD CONSTRAINT "dictionary_book_configs_targetLanguageId_fkey" FOREIGN KEY ("targetLanguageId") REFERENCES "dictionary_languages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_entries_bookId_fkey') THEN
+        ALTER TABLE "dictionary_entries" ADD CONSTRAINT "dictionary_entries_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'dictionary_entries_configId_fkey') THEN
+        ALTER TABLE "dictionary_entries" ADD CONSTRAINT "dictionary_entries_configId_fkey" FOREIGN KEY ("configId") REFERENCES "dictionary_book_configs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_translation_histories_userId_fkey') THEN
+        ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_translation_histories_dictionaryBookId_fkey') THEN
+        ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_dictionaryBookId_fkey" FOREIGN KEY ("dictionaryBookId") REFERENCES "books"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_translation_histories_dictionaryEntryId_fkey') THEN
+        ALTER TABLE "user_translation_histories" ADD CONSTRAINT "user_translation_histories_dictionaryEntryId_fkey" FOREIGN KEY ("dictionaryEntryId") REFERENCES "dictionary_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
