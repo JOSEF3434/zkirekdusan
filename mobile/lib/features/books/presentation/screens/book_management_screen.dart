@@ -8,6 +8,7 @@ import '../providers/book_admin_providers.dart';
 import '../providers/book_download_settings_provider.dart';
 import '../providers/book_permissions_provider.dart';
 import '../providers/books_providers.dart';
+import '../providers/dictionary_providers.dart';
 import '../widgets/book_download_settings_dialog.dart';
 
 class BookManagementScreen extends ConsumerStatefulWidget {
@@ -57,6 +58,33 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
   }
 
   // ── Status Action Handlers ──────────────────────────────────────────────
+  Future<void> _reindexDictionary(BookModel book) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Triggering indexing for "${book.title}"...')),
+      );
+      await ref.read(dictionaryRepositoryProvider).triggerProcess(book.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dictionary indexing started in background!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        ref.read(bookAdminListProvider.notifier).refresh();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to trigger indexing: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
 
   Future<void> _togglePublish(BookModel book) async {
     final isPublished = book.status == BookStatus.published;
@@ -604,6 +632,35 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
                           ),
                         ),
                       ),
+                      // Dictionary badge in admin tile
+                      if (book.isDictionary) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.translate_rounded, size: 10, color: Colors.purple),
+                              const SizedBox(width: 3),
+                              Text(
+                                book.dictionaryConfig != null
+                                    ? '${book.dictionaryConfig!.sourceLanguage?.code.toUpperCase() ?? ''}→${book.dictionaryConfig!.targetLanguage?.code.toUpperCase() ?? ''} (${book.dictionaryConfig!.processingStatus})'
+                                    : 'መዝገበ ቃላት',
+                                style: const TextStyle(
+                                  color: Colors.purple,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 8),
                       const Spacer(),
                       // Last updated
@@ -665,6 +722,9 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
                     break;
                   case 'archive':
                     _toggleArchive(book);
+                    break;
+                  case 'reindex':
+                    _reindexDictionary(book);
                     break;
                   case 'delete':
                     _deleteBook(book, permanent: false);
@@ -733,6 +793,17 @@ class _BookManagementScreenState extends ConsumerState<BookManagementScreen>
                               ? 'Restore'
                               : 'Archive',
                         ),
+                      ],
+                    ),
+                  ),
+                if (book.isDictionary && perms.canManageDictionaries)
+                  const PopupMenuItem(
+                    value: 'reindex',
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text('Re-index Dictionary'),
                       ],
                     ),
                   ),

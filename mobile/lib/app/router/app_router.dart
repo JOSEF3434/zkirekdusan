@@ -43,6 +43,8 @@ import 'package:mobile/features/books/presentation/screens/book_reader_screen.da
 import 'package:mobile/features/books/presentation/screens/book_form_screen.dart';
 import 'package:mobile/features/books/presentation/screens/book_management_screen.dart';
 import 'package:mobile/features/books/presentation/screens/category_management_screen.dart';
+import 'package:mobile/features/books/presentation/screens/manage_dictionary_languages_screen.dart';
+import 'package:mobile/features/books/presentation/screens/translation_history_screen.dart';
 import 'package:mobile/features/books/data/models/book_model.dart';
 
 import 'package:mobile/features/calendar/presentation/calendar_screen.dart';
@@ -876,6 +878,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'categories',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) => const CategoryManagementScreen(),
+                  ),
+                  GoRoute(
+                    path: 'languages',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const ManageDictionaryLanguagesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'history',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const TranslationHistoryScreen(),
                   ),
                   GoRoute(
                     path: ':id',
