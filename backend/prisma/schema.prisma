@@ -416,6 +416,10 @@ model User {
   readingPrefs        UserReadingPrefs?
   modifiedBookDownloadSettings BookDownloadSetting[] @relation("BookDownloadSettingModifier")
 
+  // Dictionary Relations
+  createdLanguages    DictionaryLanguage[]     @relation("LanguageCreator")
+  translationHistories UserTranslationHistory[]
+
   // Amharic Alephat Learning & Reference
   createdAlephatLetters   AlephatLetter[]  @relation("AlephatLetterCreator")
   updatedAlephatLetters   AlephatLetter[]  @relation("AlephatLetterUpdater")
@@ -2696,15 +2700,17 @@ model MessageMention {
 // ─────────────────────────────────────────────
 
 model SearchHistory {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation("UserSearchHistory", fields: [userId], references: [id], onDelete: Cascade)
-  query     String
-  filters   Json?
-  createdAt DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation("UserSearchHistory", fields: [userId], references: [id], onDelete: Cascade)
+  query      String
+  filters    Json?
+  entityType String?
+  timestamp  DateTime? @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
-  @@map("search_histories")
+  @@map("search_history")
 }
 
 model Report {
@@ -2969,6 +2975,17 @@ enum BookLanguage {
   OTHER
 }
 
+enum DictionaryProcessingStatus {
+  PENDING
+  VALIDATING
+  EXTRACTING
+  PARSING
+  INDEXING
+  READY
+  FAILED
+  RETRYING
+}
+
 // Hierarchical category tree for the library.
 // parentId = null → top-level category/tab.
 model BookCategory {
@@ -3051,6 +3068,12 @@ model Book {
   chapters    BookChapter[]
   attachments BookAttachment[]
 
+  // Dictionary Fields
+  isDictionary             Boolean                  @default(false)
+  dictionaryConfig         DictionaryBookConfig?
+  dictionaryEntries        DictionaryEntry[]
+  userTranslationHistories UserTranslationHistory[]
+
 
   deletedAt DateTime?
 
@@ -3070,6 +3093,7 @@ model Book {
   @@index([sortOrder])
   @@index([deletedAt])
   @@index([createdAt])
+  @@index([isDictionary])
   @@map("books")
 }
 
@@ -3254,4 +3278,127 @@ model BookAttachment {
   @@map("book_attachments")
 }
 
+// ─────────────────────────────────────────────
+// DICTIONARY SYSTEM (BOOK-AWARE MULTILINGUAL)
+// ─────────────────────────────────────────────
 
+model DictionaryLanguage {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  name           String
+  nativeName     String
+  direction      String    @default("ltr")
+  localizedNames Json?
+  isEnabled      Boolean   @default(true)
+  sortOrder      Int       @default(0)
+
+  sourceDictionaries DictionaryBookConfig[] @relation("SourceLanguage")
+  targetDictionaries DictionaryBookConfig[] @relation("TargetLanguage")
+
+  createdById    String?
+  createdBy      User?     @relation("LanguageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([code])
+  @@index([isEnabled])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@map("dictionary_languages")
+}
+
+model DictionaryBookConfig {
+  id               String                     @id @default(uuid())
+  bookId           String                     @unique
+  book             Book                       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  dictionaryName   String
+  description      String?                    @db.Text
+  sourceLanguageId String
+  sourceLanguage   DictionaryLanguage         @relation("SourceLanguage", fields: [sourceLanguageId], references: [id])
+  targetLanguageId String
+  targetLanguage   DictionaryLanguage         @relation("TargetLanguage", fields: [targetLanguageId], references: [id])
+  processingStatus DictionaryProcessingStatus @default(PENDING)
+  totalEntries     Int                        @default(0)
+  errorMessage     String?                    @db.Text
+  processedAt      DateTime?
+  metadata         Json?
+
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  entries          DictionaryEntry[]
+
+  @@index([bookId])
+  @@index([sourceLanguageId])
+  @@index([targetLanguageId])
+  @@index([processingStatus])
+  @@map("dictionary_book_configs")
+}
+
+model DictionaryEntry {
+  id                 String                @id @default(uuid())
+  bookId             String
+  book               Book                  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  configId           String
+  config             DictionaryBookConfig  @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  headword           String
+  normalizedHeadword String
+
+  sourceLanguageCode String
+  targetLanguageCode String
+
+  definition         String                @db.Text
+  definitions        Json?
+
+  entryNumber        Int                   @default(0)
+  pageNumber         Int?
+  chapterTitle       String?
+  metadata           Json?
+
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  historyItems       UserTranslationHistory[]
+
+  @@index([bookId])
+  @@index([configId])
+  @@index([normalizedHeadword])
+  @@index([sourceLanguageCode, targetLanguageCode])
+  @@index([sourceLanguageCode, normalizedHeadword])
+  @@map("dictionary_entries")
+}
+
+model UserTranslationHistory {
+  id                     String           @id @default(uuid())
+  userId                 String
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  word                   String
+  sourceLanguage         String
+  targetLanguage         String
+  definition             String           @db.Text
+
+  dictionaryBookId       String?
+  dictionaryBook         Book?            @relation(fields: [dictionaryBookId], references: [id], onDelete: SetNull)
+
+  dictionaryEntryId      String?
+  dictionaryEntry        DictionaryEntry? @relation(fields: [dictionaryEntryId], references: [id], onDelete: SetNull)
+
+  dictionaryNameSnapshot String
+
+  pageNumber             Int?
+  chapter                String?
+  surroundingSentence    String?          @db.Text
+
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, word])
+  @@index([userId, sourceLanguage, targetLanguage])
+  @@map("user_translation_histories")
+}

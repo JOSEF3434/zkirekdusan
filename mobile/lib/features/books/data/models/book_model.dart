@@ -1,3 +1,4 @@
+import 'dictionary_model.dart';
 import 'book_attachment_model.dart';
 
 enum BookFormat { pdf, epub, text, audio, externalLink }
@@ -174,6 +175,10 @@ class BookModel {
   // Supplementary multi-media attachments
   final List<BookAttachmentModel> attachments;
 
+  // Dictionary fields
+  final bool isDictionary;
+  final DictionaryConfigModel? dictionaryConfig;
+
   // My progress (populated when authenticated)
   final ReadingProgressModel? myProgress;
 
@@ -211,6 +216,8 @@ class BookModel {
     this.contentFileSizeBytes,
     required this.chapters,
     this.attachments = const [],
+    this.isDictionary = false,
+    this.dictionaryConfig,
     this.myProgress,
     required this.createdAt,
     required this.updatedAt,
@@ -264,6 +271,11 @@ class BookModel {
               .map((a) => BookAttachmentModel.fromJson(a as Map<String, dynamic>))
               .toList()
           : [],
+      isDictionary: json['isDictionary'] as bool? ?? false,
+      dictionaryConfig: json['dictionaryConfig'] != null
+          ? DictionaryConfigModel.fromJson(
+              json['dictionaryConfig'] as Map<String, dynamic>)
+          : null,
       myProgress: rawProgress != null && rawProgress is Map
           ? ReadingProgressModel.fromJson(
               rawProgress as Map<String, dynamic>)

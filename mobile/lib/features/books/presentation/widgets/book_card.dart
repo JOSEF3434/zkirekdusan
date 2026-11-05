@@ -94,6 +94,40 @@ class BookCard extends ConsumerWidget {
                     child: _FormatBadge(format: book.format),
                   ),
 
+                  // Dictionary badge
+                  if (book.isDictionary)
+                    Positioned(
+                      top: 32,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6B21A8).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 4),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.translate_rounded, size: 10, color: Colors.white),
+                            const SizedBox(width: 3),
+                            Text(
+                              book.dictionaryConfig != null
+                                  ? '${book.dictionaryConfig!.sourceLanguage?.code.toUpperCase() ?? ''}→${book.dictionaryConfig!.targetLanguage?.code.toUpperCase() ?? ''}'
+                                  : 'መዝገበ ቃላት',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   // Download / status badge
                   Positioned(
                     top: 8,
@@ -161,6 +195,24 @@ class BookCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (book.isDictionary) ...[
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'መዝገበ ቃላት',
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                   if (book.author != null && book.author!.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(

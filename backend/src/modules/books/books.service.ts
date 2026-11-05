@@ -16,7 +16,7 @@ import { UpsertReadingProgressDto } from './dto/upsert-reading-progress.dto.js';
 import { CreateBookBookmarkDto } from './dto/create-bookmark.dto.js';
 import { UpsertReadingPrefsDto } from './dto/upsert-reading-prefs.dto.js';
 import { CreateBookChapterDto, UpdateBookChapterDto } from './dto/create-book-chapter.dto.js';
-import { BookDownloadDestination, BookStatus, Prisma } from '@prisma/client';
+import { BookDownloadDestination, BookStatus, Prisma, DictionaryProcessingStatus } from '@prisma/client';
 import { UploadsService } from '../uploads/uploads.service.js';
 import { UpdateBookDownloadSettingDto } from './dto/book-download-setting.dto.js';
 import path from 'path';
@@ -60,6 +60,22 @@ const BOOK_LIST_SELECT = {
   categoryId: true,
   category: { select: { id: true, name: true, nameAm: true, nameGez: true, slug: true } },
   coverFile: { select: { id: true, url: true } },
+  isDictionary: true,
+  dictionaryConfig: {
+    select: {
+      id: true,
+      dictionaryName: true,
+      description: true,
+      sourceLanguageId: true,
+      sourceLanguage: { select: { id: true, code: true, name: true, nativeName: true, direction: true } },
+      targetLanguageId: true,
+      targetLanguage: { select: { id: true, code: true, name: true, nativeName: true, direction: true } },
+      processingStatus: true,
+      totalEntries: true,
+      errorMessage: true,
+      processedAt: true,
+    },
+  },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -326,8 +342,16 @@ export class BooksService {
 
     const where: Prisma.BookWhereInput = {
       deletedAt: null,
-      // Non-admins only see published books
-      ...(isAdmin ? {} : { status: BookStatus.PUBLISHED }),
+      // Non-admins only see published books and ready dictionaries
+      ...(isAdmin
+        ? {}
+        : {
+            status: BookStatus.PUBLISHED,
+            OR: [
+              { isDictionary: false },
+              { isDictionary: true, dictionaryConfig: { processingStatus: DictionaryProcessingStatus.READY } },
+            ],
+          }),
       ...(status && isAdmin ? { status } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(format ? { format } : {}),
@@ -605,6 +629,19 @@ export class BooksService {
         sortOrder: dto.sortOrder ?? 0,
         createdById: userId,
         updatedById: userId,
+        isDictionary: dto.isDictionary ?? false,
+        dictionaryConfig:
+          dto.isDictionary && dto.sourceLanguageId && dto.targetLanguageId
+            ? {
+                create: {
+                  dictionaryName: dto.dictionaryName?.trim() || dto.title,
+                  description: dto.dictionaryDescription || dto.description,
+                  sourceLanguageId: dto.sourceLanguageId,
+                  targetLanguageId: dto.targetLanguageId,
+                  processingStatus: DictionaryProcessingStatus.PENDING,
+                },
+              }
+            : undefined,
         attachments:
           dto.attachments && dto.attachments.length > 0
             ? {
@@ -672,9 +709,35 @@ export class BooksService {
       }
     }
 
+    if (dto.isDictionary !== undefined && dto.isDictionary) {
+      if (dto.sourceLanguageId && dto.targetLanguageId) {
+        if (dto.sourceLanguageId === dto.targetLanguageId) {
+          throw new BadRequestException('Source and target languages cannot be identical');
+        }
+        await this.prisma.dictionaryBookConfig.upsert({
+          where: { bookId: id },
+          update: {
+            dictionaryName: dto.dictionaryName?.trim() || dto.title || book.title,
+            description: dto.dictionaryDescription ?? undefined,
+            sourceLanguageId: dto.sourceLanguageId,
+            targetLanguageId: dto.targetLanguageId,
+          },
+          create: {
+            bookId: id,
+            dictionaryName: dto.dictionaryName?.trim() || dto.title || book.title,
+            description: dto.dictionaryDescription ?? undefined,
+            sourceLanguageId: dto.sourceLanguageId,
+            targetLanguageId: dto.targetLanguageId,
+            processingStatus: DictionaryProcessingStatus.PENDING,
+          },
+        });
+      }
+    }
+
     const updated = await this.prisma.book.update({
       where: { id },
       data: {
+        ...(dto.isDictionary !== undefined && { isDictionary: dto.isDictionary }),
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.titleAm !== undefined && { titleAm: dto.titleAm }),
         ...(dto.titleGez !== undefined && { titleGez: dto.titleGez }),

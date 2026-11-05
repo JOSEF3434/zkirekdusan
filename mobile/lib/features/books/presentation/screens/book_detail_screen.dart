@@ -685,6 +685,9 @@ class _BookInfoHeader extends StatelessWidget {
                   icon: Icons.description_outlined),
               _MetaBadge(book.language.name, theme,
                   icon: Icons.language),
+              if (book.isDictionary)
+                _MetaBadge('መዝገበ ቃላት', theme,
+                    icon: Icons.translate_rounded),
               if (book.pageCount != null)
                 _MetaBadge('${book.pageCount} pages', theme,
                     icon: Icons.menu_book_outlined),
@@ -746,6 +749,65 @@ class _DetailsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
+        // Dictionary details card
+        if (book.isDictionary) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.translate_rounded, color: theme.colorScheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'መዝገበ ቃላት (Dictionary Mode)',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (book.dictionaryConfig != null) ...[
+                  Text(
+                    'Dictionary: ${book.dictionaryConfig!.dictionaryName}',
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Language Pair: ',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                      Text(
+                        '${book.dictionaryConfig!.sourceLanguage?.name ?? ''} → ${book.dictionaryConfig!.targetLanguage?.name ?? ''}',
+                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  if (book.dictionaryConfig!.totalEntries > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Indexed Entries: ${book.dictionaryConfig!.totalEntries}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ],
         if (book.description != null && book.description!.isNotEmpty) ...[
           Text('About', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),

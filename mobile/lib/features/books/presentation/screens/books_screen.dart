@@ -191,7 +191,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           tooltip: prefs.gridView ? 'List view' : 'Grid view',
         ),
         _FilterMenuButton(libraryState: libraryState),
-        if (bookPerms.hasAnyManagementAccess)
+        if (bookPerms.hasAnyManagementAccess || bookPerms.isAuthenticated)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             tooltip: 'Book Management',
@@ -200,8 +200,12 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
                 context.push('/books/manage');
               } else if (val == 'categories') {
                 context.push('/books/categories');
+              } else if (val == 'languages') {
+                context.push('/books/languages');
               } else if (val == 'create') {
                 context.push('/books/create');
+              } else if (val == 'history') {
+                context.push('/books/history');
               }
             },
             itemBuilder: (ctx) => [
@@ -227,6 +231,17 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
                     ],
                   ),
                 ),
+              if (bookPerms.canManageLanguages)
+                const PopupMenuItem(
+                  value: 'languages',
+                  child: Row(
+                    children: [
+                      Icon(Icons.language_rounded, size: 20),
+                      SizedBox(width: 10),
+                      Text('Manage Languages'),
+                    ],
+                  ),
+                ),
               if (bookPerms.canCreate)
                 const PopupMenuItem(
                   value: 'create',
@@ -235,6 +250,17 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
                       Icon(Icons.add_circle_outline, size: 20),
                       SizedBox(width: 10),
                       Text('Add Book'),
+                    ],
+                  ),
+                ),
+              if (bookPerms.isAuthenticated)
+                const PopupMenuItem(
+                  value: 'history',
+                  child: Row(
+                    children: [
+                      Icon(Icons.history_edu_rounded, size: 20),
+                      SizedBox(width: 10),
+                      Text('Translation History'),
                     ],
                   ),
                 ),

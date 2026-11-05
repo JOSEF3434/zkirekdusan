@@ -196,5 +196,39 @@ export async function seed(prisma: PrismaClient) {
     console.log(`✅ Seeded ${INITIAL_22_ALEPHATS.length} 22 Alephat entries`);
   }
 
+  /**
+   * 7. Seed Initial Dictionary Languages
+   */
+  const defaultLanguages = [
+    { code: 'en', name: 'English', nativeName: 'English', direction: 'ltr', sortOrder: 1 },
+    { code: 'am', name: 'Amharic', nativeName: 'አማርኛ', direction: 'ltr', sortOrder: 2 },
+    { code: 'gez', name: 'Ge\'ez', nativeName: 'ግዕዝ', direction: 'ltr', sortOrder: 3 },
+    { code: 'ti', name: 'Tigrinya', nativeName: 'ትግርኛ', direction: 'ltr', sortOrder: 4 },
+    { code: 'om', name: 'Oromo', nativeName: 'Afaan Oromoo', direction: 'ltr', sortOrder: 5 },
+    { code: 'ar', name: 'Arabic', nativeName: 'العربية', direction: 'rtl', sortOrder: 6 },
+    { code: 'fr', name: 'French', nativeName: 'Français', direction: 'ltr', sortOrder: 7 },
+  ];
+
+  for (const lang of defaultLanguages) {
+    await prisma.dictionaryLanguage.upsert({
+      where: { code: lang.code },
+      update: {
+        name: lang.name,
+        nativeName: lang.nativeName,
+        direction: lang.direction,
+        sortOrder: lang.sortOrder,
+      },
+      create: {
+        code: lang.code,
+        name: lang.name,
+        nativeName: lang.nativeName,
+        direction: lang.direction,
+        sortOrder: lang.sortOrder,
+        isEnabled: true,
+      },
+    });
+  }
+  console.log(`✅ Seeded ${defaultLanguages.length} default dictionary languages`);
+
   console.log('🎉 Database seed completed successfully!');
 }

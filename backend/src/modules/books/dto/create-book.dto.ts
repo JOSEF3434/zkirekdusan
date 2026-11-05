@@ -6,6 +6,7 @@ import {
   IsInt,
   IsUUID,
   IsArray,
+  IsBoolean,
   MinLength,
   MaxLength,
   Min,
@@ -197,4 +198,31 @@ export class CreateBookDto {
   @ValidateNested({ each: true })
   @Type(() => BookAttachmentItemDto)
   attachments?: BookAttachmentItemDto[];
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isDictionary?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  dictionaryName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dictionaryDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  sourceLanguageId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  targetLanguageId?: string;
 }

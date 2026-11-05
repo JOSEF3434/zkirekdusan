@@ -4,6 +4,7 @@
 // in Phase 1 with clear messaging.
 
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:pdfx/pdfx.dart';
 import '../../data/models/book_model.dart';
 import '../../data/repositories/books_repository.dart';
 import '../providers/books_providers.dart';
+import '../widgets/translation_popup.dart';
 
 class BookReaderScreen extends ConsumerStatefulWidget {
   final String bookId;
@@ -520,6 +522,7 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
                       isDownloading: isDownloading,
                       downloadProgress: downloadProgress,
                       onDownload: _handleDownload,
+                      onTranslate: () => _showReaderTranslateDialog(context, book),
                       onToggleScroll: () =>
                           setState(() => _isVertical = !_isVertical),
                       onToggleFit: () =>
@@ -570,6 +573,7 @@ class _ReaderAppBar extends StatelessWidget {
   final bool isDownloading;
   final double downloadProgress;
   final VoidCallback onDownload;
+  final VoidCallback? onTranslate;
   final VoidCallback onToggleScroll;
   final VoidCallback onToggleFit;
   final VoidCallback onClose;
@@ -583,6 +587,7 @@ class _ReaderAppBar extends StatelessWidget {
     this.isDownloading = false,
     this.downloadProgress = 0.0,
     required this.onDownload,
+    this.onTranslate,
     required this.onToggleScroll,
     required this.onToggleFit,
     required this.onClose,
@@ -657,6 +662,12 @@ class _ReaderAppBar extends StatelessWidget {
                 : 'Horizontal swipe (click for vertical)',
             onPressed: onToggleScroll,
           ),
+          if (onTranslate != null)
+            IconButton(
+              icon: const Icon(Icons.translate_rounded, color: Colors.white),
+              tooltip: 'Dictionary / Translate word',
+              onPressed: onTranslate,
+            ),
           if (showFitToggle)
             IconButton(
               icon: Icon(
@@ -816,23 +827,60 @@ class _TextReaderScreen extends ConsumerWidget {
               },
             ),
           IconButton(
+            icon: Icon(Icons.translate_rounded, color: textColor),
+            tooltip: 'Translate Word',
+            onPressed: () => _openTranslateDialog(context, book),
+          ),
+          IconButton(
             icon: Icon(Icons.text_fields, color: textColor),
             onPressed: () => _showPrefsSheet(context, ref, prefs),
           ),
         ],
       ),
       body: book.description != null
-          ? SingleChildScrollView(
-              padding: EdgeInsets.all(prefs.pageMargin),
-              child: Text(
-                book.description!,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: prefs.fontSize,
-                  height: prefs.lineSpacing,
-                  fontFamily: prefs.fontFamily == 'default'
-                      ? null
-                      : prefs.fontFamily,
+          ? SelectionArea(
+              contextMenuBuilder: (context, selectableRegionState) {
+                final buttonItems = selectableRegionState.contextMenuButtonItems;
+                buttonItems.add(
+                  ContextMenuButtonItem(
+                    label: 'Translate',
+                    type: ContextMenuButtonType.custom,
+                    onPressed: () {
+                      selectableRegionState.hideToolbar();
+                      final copyItem = buttonItems.where((item) => item.type == ContextMenuButtonType.copy).firstOrNull;
+                      copyItem?.onPressed?.call();
+                      Clipboard.getData(Clipboard.kTextPlain).then((data) {
+                        final word = data?.text?.trim() ?? '';
+                        if (word.isNotEmpty && context.mounted) {
+                          TranslationPopup.show(
+                            context,
+                            word: word,
+                            bookId: book.isDictionary ? book.id : null,
+                            sourceLanguage: book.dictionaryConfig?.sourceLanguage?.code,
+                            targetLanguage: book.dictionaryConfig?.targetLanguage?.code,
+                          );
+                        }
+                      });
+                    },
+                  ),
+                );
+                return AdaptiveTextSelectionToolbar.buttonItems(
+                  anchors: selectableRegionState.contextMenuAnchors,
+                  buttonItems: buttonItems,
+                );
+              },
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(prefs.pageMargin),
+                child: Text(
+                  book.description!,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: prefs.fontSize,
+                    height: prefs.lineSpacing,
+                    fontFamily: prefs.fontFamily == 'default'
+                        ? null
+                        : prefs.fontFamily,
+                  ),
                 ),
               ),
             )
@@ -844,6 +892,9 @@ class _TextReaderScreen extends ConsumerWidget {
             ),
     );
   }
+
+  void _openTranslateDialog(BuildContext context, BookModel book) =>
+      _showReaderTranslateDialog(context, book);
 
   void _showPrefsSheet(
       BuildContext context, WidgetRef ref, ReadingPrefsState prefs) {
@@ -909,6 +960,89 @@ class _TextPrefsSheet extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _showReaderTranslateDialog(BuildContext context, BookModel? book) {
+  final controller = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.translate_rounded, color: Color(0xFF14B8A6)),
+          const SizedBox(width: 8),
+          Text(
+            book?.isDictionary == true
+                ? 'Dictionary Lookup'
+                : 'Translate Word',
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (book?.isDictionary == true && book?.dictionaryConfig != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Searching in: ${book!.dictionaryConfig!.dictionaryName} (${book.dictionaryConfig!.sourceLanguage?.name ?? ''} → ${book.dictionaryConfig!.targetLanguage?.name ?? ''})',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Word / Phrase',
+              hintText: 'Enter word to look up...',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.search),
+            ),
+            onSubmitted: (val) {
+              final trimmed = val.trim();
+              if (trimmed.isNotEmpty) {
+                Navigator.pop(ctx);
+                TranslationPopup.show(
+                  context,
+                  word: trimmed,
+                  bookId: book?.isDictionary == true ? book?.id : null,
+                  sourceLanguage: book?.dictionaryConfig?.sourceLanguage?.code,
+                  targetLanguage: book?.dictionaryConfig?.targetLanguage?.code,
+                );
+              }
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            final trimmed = controller.text.trim();
+            if (trimmed.isNotEmpty) {
+              Navigator.pop(ctx);
+              TranslationPopup.show(
+                context,
+                word: trimmed,
+                bookId: book?.isDictionary == true ? book?.id : null,
+                sourceLanguage: book?.dictionaryConfig?.sourceLanguage?.code,
+                targetLanguage: book?.dictionaryConfig?.targetLanguage?.code,
+              );
+            }
+          },
+          icon: const Icon(Icons.translate, size: 16),
+          label: const Text('Translate'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _UnsupportedFormatScreen extends StatelessWidget {

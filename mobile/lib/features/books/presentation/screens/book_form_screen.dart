@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/book_attachment_model.dart';
 import '../../data/models/book_category_model.dart';
 import '../../data/models/book_model.dart';
+import '../../data/models/dictionary_model.dart';
+import '../providers/dictionary_providers.dart';
 import '../providers/book_admin_providers.dart';
 import '../providers/book_permissions_provider.dart';
 import '../providers/books_providers.dart';
@@ -64,6 +66,14 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
 
   final List<_AttachmentFormItem> _attachments = [];
 
+  // Dictionary Mode states
+  bool _isDictionary = false;
+  late final TextEditingController _dictionaryNameController;
+  late final TextEditingController _dictionaryDescController;
+  String? _sourceLanguageId;
+  String? _targetLanguageId;
+  DictionaryConfigModel? _existingDictConfig;
+
   bool _isSaving = false;
   double? _contentUploadProgress;
 
@@ -94,6 +104,16 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     _externalUrlController = TextEditingController(text: b?.externalUrl ?? '');
     _sortOrderController =
         TextEditingController(text: (b?.sortOrder ?? 0).toString());
+    _isDictionary = b?.isDictionary ?? false;
+    _dictionaryNameController = TextEditingController(
+      text: b?.dictionaryConfig?.dictionaryName ?? (b?.isDictionary == true ? b?.title ?? '' : ''),
+    );
+    _dictionaryDescController = TextEditingController(
+      text: b?.dictionaryConfig?.description ?? '',
+    );
+    _sourceLanguageId = b?.dictionaryConfig?.sourceLanguageId;
+    _targetLanguageId = b?.dictionaryConfig?.targetLanguageId;
+    _existingDictConfig = b?.dictionaryConfig;
 
     if (b != null) {
       _selectedCategoryId = b.categoryId;
@@ -144,6 +164,12 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             _tagsController.text = b.tags.join(', ');
             _externalUrlController.text = b.externalUrl ?? '';
             _sortOrderController.text = b.sortOrder.toString();
+            _isDictionary = b.isDictionary;
+            _dictionaryNameController.text = b.dictionaryConfig?.dictionaryName ?? (b.isDictionary ? b.title : '');
+            _dictionaryDescController.text = b.dictionaryConfig?.description ?? '';
+            _sourceLanguageId = b.dictionaryConfig?.sourceLanguageId;
+            _targetLanguageId = b.dictionaryConfig?.targetLanguageId;
+            _existingDictConfig = b.dictionaryConfig;
             _selectedCategoryId = b.categoryId;
             _language = _langToString(b.language);
             _format = _formatToString(b.format);
@@ -227,6 +253,8 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     _tagsController.dispose();
     _externalUrlController.dispose();
     _sortOrderController.dispose();
+    _dictionaryNameController.dispose();
+    _dictionaryDescController.dispose();
     for (final a in _attachments) {
       a.dispose();
     }
@@ -507,6 +535,23 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
         }
       }
 
+      if (_isDictionary) {
+        if (_sourceLanguageId == null || _targetLanguageId == null) {
+          _showErrorSnackBar(
+            'Please select both Source and Target languages for the dictionary',
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+        if (_sourceLanguageId == _targetLanguageId) {
+          _showErrorSnackBar(
+            'Source and Target languages cannot be identical',
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
+
       // 4. Build data map
       final tags = _tagsController.text
           .split(',')
@@ -549,18 +594,34 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
         'coverFileId': ?coverId,
         'contentFileId': ?contentId,
         'attachments': attachmentsData,
+        'isDictionary': _isDictionary,
+        if (_isDictionary) ...{
+          'dictionaryName': _dictionaryNameController.text.trim().isNotEmpty
+              ? _dictionaryNameController.text.trim()
+              : _titleController.text.trim(),
+          if (_dictionaryDescController.text.trim().isNotEmpty)
+            'dictionaryDescription': _dictionaryDescController.text.trim(),
+          if (_sourceLanguageId != null) 'sourceLanguageId': _sourceLanguageId,
+          if (_targetLanguageId != null) 'targetLanguageId': _targetLanguageId,
+        },
       };
 
-      if (isEditing) {
-        await repo.updateBook(widget.bookId!, data);
-      } else {
-        await repo.createBook(data);
+      final savedBook = isEditing
+          ? await repo.updateBook(widget.bookId!, data)
+          : await repo.createBook(data);
+
+      if (_isDictionary) {
+        try {
+          await ref.read(dictionaryRepositoryProvider).triggerProcess(savedBook.id);
+        } catch (_) {}
       }
 
       // Refresh providers
       ref.read(bookAdminListProvider.notifier).refresh();
       ref.read(libraryProvider.notifier).refresh();
       ref.invalidate(bookCategoriesProvider);
+      ref.invalidate(availableDictionariesProvider);
+      ref.invalidate(adminDictionariesProvider);
       if (widget.bookId != null) {
         ref.invalidate(bookDetailProvider(widget.bookId!));
       }
@@ -992,6 +1053,13 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
 
             const SizedBox(height: 24),
 
+            // ── Section 5.5: Dictionary Mode Configuration (Admin Only) ──
+            if (perms.canManageDictionaries) ...[
+              _buildDictionarySection(theme),
+            ],
+
+            const SizedBox(height: 24),
+
             // ── Section 6: Status & Sorting ───────────────────────────────
             _buildSectionHeader(
               theme,
@@ -1093,6 +1161,343 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+
+
+  Widget _buildDictionarySection(ThemeData theme) {
+    final languagesAsync = ref.watch(availableDictionaryLanguagesProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _isDictionary
+            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.15)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isDictionary
+              ? theme.colorScheme.primary.withValues(alpha: 0.5)
+              : theme.colorScheme.outlineVariant,
+          width: _isDictionary ? 1.5 : 1.0,
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _isDictionary
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outlineVariant,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.translate_rounded,
+                  color: _isDictionary
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enable Dictionary Mode (መዝገበ ቃላት)',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: _isDictionary
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Index entries for in-book word lookup & translation',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: _isDictionary,
+                activeThumbColor: theme.colorScheme.primary,
+                onChanged: (val) {
+                  setState(() {
+                    _isDictionary = val;
+                    if (val && _dictionaryNameController.text.trim().isEmpty) {
+                      _dictionaryNameController.text = _titleController.text.trim();
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+          if (_isDictionary) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+
+            // Processing Status Card (if editing)
+            if (_existingDictConfig != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _existingDictConfig!.isReady
+                          ? Icons.check_circle_rounded
+                          : _existingDictConfig!.isFailed
+                              ? Icons.error_rounded
+                              : Icons.hourglass_top_rounded,
+                      size: 20,
+                      color: _existingDictConfig!.isReady
+                          ? Colors.green
+                          : _existingDictConfig!.isFailed
+                              ? theme.colorScheme.error
+                              : Colors.orange,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Status: ${_existingDictConfig!.processingStatus}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '${_existingDictConfig!.totalEntries} entries indexed',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isEditing)
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          try {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Triggering dictionary indexing...'),
+                              ),
+                            );
+                            await ref
+                                .read(dictionaryRepositoryProvider)
+                                .triggerProcess(widget.bookId!);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Processing started in background!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              _loadDetailsIfNeeded();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              _showErrorSnackBar('Failed to trigger indexing: $e');
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Re-index'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_existingDictConfig!.errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.colorScheme.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          size: 18, color: theme.colorScheme.error),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _existingDictConfig!.errorMessage!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+
+            TextFormField(
+              controller: _dictionaryNameController,
+              decoration: const InputDecoration(
+                labelText: 'Dictionary Name *',
+                hintText: 'e.g. መዝገበ ቃላት / English-Amharic Dictionary',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.menu_book_rounded),
+              ),
+              validator: (v) => _isDictionary && (v == null || v.trim().isEmpty)
+                  ? 'Dictionary name is required'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _dictionaryDescController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Dictionary Description (optional)',
+                hintText: 'Scope, target vocabulary, or usage notes',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.description_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Language Pair Dropdowns
+            languagesAsync.when(
+              data: (langs) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Source Language
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _sourceLanguageId,
+                            decoration: const InputDecoration(
+                              labelText: 'Translate From *',
+                              hintText: 'Source',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.input_rounded),
+                            ),
+                            items: langs
+                                .map(
+                                  (l) => DropdownMenuItem(
+                                    value: l.id,
+                                    child: Text(
+                                      l.nativeName.isNotEmpty
+                                          ? '${l.name} (${l.nativeName})'
+                                          : l.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _sourceLanguageId = v),
+                            validator: (v) =>
+                                _isDictionary && (v == null || v.isEmpty)
+                                    ? 'Select source language'
+                                    : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Target Language
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _targetLanguageId,
+                            decoration: const InputDecoration(
+                              labelText: 'Translate To *',
+                              hintText: 'Target',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.output_rounded),
+                            ),
+                            items: langs
+                                .map(
+                                  (l) => DropdownMenuItem(
+                                    value: l.id,
+                                    child: Text(
+                                      l.nativeName.isNotEmpty
+                                          ? '${l.name} (${l.nativeName})'
+                                          : l.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _targetLanguageId = v),
+                            validator: (v) =>
+                                _isDictionary && (v == null || v.isEmpty)
+                                    ? 'Select target language'
+                                    : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_sourceLanguageId != null &&
+                        _targetLanguageId != null &&
+                        _sourceLanguageId == _targetLanguageId) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Source and target languages cannot be identical',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (err, _) => Text(
+                'Failed to load languages: $err',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Supported formats for dictionary indexing: PDF and EPUB.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

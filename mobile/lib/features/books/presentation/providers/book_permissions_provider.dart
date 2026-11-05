@@ -42,6 +42,15 @@ class BookPermissions {
   bool get canManageCategories =>
       isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
 
+  /// Permission to manage dictionary languages (centralized language registry)
+  bool get canManageLanguages =>
+      isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
+
+  /// Permission to manage dictionary books (process, configure, publish)
+  bool get canManageDictionaries =>
+      isAuthenticated &&
+      (role == 'SUPER_ADMIN' || role == 'ADMIN' || role == 'MODERATOR');
+
   /// Permission to access the central book management interface
   bool get canManageLibrary =>
       isAuthenticated &&
@@ -54,6 +63,8 @@ class BookPermissions {
       canDelete ||
       canPublish ||
       canManageCategories ||
+      canManageLanguages ||
+      canManageDictionaries ||
       canManageLibrary;
 }
 
