@@ -52,6 +52,7 @@ class MessagingSocketService {
   MessagingSocketService(this._apiClient, this._ref);
 
   bool get isConnected => _isConnected;
+  Timer? _recoveryTimer;
 
   Future<void> connect() async {
     if (_socket != null && _isConnected) {
@@ -75,17 +76,29 @@ class MessagingSocketService {
       final socketUrl = baseUrl.endsWith('/') ? '${baseUrl}chat' : '$baseUrl/chat';
       _logger.i('MessagingSocket: Connecting to $socketUrl');
 
+      // Safely tear down any prior broken or poisoned socket
+      if (_socket != null) {
+        try {
+          _socket!.clearListeners();
+          _socket!.disconnect();
+          _socket!.dispose();
+        } catch (_) {}
+        _socket = null;
+      }
+
       _socket = io.io(
         socketUrl,
         io.OptionBuilder()
-            .setTransports(['websocket', 'polling'])
+            .setTransports(['websocket'])
+            .enableForceNew()
+            .disableAutoConnect()
             .setAuth({'token': token})
             .setQuery({'token': token})
             .setExtraHeaders({'Authorization': 'Bearer $token'})
-            .enableAutoConnect()
             .enableReconnection()
             .setReconnectionAttempts(999999)
             .setReconnectionDelay(1000)
+            .setReconnectionDelayMax(5000)
             .build(),
       );
 
@@ -96,8 +109,27 @@ class MessagingSocketService {
     }
   }
 
+  void _scheduleCleanRecovery() {
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer(const Duration(seconds: 2), () {
+      _logger.w('MessagingSocket: Executing clean socket re-initialization after transport failure...');
+      _isConnected = false;
+      _connectionStatusController.add(false);
+      if (_socket != null) {
+        try {
+          _socket!.clearListeners();
+          _socket!.disconnect();
+          _socket!.dispose();
+        } catch (_) {}
+        _socket = null;
+      }
+      connect();
+    });
+  }
+
   void _setupSocketListeners() {
     _socket!.onConnect((_) {
+      _recoveryTimer?.cancel();
       _isConnected = true;
       _connectionStatusController.add(true);
       _logger.i('MessagingSocket: Connected to /chat');
@@ -108,6 +140,7 @@ class MessagingSocketService {
     });
 
     _socket!.on('reconnect', (_) {
+      _recoveryTimer?.cancel();
       _isConnected = true;
       _connectionStatusController.add(true);
       _logger.i('MessagingSocket: Reconnected, re-joining ${_joinedConversations.length} rooms');
@@ -124,10 +157,16 @@ class MessagingSocketService {
 
     _socket!.onConnectError((error) {
       _logger.e('MessagingSocket: Connection error: $error');
+      if (error.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
     });
 
     _socket!.onError((error) {
       _logger.e('MessagingSocket: Error: $error');
+      if (error.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
     });
 
     // Message events
@@ -385,11 +424,18 @@ class MessagingSocketService {
   }
 
   void disconnect() {
+    _recoveryTimer?.cancel();
     _joinedConversations.clear();
-    _socket?.disconnect();
-    _socket?.dispose();
-    _socket = null;
+    if (_socket != null) {
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (_) {}
+      _socket = null;
+    }
     _isConnected = false;
+    _connectionStatusController.add(false);
     _logger.i('MessagingSocket: Disconnected and disposed');
   }
 

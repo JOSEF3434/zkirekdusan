@@ -32,6 +32,7 @@ class CallService {
 
   Timer? _durationTimer;
   Timer? _callTimeoutTimer;
+  Timer? _recoveryTimer;
   bool _renderersInitialized = false;
 
   CallService(this._ref, this._notifier);
@@ -87,27 +88,32 @@ class CallService {
     final socketUrl = baseUrl.endsWith('/') ? '${baseUrl}chat' : '$baseUrl/chat';
 
     if (_socket != null) {
-      _socket!.clearListeners();
-      _socket!.disconnect();
-      _socket!.dispose();
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (_) {}
       _socket = null;
     }
 
     _socket = io.io(
       socketUrl,
       io.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
+          .setTransports(['websocket'])
+          .enableForceNew()
+          .disableAutoConnect()
           .setAuth({'token': token})
           .setQuery({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
-          .enableAutoConnect()
           .enableReconnection()
           .setReconnectionAttempts(999999)
           .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
           .build(),
     );
 
     _socket!.onConnect((_) {
+      _recoveryTimer?.cancel();
       _isConnectingSocket = false;
       debugPrint('[CallService] Connected to chat/call signaling gateway');
     });
@@ -115,6 +121,17 @@ class CallService {
     _socket!.onConnectError((err) {
       _isConnectingSocket = false;
       debugPrint('[CallService] Signaling socket connect error: $err');
+      if (err.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
+    });
+
+    _socket!.onError((err) {
+      _isConnectingSocket = false;
+      debugPrint('[CallService] Signaling socket error: $err');
+      if (err.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
     });
 
     _socket!.onDisconnect((_) {
@@ -266,6 +283,23 @@ class CallService {
     });
 
     _socket!.connect();
+  }
+
+  void _scheduleCleanRecovery() {
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer(const Duration(seconds: 2), () {
+      debugPrint('[CallService] Recovering signaling socket after transport failure...');
+      _isConnectingSocket = false;
+      if (_socket != null) {
+        try {
+          _socket!.clearListeners();
+          _socket!.disconnect();
+          _socket!.dispose();
+        } catch (_) {}
+        _socket = null;
+      }
+      _connectSignalingSocket();
+    });
   }
 
   // ─── Initiate Outgoing Call ────────────────────────────────────────────────
@@ -761,10 +795,16 @@ class CallService {
   }
 
   void dispose() {
+    _recoveryTimer?.cancel();
     _cleanupPeerConnection();
-    _socket?.disconnect();
-    _socket?.dispose();
-    _socket = null;
+    if (_socket != null) {
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (_) {}
+      _socket = null;
+    }
     if (_renderersInitialized) {
       localRenderer.dispose();
       remoteRenderer.dispose();

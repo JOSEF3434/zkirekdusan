@@ -67,6 +67,7 @@ class NotificationSocketService {
       '$baseUrl/notifications',
       io.OptionBuilder()
           .setTransports(['websocket'])
+          .enableForceNew()
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
           .disableAutoConnect()

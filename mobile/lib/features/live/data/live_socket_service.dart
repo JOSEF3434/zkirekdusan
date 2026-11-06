@@ -1,4 +1,4 @@
-﻿// lib/features/live/data/live_socket_service.dart
+// lib/features/live/data/live_socket_service.dart
 // Manages the Socket.IO connection to the backend /live namespace.
 // Provides strongly-typed Dart Streams for all server-to-client events.
 
@@ -101,6 +101,7 @@ enum SocketConnectionState {
 class LiveSocketService {
   io.Socket? _socket;
   String? _currentToken;
+  Timer? _recoveryTimer;
 
   final _connectionStateCtrl =
       StreamController<SocketConnectionState>.broadcast();
@@ -186,8 +187,14 @@ class LiveSocketService {
   Future<void> connect(String token) async {
     if (_socket != null && _socket!.connected && token == _currentToken) return;
 
-    _socket?.disconnect();
-    _socket?.dispose();
+    if (_socket != null) {
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (_) {}
+      _socket = null;
+    }
 
     _currentToken = token;
     _connectionStateCtrl.add(SocketConnectionState.connecting);
@@ -197,11 +204,12 @@ class LiveSocketService {
     _socket = io.io(
       '$baseUrl/live',
       io.OptionBuilder()
-          .setTransports(['websocket', 'polling'])
+          .setTransports(['websocket'])
+          .enableForceNew()
+          .disableAutoConnect()
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
           .setQuery({'token': token})
-          .enableAutoConnect()
           .enableReconnection()
           .setReconnectionAttempts(20)
           .setReconnectionDelay(1500)
@@ -213,10 +221,22 @@ class LiveSocketService {
     _socket!.connect();
   }
 
+  void _scheduleCleanRecovery() {
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer(const Duration(seconds: 2), () {
+      if (_currentToken != null) {
+        final token = _currentToken!;
+        disconnect();
+        connect(token);
+      }
+    });
+  }
+
   void _bindEvents() {
     final s = _socket!;
 
     s.onConnect((_) {
+      _recoveryTimer?.cancel();
       _connectionStateCtrl.add(SocketConnectionState.connected);
     });
     s.onDisconnect((_) {
@@ -227,6 +247,14 @@ class LiveSocketService {
     });
     s.onConnectError((e) {
       _connectionStateCtrl.add(SocketConnectionState.failed);
+      if (e.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
+    });
+    s.onError((e) {
+      if (e.toString().contains('No transports available')) {
+        _scheduleCleanRecovery();
+      }
     });
 
     s.on(LiveEvents.chatMessage, (data) {
@@ -439,9 +467,15 @@ class LiveSocketService {
   // Disconnect
 
   void disconnect() {
-    _socket?.disconnect();
-    _socket?.dispose();
-    _socket = null;
+    _recoveryTimer?.cancel();
+    if (_socket != null) {
+      try {
+        _socket!.clearListeners();
+        _socket!.disconnect();
+        _socket!.dispose();
+      } catch (_) {}
+      _socket = null;
+    }
     _currentToken = null;
     _connectionStateCtrl.add(SocketConnectionState.disconnected);
   }
