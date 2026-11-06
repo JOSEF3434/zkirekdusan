@@ -677,6 +677,121 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     );
   }
 
+  InputDecoration _inputDeco({
+    required ThemeData theme,
+    required String labelText,
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+    bool alignLabelWithHint = false,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      alignLabelWithHint: alignLabelWithHint,
+      filled: true,
+      fillColor: theme.colorScheme.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.primary,
+          width: 1.6,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.error,
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required ThemeData theme,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<Widget> children,
+    Widget? trailing,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 18),
+          ...children,
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -693,7 +808,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 16),
             child: FilledButton.icon(
               onPressed: _isSaving ? null : _save,
               icon: _isSaving
@@ -705,484 +820,533 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.check, size: 18),
-              label: Text(_isSaving ? 'Saving...' : 'Save'),
+                  : const Icon(Icons.check_rounded, size: 18),
+              label: Text(_isSaving ? 'Saving...' : 'Save Book'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
             ),
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          children: [
-            // ── Section 1: Basic Information ──────────────────────────────
-            _buildSectionHeader(theme, 'Basic Information', Icons.info_outline),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Book Title *',
-                hintText: 'Enter title (English / Primary)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.title),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          // Responsive horizontal padding for large screens / media
+          final double horizontalPadding;
+          if (width >= 1400) {
+            horizontalPadding = (width - 960) / 2;
+          } else if (width >= 1000) {
+            horizontalPadding = (width - 860) / 2;
+          } else if (width >= 700) {
+            horizontalPadding = (width - 640) / 2;
+          } else {
+            horizontalPadding = 16.0;
+          }
+
+          return Form(
+            key: _formKey,
+            child: ListView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 20,
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Title is required' : null,
-            ),
-            const SizedBox(height: 12),
-            Row(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _titleAmController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title (Amharic)',
-                      hintText: 'ርዕስ',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _titleGezController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title (Ge\'ez)',
-                      hintText: 'አርዕስት',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _subtitleController,
-              decoration: const InputDecoration(
-                labelText: 'Subtitle',
-                hintText: 'Optional subtitle',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _descriptionController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Overview, synopsis, or content summary',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Section 2: Authorship & Publishing ────────────────────────
-            _buildSectionHeader(
-              theme,
-              'Authorship & Publication',
-              Icons.person_outline,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _authorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Author *',
-                      hintText: 'Author or Church Father',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Author is required'
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _translatorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Translator',
-                      hintText: 'Translator if applicable',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _publisherController,
-                    decoration: const InputDecoration(
-                      labelText: 'Publisher',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _publishedYearController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Year',
-                      hintText: 'e.g. 2015',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _editionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Edition',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _pageCountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Pages',
-                      hintText: 'e.g. 240',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Section 3: Category, Language & Tags ───────────────────────
-            _buildSectionHeader(
-              theme,
-              'Classification & Language',
-              Icons.category_outlined,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _language,
-                    decoration: const InputDecoration(
-                      labelText: 'Language',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'AMHARIC',
-                        child: Text(
-                          'Amharic (አማርኛ)',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                // ── Section 1: Basic Information ──────────────────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Basic Information',
+                  subtitle: 'Primary book titles, subtitle, and content overview',
+                  icon: Icons.menu_book_rounded,
+                  children: [
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: _inputDeco(
+                        theme: theme,
+                        labelText: 'Book Title *',
+                        hintText: 'Enter title (English / Primary)',
+                        prefixIcon: const Icon(Icons.title),
                       ),
-                      DropdownMenuItem(
-                        value: 'GEEZ',
-                        child: Text(
-                          'Ge\'ez (ግዕዝ)',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'ENGLISH',
-                        child: Text(
-                          'English',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'OTHER',
-                        child: Text(
-                          'Other',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _language = v);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: categoriesAsync.when(
-                    data: (cats) {
-                      final items = _flattenCategories(cats);
-                      return DropdownButtonFormField<String?>(
-                        isExpanded: true,
-                        initialValue: _selectedCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text(
-                              'No Category',
-                              overflow: TextOverflow.ellipsis,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Title is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _titleAmController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Title (Amharic)',
+                              hintText: 'ርዕስ',
                             ),
                           ),
-                          ...items.map(
-                            (c) => DropdownMenuItem(
-                              value: c.id,
-                              child: Text(
-                                c.prefix + c.category.name,
-                                overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _titleGezController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Title (Ge\'ez)',
+                              hintText: 'አርዕስት',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _subtitleController,
+                      decoration: _inputDeco(
+                        theme: theme,
+                        labelText: 'Subtitle',
+                        hintText: 'Optional subtitle or alternative title',
+                        prefixIcon: const Icon(Icons.subtitles_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _descriptionController,
+                      maxLines: 4,
+                      decoration: _inputDeco(
+                        theme: theme,
+                        labelText: 'Description',
+                        hintText: 'Overview, synopsis, or content summary',
+                        alignLabelWithHint: true,
+                        prefixIcon: const Icon(Icons.notes_rounded),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ── Section 2: Authorship & Publication ──────────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Authorship & Publication',
+                  subtitle: 'Church Fathers, authors, translator, publisher & dates',
+                  icon: Icons.person_outline_rounded,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _authorController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Author *',
+                              hintText: 'Author or Church Father',
+                              prefixIcon: const Icon(Icons.person),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Author is required'
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _translatorController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Translator',
+                              hintText: 'Translator if applicable',
+                              prefixIcon: const Icon(Icons.translate_rounded),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _publisherController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Publisher',
+                              hintText: 'Publishing house / Church / Diocese',
+                              prefixIcon: const Icon(Icons.business_outlined),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _publishedYearController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Year',
+                              hintText: 'e.g. 2015',
+                              prefixIcon: const Icon(Icons.calendar_today_outlined),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _editionController,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Edition',
+                              hintText: 'e.g. 1st, Revised, Jubilee',
+                              prefixIcon: const Icon(Icons.bookmark_border_rounded),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _pageCountController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Pages',
+                              hintText: 'e.g. 240',
+                              prefixIcon: const Icon(Icons.auto_stories_outlined),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // ── Section 3: Classification & Language ─────────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Classification & Language',
+                  subtitle: 'Language selection, categorization, and searchable tags',
+                  icon: Icons.category_outlined,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _language,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Language',
+                              prefixIcon: const Icon(Icons.language_rounded),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'AMHARIC',
+                                child: Text('Amharic (አማርኛ)', overflow: TextOverflow.ellipsis),
                               ),
-                            ),
+                              DropdownMenuItem(
+                                value: 'GEEZ',
+                                child: Text('Ge\'ez (ግዕዝ)', overflow: TextOverflow.ellipsis),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ENGLISH',
+                                child: Text('English', overflow: TextOverflow.ellipsis),
+                              ),
+                              DropdownMenuItem(
+                                value: 'OTHER',
+                                child: Text('Other', overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setState(() => _language = v);
+                            },
                           ),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _selectedCategoryId = v),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (_, _) => const Text('Error loading categories'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _tagsController,
-              decoration: const InputDecoration(
-                labelText: 'Tags (comma-separated)',
-                hintText: 'e.g. Theology, Liturgy, History, Saints',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.tag),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Section 4: Format & Uploads ───────────────────────────────
-            _buildSectionHeader(
-              theme,
-              'Format & Book Files',
-              Icons.attach_file,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _format,
-              decoration: const InputDecoration(
-                labelText: 'Book Format',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'PDF',
-                  child: Text('PDF Document', overflow: TextOverflow.ellipsis),
-                ),
-                DropdownMenuItem(
-                  value: 'EPUB',
-                  child: Text('EPUB eBook', overflow: TextOverflow.ellipsis),
-                ),
-                DropdownMenuItem(
-                  value: 'TEXT',
-                  child: Text(
-                    'Structured Text / Chapters',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'AUDIO',
-                  child: Text(
-                    'Audiobook / Recitation',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'EXTERNAL_LINK',
-                  child: Text(
-                    'External Resource URL',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _format = v);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Cover Image picker card
-            _buildCoverCard(theme),
-            const SizedBox(height: 16),
-
-            // Content File picker card
-            if (_format != 'EXTERNAL_LINK') _buildContentCard(theme),
-
-            if (_format == 'EXTERNAL_LINK') ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _externalUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'External URL',
-                  hintText: 'https://...',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.link),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            // ── Section 5: Media Attachments ─────────────────────────────
-            _buildAttachmentsSection(theme),
-
-            const SizedBox(height: 24),
-
-            // ── Section 5.5: Dictionary Mode Configuration (Admin Only) ──
-            if (perms.canManageDictionaries) ...[
-              _buildDictionarySection(theme),
-            ],
-
-            const SizedBox(height: 24),
-
-            // ── Section 6: Status & Sorting ───────────────────────────────
-            _buildSectionHeader(
-              theme,
-              'Publication Status & Order',
-              Icons.tune,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: _status,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: categoriesAsync.when(
+                            data: (cats) {
+                              final items = _flattenCategories(cats);
+                              return DropdownButtonFormField<String?>(
+                                isExpanded: true,
+                                initialValue: _selectedCategoryId,
+                                decoration: _inputDeco(
+                                  theme: theme,
+                                  labelText: 'Category',
+                                  prefixIcon: const Icon(Icons.folder_outlined),
+                                ),
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('No Category', overflow: TextOverflow.ellipsis),
+                                  ),
+                                  ...items.map(
+                                    (c) => DropdownMenuItem(
+                                      value: c.id,
+                                      child: Text(
+                                        c.prefix + c.category.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (v) => setState(() => _selectedCategoryId = v),
+                              );
+                            },
+                            loading: () => const LinearProgressIndicator(),
+                            error: (_, _) => const Text('Error loading categories'),
+                          ),
+                        ),
+                      ],
                     ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: 'DRAFT',
-                        child: Text(
-                          'Draft (Unpublished)',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _tagsController,
+                      decoration: _inputDeco(
+                        theme: theme,
+                        labelText: 'Tags (comma-separated)',
+                        hintText: 'e.g. Theology, Liturgy, History, Saints',
+                        prefixIcon: const Icon(Icons.tag_rounded),
                       ),
-                      if (perms.canPublish)
-                        const DropdownMenuItem(
-                          value: 'PUBLISHED',
-                          child: Text(
-                            'Published (Live)',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    ),
+                  ],
+                ),
+
+                // ── Section 4: Format & Book Files ───────────────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Format & Book Files',
+                  subtitle: 'Format specification, book cover artwork, and document file',
+                  icon: Icons.attach_file_rounded,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _format,
+                      decoration: _inputDeco(
+                        theme: theme,
+                        labelText: 'Book Format',
+                        prefixIcon: const Icon(Icons.file_present_rounded),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'PDF',
+                          child: Text('PDF Document', overflow: TextOverflow.ellipsis),
                         ),
-                      const DropdownMenuItem(
-                        value: 'ARCHIVED',
-                        child: Text(
-                          'Archived',
-                          overflow: TextOverflow.ellipsis,
+                        DropdownMenuItem(
+                          value: 'EPUB',
+                          child: Text('EPUB eBook', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'TEXT',
+                          child: Text('Structured Text / Chapters', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'AUDIO',
+                          child: Text('Audiobook / Recitation', overflow: TextOverflow.ellipsis),
+                        ),
+                        DropdownMenuItem(
+                          value: 'EXTERNAL_LINK',
+                          child: Text('External Resource URL', overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _format = v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Cover Image picker card
+                    _buildCoverCard(theme),
+                    const SizedBox(height: 16),
+
+                    // Content File picker card
+                    if (_format != 'EXTERNAL_LINK') _buildContentCard(theme),
+
+                    if (_format == 'EXTERNAL_LINK') ...[
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _externalUrlController,
+                        decoration: _inputDeco(
+                          theme: theme,
+                          labelText: 'External URL',
+                          hintText: 'https://...',
+                          prefixIcon: const Icon(Icons.link_rounded),
                         ),
                       ),
                     ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _status = v);
-                    },
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: _sortOrderController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Sort Order',
-                      hintText: '0',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 32),
-
-            // Save & Cancel buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isSaving ? null : () => context.pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                // ── Section 5: Media Attachments ─────────────────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Media Attachments',
+                  subtitle: 'Supplementary audio guides, video lectures, document notes, or illustrations',
+                  icon: Icons.perm_media_outlined,
+                  children: [
+                    ..._attachments.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      return _buildAttachmentCard(theme, item, index);
+                    }),
+                    const SizedBox(height: 6),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _attachments.add(_AttachmentFormItem.empty());
+                        });
+                      },
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('+ Add Media Attachment'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    child: const Text('Cancel'),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _isSaving ? null : _save,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+
+                // ── Section 5.5: Dictionary Mode Configuration (Admin Only) ──
+                if (perms.canManageDictionaries) ...[
+                  _buildDictionarySection(theme),
+                ],
+
+                // ── Section 6: Publication Status & Ordering ─────────────
+                _buildSectionCard(
+                  theme: theme,
+                  title: 'Publication Status & Order',
+                  subtitle: 'Manage availability to readers and catalog sequence order',
+                  icon: Icons.tune_rounded,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _status,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Status',
+                              prefixIcon: const Icon(Icons.flag_outlined),
                             ),
-                          )
-                        : Text(isEditing ? 'Save Changes' : 'Create Book'),
-                  ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: 'DRAFT',
+                                child: Text('Draft (Unpublished)', overflow: TextOverflow.ellipsis),
+                              ),
+                              if (perms.canPublish)
+                                const DropdownMenuItem(
+                                  value: 'PUBLISHED',
+                                  child: Text('Published (Live)', overflow: TextOverflow.ellipsis),
+                                ),
+                              const DropdownMenuItem(
+                                value: 'ARCHIVED',
+                                child: Text('Archived', overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setState(() => _status = v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _sortOrderController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDeco(
+                              theme: theme,
+                              labelText: 'Sort Order',
+                              hintText: '0',
+                              prefixIcon: const Icon(Icons.sort_rounded),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+
+                const SizedBox(height: 12),
+
+                // ── Save & Cancel Actions ────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isSaving ? null : () => context.pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _isSaving ? null : _save,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_rounded, size: 20),
+                        label: Text(
+                          _isSaving
+                              ? 'Saving...'
+                              : (isEditing ? 'Save Changes' : 'Create Book'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
               ],
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
-
 
   Widget _buildDictionarySection(ThemeData theme) {
     final languagesAsync = ref.watch(availableDictionaryLanguagesProvider);
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: _isDictionary
             ? theme.colorScheme.primaryContainer.withValues(alpha: 0.15)
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _isDictionary
               ? theme.colorScheme.primary.withValues(alpha: 0.5)
-              : theme.colorScheme.outlineVariant,
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
           width: _isDictionary ? 1.5 : 1.0,
         ),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1211,7 +1375,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                   children: [
                     Text(
                       'Enable Dictionary Mode (መዝገበ ቃላት)',
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: _isDictionary
                             ? theme.colorScheme.primary
@@ -1245,7 +1409,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
           if (_isDictionary) ...[
             const SizedBox(height: 16),
             const Divider(height: 1),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
             // Processing Status Card (if editing)
             if (_existingDictConfig != null) ...[
@@ -1253,7 +1417,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                   ),
@@ -1364,28 +1528,29 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
 
             TextFormField(
               controller: _dictionaryNameController,
-              decoration: const InputDecoration(
+              decoration: _inputDeco(
+                theme: theme,
                 labelText: 'Dictionary Name *',
                 hintText: 'e.g. መዝገበ ቃላት / English-Amharic Dictionary',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.menu_book_rounded),
+                prefixIcon: const Icon(Icons.menu_book_rounded),
               ),
               validator: (v) => _isDictionary && (v == null || v.trim().isEmpty)
                   ? 'Dictionary name is required'
                   : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _dictionaryDescController,
               maxLines: 2,
-              decoration: const InputDecoration(
+              decoration: _inputDeco(
+                theme: theme,
                 labelText: 'Dictionary Description (optional)',
                 hintText: 'Scope, target vocabulary, or usage notes',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description_outlined),
+                prefixIcon: const Icon(Icons.description_outlined),
+                alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Language Pair Dropdowns
             languagesAsync.when(
@@ -1400,11 +1565,11 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                           child: DropdownButtonFormField<String>(
                             isExpanded: true,
                             initialValue: _sourceLanguageId,
-                            decoration: const InputDecoration(
+                            decoration: _inputDeco(
+                              theme: theme,
                               labelText: 'Translate From *',
                               hintText: 'Source',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.input_rounded),
+                              prefixIcon: const Icon(Icons.input_rounded),
                             ),
                             items: langs
                                 .map(
@@ -1427,17 +1592,17 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                                     : null,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         // Target Language
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             isExpanded: true,
                             initialValue: _targetLanguageId,
-                            decoration: const InputDecoration(
+                            decoration: _inputDeco(
+                              theme: theme,
                               labelText: 'Translate To *',
                               hintText: 'Target',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.output_rounded),
+                              prefixIcon: const Icon(Icons.output_rounded),
                             ),
                             items: langs
                                 .map(
@@ -1488,7 +1653,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               'Supported formats for dictionary indexing: PDF and EPUB.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1502,21 +1667,6 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     );
   }
 
-  Widget _buildSectionHeader(ThemeData theme, String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildCoverCard(ThemeData theme) {
     final hasNew = _newCoverBytes != null;
@@ -1717,47 +1867,6 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     return list;
   }
 
-  Widget _buildAttachmentsSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(
-          theme,
-          'Media Attachments',
-          Icons.perm_media_outlined,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Attach supplementary audio guides, video lectures, document notes, or illustrations.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ..._attachments.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          return _buildAttachmentCard(theme, item, index);
-        }),
-        const SizedBox(height: 6),
-        OutlinedButton.icon(
-          onPressed: () {
-            setState(() {
-              _attachments.add(_AttachmentFormItem.empty());
-            });
-          },
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('+ Add Media'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildAttachmentCard(
     ThemeData theme,
