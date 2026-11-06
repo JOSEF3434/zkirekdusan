@@ -481,6 +481,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/channels/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        redirect: (context, state) {
+          final id = state.pathParameters['id'];
+          return '/groups/$id';
+        },
+      ),
+      GoRoute(
         path: '/join/group/:token',
         parentNavigatorKey: rootNavigatorKey,
         redirect: (context, state) {
@@ -543,7 +551,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: ':id/following',
                 builder: (context, state) {
                   final id = state.pathParameters['id']!;
-                  return FollowersScreen(profileId: id, initialTabIndex: 1);
+                  final tab = state.uri.queryParameters['tab'];
+                  int initialIndex = 1;
+                  if (tab == 'suggested' || tab == '0') {
+                    initialIndex = 0;
+                  } else if (tab == 'my' || tab == 'my_channels' || tab == '2') {
+                    initialIndex = 2;
+                  }
+                  return FollowersScreen(profileId: id, initialTabIndex: initialIndex);
                 },
               ),
             ],

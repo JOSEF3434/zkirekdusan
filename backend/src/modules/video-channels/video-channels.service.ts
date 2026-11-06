@@ -291,4 +291,57 @@ export class VideoChannelsService {
     );
     return this.uploadsService.uploadChannelBanner(channelId, userId, file);
   }
+
+  async findUserOwnedChannels(userId: string) {
+    const channels = await this.prisma.videoChannel.findMany({
+      where: {
+        status: 'ACTIVE',
+        deletedAt: null,
+        group: {
+          OR: [
+            { createdById: userId },
+            {
+              members: {
+                some: {
+                  userId,
+                  role: { in: [GroupRole.GROUP_ADMIN, GroupRole.MODERATOR] },
+                  removedAt: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+      include: {
+        avatarFile: { select: { url: true } },
+        bannerFile: { select: { url: true } },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            createdById: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return channels.map((c) => ({
+      id: c.id,
+      groupId: c.groupId,
+      name: c.name,
+      slug: c.slug,
+      handle: c.handle,
+      description: c.description,
+      avatarUrl: c.avatarFile?.url ?? c.group?.avatarUrl ?? null,
+      bannerUrl: c.bannerFile?.url ?? null,
+      subscribersCount: c.subscribersCount,
+      videosCount: c.videosCount,
+      isVerified: c.isVerified,
+      isOwner: c.group?.createdById === userId,
+      groupName: c.group?.name,
+      createdAt: c.createdAt,
+    }));
+  }
 }

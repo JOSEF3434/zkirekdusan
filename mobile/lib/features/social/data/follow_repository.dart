@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/features/social/domain/follow_model.dart';
+import 'package:mobile/features/social/domain/owned_channel_model.dart';
 import 'package:mobile/features/social/data/social_repository.dart';
 import 'package:mobile/features/home/domain/feed_response.dart';
 
@@ -90,5 +91,19 @@ class FollowRepository {
         [];
     final meta = FeedMetaDto.fromJson(dataMap['meta'] as Map<String, dynamic>);
     return PaginatedResponse(data: items, meta: meta);
+  }
+
+  Future<List<OwnedChannelModel>> getMyOwnedChannels({
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/video-channels/my',
+      cancelToken: cancelToken,
+    );
+    final list = parseEnvelopeList(response.data);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map((e) => OwnedChannelModel.fromJson(e))
+        .toList();
   }
 }

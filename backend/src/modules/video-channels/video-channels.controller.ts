@@ -215,6 +215,15 @@ export class VideoChannelsController {
 export class VideoChannelsPublicController {
   constructor(private readonly service: VideoChannelsService) {}
 
+  @Get('my')
+  @ApiOperation({ summary: 'List video channels owned or administered by current user' })
+  @ApiResponse({ status: 200, type: [VideoChannelResponseDto] })
+  async findMyChannels(
+    @CurrentUser('sub') userId: string,
+  ): Promise<any> {
+    return this.service.findUserOwnedChannels(userId);
+  }
+
   @Get('handle/:handle')
   @ApiOperation({ summary: 'Find video channel by @handle' })
   @ApiParam({ name: 'handle', example: '@techtutorials' })

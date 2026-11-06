@@ -72,6 +72,25 @@ export class ProfilesRepository {
       return this.findByUserId(profile.userId);
     }
 
+    // 3. Check if usernameOrId matches a VideoChannel handle or slug
+    const channel = await this.prisma.videoChannel.findFirst({
+      where: {
+        OR: [
+          { handle: { equals: usernameOrId, mode: 'insensitive' } },
+          { handle: { equals: `@${usernameOrId}`, mode: 'insensitive' } },
+          { slug: { equals: usernameOrId, mode: 'insensitive' } },
+        ],
+        deletedAt: null,
+      },
+      select: {
+        group: { select: { createdById: true } },
+      },
+    });
+
+    if (channel?.group?.createdById) {
+      return this.findByUserId(channel.group.createdById);
+    }
+
     return null;
   }
 

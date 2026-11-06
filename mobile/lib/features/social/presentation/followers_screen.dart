@@ -9,6 +9,7 @@ import 'package:mobile/features/home/domain/feed_response.dart';
 import 'package:mobile/features/social/data/follow_repository.dart';
 import 'package:mobile/features/social/data/social_repository.dart';
 import 'package:mobile/features/social/domain/follow_model.dart';
+import 'package:mobile/features/social/domain/owned_channel_model.dart';
 import 'package:mobile/features/social/presentation/providers/follow_provider.dart';
 
 final followersProvider =
@@ -34,11 +35,23 @@ final suggestedChannelsProvider =
       final repo = ref.read(followRepositoryProvider);
       try {
         return await repo.getSuggestedChannels();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[SuggestedChannels] Error fetching suggested: $e');
         return PaginatedResponse(
           data: [],
           meta: const FeedMetaDto(total: 0, page: 1, limit: 20, totalPages: 0),
         );
+      }
+    });
+
+final myOwnedChannelsProvider =
+    FutureProvider<List<OwnedChannelModel>>((ref) async {
+      final repo = ref.read(followRepositoryProvider);
+      try {
+        return await repo.getMyOwnedChannels();
+      } catch (e) {
+        debugPrint('[MyOwnedChannels] Error fetching owned channels: $e');
+        return [];
       }
     });
 
@@ -55,9 +68,17 @@ class FollowersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = ref.watch(trProvider);
+    final myChannelsAsync = ref.watch(myOwnedChannelsProvider);
+    final myChannels = myChannelsAsync.asData?.value ?? [];
+    final hasOwnedChannels = myChannels.isNotEmpty;
+
+    final tabCount = hasOwnedChannels ? 3 : 2;
+    final safeInitialIndex = initialTabIndex.clamp(0, tabCount - 1);
+
     return DefaultTabController(
-      length: 2,
-      initialIndex: initialTabIndex,
+      key: ValueKey('channels_tabs_${hasOwnedChannels}_$safeInitialIndex'),
+      length: tabCount,
+      initialIndex: safeInitialIndex,
       child: Scaffold(
         appBar: AppBar(
           title: Text(tr('nav.channels', {'fallback': 'Channels'})),
@@ -69,6 +90,38 @@ class FollowersScreen extends ConsumerWidget {
                 }),
               ),
               Tab(text: tr('social.tab_following', {'fallback': 'Following'})),
+              if (hasOwnedChannels)
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        tr('channels.my_channels', {
+                          'fallback': 'My Channels',
+                        }),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${myChannels.length}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -86,9 +139,198 @@ class FollowersScreen extends ConsumerWidget {
                 emptyMessageKey: 'social.not_following',
                 emptyFallback: 'Not following anyone yet.',
               ),
+              if (hasOwnedChannels)
+                _MyChannelsList(
+                  channels: myChannels,
+                  onRefresh: () async => ref.invalidate(myOwnedChannelsProvider),
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MyChannelsList extends ConsumerWidget {
+  final List<OwnedChannelModel> channels;
+  final Future<void> Function() onRefresh;
+
+  const _MyChannelsList({
+    required this.channels,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
+
+    if (channels.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.tv_off_outlined,
+                  size: 64,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  tr('channels.no_owned_channels', {
+                    'fallback': 'You have not created any channels yet.',
+                  }),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: channels.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final ch = channels[index];
+          return Card(
+            elevation: 0,
+            color: theme.colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (ch.groupId.isNotEmpty) {
+                  context.push('/groups/${ch.groupId}');
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      backgroundImage: ch.avatarUrl != null
+                          ? CachedNetworkImageProvider(ch.avatarUrl!)
+                          : null,
+                      child: ch.avatarUrl == null
+                          ? Text(
+                              ch.name.isNotEmpty ? ch.name[0].toUpperCase() : 'C',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  ch.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (ch.isVerified) ...[
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.verified,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ],
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  ch.isOwner ? 'Owner' : 'Admin',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            ch.handle.startsWith('@') ? ch.handle : '@${ch.handle}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${ch.subscribersCount} subscribers · ${ch.videosCount} videos',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        if (ch.groupId.isNotEmpty) {
+                          context.push('/groups/${ch.groupId}');
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      label: const Text('View'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

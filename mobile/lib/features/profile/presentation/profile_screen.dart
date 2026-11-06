@@ -324,8 +324,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              // View channels with RBAC permissions -> Creator Workspace / Channels
-                              context.push('/creator/workspace');
+                              // Navigate to Channels page directly opening the My Channels tab
+                              context.push(
+                                '/profile/${profile.userId}/following?tab=my',
+                              );
                             },
                             icon: const Icon(
                               Icons.smart_display_outlined,
@@ -409,6 +411,17 @@ class _WatchHistoryCarousel extends ConsumerWidget {
     final historyAsync = ref.watch(watchHistoryProvider);
     final theme = Theme.of(context);
 
+    // View all button is displayed only when the history is NOT displaying all items.
+    final hasMoreToDisplay = historyAsync.maybeWhen(
+      data: (response) {
+        if (response.data.isEmpty) return false;
+        return response.meta.total > response.data.length ||
+            response.data.length > 10 ||
+            response.meta.hasNext;
+      },
+      orElse: () => false,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,16 +446,17 @@ class _WatchHistoryCarousel extends ConsumerWidget {
                   ],
                 ),
               ),
-              TextButton(
-                onPressed: () => context.push('/library/history'),
-                child: Text(
-                  'View all',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontSize: 13,
+              if (hasMoreToDisplay)
+                TextButton(
+                  onPressed: () => context.push('/library/history'),
+                  child: Text(
+                    'View all',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -464,14 +478,15 @@ class _WatchHistoryCarousel extends ConsumerWidget {
                 ),
               );
             }
+            final displayedVideos = response.data.take(10).toList();
             return SizedBox(
               height: 165,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: response.data.length,
+                itemCount: displayedVideos.length,
                 itemBuilder: (context, index) {
-                  final video = response.data[index];
+                  final video = displayedVideos[index];
                   return _HistoryItemCard(video: video);
                 },
               ),

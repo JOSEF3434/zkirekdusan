@@ -107,14 +107,49 @@ export class FollowsRepository {
 
     const excludeIds = userId ? [userId, ...followingIds] : [];
 
-    const where: any = {
+    const userWhere: any = {
       status: 'ACTIVE',
       ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
     };
 
-    const [items, total] = await Promise.all([
+    const [channels, totalChannels, users, totalUsers] = await Promise.all([
+      this.prisma.videoChannel.findMany({
+        where: {
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        skip,
+        take,
+        include: {
+          avatarFile: { select: { url: true } },
+          group: {
+            select: {
+              id: true,
+              name: true,
+              avatarUrl: true,
+              createdById: true,
+            },
+          },
+          subscriptions: userId
+            ? {
+                where: { userId },
+                select: { userId: true },
+              }
+            : false,
+        },
+        orderBy: [
+          { subscribersCount: 'desc' },
+          { createdAt: 'desc' },
+        ],
+      }),
+      this.prisma.videoChannel.count({
+        where: {
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+      }),
       this.prisma.user.findMany({
-        where,
+        where: userWhere,
         skip,
         take,
         select: {
@@ -138,9 +173,14 @@ export class FollowsRepository {
           { createdAt: 'desc' },
         ],
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: userWhere }),
     ]);
 
-    return { items, total };
+    return {
+      channels,
+      totalChannels,
+      users,
+      totalUsers,
+    };
   }
 }

@@ -20,6 +20,7 @@ import {
 import { FollowsService } from './follows.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { FollowStatusDto } from './dto/follow-response.dto.js';
 
 @ApiTags('Follows')
@@ -28,6 +29,7 @@ import { FollowStatusDto } from './dto/follow-response.dto.js';
 export class FollowsController {
   constructor(private readonly followsService: FollowsService) {}
 
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Get('suggested')
   @ApiOperation({ summary: 'List suggested channels and creators to follow' })

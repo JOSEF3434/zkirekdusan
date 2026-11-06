@@ -6,12 +6,14 @@ import {
 } from '@nestjs/common';
 import { FollowsRepository } from './follows.repository.js';
 import { UsersRepository } from '../users/users.repository.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 export class FollowsService {
   constructor(
     private readonly followsRepository: FollowsRepository,
     private readonly usersRepository: UsersRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async followUser(followerId: string, targetUserId: string) {
@@ -21,7 +23,34 @@ export class FollowsService {
 
     const targetUser = await this.usersRepository.findById(targetUserId);
     if (!targetUser) {
-      throw new NotFoundException('User to follow not found');
+      const channel = await this.prisma.videoChannel.findFirst({
+        where: { OR: [{ id: targetUserId }, { groupId: targetUserId }] },
+        include: { group: true },
+      });
+      if (channel) {
+        if (channel.group.createdById === followerId) {
+          throw new BadRequestException('You cannot follow your own channel');
+        }
+        await this.prisma.videoSubscription.upsert({
+          where: {
+            userId_videoChannelId: {
+              userId: followerId,
+              videoChannelId: channel.id,
+            },
+          },
+          create: {
+            userId: followerId,
+            videoChannelId: channel.id,
+          },
+          update: {},
+        });
+        await this.prisma.videoChannel.update({
+          where: { id: channel.id },
+          data: { subscribersCount: { increment: 1 } },
+        });
+        return { message: `Successfully followed ${channel.name}` };
+      }
+      throw new NotFoundException('User or channel to follow not found');
     }
 
     await this.followsRepository.follow(followerId, targetUserId);
@@ -31,6 +60,27 @@ export class FollowsService {
   async unfollowUser(followerId: string, targetUserId: string) {
     if (followerId === targetUserId) {
       throw new BadRequestException('You cannot unfollow yourself');
+    }
+
+    const targetUser = await this.usersRepository.findById(targetUserId);
+    if (!targetUser) {
+      const channel = await this.prisma.videoChannel.findFirst({
+        where: { OR: [{ id: targetUserId }, { groupId: targetUserId }] },
+      });
+      if (channel) {
+        await this.prisma.videoSubscription.deleteMany({
+          where: {
+            userId: followerId,
+            videoChannelId: channel.id,
+          },
+        });
+        await this.prisma.videoChannel.update({
+          where: { id: channel.id },
+          data: { subscribersCount: { decrement: 1 } },
+        });
+        return { message: 'Successfully unfollowed channel' };
+      }
+      throw new NotFoundException('User or channel to unfollow not found');
     }
 
     await this.followsRepository.unfollow(followerId, targetUserId);
@@ -102,31 +152,60 @@ export class FollowsService {
   }
 
   async getFollowStatus(currentUserId: string, targetUserId: string) {
-    const [isFollowing, isFollowedBy] = await Promise.all([
+    const [isFollowingUser, isFollowedBy, channelSub] = await Promise.all([
       this.followsRepository.isFollowing(currentUserId, targetUserId),
       this.followsRepository.isFollowing(targetUserId, currentUserId),
+      this.prisma.videoSubscription.findFirst({
+        where: {
+          userId: currentUserId,
+          videoChannel: {
+            OR: [{ id: targetUserId }, { groupId: targetUserId }],
+          },
+        },
+      }),
     ]);
 
-    return { isFollowing, isFollowedBy };
+    return {
+      isFollowing: isFollowingUser || !!channelSub,
+      isFollowedBy,
+    };
   }
 
   async getSuggested(userId?: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const { items, total } = await this.followsRepository.getSuggested(
-      userId,
-      skip,
-      limit,
-    );
+    const { channels, totalChannels, users, totalUsers } =
+      await this.followsRepository.getSuggested(userId, skip, limit);
 
-    const data = items.map((u) => ({
-      id: u.id,
-      username: u.username,
-      displayName: u.profile?.displayName ?? u.username,
-      avatarUrl: u.profile?.avatar?.url ?? null,
-      followersCount: u._count.followers,
-      videosCount: u._count.videos,
-      isFollowing: false,
+    const channelItems = channels.map((c) => ({
+      id: c.id,
+      username: (c.handle || c.slug).replace(/^@/, ''),
+      displayName: c.name,
+      avatarUrl: c.avatarFile?.url ?? c.group?.avatarUrl ?? null,
+      followersCount: c.subscribersCount,
+      videosCount: c.videosCount,
+      groupId: c.groupId,
+      isFollowing: Array.isArray(c.subscriptions) && c.subscriptions.length > 0,
+      isChannel: true,
+      ownerId: c.group?.createdById,
     }));
+
+    const userItems = users
+      .filter((u) => u.username || u.profile?.displayName)
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        displayName: u.profile?.displayName ?? u.username,
+        avatarUrl: u.profile?.avatar?.url ?? null,
+        followersCount: u._count.followers,
+        videosCount: u._count.videos,
+        groupId: null,
+        isFollowing: false,
+        isChannel: false,
+        ownerId: u.id,
+      }));
+
+    const data = [...channelItems, ...userItems].slice(0, limit);
+    const total = totalChannels + totalUsers;
 
     return {
       data,
