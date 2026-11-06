@@ -119,6 +119,26 @@ export class StoriesController {
     return this.storiesService.getMyStories(userId);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'Get current user story history' })
+  @ApiResponse({ status: 200, type: [StoryResponseDto] })
+  async getMyStoryHistory(
+    @CurrentUser('sub') userId: string,
+  ): Promise<StoryResponseDto[]> {
+    return this.storiesService.getStoryHistory(userId, userId);
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('user/:userId/history')
+  @ApiOperation({ summary: 'Get story history for a user' })
+  @ApiResponse({ status: 200, type: [StoryResponseDto] })
+  async getUserStoryHistory(
+    @Param('userId') targetUserId: string,
+    @CurrentUser('sub') viewerId?: string,
+  ): Promise<StoryResponseDto[]> {
+    return this.storiesService.getStoryHistory(targetUserId, viewerId);
+  }
+
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Get single active story by ID' })

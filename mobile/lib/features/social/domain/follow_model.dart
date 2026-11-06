@@ -24,6 +24,21 @@ abstract class FollowerDto with _$FollowerDto {
     @Default(false) bool isFollowing,
   }) = _FollowerDto;
 
-  factory FollowerDto.fromJson(Map<String, dynamic> json) =>
-      _$FollowerDtoFromJson(json);
+  factory FollowerDto.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> source =
+        (json.containsKey('user') && json['user'] is Map<String, dynamic>)
+            ? (json['user'] as Map<String, dynamic>)
+            : json;
+    return FollowerDto(
+      id: source['id']?.toString() ?? json['id']?.toString() ?? '',
+      username: source['username']?.toString() ?? json['username']?.toString(),
+      displayName:
+          source['displayName']?.toString() ?? json['displayName']?.toString(),
+      avatarUrl:
+          source['avatarUrl']?.toString() ?? json['avatarUrl']?.toString(),
+      isFollowing: json['isFollowing'] as bool? ??
+          source['isFollowing'] as bool? ??
+          false,
+    );
+  }
 }

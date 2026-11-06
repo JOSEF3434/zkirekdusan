@@ -108,6 +108,34 @@ export class StoriesRepository {
     });
   }
 
+  async findUserStoryHistory(userId: string) {
+    return this.prisma.story.findMany({
+      where: {
+        authorId: userId,
+        deletedAt: null,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
+          },
+        },
+        file: { select: { url: true } },
+        views: {
+          select: { viewedAt: true },
+        },
+        reactions: {
+          select: { reaction: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findById(id: string, viewerId?: string) {
     return this.prisma.story.findFirst({
       where: { id, deletedAt: null },

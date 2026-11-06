@@ -109,4 +109,35 @@ export class FollowsService {
 
     return { isFollowing, isFollowedBy };
   }
+
+  async getSuggested(userId?: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const { items, total } = await this.followsRepository.getSuggested(
+      userId,
+      skip,
+      limit,
+    );
+
+    const data = items.map((u) => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.profile?.displayName ?? u.username,
+      avatarUrl: u.profile?.avatar?.url ?? null,
+      followersCount: u._count.followers,
+      videosCount: u._count.videos,
+      isFollowing: false,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
+  }
 }

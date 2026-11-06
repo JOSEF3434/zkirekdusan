@@ -71,4 +71,24 @@ class FollowRepository {
     final meta = FeedMetaDto.fromJson(dataMap['meta'] as Map<String, dynamic>);
     return PaginatedResponse(data: items, meta: meta);
   }
+
+  Future<PaginatedResponse<FollowerDto>> getSuggestedChannels({
+    int page = 1,
+    int limit = 20,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      '/users/suggested',
+      queryParameters: {'page': page, 'limit': limit},
+      cancelToken: cancelToken,
+    );
+    final dataMap = parsePaginatedEnvelope(response.data);
+    final items =
+        (dataMap['data'] as List?)
+            ?.map((e) => FollowerDto.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+    final meta = FeedMetaDto.fromJson(dataMap['meta'] as Map<String, dynamic>);
+    return PaginatedResponse(data: items, meta: meta);
+  }
 }

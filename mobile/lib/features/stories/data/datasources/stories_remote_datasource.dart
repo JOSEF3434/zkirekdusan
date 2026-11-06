@@ -37,6 +37,26 @@ class StoriesRemoteDatasource {
         .toList();
   }
 
+  Future<List<StoryModel>> getStoryHistory(String userId) async {
+    try {
+      final response = await _dio.get('/stories/user/$userId/history');
+      final list = parseEnvelopeList(response.data);
+      return list
+          .map((e) => StoryModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      try {
+        final response = await _dio.get('/stories/history');
+        final list = parseEnvelopeList(response.data);
+        return list
+            .map((e) => StoryModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        return getMyStories();
+      }
+    }
+  }
+
   Future<StoryModel> getStoryById(String id) async {
     final response = await _dio.get('/stories/$id');
     final data = parseEnvelope(response.data);

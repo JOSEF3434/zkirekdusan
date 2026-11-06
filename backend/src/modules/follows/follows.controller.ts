@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { FollowsService } from './follows.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
 import { FollowStatusDto } from './dto/follow-response.dto.js';
 
 @ApiTags('Follows')
@@ -25,6 +27,19 @@ import { FollowStatusDto } from './dto/follow-response.dto.js';
 @Controller('users')
 export class FollowsController {
   constructor(private readonly followsService: FollowsService) {}
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('suggested')
+  @ApiOperation({ summary: 'List suggested channels and creators to follow' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getSuggested(
+    @CurrentUser('sub') currentUserId?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
+  ) {
+    return this.followsService.getSuggested(currentUserId, page, limit);
+  }
 
   @Post(':userId/follow')
   @ApiOperation({ summary: 'Follow a user' })

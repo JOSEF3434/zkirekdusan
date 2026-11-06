@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/home/domain/feed_response.dart';
 import 'package:mobile/features/social/data/follow_repository.dart';
 import 'package:mobile/features/social/data/social_repository.dart';
 import 'package:mobile/features/social/domain/follow_model.dart';
@@ -26,6 +29,19 @@ final followingProvider =
       return repo.getFollowing(userId);
     });
 
+final suggestedChannelsProvider =
+    FutureProvider<PaginatedResponse<FollowerDto>>((ref) async {
+      final repo = ref.read(followRepositoryProvider);
+      try {
+        return await repo.getSuggestedChannels();
+      } catch (_) {
+        return PaginatedResponse(
+          data: [],
+          meta: const FeedMetaDto(total: 0, page: 1, limit: 20, totalPages: 0),
+        );
+      }
+    });
+
 class FollowersScreen extends ConsumerWidget {
   final String profileId;
   final int initialTabIndex;
@@ -44,25 +60,34 @@ class FollowersScreen extends ConsumerWidget {
       initialIndex: initialTabIndex,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(tr('social.followers_title')),
+          title: Text(tr('nav.channels', {'fallback': 'Channels'})),
           bottom: TabBar(
             tabs: [
-              Tab(text: tr('social.tab_followers')),
-              Tab(text: tr('social.tab_following')),
+              Tab(
+                text: tr('channels.suggested', {
+                  'fallback': 'Suggested Channels',
+                }),
+              ),
+              Tab(text: tr('social.tab_following', {'fallback': 'Following'})),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _FollowList(
-              provider: followersProvider(profileId),
-              emptyMessageKey: 'social.no_followers',
-            ),
-            _FollowList(
-              provider: followingProvider(profileId),
-              emptyMessageKey: 'social.not_following',
-            ),
-          ],
+        body: ResponsiveLayout.maxReadingWidth(
+          maxWidth: 1200,
+          child: TabBarView(
+            children: [
+              _FollowList(
+                provider: suggestedChannelsProvider,
+                emptyMessageKey: 'channels.no_suggested',
+                emptyFallback: 'No suggested channels found at this time.',
+              ),
+              _FollowList(
+                provider: followingProvider(profileId),
+                emptyMessageKey: 'social.not_following',
+                emptyFallback: 'Not following anyone yet.',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -72,8 +97,13 @@ class FollowersScreen extends ConsumerWidget {
 class _FollowList extends ConsumerWidget {
   final ProviderBase<AsyncValue<PaginatedResponse<FollowerDto>>> provider;
   final String emptyMessageKey;
+  final String? emptyFallback;
 
-  const _FollowList({required this.provider, required this.emptyMessageKey});
+  const _FollowList({
+    required this.provider,
+    required this.emptyMessageKey,
+    this.emptyFallback,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -104,11 +134,15 @@ class _FollowList extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        tr(emptyMessageKey),
+                        tr(
+                          emptyMessageKey,
+                          {'fallback': emptyFallback ?? 'No users found.'},
+                        ),
                         style: TextStyle(
                           fontSize: 15,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -122,6 +156,13 @@ class _FollowList extends ConsumerWidget {
             itemBuilder: (context, index) {
               final user = users[index];
               return ListTile(
+                onTap: () {
+                  if (user.username != null && user.username!.isNotEmpty) {
+                    context.push('/@${user.username}');
+                  } else {
+                    context.push('/profile/${user.id}');
+                  }
+                },
                 leading: CircleAvatar(
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                   backgroundImage: user.avatarUrl != null

@@ -10,6 +10,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/home/data/video_repository.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/home/presentation/widgets/video_management_sheet.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/domain/playlist_dto.dart';
@@ -112,7 +113,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         profile.username == null || profile.displayName == null;
 
     return Scaffold(
-      body: NestedScrollView(
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 1200,
+        child: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
@@ -356,7 +359,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     Tab(text: tr('profile.videos')),
                     const Tab(text: 'Streaming'),
                     Tab(text: tr('library.playlists')),
-                    Tab(text: tr('profile.posts')),
+                    Tab(text: tr('stories.title', {'fallback': 'Stories'})),
                     const Tab(text: 'About'),
                   ],
                 ),
@@ -370,12 +373,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             _ProfileVideosTab(userId: profile.userId),
             ProfileLiveStreamsTab(userId: profile.userId, isMyProfile: true),
             _ProfilePlaylistsTab(),
-            ProfilePostsList(userId: profile.userId, isMyProfile: true),
+            ProfileStoriesList(userId: profile.userId, isMyProfile: true),
             _ProfileAboutTab(profile: profile, authState: authState),
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   String _initials(ProfileModel profile) {

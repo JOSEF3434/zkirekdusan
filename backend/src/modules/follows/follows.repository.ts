@@ -94,4 +94,53 @@ export class FollowsRepository {
     ]);
     return { followersCount, followingCount };
   }
+
+  async getSuggested(userId?: string, skip = 0, take = 20) {
+    const followingIds = userId
+      ? await this.prisma.follow
+          .findMany({
+            where: { followerId: userId },
+            select: { followingId: true },
+          })
+          .then((res) => res.map((r) => r.followingId))
+      : [];
+
+    const excludeIds = userId ? [userId, ...followingIds] : [];
+
+    const where: any = {
+      status: 'ACTIVE',
+      ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take,
+        select: {
+          id: true,
+          username: true,
+          profile: {
+            select: {
+              displayName: true,
+              avatar: { select: { url: true } },
+            },
+          },
+          _count: {
+            select: {
+              followers: true,
+              videos: true,
+            },
+          },
+        },
+        orderBy: [
+          { followers: { _count: 'desc' } },
+          { createdAt: 'desc' },
+        ],
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { items, total };
+  }
 }

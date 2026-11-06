@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
@@ -252,8 +253,10 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
     final tr = ref.watch(trProvider);
 
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) {
+    return ResponsiveLayout.maxReadingWidth(
+      maxWidth: 1200,
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
           SliverToBoxAdapter(
             child: Column(
@@ -611,8 +614,9 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
           _buildGroupsList(isDark),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildActionButton({
     required IconData icon,
