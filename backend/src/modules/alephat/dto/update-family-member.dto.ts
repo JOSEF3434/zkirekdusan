@@ -1,4 +1,4 @@
-import { IsInt, IsString, IsOptional, Min, Max, IsBoolean } from 'class-validator';
+import { IsInt, IsString, IsOptional, Min, Max, IsBoolean, IsArray } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateFamilyMemberDto {
@@ -28,6 +28,15 @@ export class UpdateFamilyMemberDto {
   @IsOptional()
   @IsString()
   pronunciation?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Attached media URLs for this family member',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mediaUrls?: string[];
 
   @ApiPropertyOptional({ example: true, description: 'Publication status' })
   @IsOptional()

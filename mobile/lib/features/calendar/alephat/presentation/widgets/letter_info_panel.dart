@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_letter_model.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
+import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_media_popup.dart';
 
 class LetterInfoPanel extends ConsumerWidget {
   final AlephatLetterModel letter;
@@ -110,23 +111,47 @@ class LetterInfoPanel extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    if (pronunciation != null && pronunciation.isNotEmpty)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.volume_up_outlined,
-                            size: 14,
-                            color: theme.colorScheme.primary,
+                    if ((pronunciation != null && pronunciation.isNotEmpty) ||
+                        letter.mediaUrls.isNotEmpty ||
+                        (selectedMember?.mediaUrls.isNotEmpty ?? false))
+                      Tooltip(
+                        message: 'ድምጽ/ሚዲያ አጫውት (Play audio/media)',
+                        child: InkWell(
+                          key: const Key('alephat_speaker_button'),
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => AlephatMediaPopup.show(
+                            context,
+                            letter: letter,
+                            selectedMember: selectedMember,
+                            pronunciation: pronunciation,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            pronunciation,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontStyle: FontStyle.italic,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.volume_up_outlined,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  (pronunciation != null && pronunciation.isNotEmpty)
+                                      ? pronunciation
+                                      : 'ድምጽ አጫውት',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                   ],
                 ),

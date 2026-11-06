@@ -879,5 +879,116 @@ void main() {
       expect(find.text('አዲስ ፊደል ጨምር'), findsOneWidget);
       expect(find.text('ፊደሉን ሰርዝ'), findsOneWidget);
     });
+
+    testWidgets(
+        'Dynamic media fields display one field initially and dynamically add next field when fulfilled',
+        (tester) async {
+      final sampleLetter = AlephatSeedData.getInitialLetters().first.copyWith(
+        mediaUrls: [],
+      );
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: ManageLetterDialog(letter: sampleLetter),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially only 1 dynamic media field is shown
+      expect(find.byKey(const Key('dynamic_media_field_0')), findsOneWidget);
+      expect(find.byKey(const Key('dynamic_media_field_1')), findsNothing);
+
+      // Enter media URL in field 0
+      await tester.enterText(
+        find.byKey(const Key('dynamic_media_field_0')),
+        'https://example.com/audio1.mp3',
+      );
+      await tester.pumpAndSettle();
+
+      // Now field 1 has dynamically appeared!
+      expect(find.byKey(const Key('dynamic_media_field_1')), findsOneWidget);
+      expect(find.byKey(const Key('dynamic_media_field_2')), findsNothing);
+
+      // Enter media URL in field 1
+      await tester.enterText(
+        find.byKey(const Key('dynamic_media_field_1')),
+        'https://example.com/video2.mp4',
+      );
+      await tester.pumpAndSettle();
+
+      // Now field 2 has dynamically appeared!
+      expect(find.byKey(const Key('dynamic_media_field_2')), findsOneWidget);
+    });
+
+    testWidgets(
+        'Clicking speaker icon opens popup player with close button and closes properly',
+        (tester) async {
+      final sampleLetter = AlephatSeedData.getInitialLetters().first.copyWith(
+        pronunciationGuide: 'Hä - Voiceless glottal fricative',
+        mediaUrls: ['https://example.com/audio1.mp3'],
+      );
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: LetterInfoPanel(letter: sampleLetter),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify speaker icon button exists
+      final speakerBtn = find.byKey(const Key('alephat_speaker_button'));
+      expect(speakerBtn, findsOneWidget);
+
+      // Tap speaker button to open popup
+      await tester.tap(speakerBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      // Verify popup opened with close button
+      final closeBtn = find.byKey(const Key('alephat_media_popup_close_button'));
+      expect(closeBtn, findsOneWidget);
+
+      // Tap close button and verify it dismisses
+      await tester.tap(closeBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(closeBtn, findsNothing);
+    });
+
+    testWidgets(
+        'Popup player lists multiple media files when more than one are attached',
+        (tester) async {
+      final sampleLetter = AlephatSeedData.getInitialLetters().first.copyWith(
+        pronunciationGuide: 'Hä - Voiceless glottal fricative',
+        mediaUrls: [
+          'https://example.com/sound.mp3',
+          'https://example.com/clip.mp4',
+          'https://example.com/chart.png',
+        ],
+      );
+
+      await tester.pumpWidget(
+        createTestApp(
+          child: LetterInfoPanel(letter: sampleLetter),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap speaker icon to open popup
+      await tester.tap(find.byKey(const Key('alephat_speaker_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      // Verify all multiple media are listed
+      expect(find.text('የተያያዙ ሚዲያዎች (3)'), findsOneWidget);
+      expect(find.text('1. sound.mp3'), findsOneWidget);
+      expect(find.text('2. clip.mp4'), findsOneWidget);
+      expect(find.text('3. chart.png'), findsOneWidget);
+
+      // Dismiss popup
+      await tester.tap(find.byKey(const Key('alephat_media_popup_close_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+    });
   });
 }

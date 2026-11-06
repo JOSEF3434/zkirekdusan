@@ -2822,6 +2822,7 @@ model AlephatLetter {
   order              Int      @default(0)
   defaultNote        String?  @db.Text
   pronunciationGuide String?
+  mediaUrls          String[] @default([])
   isPublished        Boolean  @default(true)
 
   createdById        String?
@@ -2849,6 +2850,7 @@ model AlephatFamilyMember {
   orderName     String?        // e.g. "ግዕዝ", "ካዕብ", "ሣልስ", "ራብዕ", "ኃምስ", "ሳድስ", "ሳብዕ", "ሳምን"
   note          String?        @db.Text
   pronunciation String?
+  mediaUrls     String[]       @default([])
   isPublished   Boolean        @default(true)
 
   createdAt     DateTime       @default(now())

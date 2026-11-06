@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/calendar/alephat/data/alephat_repository.dart';
 import 'package:mobile/features/calendar/alephat/domain/alephat_letter_model.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
+import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_dynamic_media_section.dart';
 
 class ManageLetterDialog extends ConsumerStatefulWidget {
   final AlephatLetterModel? letter;
@@ -31,6 +32,7 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
   late TextEditingController _pronunciationCtrl;
   late bool _isPublished;
   late List<AlephatFamilyMemberModel> _familyMembers;
+  late List<TextEditingController> _mediaControllers;
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -52,6 +54,15 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
     _pronunciationCtrl = TextEditingController(text: l?.pronunciationGuide ?? '');
     _isPublished = l?.isPublished ?? true;
     _familyMembers = l != null ? List.from(l.familyMembers) : [];
+
+    final initialMedia = l?.mediaUrls ?? const [];
+    _mediaControllers = initialMedia.isNotEmpty
+        ? initialMedia.map((url) => TextEditingController(text: url)).toList()
+        : [TextEditingController(text: '')];
+    if (_mediaControllers.isEmpty ||
+        _mediaControllers.last.text.trim().isNotEmpty) {
+      _mediaControllers.add(TextEditingController(text: ''));
+    }
   }
 
   @override
@@ -62,6 +73,9 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
     _orderCtrl.dispose();
     _noteCtrl.dispose();
     _pronunciationCtrl.dispose();
+    for (final c in _mediaControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -75,6 +89,11 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
     });
 
     final repo = ref.read(alephatRepositoryProvider);
+    final mediaUrls = _mediaControllers
+        .map((c) => c.text.trim())
+        .where((u) => u.isNotEmpty)
+        .toList();
+
     final data = {
       'letter': _letterCtrl.text.trim(),
       'name': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
@@ -83,6 +102,7 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
       'pronunciationGuide': _pronunciationCtrl.text.trim().isEmpty
           ? null
           : _pronunciationCtrl.text.trim(),
+      'mediaUrls': mediaUrls,
       'isPublished': _isPublished,
     };
 
@@ -117,11 +137,20 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
   void _showAddOrEditMemberDialog([AlephatFamilyMemberModel? member]) {
     final formKey = GlobalKey<FormState>();
     final glyphCtrl = TextEditingController(text: member?.glyph ?? '');
-    final orderIndexCtrl =
-        TextEditingController(text: (member?.orderIndex ?? (_familyMembers.length + 1)).toString());
+    final orderIndexCtrl = TextEditingController(
+      text: (member?.orderIndex ?? (_familyMembers.length + 1)).toString(),
+    );
     final orderNameCtrl = TextEditingController(text: member?.orderName ?? '');
     final noteCtrl = TextEditingController(text: member?.note ?? '');
     final pronCtrl = TextEditingController(text: member?.pronunciation ?? '');
+
+    final memberMediaControllers = (member?.mediaUrls.isNotEmpty ?? false)
+        ? member!.mediaUrls.map((u) => TextEditingController(text: u)).toList()
+        : [TextEditingController(text: '')];
+    if (memberMediaControllers.isEmpty ||
+        memberMediaControllers.last.text.trim().isNotEmpty) {
+      memberMediaControllers.add(TextEditingController(text: ''));
+    }
 
     showDialog(
       context: context,
@@ -165,19 +194,42 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
                   controller: pronCtrl,
                   decoration: const InputDecoration(labelText: 'አጠራር (ምሳሌ፡ hu)'),
                 ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (ctx, setDialogState) => AlephatDynamicMediaSection(
+                    title: 'የዚህ ድምጽ ሚዲያዎች (Media)',
+                    helperText: 'ለዚህ ድምጽ የሚዲያ ማስፈንጠሪያ ወይም ፋይል ያያይዙ',
+                    controllers: memberMediaControllers,
+                    onControllersChanged: () => setDialogState(() {}),
+                  ),
+                ),
               ],
             ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              for (final c in memberMediaControllers) {
+                c.dispose();
+              }
+              Navigator.pop(ctx);
+            },
             child: const Text('ይቅር'),
           ),
           FilledButton(
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
               Navigator.pop(ctx);
+
+              final memberMedia = memberMediaControllers
+                  .map((c) => c.text.trim())
+                  .where((u) => u.isNotEmpty)
+                  .toList();
+
+              for (final c in memberMediaControllers) {
+                c.dispose();
+              }
 
               final repo = ref.read(alephatRepositoryProvider);
               final memberData = {
@@ -186,6 +238,7 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
                 'orderName': orderNameCtrl.text.trim().isEmpty ? null : orderNameCtrl.text.trim(),
                 'note': noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
                 'pronunciation': pronCtrl.text.trim().isEmpty ? null : pronCtrl.text.trim(),
+                'mediaUrls': memberMedia,
                 'isPublished': true,
               };
 
@@ -386,6 +439,11 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
                 alignLabelWithHint: true,
               ),
             ),
+            const SizedBox(height: 16),
+            AlephatDynamicMediaSection(
+              controllers: _mediaControllers,
+              onControllersChanged: () => setState(() {}),
+            ),
             const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -405,80 +463,82 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
       padding: const EdgeInsets.only(top: 14),
       child: Column(
         children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'የቤተሰብ አባላት (${_familyMembers.length})',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            FilledButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('አዲስ አባል'),
-              onPressed: () => _showAddOrEditMemberDialog(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _familyMembers.isEmpty
-              ? const Center(child: Text('ምንም የቤተሰብ አባል የለም'))
-              : ListView.builder(
-                  itemCount: _familyMembers.length,
-                  itemBuilder: (itemCtx, index) {
-                    final m = _familyMembers[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text(
-                            m.glyph,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'የቤተሰብ አባላት (${_familyMembers.length})',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              FilledButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('አዲስ አባል'),
+                onPressed: () => _showAddOrEditMemberDialog(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _familyMembers.isEmpty
+                ? const Center(child: Text('ምንም የቤተሰብ አባል የለም'))
+                : ListView.builder(
+                    itemCount: _familyMembers.length,
+                    itemBuilder: (itemCtx, index) {
+                      final m = _familyMembers[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            child: Text(
+                              m.glyph,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text('${m.glyph} (${m.orderName ?? '${m.orderIndex}ኛ'})'),
+                          subtitle: Text(
+                            m.note != null && m.note!.isNotEmpty
+                                ? m.note!
+                                : (m.pronunciation != null
+                                    ? 'አጠራር፡ ${m.pronunciation}'
+                                    : 'ማብራሪያ የለም'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                onPressed: () => _showAddOrEditMemberDialog(m),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                onPressed: () async {
+                                  if (widget.letter == null) return;
+                                  try {
+                                    final repo = ref.read(alephatRepositoryProvider);
+                                    await repo.deleteFamilyMember(widget.letter!.id, m.id);
+                                    setState(() {
+                                      _familyMembers.removeAt(index);
+                                    });
+                                    ref.invalidate(alephatLettersProvider);
+                                  } catch (e) {
+                                    if (!itemCtx.mounted) return;
+                                    ScaffoldMessenger.of(itemCtx).showSnackBar(
+                                      SnackBar(content: Text('ስህተት፡ $e')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         ),
-                        title: Text('${m.glyph} (${m.orderName ?? '${m.orderIndex}ኛ'})'),
-                        subtitle: Text(
-                          m.note != null && m.note!.isNotEmpty
-                              ? m.note!
-                              : (m.pronunciation != null ? 'አጠራር፡ ${m.pronunciation}' : 'ማብራሪያ የለም'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                              onPressed: () => _showAddOrEditMemberDialog(m),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                              onPressed: () async {
-                                if (widget.letter == null) return;
-                                try {
-                                  final repo = ref.read(alephatRepositoryProvider);
-                                  await repo.deleteFamilyMember(widget.letter!.id, m.id);
-                                  setState(() {
-                                    _familyMembers.removeAt(index);
-                                  });
-                                  ref.invalidate(alephatLettersProvider);
-                                } catch (e) {
-                                  if (!itemCtx.mounted) return;
-                                  ScaffoldMessenger.of(itemCtx).showSnackBar(
-                                    SnackBar(content: Text('ስህተት፡ $e')),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    ),
-  );
-}
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }

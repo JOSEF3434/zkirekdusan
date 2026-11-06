@@ -38,6 +38,16 @@ export class CreateAlephatLetterDto {
   @IsString()
   pronunciationGuide?: string;
 
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['https://example.com/audio/ha.mp3'],
+    description: 'Attached media URLs (audio, video, images, etc.)',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  mediaUrls?: string[];
+
   @ApiPropertyOptional({ example: true, description: 'Publication status' })
   @IsOptional()
   @IsBoolean()

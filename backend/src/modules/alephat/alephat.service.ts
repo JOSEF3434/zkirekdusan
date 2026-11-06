@@ -183,6 +183,7 @@ export class AlephatService implements OnApplicationBootstrap {
           order,
           defaultNote: dto.defaultNote?.trim(),
           pronunciationGuide: dto.pronunciationGuide?.trim(),
+          mediaUrls: dto.mediaUrls ?? [],
           isPublished: dto.isPublished ?? true,
           createdById: userId,
           updatedById: userId,
@@ -194,6 +195,7 @@ export class AlephatService implements OnApplicationBootstrap {
                   orderName: fm.orderName?.trim(),
                   note: fm.note?.trim(),
                   pronunciation: fm.pronunciation?.trim(),
+                  mediaUrls: fm.mediaUrls ?? [],
                   isPublished: fm.isPublished ?? true,
                 })),
               }
@@ -241,6 +243,7 @@ export class AlephatService implements OnApplicationBootstrap {
             orderName: fm.orderName?.trim(),
             note: fm.note?.trim(),
             pronunciation: fm.pronunciation?.trim(),
+            mediaUrls: fm.mediaUrls ?? [],
             isPublished: fm.isPublished ?? true,
           })),
         });
@@ -254,6 +257,7 @@ export class AlephatService implements OnApplicationBootstrap {
           order: dto.order !== undefined ? dto.order : undefined,
           defaultNote: dto.defaultNote !== undefined ? dto.defaultNote?.trim() : undefined,
           pronunciationGuide: dto.pronunciationGuide !== undefined ? dto.pronunciationGuide?.trim() : undefined,
+          mediaUrls: dto.mediaUrls !== undefined ? dto.mediaUrls : undefined,
           isPublished: dto.isPublished !== undefined ? dto.isPublished : undefined,
           updatedById: userId,
         },
@@ -318,6 +322,7 @@ export class AlephatService implements OnApplicationBootstrap {
         orderName: dto.orderName?.trim(),
         note: dto.note?.trim(),
         pronunciation: dto.pronunciation?.trim(),
+        mediaUrls: dto.mediaUrls ?? [],
         isPublished: dto.isPublished ?? true,
       },
     });
@@ -359,6 +364,7 @@ export class AlephatService implements OnApplicationBootstrap {
         orderName: dto.orderName !== undefined ? dto.orderName?.trim() : undefined,
         note: dto.note !== undefined ? dto.note?.trim() : undefined,
         pronunciation: dto.pronunciation !== undefined ? dto.pronunciation?.trim() : undefined,
+        mediaUrls: dto.mediaUrls !== undefined ? dto.mediaUrls : undefined,
         isPublished: dto.isPublished !== undefined ? dto.isPublished : undefined,
       },
     });

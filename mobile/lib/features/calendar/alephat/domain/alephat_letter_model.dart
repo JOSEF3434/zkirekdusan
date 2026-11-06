@@ -8,6 +8,7 @@ class AlephatFamilyMemberModel {
   final String? orderName;
   final String? note;
   final String? pronunciation;
+  final List<String> mediaUrls;
   final bool isPublished;
 
   const AlephatFamilyMemberModel({
@@ -18,10 +19,20 @@ class AlephatFamilyMemberModel {
     this.orderName,
     this.note,
     this.pronunciation,
+    this.mediaUrls = const [],
     this.isPublished = true,
   });
 
   factory AlephatFamilyMemberModel.fromJson(Map<String, dynamic> json) {
+    final rawMedia = json['mediaUrls'];
+    List<String> media = [];
+    if (rawMedia is List) {
+      media = rawMedia
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
     return AlephatFamilyMemberModel(
       id: json['id'] as String? ?? '',
       baseLetterId: json['baseLetterId'] as String? ?? '',
@@ -30,6 +41,7 @@ class AlephatFamilyMemberModel {
       orderName: json['orderName'] as String?,
       note: json['note'] as String?,
       pronunciation: json['pronunciation'] as String?,
+      mediaUrls: media,
       isPublished: json['isPublished'] as bool? ?? true,
     );
   }
@@ -42,6 +54,7 @@ class AlephatFamilyMemberModel {
     if (orderName != null) 'orderName': orderName,
     if (note != null) 'note': note,
     if (pronunciation != null) 'pronunciation': pronunciation,
+    'mediaUrls': mediaUrls,
     'isPublished': isPublished,
   };
 
@@ -53,6 +66,7 @@ class AlephatFamilyMemberModel {
     String? orderName,
     String? note,
     String? pronunciation,
+    List<String>? mediaUrls,
     bool? isPublished,
   }) {
     return AlephatFamilyMemberModel(
@@ -63,6 +77,7 @@ class AlephatFamilyMemberModel {
       orderName: orderName ?? this.orderName,
       note: note ?? this.note,
       pronunciation: pronunciation ?? this.pronunciation,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
       isPublished: isPublished ?? this.isPublished,
     );
   }
@@ -75,6 +90,7 @@ class AlephatLetterModel {
   final int order;
   final String? defaultNote;
   final String? pronunciationGuide;
+  final List<String> mediaUrls;
   final bool isPublished;
   final List<AlephatFamilyMemberModel> familyMembers;
   final DateTime? createdAt;
@@ -87,6 +103,7 @@ class AlephatLetterModel {
     this.order = 0,
     this.defaultNote,
     this.pronunciationGuide,
+    this.mediaUrls = const [],
     this.isPublished = true,
     this.familyMembers = const [],
     this.createdAt,
@@ -103,6 +120,15 @@ class AlephatLetterModel {
       members.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     }
 
+    final rawMedia = json['mediaUrls'];
+    List<String> media = [];
+    if (rawMedia is List) {
+      media = rawMedia
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
     return AlephatLetterModel(
       id: json['id'] as String? ?? '',
       letter: json['letter'] as String? ?? '',
@@ -110,6 +136,7 @@ class AlephatLetterModel {
       order: json['order'] as int? ?? 0,
       defaultNote: json['defaultNote'] as String?,
       pronunciationGuide: json['pronunciationGuide'] as String?,
+      mediaUrls: media,
       isPublished: json['isPublished'] as bool? ?? true,
       familyMembers: members,
       createdAt: json['createdAt'] != null
@@ -128,6 +155,7 @@ class AlephatLetterModel {
     'order': order,
     if (defaultNote != null) 'defaultNote': defaultNote,
     if (pronunciationGuide != null) 'pronunciationGuide': pronunciationGuide,
+    'mediaUrls': mediaUrls,
     'isPublished': isPublished,
     'familyMembers': familyMembers.map((m) => m.toJson()).toList(),
   };
@@ -139,6 +167,7 @@ class AlephatLetterModel {
     int? order,
     String? defaultNote,
     String? pronunciationGuide,
+    List<String>? mediaUrls,
     bool? isPublished,
     List<AlephatFamilyMemberModel>? familyMembers,
     DateTime? createdAt,
@@ -151,6 +180,7 @@ class AlephatLetterModel {
       order: order ?? this.order,
       defaultNote: defaultNote ?? this.defaultNote,
       pronunciationGuide: pronunciationGuide ?? this.pronunciationGuide,
+      mediaUrls: mediaUrls ?? this.mediaUrls,
       isPublished: isPublished ?? this.isPublished,
       familyMembers: familyMembers ?? this.familyMembers,
       createdAt: createdAt ?? this.createdAt,
