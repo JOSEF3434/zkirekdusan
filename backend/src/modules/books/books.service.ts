@@ -711,9 +711,6 @@ export class BooksService {
 
     if (dto.isDictionary !== undefined && dto.isDictionary) {
       if (dto.sourceLanguageId && dto.targetLanguageId) {
-        if (dto.sourceLanguageId === dto.targetLanguageId) {
-          throw new BadRequestException('Source and target languages cannot be identical');
-        }
         await this.prisma.dictionaryBookConfig.upsert({
           where: { bookId: id },
           update: {

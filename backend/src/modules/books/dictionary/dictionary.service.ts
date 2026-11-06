@@ -257,10 +257,6 @@ export class DictionaryService {
     const srcId = dto.sourceLanguageId ?? config.sourceLanguageId;
     const tgtId = dto.targetLanguageId ?? config.targetLanguageId;
 
-    if (srcId === tgtId) {
-      throw new BadRequestException('Source and target languages cannot be identical');
-    }
-
     if (dto.sourceLanguageId) {
       const src = await this.prisma.dictionaryLanguage.findUnique({
         where: { id: dto.sourceLanguageId, deletedAt: null },

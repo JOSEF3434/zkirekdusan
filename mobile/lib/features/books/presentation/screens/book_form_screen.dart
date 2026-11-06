@@ -543,13 +543,6 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
           setState(() => _isSaving = false);
           return;
         }
-        if (_sourceLanguageId == _targetLanguageId) {
-          _showErrorSnackBar(
-            'Source and Target languages cannot be identical',
-          );
-          setState(() => _isSaving = false);
-          return;
-        }
       }
 
       // 4. Build data map
@@ -637,7 +630,11 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
             backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
-        context.pop();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/books');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -801,6 +798,17 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to Books',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/books');
+            }
+          },
+        ),
         title: Text(
           isEditing ? 'Edit Book' : 'Add Book',
           style: theme.textTheme.titleMedium
@@ -1280,7 +1288,15 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _isSaving ? null : () => context.pop(),
+                        onPressed: _isSaving
+                            ? null
+                            : () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/books');
+                                }
+                              },
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -1631,12 +1647,24 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
                         _targetLanguageId != null &&
                         _sourceLanguageId == _targetLanguageId) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        'Source and target languages cannot be identical',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.menu_book_rounded,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Monolingual dictionary (መዝገበ ቃላት - ፍቺ በዚያው ቋንቋ)',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],

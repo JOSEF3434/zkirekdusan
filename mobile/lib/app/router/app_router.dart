@@ -867,27 +867,32 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'manage',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const BookManagementScreen(),
+                    builder: (context, state) =>
+                        const ResponsiveDesktopShell(child: BookManagementScreen()),
                   ),
                   GoRoute(
                     path: 'create',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const BookFormScreen(),
+                    builder: (context, state) =>
+                        const ResponsiveDesktopShell(child: BookFormScreen()),
                   ),
                   GoRoute(
                     path: 'categories',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const CategoryManagementScreen(),
+                    builder: (context, state) =>
+                        const ResponsiveDesktopShell(child: CategoryManagementScreen()),
                   ),
                   GoRoute(
                     path: 'languages',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const ManageDictionaryLanguagesScreen(),
+                    builder: (context, state) =>
+                        const ResponsiveDesktopShell(child: ManageDictionaryLanguagesScreen()),
                   ),
                   GoRoute(
                     path: 'history',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const TranslationHistoryScreen(),
+                    builder: (context, state) =>
+                        const ResponsiveDesktopShell(child: TranslationHistoryScreen()),
                   ),
                   GoRoute(
                     path: ':id',
@@ -903,7 +908,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                         builder: (context, state) {
                           final id = state.pathParameters['id']!;
                           final extra = state.extra as BookModel?;
-                          return BookFormScreen(bookId: id, initialBook: extra);
+                          return ResponsiveDesktopShell(
+                            child: BookFormScreen(bookId: id, initialBook: extra),
+                          );
                         },
                       ),
                       GoRoute(
