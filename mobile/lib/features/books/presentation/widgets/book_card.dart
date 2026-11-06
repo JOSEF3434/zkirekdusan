@@ -1,7 +1,8 @@
 // lib/features/books/presentation/widgets/book_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/presentation/widgets/app_network_image.dart';
+import '../../../../core/utils/media_url_resolver.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import '../../data/models/book_model.dart';
@@ -44,6 +45,9 @@ class BookCard extends ConsumerWidget {
     final deleteAction = onDeleteDownload ??
         () => _confirmRemoveDownload(context, ref, book);
 
+    final resolvedCover = MediaUrlResolver.resolve(book.coverUrl);
+    final hasCover = resolvedCover != null && resolvedCover.isNotEmpty;
+
     final coverTap = onCoverTap ?? onTap;
     final detailTap = onDetailTap ?? onTap;
 
@@ -73,18 +77,22 @@ class BookCard extends ConsumerWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: coverTap,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: book.coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: book.coverUrl!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) => _PlaceholderCover(book: book),
-                            errorWidget: (_, _, _) => _PlaceholderCover(book: book),
-                          )
-                        : _PlaceholderCover(book: book),
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      child: (hasCover)
+                          ? AppNetworkImage(
+                              imageUrl: resolvedCover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: (_, _) => _PlaceholderCover(book: book),
+                              errorWidget: (_, _, _) => _PlaceholderCover(book: book),
+                            )
+                          : _PlaceholderCover(book: book),
+                    ),
                   ),
 
                   // Format badge
@@ -293,6 +301,7 @@ class _PlaceholderCover extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
+      height: double.infinity,
       color: theme.colorScheme.primaryContainer,
       child: Center(
         child: Column(

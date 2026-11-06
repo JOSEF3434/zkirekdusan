@@ -11,6 +11,9 @@ import '../../data/models/book_model.dart';
 import '../providers/books_providers.dart';
 import '../providers/book_permissions_provider.dart';
 import '../widgets/book_card.dart';
+import '../../../../core/presentation/widgets/app_network_image.dart';
+import '../../../../core/utils/media_url_resolver.dart';
+
 
 class BooksScreen extends ConsumerStatefulWidget {
   const BooksScreen({super.key});
@@ -335,7 +338,9 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
         sortOrder: 0,
         viewsCount: 0,
         bookmarksCount: 0,
-        coverUrl: d.coverUrl,
+        coverUrl: (d.localCoverPath != null && d.localCoverPath!.isNotEmpty)
+            ? d.localCoverPath
+            : d.coverUrl,
         contentUrl: d.localContentPath,
         chapters: const [],
         attachments: const [],
@@ -350,8 +355,20 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
       // Downloaded tab: show all downloaded books (match existing or map from local record)
       final existingBooksById = {for (final b in libraryState.books) b.id: b};
       filteredBooks = downloadedRecords.map((d) {
-        if (existingBooksById.containsKey(d.bookId)) {
-          return existingBooksById[d.bookId]!;
+        final existing = existingBooksById[d.bookId];
+        final localCover = (d.localCoverPath != null && d.localCoverPath!.trim().isNotEmpty)
+            ? d.localCoverPath
+            : null;
+        final effectiveCover = localCover ??
+            (existing?.coverUrl != null && existing!.coverUrl!.trim().isNotEmpty
+                ? existing.coverUrl
+                : d.coverUrl);
+
+        if (existing != null) {
+          return existing.copyWith(
+            coverUrl: effectiveCover,
+            contentUrl: d.localContentPath ?? existing.contentUrl,
+          );
         }
         return BookModel(
           id: d.bookId,
@@ -370,7 +387,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           sortOrder: 0,
           viewsCount: 0,
           bookmarksCount: 0,
-          coverUrl: d.coverUrl,
+          coverUrl: effectiveCover,
           contentUrl: d.localContentPath,
           chapters: const [],
           attachments: const [],
@@ -1102,10 +1119,19 @@ class _BookListTile extends ConsumerWidget {
                 child: SizedBox(
                   width: 56,
                   height: 72,
-                  child: book.coverUrl != null
-                      ? Image.network(book.coverUrl!, fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _MiniPlaceholder(book: book))
-                      : _MiniPlaceholder(book: book),
+                  child: () {
+                    final resolvedCover = MediaUrlResolver.resolve(book.coverUrl);
+                    return (resolvedCover != null && resolvedCover.isNotEmpty)
+                        ? AppNetworkImage(
+                            imageUrl: resolvedCover,
+                            width: 56,
+                            height: 72,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) => _MiniPlaceholder(book: book),
+                            errorWidget: (_, _, _) => _MiniPlaceholder(book: book),
+                          )
+                        : _MiniPlaceholder(book: book);
+                  }(),
                 ),
               ),
             ),

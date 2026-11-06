@@ -72,6 +72,9 @@ class BooksRepository {
   }
 
   BookModel bookFromDownloadRecord(LocalDownloadedBookData d) {
+    final effectiveCover = (d.localCoverPath != null && d.localCoverPath!.isNotEmpty)
+        ? d.localCoverPath
+        : d.coverUrl;
     return BookModel(
       id: d.bookId,
       title: d.title,
@@ -89,7 +92,7 @@ class BooksRepository {
       sortOrder: 0,
       viewsCount: 0,
       bookmarksCount: 0,
-      coverUrl: d.coverUrl,
+      coverUrl: effectiveCover,
       contentUrl: d.localContentPath,
       chapters: const [],
       attachments: const [],
@@ -231,6 +234,9 @@ class BooksRepository {
 
   Future<void> updateLastOpened(String bookId, String userId) =>
       _downloadDao.updateLastOpened(bookId, userId);
+
+  Future<void> updateCoverUrl(String bookId, String coverUrl) =>
+      _downloadDao.updateCoverUrl(bookId, coverUrl);
 
   // ── Admin Book Management ───────────────────────────────────────────────
 

@@ -17,6 +17,8 @@ import 'package:mobile/core/database/daos/downloaded_books_dao.dart';
 import 'package:mobile/core/storage/web_download_helper.dart';
 import '../models/book_download_setting_model.dart';
 import '../models/book_model.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
+
 
 /// Result of a download attempt across destinations
 class DownloadResult {
@@ -283,6 +285,37 @@ class BookDownloadService {
     final inAppFinalPath = await _localPath(book.id, ext);
     final tempPath = await _localPath('${book.id}_tmp', ext);
 
+    // Cache cover image locally for offline reading if available
+    String? localCoverPath;
+    if (!kIsWeb && book.coverUrl != null && book.coverUrl!.trim().isNotEmpty) {
+      final resolvedCover = MediaUrlResolver.resolve(book.coverUrl);
+      if (resolvedCover != null &&
+          (resolvedCover.startsWith('http://') || resolvedCover.startsWith('https://'))) {
+        try {
+          final uri = Uri.tryParse(resolvedCover);
+          final rawExt = uri != null && uri.path.contains('.')
+              ? uri.path.split('.').last.split('?').first.toLowerCase()
+              : 'jpg';
+          final coverExt =
+              ['jpg', 'jpeg', 'png', 'webp'].contains(rawExt) ? rawExt : 'jpg';
+          final coverTarget = await _localPath('${book.id}_cover', coverExt);
+          final coverFile = File(coverTarget);
+          if (!await coverFile.exists() || await coverFile.length() == 0) {
+            await _dio.download(
+              resolvedCover,
+              coverTarget,
+              options: Options(receiveTimeout: const Duration(seconds: 15)),
+            );
+          }
+          if (await coverFile.exists() && await coverFile.length() > 0) {
+            localCoverPath = coverTarget;
+          }
+        } catch (e) {
+          debugPrint('[BookDownloadService] Failed to cache cover image: $e');
+        }
+      }
+    }
+
     try {
       // Record download intent in local DB
       await _dao.upsertRecord(LocalDownloadedBooksCompanion.insert(
@@ -291,6 +324,7 @@ class BookDownloadService {
         title: book.title,
         titleAm: Value(book.titleAm),
         coverUrl: Value(book.coverUrl),
+        localCoverPath: Value(localCoverPath),
         author: Value(book.author),
         format: book.format.name.toUpperCase(),
         pageCount: Value(book.pageCount),
@@ -331,7 +365,7 @@ class BookDownloadService {
       if (destination == BookDownloadDestination.inApp) {
         // Option A: In-App Only
         await tempFile.rename(inAppFinalPath);
-        await _dao.markCompleted(book.id, userId, inAppFinalPath, checksum);
+        await _dao.markCompleted(book.id, userId, inAppFinalPath, checksum, localCoverPath: localCoverPath);
         _activeTokens.remove(book.id);
         return DownloadResult.ok(inAppFinalPath);
       } else if (destination == BookDownloadDestination.deviceFileManager) {
@@ -345,14 +379,14 @@ class BookDownloadService {
         } catch (_) {}
 
         // Still record in DB so app knows user downloaded it, referencing external path
-        await _dao.markCompleted(book.id, userId, externalFilePath, checksum);
+        await _dao.markCompleted(book.id, userId, externalFilePath, checksum, localCoverPath: localCoverPath);
         _activeTokens.remove(book.id);
         return DownloadResult.externalOk(externalFilePath);
       } else {
         // Option C: Both (In-App + Device File Manager)
         // Move to in-app final path first
         await tempFile.rename(inAppFinalPath);
-        await _dao.markCompleted(book.id, userId, inAppFinalPath, checksum);
+        await _dao.markCompleted(book.id, userId, inAppFinalPath, checksum, localCoverPath: localCoverPath);
 
         // Now copy to device file manager
         String? externalFilePath;

@@ -1107,6 +1107,8 @@ export class BooksService {
         title: true,
         format: true,
         pageCount: true,
+        coverFileId: true,
+        coverFile: { select: { id: true, url: true } },
         contentFileId: true,
         contentFile: { select: { id: true, url: true, size: true, mimeType: true } },
         chapters: {

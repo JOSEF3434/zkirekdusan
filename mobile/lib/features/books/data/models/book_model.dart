@@ -1,3 +1,4 @@
+import '../../../../core/utils/media_url_resolver.dart';
 import 'dictionary_model.dart';
 import 'book_attachment_model.dart';
 
@@ -223,11 +224,99 @@ class BookModel {
     required this.updatedAt,
   });
 
+  BookModel copyWith({
+    String? id,
+    String? title,
+    String? titleAm,
+    String? titleGez,
+    String? subtitle,
+    String? author,
+    String? translator,
+    String? description,
+    String? categoryId,
+    String? categoryName,
+    BookLanguage? language,
+    BookFormat? format,
+    BookStatus? status,
+    String? publisher,
+    int? publishedYear,
+    String? edition,
+    String? isbn,
+    int? pageCount,
+    List<String>? tags,
+    int? sortOrder,
+    String? externalUrl,
+    int? viewsCount,
+    int? bookmarksCount,
+    String? coverFileId,
+    String? coverUrl,
+    String? contentFileId,
+    String? contentUrl,
+    int? contentFileSizeBytes,
+    List<BookChapterModel>? chapters,
+    List<BookAttachmentModel>? attachments,
+    bool? isDictionary,
+    DictionaryConfigModel? dictionaryConfig,
+    ReadingProgressModel? myProgress,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return BookModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      titleAm: titleAm ?? this.titleAm,
+      titleGez: titleGez ?? this.titleGez,
+      subtitle: subtitle ?? this.subtitle,
+      author: author ?? this.author,
+      translator: translator ?? this.translator,
+      description: description ?? this.description,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      language: language ?? this.language,
+      format: format ?? this.format,
+      status: status ?? this.status,
+      publisher: publisher ?? this.publisher,
+      publishedYear: publishedYear ?? this.publishedYear,
+      edition: edition ?? this.edition,
+      isbn: isbn ?? this.isbn,
+      pageCount: pageCount ?? this.pageCount,
+      tags: tags ?? this.tags,
+      sortOrder: sortOrder ?? this.sortOrder,
+      externalUrl: externalUrl ?? this.externalUrl,
+      viewsCount: viewsCount ?? this.viewsCount,
+      bookmarksCount: bookmarksCount ?? this.bookmarksCount,
+      coverFileId: coverFileId ?? this.coverFileId,
+      coverUrl: coverUrl ?? this.coverUrl,
+      contentFileId: contentFileId ?? this.contentFileId,
+      contentUrl: contentUrl ?? this.contentUrl,
+      contentFileSizeBytes: contentFileSizeBytes ?? this.contentFileSizeBytes,
+      chapters: chapters ?? this.chapters,
+      attachments: attachments ?? this.attachments,
+      isDictionary: isDictionary ?? this.isDictionary,
+      dictionaryConfig: dictionaryConfig ?? this.dictionaryConfig,
+      myProgress: myProgress ?? this.myProgress,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   factory BookModel.fromJson(Map<String, dynamic> json) {
     final rawChapters = json['chapters'];
     final rawAttachments = json['attachments'];
     final rawProgress = json['myProgress'] ?? json['progress'];
     final rawCover = json['coverFile'];
+    String? resolvedCoverUrl;
+    String? resolvedCoverId;
+    if (rawCover is Map) {
+      resolvedCoverId = rawCover['id'] as String?;
+      resolvedCoverUrl = (rawCover['url'] ?? rawCover['secure_url']) as String?;
+    } else if (rawCover is String && rawCover.trim().isNotEmpty) {
+      resolvedCoverUrl = rawCover.trim();
+    }
+    resolvedCoverUrl ??= (json['coverUrl'] ?? json['cover'] ?? json['coverImageUrl']) as String?;
+    resolvedCoverId ??= (json['coverFileId'] ?? json['coverId']) as String?;
+    final finalCoverUrl = MediaUrlResolver.resolve(resolvedCoverUrl);
+
     final rawContent = json['contentFile'];
     final rawCat = json['category'];
 
@@ -255,8 +344,8 @@ class BookModel {
       externalUrl: json['externalUrl'] as String?,
       viewsCount: (json['viewsCount'] as num?)?.toInt() ?? 0,
       bookmarksCount: (json['bookmarksCount'] as num?)?.toInt() ?? 0,
-      coverFileId: rawCover?['id'] as String?,
-      coverUrl: rawCover?['url'] as String?,
+      coverFileId: resolvedCoverId,
+      coverUrl: finalCoverUrl,
       contentFileId: rawContent?['id'] as String?,
       contentUrl: rawContent?['url'] as String?,
       contentFileSizeBytes:

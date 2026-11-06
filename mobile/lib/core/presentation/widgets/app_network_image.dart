@@ -71,6 +71,12 @@ class AppNetworkImage extends StatelessWidget {
           ),
         );
 
+    final trimmed = imageUrl.trim();
+    if (trimmed.isEmpty) {
+      final errW = errorWidget ?? defaultErrorWidget;
+      return errW(context, imageUrl, 'Empty image URL');
+    }
+
     // Safeguard: If a local file path was accidentally passed to AppNetworkImage on native mobile
     if (!kIsWeb &&
         !imageUrl.startsWith('http://') &&

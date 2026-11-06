@@ -105,10 +105,12 @@ class DownloadedBooksDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> markCompleted(
-      String bookId, String userId, String localPath, String? checksum) {
+      String bookId, String userId, String localPath, String? checksum,
+      {String? localCoverPath}) {
     if (kIsWeb) {
       return _WebDownloadedBooksManager.markCompleted(
-          bookId, userId, localPath, checksum);
+          bookId, userId, localPath, checksum,
+          localCoverPath: localCoverPath);
     }
     return (update(localDownloadedBooks)
           ..where((t) =>
@@ -117,9 +119,24 @@ class DownloadedBooksDao extends DatabaseAccessor<AppDatabase>
           status: const Value('completed'),
           progress: const Value(1.0),
           localContentPath: Value(localPath),
+          localCoverPath: localCoverPath != null
+              ? Value(localCoverPath)
+              : const Value.absent(),
           contentChecksum: Value(checksum),
           downloadedAt: Value(DateTime.now()),
           lastVerifiedAt: Value(DateTime.now()),
+          updatedAt: Value(DateTime.now()),
+        ));
+  }
+
+  Future<void> updateCoverUrl(String bookId, String coverUrl) {
+    if (kIsWeb) {
+      return _WebDownloadedBooksManager.updateCoverUrl(bookId, coverUrl);
+    }
+    return (update(localDownloadedBooks)
+          ..where((t) => t.bookId.equals(bookId)))
+        .write(LocalDownloadedBooksCompanion(
+          coverUrl: Value(coverUrl),
           updatedAt: Value(DateTime.now()),
         ));
   }
@@ -378,8 +395,9 @@ class _WebDownloadedBooksManager {
     String bookId,
     String userId,
     String localPath,
-    String? checksum,
-  ) async {
+    String? checksum, {
+    String? localCoverPath,
+  }) async {
     final cache = await _ensureLoaded();
     final key = _key(userId, bookId);
     final existing = cache[key] ?? cache[_key('guest', bookId)];
@@ -388,6 +406,11 @@ class _WebDownloadedBooksManager {
         status: 'completed',
         progress: 1.0,
         localContentPath: Value(localPath),
+        localCoverPath: localCoverPath != null
+            ? Value(localCoverPath)
+            : existing.localCoverPath != null
+                ? Value(existing.localCoverPath)
+                : const Value.absent(),
         contentChecksum: Value(checksum),
         downloadedAt: Value(DateTime.now()),
         lastVerifiedAt: Value(DateTime.now()),
@@ -395,6 +418,21 @@ class _WebDownloadedBooksManager {
       );
       await _persist();
     }
+  }
+
+  static Future<void> updateCoverUrl(String bookId, String coverUrl) async {
+    final cache = await _ensureLoaded();
+    bool changed = false;
+    for (final key in cache.keys.toList()) {
+      if (cache[key]?.bookId == bookId) {
+        cache[key] = cache[key]!.copyWith(
+          coverUrl: Value(coverUrl),
+          updatedAt: DateTime.now(),
+        );
+        changed = true;
+      }
+    }
+    if (changed) await _persist();
   }
 
   static Future<void> markFailed(String bookId, String userId, String error) async {

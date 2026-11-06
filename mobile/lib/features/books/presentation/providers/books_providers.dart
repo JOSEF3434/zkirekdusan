@@ -353,8 +353,18 @@ class DownloadsNotifier extends StateNotifier<DownloadState> {
       lastResults: Map.from(state.lastResults)..remove(book.id),
     );
 
+    final coverFromInfo = (info['coverFile'] is Map)
+        ? (info['coverFile']['url'] ?? info['coverFile']['secure_url']) as String?
+        : (info['coverFile'] is String ? info['coverFile'] as String : null);
+    final effectiveCover = (book.coverUrl != null && book.coverUrl!.trim().isNotEmpty)
+        ? book.coverUrl
+        : coverFromInfo;
+    final effectiveBook = (effectiveCover != null && effectiveCover != book.coverUrl)
+        ? book.copyWith(coverUrl: effectiveCover)
+        : book;
+
     final result = await _repo.startDownload(
-      book: book,
+      book: effectiveBook,
       userId: userId,
       contentUrl: contentUrl,
       destination: destination,
