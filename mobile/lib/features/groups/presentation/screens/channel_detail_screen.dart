@@ -280,14 +280,13 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                 );
               } else if (value == 'copy') {
                 await Clipboard.setData(ClipboardData(text: canonicalUrl));
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Channel link copied!'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Channel link copied!'),
+                    backgroundColor: Color(0xFF10B981),
+                  ),
+                );
               } else if (value == 'analytics' && isOwner) {
                 context.push('/creator/dashboard/channel/${channel.id}/analytics', extra: {
                   'channelName': channel.name,
@@ -1004,7 +1003,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
       loading: () => const Center(
         child: CircularProgressIndicator(color: Color(0xFF00C6FF)),
       ),
-      error: (_, __) => Center(
+      error: (err, stack) => Center(
         child: Text(
           'Could not load live streams',
           style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
@@ -1205,7 +1204,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
       loading: () => const Center(
         child: CircularProgressIndicator(color: Color(0xFF00C6FF)),
       ),
-      error: (_, __) => Center(
+      error: (err, stack) => Center(
         child: Text(
           'Could not load community posts',
           style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
@@ -1342,7 +1341,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                           height: 180,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                          errorWidget: (context, url, error) => const SizedBox.shrink(),
                         ),
                       ),
                     ],
@@ -1638,17 +1637,15 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                   'content': contentController.text.trim(),
                 });
                 ref.invalidate(channelCommunityPostsProvider(channelId));
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Community post published!')),
-                  );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Community post published!')),
+                );
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to publish post: $e')),
-                  );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to publish post: $e')),
+                );
               }
             },
             child: const Text('Publish'),
