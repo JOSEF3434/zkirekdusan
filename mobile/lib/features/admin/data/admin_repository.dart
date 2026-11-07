@@ -281,37 +281,77 @@ class AdminAuditLogItemDto {
 class AdminChannelItemDto {
   final String id;
   final String name;
+  final String handle;
   final String slug;
   final String type;
+  final String? description;
+  final String status;
+  final String visibility;
+  final bool isVerified;
+  final int subscribersCount;
+  final int videosCount;
+  final int totalViewsCount;
+  final String? avatarUrl;
+  final String? bannerUrl;
   final String? groupName;
   final String? groupId;
+  final String? ownerUsername;
+  final String? ownerDisplayName;
+  final String? rejectionReason;
   final int messageCount;
   final DateTime createdAt;
 
   AdminChannelItemDto({
     required this.id,
     required this.name,
+    this.handle = '',
     required this.slug,
-    required this.type,
+    this.type = 'BROADCAST',
+    this.description,
+    this.status = 'ACTIVE',
+    this.visibility = 'PUBLIC',
+    this.isVerified = false,
+    this.subscribersCount = 0,
+    this.videosCount = 0,
+    this.totalViewsCount = 0,
+    this.avatarUrl,
+    this.bannerUrl,
     this.groupName,
     this.groupId,
+    this.ownerUsername,
+    this.ownerDisplayName,
+    this.rejectionReason,
     required this.messageCount,
     required this.createdAt,
   });
 
   factory AdminChannelItemDto.fromJson(Map<String, dynamic> json) {
     final group = safeMap(json['group']);
-    final count = safeMap(json['_count']);
+    final count = safeMap(json['counts']) ?? safeMap(json['_count']);
+    final owner = safeMap(json['owner']);
     return AdminChannelItemDto(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      handle: json['handle'] as String? ?? '',
       slug: json['slug'] as String? ?? '',
-      type: json['type'] as String? ?? 'TEXT',
+      type: json['type'] as String? ?? 'BROADCAST',
+      description: json['description'] as String?,
+      status: json['status'] as String? ?? 'ACTIVE',
+      visibility: json['visibility'] as String? ?? 'PUBLIC',
+      isVerified: json['isVerified'] as bool? ?? false,
+      subscribersCount: (json['subscribersCount'] as num?)?.toInt() ?? (count?['subscriptions'] as num?)?.toInt() ?? 0,
+      videosCount: (json['videosCount'] as num?)?.toInt() ?? (count?['videos'] as num?)?.toInt() ?? 0,
+      totalViewsCount: (json['totalViewsCount'] as num?)?.toInt() ?? 0,
+      avatarUrl: json['avatarUrl'] as String?,
+      bannerUrl: json['bannerUrl'] as String?,
       groupName: group?['name'] as String?,
       groupId: json['groupId'] as String? ?? group?['id'] as String?,
+      ownerUsername: owner?['username'] as String?,
+      ownerDisplayName: (owner?['displayName'] ?? owner?['username']) as String?,
+      rejectionReason: json['rejectionReason'] as String?,
       messageCount: (count?['messages'] as num?)?.toInt() ?? 0,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -563,6 +603,7 @@ class AdminRepository {
     int page = 1,
     int limit = 20,
     String? search,
+    String? status,
     String? groupId,
   }) async {
     try {
@@ -572,6 +613,7 @@ class AdminRepository {
           'page': page,
           'limit': limit,
           if (search != null && search.isNotEmpty) 'search': search,
+          if (status != null && status.isNotEmpty) 'status': status,
           'groupId': ?groupId,
         },
       );
@@ -594,6 +636,51 @@ class AdminRepository {
       };
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<bool> approveChannel(String channelId, {String? notes}) async {
+    try {
+      final res = await _dio.post(
+        '/admin/channels/$channelId/approve',
+        data: {'notes': ?notes},
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectChannel(String channelId, {required String reason}) async {
+    try {
+      final res = await _dio.post(
+        '/admin/channels/$channelId/reject',
+        data: {'reason': reason},
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> suspendChannel(String channelId, {String? reason}) async {
+    try {
+      final res = await _dio.post(
+        '/admin/channels/$channelId/suspend',
+        data: {'reason': ?reason},
+      );
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> activateChannel(String channelId) async {
+    try {
+      final res = await _dio.post('/admin/channels/$channelId/activate');
+      return res.statusCode == 200 || res.statusCode == 201;
+    } catch (_) {
+      return false;
     }
   }
 

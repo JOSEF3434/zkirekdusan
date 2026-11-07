@@ -63,7 +63,7 @@ export class VideosService {
         select: { id: true, groupId: true },
       });
       if (!channel) throw new NotFoundException('Video channel not found');
-      return { groupId: channel.groupId, channelId: channel.id };
+      return { groupId: channel.groupId ?? '', channelId: channel.id };
     }
 
     const channel = await this.prisma.videoChannel.findFirst({
@@ -74,34 +74,58 @@ export class VideosService {
       select: {
         id: true,
         groupId: true,
+        ownerId: true,
+        status: true,
         uploadPermission: true,
         group: { select: { id: true, status: true, createdById: true } },
       },
     });
 
     if (!channel) throw new NotFoundException('Video channel not found');
-    if (channel.group.status === 'PENDING_APPROVAL') {
+
+    if (channel.status === 'PENDING') {
       throw new ForbiddenException(
-        'Group is not privileged to upload videos. Please communicate with system admin to approve your groups.',
+        'Channel is pending administrator approval and cannot upload videos yet.',
       );
     }
-    if (channel.group.status !== 'ACTIVE') {
-      throw new ForbiddenException('Group is not active');
+    if (channel.status === 'REJECTED' || channel.status === 'SUSPENDED' || channel.status === 'DISABLED') {
+      throw new ForbiddenException(`Channel is currently ${channel.status.toLowerCase()} and cannot publish content.`);
     }
 
-    const isCreator = channel.group.createdById === userId;
+    if (channel.group) {
+      if (channel.group.status === 'PENDING_APPROVAL') {
+        throw new ForbiddenException(
+          'Group is not privileged to upload videos. Please communicate with system admin to approve your groups.',
+        );
+      }
+      if (channel.group.status !== 'ACTIVE') {
+        throw new ForbiddenException('Group is not active');
+      }
+    }
 
-    const membership = await this.prisma.groupMember.findFirst({
-      where: {
-        groupId: channel.groupId,
-        userId,
-        removedAt: null,
-      },
-      select: { role: true },
+    const isOwner = channel.ownerId === userId || (channel.group && channel.group.createdById === userId);
+
+    let isModerator = false;
+    const channelMod = await this.prisma.channelModerator.findUnique({
+      where: { channelId_userId: { channelId: channel.id, userId } },
     });
+    if (channelMod) isModerator = true;
 
-    if (!membership && !isCreator) {
-      throw new ForbiddenException('You are not a member of this group');
+    let groupMembershipRole: string | null = null;
+    if (channel.groupId) {
+      const membership = await this.prisma.groupMember.findFirst({
+        where: {
+          groupId: channel.groupId,
+          userId,
+          removedAt: null,
+        },
+        select: { role: true },
+      });
+      groupMembershipRole = membership?.role ?? null;
+    }
+
+    if (!isOwner && !isModerator && !groupMembershipRole) {
+      throw new ForbiddenException('You are not authorized to upload to this channel');
     }
 
     const roleHierarchy: Record<string, number> = {
@@ -111,9 +135,11 @@ export class VideosService {
       GUEST: 1,
     };
 
-    const userLevel = isCreator
+    const userLevel = isOwner
       ? 4
-      : (roleHierarchy[membership?.role ?? ''] ?? 0);
+      : isModerator
+      ? 3
+      : (roleHierarchy[groupMembershipRole ?? ''] ?? 0);
     const requiredLevel = roleHierarchy[channel.uploadPermission] ?? 2;
 
     if (userLevel < requiredLevel) {
@@ -122,7 +148,7 @@ export class VideosService {
       );
     }
 
-    return { groupId: channel.groupId, channelId: channel.id };
+    return { groupId: channel.groupId ?? '', channelId: channel.id };
   }
 
   /**

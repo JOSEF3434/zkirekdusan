@@ -8,6 +8,7 @@ import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dar
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/core/network/api_client.dart';
 
 /// In-memory reactive map for live user presence (userId -> isOnline)
 final livePresenceMapProvider = StateProvider<Map<String, bool>>((ref) => {});
@@ -674,6 +675,46 @@ class ChatDiscoveryNotifier
     return res;
   }
 
+  Future<Map<String, dynamic>> requestChannelCreation({
+    required String name,
+    required String handle,
+    String? description,
+    String? category,
+  }) async {
+    final dio = _ref?.read(apiClientProvider);
+    if (dio == null) throw Exception('API client unavailable');
+    final response = await dio.post(
+      '/video-channels',
+      data: {
+        'name': name,
+        'handle': handle.startsWith('@') ? handle : '@$handle',
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (category != null && category.isNotEmpty) 'category': category,
+      },
+    );
+    await refreshDiscovery();
+    return response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : {'success': true};
+  }
+
+  Future<void> subscribeChannel(String channelId) async {
+    final dio = _ref?.read(apiClientProvider);
+    if (dio != null) {
+      await dio.post('/video-channels/$channelId/subscribe');
+      await refreshDiscovery();
+    }
+  }
+
+  Future<void> unsubscribeChannel(String channelId) async {
+    final dio = _ref?.read(apiClientProvider);
+    if (dio != null) {
+      await dio.delete('/video-channels/$channelId/subscribe');
+      await refreshDiscovery();
+    }
+  }
+
   int getTotalUnreadCount() {
     if (!mounted) return 0;
     return state.maybeWhen(
@@ -899,6 +940,33 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
       }
     }
 
+    // 5. Broadcasting Channels (YouTube-Style Content Platform)
+    for (final ch in discovery.channels) {
+      items.add(
+        UnifiedChatItem(
+          id: 'channel_${ch.id}',
+          title: ch.name,
+          subtitle: ch.latestContentTitle != null && ch.latestContentTitle!.isNotEmpty
+              ? ch.latestContentTitle
+              : (ch.description != null && ch.description!.isNotEmpty
+                  ? ch.description
+                  : '${ch.handle.isNotEmpty ? (ch.handle.startsWith('@') ? ch.handle : '@${ch.handle}') : ch.name} • ${ch.subscribersCount} subscribers'),
+          avatarUrl: ch.avatarUrl,
+          bannerUrl: ch.bannerUrl,
+          type: UnifiedChatType.channel,
+          sortDate: ch.latestContentAt ?? ch.createdAt,
+          subscribersCount: ch.subscribersCount,
+          videosCount: ch.videosCount,
+          handle: ch.handle,
+          status: ch.status,
+          isSubscribed: ch.isSubscribed,
+          isOwner: ch.isOwner,
+          isVerified: ch.isVerified,
+          targetChannelId: ch.id,
+        ),
+      );
+    }
+
     // Apply Filter
     List<UnifiedChatItem> filtered;
     switch (filter) {
@@ -933,12 +1001,7 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
 
       case 'channels':
         filtered = items
-            .where(
-              (i) =>
-                  (i.conversation != null &&
-                      i.conversation!.type == ConversationType.groupChannel) ||
-                  i.type == UnifiedChatType.publicGroup,
-            )
+            .where((i) => i.type == UnifiedChatType.channel)
             .toList();
         break;
 

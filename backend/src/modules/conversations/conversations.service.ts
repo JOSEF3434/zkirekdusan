@@ -6,6 +6,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import { ConversationsRepository } from './conversations.repository.js';
 import { UsersRepository } from '../users/users.repository.js';
 import { MessagingGateway } from '../messaging-gateway/messaging.gateway.js';
@@ -21,6 +22,7 @@ interface IMessagingGateway extends MessagingGateway {}
 @Injectable()
 export class ConversationsService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly conversationsRepository: ConversationsRepository,
     private readonly usersRepository: UsersRepository,
     @Inject(forwardRef(() => MessagingGateway))
@@ -63,12 +65,31 @@ export class ConversationsService {
 
   async getChatDiscovery(userId: string): Promise<ChatDiscoveryResponseDto> {
     try {
-      const [conversations, allUsers, publicGroups, myPrivateGroups] =
+      const [conversations, allUsers, publicGroups, myPrivateGroups, rawChannels] =
         await Promise.all([
           this.getUserConversations(userId),
           this.conversationsRepository.getAllUsersSortedNewest(),
           this.conversationsRepository.getAllPublicGroupsSortedNewest(),
           this.conversationsRepository.getUserPrivateGroups(userId),
+          this.prisma.videoChannel.findMany({
+            where: {
+              status: { in: ['ACTIVE', 'APPROVED'] },
+              deletedAt: null,
+            },
+            take: 40,
+            orderBy: [{ isVerified: 'desc' }, { subscribersCount: 'desc' }, { createdAt: 'desc' }],
+            include: {
+              avatarFile: { select: { url: true } },
+              bannerFile: { select: { url: true } },
+              subscriptions: { where: { userId }, select: { userId: true } },
+              videos: {
+                where: { deletedAt: null },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: { title: true, createdAt: true },
+              },
+            },
+          }),
         ]);
 
       const formattedUsers: ChatUserItemDto[] = allUsers.map((u) => {
@@ -121,11 +142,31 @@ export class ConversationsService {
         }),
       );
 
+      const formattedChannels = (rawChannels as any[]).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        handle: c.handle,
+        slug: c.slug,
+        description: c.description,
+        avatarUrl: c.avatarFile?.url ?? null,
+        bannerUrl: c.bannerFile?.url ?? null,
+        subscribersCount: c.subscribersCount,
+        videosCount: c.videosCount,
+        isVerified: c.isVerified,
+        isSubscribed: Boolean(c.subscriptions && c.subscriptions.length > 0),
+        isOwner: c.ownerId === userId,
+        status: c.status,
+        latestContentTitle: c.videos?.[0]?.title ?? null,
+        latestContentAt: c.videos?.[0]?.createdAt ?? null,
+        createdAt: c.createdAt,
+      }));
+
       return {
         conversations,
         publicGroups: formattedPublicGroups,
         myPrivateGroups: formattedPrivateGroups,
         allUsers: formattedUsers,
+        channels: formattedChannels,
       };
     } catch (error) {
       console.error('Error in getChatDiscovery:', error);
@@ -135,6 +176,7 @@ export class ConversationsService {
         publicGroups: [],
         myPrivateGroups: [],
         allUsers: [],
+        channels: [],
       };
     }
   }

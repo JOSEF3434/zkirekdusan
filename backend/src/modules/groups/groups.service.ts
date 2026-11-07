@@ -24,9 +24,12 @@ import { PERMISSIONS } from '../../common/constants/permissions.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { UploadsService } from '../uploads/uploads.service.js';
 
+import { PrismaService } from '../../prisma/prisma.service.js';
+
 @Injectable()
 export class GroupsService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly groupsRepository: GroupsRepository,
     private readonly authorizationService: AuthorizationService,
     private readonly uploadsService: UploadsService,
@@ -973,5 +976,319 @@ export class GroupsService {
     }
 
     return this.uploadsService.uploadGroupCover(groupId, userId, file);
+  }
+
+  // ─── Telegram-Style Advanced Community Features ─────────────────────────
+
+  async updateSettings(
+    groupId: string,
+    userId: string,
+    dto: { slowModeSeconds?: number; isForum?: boolean; defaultPermissions?: any },
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (member?.role !== GroupRole.GROUP_ADMIN && group.createdById !== userId) {
+      throw new ForbiddenException('Only group administrators can change group settings');
+    }
+
+    const updated = await this.prisma.group.update({
+      where: { id: groupId },
+      data: {
+        ...(dto.slowModeSeconds !== undefined ? { slowModeSeconds: dto.slowModeSeconds } : {}),
+        ...(dto.isForum !== undefined ? { isForum: dto.isForum } : {}),
+        ...(dto.defaultPermissions !== undefined ? { defaultPermissions: dto.defaultPermissions } : {}),
+      },
+    });
+
+    await this.prisma.groupAuditLog.create({
+      data: {
+        groupId,
+        actorId: userId,
+        action: 'SETTINGS_UPDATED',
+        details: dto,
+      },
+    });
+
+    return updated;
+  }
+
+  async transferOwnership(groupId: string, actorId: string, newOwnerId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    if (group.createdById !== actorId) {
+      throw new ForbiddenException('Only the current group owner can transfer ownership');
+    }
+
+    const targetMember = await this.groupsRepository.getMember(groupId, newOwnerId);
+    if (!targetMember) {
+      throw new BadRequestException('Target user is not a member of this group');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const g = await tx.group.update({
+        where: { id: groupId },
+        data: { createdById: newOwnerId },
+      });
+
+      await tx.groupMember.update({
+        where: { groupId_userId: { groupId, userId: newOwnerId } },
+        data: { role: GroupRole.GROUP_ADMIN },
+      });
+
+      await tx.groupAuditLog.create({
+        data: {
+          groupId,
+          actorId,
+          action: 'OWNERSHIP_TRANSFERRED',
+          targetId: newOwnerId,
+        },
+      });
+
+      return g;
+    });
+
+    return { message: 'Ownership transferred successfully', group: updated };
+  }
+
+  async createTopic(
+    groupId: string,
+    userId: string,
+    dto: { title: string; iconEmoji?: string; color?: number },
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member) {
+      throw new ForbiddenException('You must be a member to create a topic');
+    }
+
+    const topic = await this.prisma.groupTopic.create({
+      data: {
+        groupId,
+        createdById: userId,
+        title: dto.title,
+        iconEmoji: dto.iconEmoji,
+        color: dto.color,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
+      },
+    });
+
+    await this.prisma.groupAuditLog.create({
+      data: {
+        groupId,
+        actorId: userId,
+        action: 'TOPIC_CREATED',
+        targetId: topic.id,
+        details: { title: dto.title },
+      },
+    });
+
+    return topic;
+  }
+
+  async listTopics(groupId: string, userId?: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    if (group.visibility === 'PRIVATE' && userId) {
+      const member = await this.groupsRepository.getMember(groupId, userId);
+      if (!member) throw new ForbiddenException('Group is private');
+    }
+
+    const topics = await this.prisma.groupTopic.findMany({
+      where: { groupId },
+      orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+    });
+
+    return topics;
+  }
+
+  async updateTopic(
+    groupId: string,
+    topicId: string,
+    userId: string,
+    dto: { title?: string; iconEmoji?: string; isClosed?: boolean; isPinned?: boolean },
+  ) {
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member || (member.role !== GroupRole.GROUP_ADMIN && member.role !== GroupRole.MODERATOR)) {
+      throw new ForbiddenException('Only admins or moderators can manage topics');
+    }
+
+    return this.prisma.groupTopic.update({
+      where: { id: topicId },
+      data: dto,
+    });
+  }
+
+  async deleteTopic(groupId: string, topicId: string, userId: string) {
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member || member.role !== GroupRole.GROUP_ADMIN) {
+      throw new ForbiddenException('Only group admins can delete topics');
+    }
+
+    await this.prisma.groupTopic.delete({ where: { id: topicId } });
+    return { message: 'Topic deleted successfully' };
+  }
+
+  async createPoll(
+    groupId: string,
+    userId: string,
+    dto: {
+      question: string;
+      options: string[];
+      conversationId?: string;
+      isAnonymous?: boolean;
+      allowsMultipleAnswers?: boolean;
+    },
+  ) {
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member) throw new ForbiddenException('You must be a member to create a poll');
+
+    if (!dto.options || dto.options.length < 2) {
+      throw new BadRequestException('A poll must have at least 2 options');
+    }
+
+    const poll = await this.prisma.groupPoll.create({
+      data: {
+        groupId,
+        conversationId: dto.conversationId,
+        question: dto.question,
+        isAnonymous: dto.isAnonymous ?? false,
+        allowsMultipleAnswers: dto.allowsMultipleAnswers ?? false,
+        createdById: userId,
+        options: {
+          create: dto.options.map((text) => ({ text })),
+        },
+      },
+      include: {
+        options: true,
+        createdBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
+      },
+    });
+
+    return poll;
+  }
+
+  async votePoll(pollId: string, userId: string, optionIds: string[]) {
+    const poll = await this.prisma.groupPoll.findUnique({
+      where: { id: pollId },
+      include: { options: true },
+    });
+    if (!poll) throw new NotFoundException('Poll not found');
+    if (poll.isClosed) throw new BadRequestException('This poll is closed');
+
+    if (!poll.allowsMultipleAnswers && optionIds.length > 1) {
+      throw new BadRequestException('Multiple votes are not allowed for this poll');
+    }
+
+    // Delete existing votes for this user on this poll
+    await this.prisma.groupPollVote.deleteMany({
+      where: { pollId, userId },
+    });
+
+    // Create new votes
+    for (const optionId of optionIds) {
+      await this.prisma.groupPollVote.create({
+        data: { pollId, optionId, userId },
+      });
+    }
+
+    // Recount votes
+    for (const opt of poll.options) {
+      const count = await this.prisma.groupPollVote.count({
+        where: { optionId: opt.id },
+      });
+      await this.prisma.groupPollOption.update({
+        where: { id: opt.id },
+        data: { votesCount: count },
+      });
+    }
+
+    return this.prisma.groupPoll.findUnique({
+      where: { id: pollId },
+      include: {
+        options: true,
+        votes: {
+          where: { userId },
+        },
+      },
+    });
+  }
+
+  async closePoll(pollId: string, userId: string) {
+    const poll = await this.prisma.groupPoll.findUnique({
+      where: { id: pollId },
+    });
+    if (!poll) throw new NotFoundException('Poll not found');
+
+    const member = await this.groupsRepository.getMember(poll.groupId, userId);
+    if (poll.createdById !== userId && member?.role !== GroupRole.GROUP_ADMIN) {
+      throw new ForbiddenException('Only the poll creator or group admin can close the poll');
+    }
+
+    return this.prisma.groupPoll.update({
+      where: { id: pollId },
+      data: { isClosed: true },
+      include: { options: true },
+    });
+  }
+
+  async getAuditLog(groupId: string, userId: string, page = 1, limit = 50) {
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (!member || (member.role !== GroupRole.GROUP_ADMIN && member.role !== GroupRole.MODERATOR)) {
+      throw new ForbiddenException('Only group administrators or moderators can view audit logs');
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.prisma.groupAuditLog.findMany({
+        where: { groupId },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              username: true,
+              profile: { select: { displayName: true, avatarUrl: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.groupAuditLog.count({ where: { groupId } }),
+    ]);
+
+    return { items, total, page, limit };
   }
 }

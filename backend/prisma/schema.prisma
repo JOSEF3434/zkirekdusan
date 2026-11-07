@@ -224,6 +224,10 @@ enum NotificationType {
   GROUP_JOIN_REQUEST
   GROUP_APPROVE
   SYSTEM
+  CHANNEL_STATUS
+  CHANNEL_NEW_VIDEO
+  CHANNEL_NEW_POST
+  CHANNEL_LIVE
 }
 
 enum CalendarReminderRepeat {
@@ -394,6 +398,18 @@ model User {
   forwardedMessages     MessageForward[]    @relation("ForwardOriginalSender")
   messageMentions       MessageMention[]    @relation("MessageMentionUser")
 
+  // Channels & Groups Separation Relations
+  ownedChannels         VideoChannel[]         @relation("ChannelOwner")
+  reviewedChannels      VideoChannel[]         @relation("ChannelReviewer")
+  channelModerations    ChannelModerator[]     @relation("ChannelModerators")
+  channelCommunityPosts ChannelCommunityPost[] @relation("ChannelPostAuthor")
+  channelPostLikes      ChannelPostLike[]      @relation("ChannelPostLiker")
+  channelPostComments   ChannelPostComment[]   @relation("ChannelCommentAuthor")
+  createdTopics         GroupTopic[]           @relation("TopicCreator")
+  createdGroupPolls     GroupPoll[]            @relation("GroupPollCreator")
+  groupPollVotes        GroupPollVote[]        @relation("GroupPollVoter")
+  groupAuditLogs        GroupAuditLog[]        @relation("GroupAuditActor")
+
   // Phase 6/7 Relations
   searchHistory SearchHistory[] @relation("UserSearchHistory")
   reports       Report[]        @relation("UserReports")
@@ -518,6 +534,14 @@ model Group {
   // Phase 5 Live Streaming Relations
   liveStreams LiveStream[] @relation("GroupLiveStreams")
 
+  // Telegram-style Advanced Group Features
+  slowModeSeconds    Int               @default(0)
+  isForum            Boolean           @default(false)
+  defaultPermissions Json?
+  topics             GroupTopic[]
+  polls              GroupPoll[]
+  auditLogs          GroupAuditLog[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -537,6 +561,11 @@ model GroupMember {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   role GroupRole @default(MEMBER)
+
+  customTitle String?
+  permissions Json?
+  isMuted     Boolean   @default(false)
+  mutedUntil  DateTime?
 
   joinedAt  DateTime  @default(now())
   removedAt DateTime?
@@ -1170,11 +1199,16 @@ model Message {
   forward     MessageForward?
   mentions    MessageMention[]
 
+  topicId     String?
+  topic       GroupTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  poll        GroupPoll?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([conversationId])
   @@index([channelId])
+  @@index([topicId])
   @@index([senderId])
   @@index([createdAt])
   @@index([conversationId, createdAt(sort: Desc)])
@@ -1428,9 +1462,13 @@ enum PlaylistVisibility {
 
 /// Video channel status
 enum VideoChannelStatus {
+  PENDING
+  APPROVED
   ACTIVE
+  REJECTED
   SUSPENDED
   ARCHIVED
+  DISABLED
 }
 
 /// Video report reasons
@@ -1461,9 +1499,18 @@ enum DownloadStatus {
 // ─────────────────────────────────────────────
 
 model VideoChannel {
-  id      String @id @default(uuid())
-  groupId String
-  group   Group  @relation("GroupVideoChannels", fields: [groupId], references: [id], onDelete: Cascade)
+  id      String  @id @default(uuid())
+  groupId String?
+  group   Group?  @relation("GroupVideoChannels", fields: [groupId], references: [id], onDelete: Cascade)
+
+  ownerId String?
+  owner   User?   @relation("ChannelOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  reviewedById    String?
+  reviewedBy      User?     @relation("ChannelReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  rejectionReason String?
+  reviewNotes     String?
 
   name        String
   slug        String
@@ -1475,7 +1522,8 @@ model VideoChannel {
   avatarFile   File?   @relation("VideoChannelAvatar", fields: [avatarFileId], references: [id])
   bannerFile   File?   @relation("VideoChannelBanner", fields: [bannerFileId], references: [id])
 
-  status     VideoChannelStatus @default(ACTIVE)
+  status     VideoChannelStatus @default(PENDING)
+  visibility GroupVisibility    @default(PUBLIC)
   isVerified Boolean            @default(false)
 
   /// Who can upload to this channel (beyond GROUP_ADMIN/MODERATOR)
@@ -1493,6 +1541,7 @@ model VideoChannel {
   tags       String[]
   country    String?
   language   String?
+  website    String?
 
   /// Social links stored as JSON
   socialLinks Json?
@@ -1505,12 +1554,17 @@ model VideoChannel {
   streamKey   StreamKey?
   liveStreams LiveStream[] @relation("ChannelLiveStreams")
 
+  // Community posts & moderators
+  communityPosts ChannelCommunityPost[]
+  moderators     ChannelModerator[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@unique([groupId, slug])
   @@index([groupId])
+  @@index([ownerId])
+  @@index([slug])
   @@index([handle])
   @@index([status])
   @@index([deletedAt])
@@ -2051,8 +2105,8 @@ model LiveStream {
   videoChannelId String
   videoChannel   VideoChannel @relation("ChannelLiveStreams", fields: [videoChannelId], references: [id], onDelete: Cascade)
 
-  groupId String
-  group   Group  @relation("GroupLiveStreams", fields: [groupId], references: [id], onDelete: Cascade)
+  groupId String?
+  group   Group?  @relation("GroupLiveStreams", fields: [groupId], references: [id], onDelete: Cascade)
 
   createdById String
   createdBy   User   @relation("StreamCreator", fields: [createdById], references: [id])
@@ -3403,4 +3457,178 @@ model UserTranslationHistory {
   @@index([userId, word])
   @@index([userId, sourceLanguage, targetLanguage])
   @@map("user_translation_histories")
+}
+
+// ─────────────────────────────────────────────
+// CHANNELS (YOUTUBE-STYLE) & GROUPS (TELEGRAM-STYLE) SEPARATION
+// ─────────────────────────────────────────────
+
+model ChannelCommunityPost {
+  id           String   @id @default(uuid())
+  channelId    String
+  channel      VideoChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User     @relation("ChannelPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  title        String?
+  content      String   @db.Text
+  mediaUrls    String[]
+  likesCount   Int      @default(0)
+  commentsCount Int     @default(0)
+  isPinned     Boolean  @default(false)
+
+  likes        ChannelPostLike[]
+  comments     ChannelPostComment[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([channelId])
+  @@index([authorId])
+  @@index([createdAt(sort: Desc)])
+  @@map("channel_community_posts")
+}
+
+model ChannelPostLike {
+  id        String   @id @default(uuid())
+  postId    String
+  post      ChannelCommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("ChannelPostLiker", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@map("channel_post_likes")
+}
+
+model ChannelPostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      ChannelCommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("ChannelCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  content   String   @db.Text
+  parentId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("channel_post_comments")
+}
+
+model ChannelModerator {
+  id          String   @id @default(uuid())
+  channelId   String
+  channel     VideoChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("ChannelModerators", fields: [userId], references: [id], onDelete: Cascade)
+
+  role        String   @default("MODERATOR")
+  permissions Json?
+
+  createdAt   DateTime @default(now())
+
+  @@unique([channelId, userId])
+  @@map("channel_moderators")
+}
+
+model GroupTopic {
+  id          String   @id @default(uuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  title       String
+  iconEmoji   String?
+  color       Int?
+  isClosed    Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+
+  createdById String
+  createdBy   User     @relation("TopicCreator", fields: [createdById], references: [id])
+
+  messages    Message[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([groupId])
+  @@map("group_topics")
+}
+
+model GroupPoll {
+  id                    String   @id @default(uuid())
+  groupId               String
+  group                 Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  conversationId        String?
+  messageId             String?  @unique
+  message               Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  question              String
+  isAnonymous           Boolean  @default(false)
+  allowsMultipleAnswers Boolean  @default(false)
+  isClosed              Boolean  @default(false)
+
+  createdById           String
+  createdBy             User     @relation("GroupPollCreator", fields: [createdById], references: [id])
+
+  options               GroupPollOption[]
+  votes                 GroupPollVote[]
+
+  createdAt             DateTime @default(now())
+
+  @@index([groupId])
+  @@map("group_polls")
+}
+
+model GroupPollOption {
+  id         String   @id @default(uuid())
+  pollId     String
+  poll       GroupPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text       String
+  votesCount Int      @default(0)
+
+  votes      GroupPollVote[]
+
+  @@index([pollId])
+  @@map("group_poll_options")
+}
+
+model GroupPollVote {
+  id        String   @id @default(uuid())
+  pollId    String
+  poll      GroupPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    GroupPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("GroupPollVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, userId, optionId])
+  @@index([pollId])
+  @@index([userId])
+  @@map("group_poll_votes")
+}
+
+model GroupAuditLog {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  actorId   String
+  actor     User     @relation("GroupAuditActor", fields: [actorId], references: [id])
+
+  action    String
+  targetId  String?
+  details   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([groupId])
+  @@index([actorId])
+  @@index([createdAt(sort: Desc)])
+  @@map("group_audit_logs")
 }

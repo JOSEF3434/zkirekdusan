@@ -1,5 +1,6 @@
 // src/modules/groups/groups.module.ts
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../prisma/prisma.module.js';
 import { GroupsService } from './groups.service.js';
 import { GroupsRepository } from './groups.repository.js';
 import { GroupsController } from './groups.controller.js';
@@ -7,7 +8,7 @@ import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { UploadsModule } from '../uploads/uploads.module.js';
 
 @Module({
-  imports: [AuthorizationModule, UploadsModule],
+  imports: [PrismaModule, AuthorizationModule, UploadsModule],
   controllers: [GroupsController],
   providers: [GroupsService, GroupsRepository],
   exports: [GroupsService, GroupsRepository],

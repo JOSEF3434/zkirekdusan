@@ -64,13 +64,23 @@ export class LiveStreamingService {
 
   /**
    * Check if user has at least MODERATOR role in a group, OR is a global admin,
-   * OR is the group creator.
+   * OR is the group creator, OR is the channel owner.
    */
   private async hasStreamPermission(
     userId: string,
-    groupId: string,
+    groupId?: string | null,
+    channelId?: string,
   ): Promise<boolean> {
     if (await this.isGlobalAdmin(userId)) return true;
+    if (channelId) {
+      const channel = await this.prisma.videoChannel.findUnique({
+        where: { id: channelId },
+        select: { ownerId: true, moderators: { select: { userId: true } } },
+      });
+      if (channel?.ownerId === userId) return true;
+      if (channel?.moderators.some((m) => m.userId === userId)) return true;
+    }
+    if (!groupId) return false;
     // Group creator always has permission to stream
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
@@ -86,13 +96,22 @@ export class LiveStreamingService {
 
   /**
    * Check if user has at least GROUP_ADMIN role in a group, OR is a global admin,
-   * OR is the group creator.
+   * OR is the group creator, OR is the channel owner.
    */
   private async hasStreamAdminPermission(
     userId: string,
-    groupId: string,
+    groupId?: string | null,
+    channelId?: string,
   ): Promise<boolean> {
     if (await this.isGlobalAdmin(userId)) return true;
+    if (channelId) {
+      const channel = await this.prisma.videoChannel.findUnique({
+        where: { id: channelId },
+        select: { ownerId: true },
+      });
+      if (channel?.ownerId === userId) return true;
+    }
+    if (!groupId) return false;
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
       select: { createdById: true },
@@ -109,9 +128,17 @@ export class LiveStreamingService {
     const channel = await this.videoChannelsRepository.findById(channelId);
     if (!channel) throw new NotFoundException('Video channel not found');
 
+    if (channel.status === 'PENDING') {
+      throw new ForbiddenException('Channel is pending administrator approval and cannot stream yet.');
+    }
+    if (channel.status === 'REJECTED' || channel.status === 'SUSPENDED' || channel.status === 'DISABLED') {
+      throw new ForbiddenException(`Channel is currently ${channel.status.toLowerCase()} and cannot start live streams.`);
+    }
+
     const hasPermission = await this.hasStreamPermission(
       userId,
       channel.groupId,
+      channel.id,
     );
     if (!hasPermission) {
       throw new ForbiddenException(
@@ -131,7 +158,7 @@ export class LiveStreamingService {
 
     const stream = await this.repository.createStream({
       videoChannelId: channel.id,
-      groupId: channel.groupId,
+      groupId: channel.groupId ?? null,
       createdById: userId,
       title: dto.title,
       description: dto.description,
@@ -179,11 +206,24 @@ export class LiveStreamingService {
         throw new ForbiddenException(
           'Authentication required to view this stream',
         );
-      const hasPermission = await this.authorizationService.hasGroupRole(
-        userId,
-        stream.groupId,
-        GroupRole.MEMBER,
-      );
+      let hasPermission = false;
+      if (stream.groupId) {
+        hasPermission = await this.authorizationService.hasGroupRole(
+          userId,
+          stream.groupId,
+          GroupRole.MEMBER,
+        );
+      } else {
+        const isSubbed = await this.prisma.videoSubscription.findUnique({
+          where: {
+            userId_videoChannelId: {
+              userId,
+              videoChannelId: stream.videoChannelId,
+            },
+          },
+        });
+        hasPermission = !!isSubbed || stream.createdById === userId;
+      }
       if (!hasPermission) throw new ForbiddenException('Stream is private');
     }
 
@@ -203,7 +243,7 @@ export class LiveStreamingService {
 
     const hasPermission =
       stream.createdById === userId ||
-      (await this.hasStreamPermission(userId, stream.groupId));
+      (await this.hasStreamPermission(userId, stream.groupId, stream.videoChannelId));
     if (!hasPermission) {
       throw new ForbiddenException(
         'You do not have permission to update this stream',
@@ -220,7 +260,7 @@ export class LiveStreamingService {
 
     const hasPermission =
       stream.createdById === userId ||
-      (await this.hasStreamPermission(userId, stream.groupId));
+      (await this.hasStreamPermission(userId, stream.groupId, stream.videoChannelId));
     if (!hasPermission) {
       throw new ForbiddenException(
         'You do not have permission to delete this stream',
@@ -258,11 +298,16 @@ export class LiveStreamingService {
     } else {
       const isAdmin = await this.isGlobalAdmin(userId);
       if (!isAdmin) {
-        const hasMemberRole = await this.authorizationService.hasGroupRole(
-          userId,
-          channel.groupId,
-          GroupRole.MEMBER,
-        );
+        let hasMemberRole = false;
+        if (channel.groupId) {
+          hasMemberRole = await this.authorizationService.hasGroupRole(
+            userId,
+            channel.groupId,
+            GroupRole.MEMBER,
+          );
+        } else {
+          hasMemberRole = channel.ownerId === userId;
+        }
         if (!hasMemberRole) {
           where.visibility = 'PUBLIC';
         }
@@ -424,7 +469,7 @@ export class LiveStreamingService {
     if (!stream || stream.deletedAt)
       throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.hasStreamPermission(userId, stream.groupId);
+    const hasPermission = await this.hasStreamPermission(userId, stream.groupId, stream.videoChannelId);
     if (!hasPermission)
       throw new ForbiddenException('You do not have permission to stream this channel');
 
@@ -570,6 +615,7 @@ export class LiveStreamingService {
     const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
+      stream.videoChannelId,
     );
     if (!hasPermission) {
       throw new ForbiddenException(
@@ -762,6 +808,7 @@ export class LiveStreamingService {
     const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
+      stream.videoChannelId,
     );
     if (!hasPermission) {
       throw new ForbiddenException(
@@ -854,6 +901,7 @@ export class LiveStreamingService {
     const hasPermission = await this.hasStreamPermission(
       userId,
       stream.groupId,
+      stream.videoChannelId,
     );
     if (!hasPermission) {
       throw new ForbiddenException(
@@ -957,6 +1005,7 @@ export class LiveStreamingService {
     const hasPermission = await this.hasStreamPermission(
       userId,
       channel.groupId,
+      channel.id,
     );
     if (!hasPermission) {
       throw new ForbiddenException(
@@ -1001,6 +1050,7 @@ export class LiveStreamingService {
     const hasPermission = await this.hasStreamPermission(
       userId,
       channel.groupId,
+      channel.id,
     );
     if (!hasPermission) {
       throw new ForbiddenException(

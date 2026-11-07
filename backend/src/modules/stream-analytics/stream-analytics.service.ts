@@ -20,11 +20,15 @@ export class StreamAnalyticsService {
     const stream = await this.liveStreamingRepository.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
-      userId,
-      stream.groupId,
-      GroupRole.MODERATOR,
-    );
+    const isOwner = stream.createdById === userId;
+    let hasPermission = isOwner;
+    if (!hasPermission && stream.groupId) {
+      hasPermission = await this.authorizationService.hasGroupRole(
+        userId,
+        stream.groupId,
+        GroupRole.MODERATOR,
+      );
+    }
     if (!hasPermission) throw new ForbiddenException('Not a moderator');
 
     const analytics = await this.repository.getAnalytics(streamId);

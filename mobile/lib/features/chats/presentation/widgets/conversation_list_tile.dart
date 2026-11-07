@@ -33,9 +33,11 @@ class UnifiedChatListTile extends ConsumerWidget {
         : const <String, String>{};
     final isSomeoneTyping = typingUsers.isNotEmpty;
     final hasSomeoneActive = activeActivities.isNotEmpty;
-    final isGroup = item.type == UnifiedChatType.publicGroup ||
-        item.type == UnifiedChatType.privateGroup ||
-        (item.conversation != null && item.conversation!.groupId != null);
+    final isChannel = item.type == UnifiedChatType.channel;
+    final isGroup = !isChannel &&
+        (item.type == UnifiedChatType.publicGroup ||
+            item.type == UnifiedChatType.privateGroup ||
+            (item.conversation != null && item.conversation!.groupId != null));
     final isPrivate = item.type == UnifiedChatType.privateGroup;
 
     return Material(
@@ -107,6 +109,34 @@ class UnifiedChatListTile extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (item.isVerified) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified,
+                                  size: 14,
+                                  color: Color(0xFF00C6FF),
+                                ),
+                              ],
+                              if (isChannel && item.status != null && item.status != 'APPROVED' && item.status != 'ACTIVE') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: item.status == 'PENDING'
+                                        ? Colors.amber.withValues(alpha: 0.2)
+                                        : Colors.red.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    item.status!,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: item.status == 'PENDING' ? Colors.amber[700] : Colors.redAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (isPrivate) ...[
                                 const SizedBox(width: 4),
                                 Icon(
@@ -261,6 +291,14 @@ class UnifiedChatListTile extends ConsumerWidget {
     bool isPrivate,
     bool isDark,
   ) {
+    if (item.type == UnifiedChatType.channel) {
+      return _ChannelAvatar(
+        name: item.title,
+        avatarUrl: item.avatarUrl,
+        size: 50,
+        isDark: isDark,
+      );
+    }
     if (isGroup) {
       return _GroupAvatar(
         name: item.title,
@@ -369,6 +407,59 @@ class _GroupAvatar extends StatelessWidget {
         child: isPrivate
             ? const Icon(Icons.lock_rounded, color: Colors.white, size: 22)
             : const Icon(Icons.groups_rounded, color: Colors.white, size: 24),
+      );
+}
+
+// ── Channel Avatar (YouTube-Style Broadcasting) ──────────────────────────────
+class _ChannelAvatar extends StatelessWidget {
+  final String name;
+  final String? avatarUrl;
+  final double size;
+  final bool isDark;
+
+  const _ChannelAvatar({
+    required this.name,
+    this.avatarUrl,
+    required this.size,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          avatarUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stack) => _iconAvatar(),
+        ),
+      );
+    }
+    return _iconAvatar();
+  }
+
+  Widget _iconAvatar() => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF0055), Color(0xFF7A00FF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF0055).withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 24),
       );
 }
 

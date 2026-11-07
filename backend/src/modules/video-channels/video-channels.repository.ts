@@ -8,6 +8,7 @@ import { VideoChannelStatus } from '@prisma/client';
 const VIDEO_CHANNEL_SELECT = {
   id: true,
   groupId: true,
+  ownerId: true,
   name: true,
   slug: true,
   handle: true,
@@ -88,8 +89,8 @@ export class VideoChannelsRepository {
   }
 
   async findBySlugAndGroup(groupId: string, slug: string) {
-    return this.prisma.videoChannel.findUnique({
-      where: { groupId_slug: { groupId, slug } },
+    return this.prisma.videoChannel.findFirst({
+      where: { groupId, slug },
       select: VIDEO_CHANNEL_SELECT,
     });
   }

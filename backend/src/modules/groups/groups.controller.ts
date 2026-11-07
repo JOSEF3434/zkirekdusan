@@ -331,4 +331,113 @@ export class GroupsController {
   ) {
     return this.groupsService.uploadCover(groupId, userId, file);
   }
+
+  // ─── Telegram-Style Advanced Community Endpoints ─────────────────────────
+
+  @Patch(':groupId/settings')
+  @ApiOperation({ summary: 'Update group settings (slow mode, forum mode, default permissions)' })
+  async updateSettings(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: { slowModeSeconds?: number; isForum?: boolean; defaultPermissions?: any },
+  ) {
+    return this.groupsService.updateSettings(groupId, userId, dto);
+  }
+
+  @Post(':groupId/transfer-ownership')
+  @ApiOperation({ summary: 'Transfer group ownership to another member' })
+  async transferOwnership(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() body: { newOwnerId: string },
+  ) {
+    return this.groupsService.transferOwnership(groupId, userId, body.newOwnerId);
+  }
+
+  @Get(':groupId/topics')
+  @ApiOperation({ summary: 'List discussion topics in a group' })
+  async listTopics(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.groupsService.listTopics(groupId, userId);
+  }
+
+  @Post(':groupId/topics')
+  @ApiOperation({ summary: 'Create discussion topic in a group' })
+  async createTopic(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: { title: string; iconEmoji?: string; color?: number },
+  ) {
+    return this.groupsService.createTopic(groupId, userId, dto);
+  }
+
+  @Patch(':groupId/topics/:topicId')
+  @ApiOperation({ summary: 'Update topic' })
+  async updateTopic(
+    @Param('groupId') groupId: string,
+    @Param('topicId') topicId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: { title?: string; iconEmoji?: string; isClosed?: boolean; isPinned?: boolean },
+  ) {
+    return this.groupsService.updateTopic(groupId, topicId, userId, dto);
+  }
+
+  @Delete(':groupId/topics/:topicId')
+  @ApiOperation({ summary: 'Delete topic' })
+  async deleteTopic(
+    @Param('groupId') groupId: string,
+    @Param('topicId') topicId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.groupsService.deleteTopic(groupId, topicId, userId);
+  }
+
+  @Post(':groupId/polls')
+  @ApiOperation({ summary: 'Create poll in group conversation' })
+  async createPoll(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @Body()
+    dto: {
+      question: string;
+      options: string[];
+      conversationId?: string;
+      isAnonymous?: boolean;
+      allowsMultipleAnswers?: boolean;
+    },
+  ) {
+    return this.groupsService.createPoll(groupId, userId, dto);
+  }
+
+  @Post('polls/:pollId/vote')
+  @ApiOperation({ summary: 'Vote in group poll' })
+  async votePoll(
+    @Param('pollId') pollId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() body: { optionIds: string[] },
+  ) {
+    return this.groupsService.votePoll(pollId, userId, body.optionIds);
+  }
+
+  @Post('polls/:pollId/close')
+  @ApiOperation({ summary: 'Close group poll' })
+  async closePoll(
+    @Param('pollId') pollId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.groupsService.closePoll(pollId, userId);
+  }
+
+  @Get(':groupId/audit-log')
+  @ApiOperation({ summary: 'Get group admin/moderation activity log' })
+  async getAuditLog(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    return this.groupsService.getAuditLog(groupId, userId, +page, +limit);
+  }
 }

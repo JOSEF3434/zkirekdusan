@@ -89,6 +89,7 @@ class ChatRepositoryImpl implements ChatRepository {
           publicGroups: discovery.publicGroups,
           myPrivateGroups: discovery.myPrivateGroups,
           allUsers: discovery.allUsers,
+          channels: discovery.channels,
         );
       } catch (e) {
         debugPrint('[ChatRepo] Remote discovery error: $e');

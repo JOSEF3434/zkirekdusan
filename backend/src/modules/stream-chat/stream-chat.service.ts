@@ -28,11 +28,16 @@ export class StreamChatService {
 
     if (stream.visibility !== 'PUBLIC') {
       if (!userId) throw new ForbiddenException('Authentication required');
-      const hasMemberRole = await this.authorizationService.hasGroupRole(
-        userId,
-        stream.groupId,
-        GroupRole.MEMBER,
-      );
+      let hasMemberRole = false;
+      if (stream.groupId) {
+        hasMemberRole = await this.authorizationService.hasGroupRole(
+          userId,
+          stream.groupId,
+          GroupRole.MEMBER,
+        );
+      } else {
+        hasMemberRole = stream.createdById === userId;
+      }
       if (!hasMemberRole)
         throw new ForbiddenException('You cannot access this stream chat');
     }
@@ -47,12 +52,16 @@ export class StreamChatService {
     const stream = await this.liveStreamingRepository.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
-      userId,
-      stream.groupId,
-      GroupRole.MODERATOR,
-    );
-    if (!hasPermission) throw new ForbiddenException('Not a moderator');
+    const isOwner = stream.createdById === userId;
+    let hasPermission = isOwner;
+    if (!hasPermission && stream.groupId) {
+      hasPermission = await this.authorizationService.hasGroupRole(
+        userId,
+        stream.groupId,
+        GroupRole.MODERATOR,
+      );
+    }
+    if (!hasPermission) throw new ForbiddenException('Not a moderator or owner');
 
     const message = await this.repository.getMessageById(messageId);
     const chatRoom = await this.repository.getChatRoomByStreamId(streamId);
@@ -72,12 +81,16 @@ export class StreamChatService {
     const stream = await this.liveStreamingRepository.getStreamById(streamId);
     if (!stream) throw new NotFoundException('Stream not found');
 
-    const hasPermission = await this.authorizationService.hasGroupRole(
-      userId,
-      stream.groupId,
-      GroupRole.MODERATOR,
-    );
-    if (!hasPermission) throw new ForbiddenException('Not a moderator');
+    const isOwner = stream.createdById === userId;
+    let hasPermission = isOwner;
+    if (!hasPermission && stream.groupId) {
+      hasPermission = await this.authorizationService.hasGroupRole(
+        userId,
+        stream.groupId,
+        GroupRole.MODERATOR,
+      );
+    }
+    if (!hasPermission) throw new ForbiddenException('Not a moderator or owner');
 
     const message = await this.repository.getMessageById(messageId);
     const chatRoom = await this.repository.getChatRoomByStreamId(streamId);

@@ -11,6 +11,8 @@ import 'package:mobile/features/chats/presentation/providers/conversations_provi
 import 'package:mobile/features/chats/presentation/widgets/chat_search_bar.dart';
 import 'package:mobile/features/chats/presentation/widgets/conversation_list_tile.dart';
 import 'package:mobile/features/chats/presentation/widgets/new_chat_sheet.dart';
+import 'package:mobile/features/chats/presentation/widgets/create_channel_sheet.dart';
+import 'package:mobile/features/chats/presentation/widgets/create_group_sheet.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
@@ -34,6 +36,13 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
 
   Future<void> _handleItemTap(UnifiedChatItem item) async {
     final notifier = ref.read(chatDiscoveryProvider.notifier);
+
+    if (item.type == UnifiedChatType.channel) {
+      final channelId = item.targetChannelId ??
+          item.id.replaceFirst('channel_', '');
+      context.push('/channel/$channelId');
+      return;
+    }
 
     if (item.conversationId != null &&
         item.type == UnifiedChatType.conversation) {
@@ -312,27 +321,40 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                               height: 80,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(
-                                  0xFF00C6FF,
-                                ).withValues(alpha: 0.1),
+                                color: (filter == 'channels'
+                                        ? const Color(0xFFFF0055)
+                                        : const Color(0xFF00C6FF))
+                                    .withValues(alpha: 0.1),
                               ),
                               child: Icon(
                                 query.isNotEmpty
                                     ? Icons.search_off_rounded
-                                    : Icons.chat_bubble_outline_rounded,
+                                    : (filter == 'channels'
+                                        ? Icons.campaign_rounded
+                                        : (filter == 'groups'
+                                            ? Icons.groups_rounded
+                                            : Icons.chat_bubble_outline_rounded)),
                                 size: 40,
-                                color: const Color(0xFF00C6FF),
+                                color: filter == 'channels'
+                                    ? const Color(0xFFFF0055)
+                                    : const Color(0xFF00C6FF),
                               ),
                             ),
                             const SizedBox(height: 16),
                             Text(
                               query.isNotEmpty
                                   ? tr('chat.empty_search')
-                                  : (filter == 'all'
-                                        ? tr('chat.empty')
-                                        : tr('chat.empty_filter', {
-                                            'filter': filter,
-                                          })),
+                                  : (filter == 'channels'
+                                      ? 'No Channels Yet'
+                                      : (filter == 'groups'
+                                          ? 'No Groups Joined Yet'
+                                          : (filter == 'personal'
+                                              ? 'No Direct Chats Yet'
+                                              : (filter == 'all'
+                                                  ? tr('chat.empty')
+                                                  : tr('chat.empty_filter', {
+                                                      'filter': filter,
+                                                    }))))),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -343,7 +365,12 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                             Text(
                               query.isNotEmpty
                                   ? tr('chat.empty_search_hint')
-                                  : tr('chat.empty_start_hint'),
+                                  : (filter == 'channels'
+                                      ? 'Discover and subscribe to broadcasting channels for videos, live broadcasts, and community updates, or request your own channel.'
+                                      : (filter == 'groups'
+                                          ? 'Create or join interactive Telegram-style communities with topics, polls, and rich media sharing.'
+                                          : tr('chat.empty_start_hint'))),
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[500],
@@ -370,6 +397,67 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                                     vertical: 12,
                                   ),
                                 ),
+                              )
+                            else if (filter == 'channels')
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () => CreateChannelSheet.show(context),
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: const Text('Create Channel'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFF0055),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: () => context.push('/search'),
+                                    icon: const Icon(Icons.explore_rounded, size: 18),
+                                    label: const Text('Discover'),
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else if (filter == 'groups')
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () => CreateGroupSheet.show(context, isPrivate: false),
+                                    icon: const Icon(Icons.group_add_rounded, size: 18),
+                                    label: const Text('New Group'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF00C6FF),
+                                      foregroundColor: Colors.black,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               )
                             else
                               ElevatedButton.icon(

@@ -66,6 +66,56 @@ export class ChatGroupItemDto {
   createdAt!: Date;
 }
 
+export class ChatChannelItemDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  handle!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiPropertyOptional()
+  description?: string | null;
+
+  @ApiPropertyOptional()
+  avatarUrl?: string | null;
+
+  @ApiPropertyOptional()
+  bannerUrl?: string | null;
+
+  @ApiProperty()
+  subscribersCount!: number;
+
+  @ApiProperty()
+  videosCount!: number;
+
+  @ApiProperty()
+  isVerified!: boolean;
+
+  @ApiProperty()
+  isSubscribed!: boolean;
+
+  @ApiProperty()
+  isOwner!: boolean;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiPropertyOptional()
+  latestContentTitle?: string | null;
+
+  @ApiPropertyOptional()
+  latestContentAt?: Date | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class ChatDiscoveryResponseDto {
   @ApiProperty({ type: [ConversationResponseDto] })
   conversations!: ConversationResponseDto[];
@@ -78,4 +128,7 @@ export class ChatDiscoveryResponseDto {
 
   @ApiProperty({ type: [ChatUserItemDto] })
   allUsers!: ChatUserItemDto[];
+
+  @ApiPropertyOptional({ type: [ChatChannelItemDto] })
+  channels?: ChatChannelItemDto[];
 }

@@ -78,6 +78,12 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
   Future<void> _handleItemTap(UnifiedChatItem item, {bool isMobile = false}) async {
     final notifier = ref.read(chatDiscoveryProvider.notifier);
 
+    if (item.type == UnifiedChatType.channel) {
+      final channelId = item.targetChannelId ?? item.id.replaceFirst('channel_', '');
+      context.push('/channel/$channelId');
+      return;
+    }
+
     // Immediately highlight the tapped item
     setState(() {
       _selectedTargetUserId = item.targetUserId;

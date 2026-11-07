@@ -215,6 +215,34 @@ export class VideoChannelsController {
 export class VideoChannelsPublicController {
   constructor(private readonly service: VideoChannelsService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'Discover and search approved public channels' })
+  async discover(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.service.discoverChannels(+page, +limit, search, category, userId);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Submit a new channel creation request (starts in PENDING status)' })
+  async requestChannel(
+    @CurrentUser('sub') userId: string,
+    @Body()
+    dto: {
+      name: string;
+      handle: string;
+      description?: string;
+      category?: string;
+      website?: string;
+    },
+  ) {
+    return this.service.requestChannelCreation(userId, dto);
+  }
+
   @Get('my')
   @ApiOperation({ summary: 'List video channels owned or administered by current user' })
   @ApiResponse({ status: 200, type: [VideoChannelResponseDto] })
@@ -232,5 +260,132 @@ export class VideoChannelsPublicController {
     @Param('handle') handle: string,
   ): Promise<VideoChannelResponseDto> {
     return this.service.findById(handle) as any;
+  }
+
+  @Get(':channelId')
+  @ApiOperation({ summary: 'Get channel details by ID' })
+  async getChannelById(
+    @Param('channelId') channelId: string,
+  ) {
+    return this.service.findById(channelId);
+  }
+
+  @Patch(':channelId')
+  @ApiOperation({ summary: 'Update channel profile and settings' })
+  async updateChannel(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: UpdateVideoChannelDto,
+  ) {
+    return this.service.update(channelId, userId, dto);
+  }
+
+  @Post(':channelId/subscribe')
+  @ApiOperation({ summary: 'Subscribe to a channel' })
+  async subscribe(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.subscribe(userId, channelId);
+  }
+
+  @Post(':channelId/unsubscribe')
+  @ApiOperation({ summary: 'Unsubscribe from a channel' })
+  async unsubscribe(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.unsubscribe(userId, channelId);
+  }
+
+  @Get(':channelId/subscribers')
+  @ApiOperation({ summary: 'Get channel subscribers' })
+  async getSubscribers(
+    @Param('channelId') channelId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.service.getSubscribers(channelId, +page, +limit);
+  }
+
+  @Get(':channelId/analytics')
+  @ApiOperation({ summary: 'Get channel analytics' })
+  async getAnalytics(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.getChannelAnalytics(channelId, userId);
+  }
+
+  @Get(':channelId/posts')
+  @ApiOperation({ summary: 'Get channel community posts' })
+  async getCommunityPosts(
+    @Param('channelId') channelId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.service.getCommunityPosts(channelId, +page, +limit, userId);
+  }
+
+  @Post(':channelId/posts')
+  @ApiOperation({ summary: 'Create community post (channel owner or moderator)' })
+  async createCommunityPost(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: { title?: string; content: string; mediaUrls?: string[] },
+  ) {
+    return this.service.createCommunityPost(channelId, userId, dto);
+  }
+
+  @Post('posts/:postId/like')
+  @ApiOperation({ summary: 'Like or unlike community post' })
+  async likePost(
+    @Param('postId') postId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.toggleLikeCommunityPost(postId, userId);
+  }
+
+  @Post('posts/:postId/comments')
+  @ApiOperation({ summary: 'Add comment to community post' })
+  async addComment(
+    @Param('postId') postId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() body: { content: string; parentId?: string },
+  ) {
+    return this.service.addCommunityComment(postId, userId, body.content, body.parentId);
+  }
+
+  @Get('posts/:postId/comments')
+  @ApiOperation({ summary: 'Get comments for community post' })
+  async getComments(
+    @Param('postId') postId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    return this.service.getCommunityComments(postId, +page, +limit);
+  }
+
+  @Post(':channelId/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload channel avatar' })
+  async uploadAvatar(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadAvatar(channelId, userId, file);
+  }
+
+  @Post(':channelId/banner')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload channel banner' })
+  async uploadBanner(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadBanner(channelId, userId, file);
   }
 }

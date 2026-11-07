@@ -135,7 +135,7 @@ export class StreamReminderService implements OnModuleInit, OnModuleDestroy {
     let streams: Array<{
       id: string;
       title: string;
-      groupId: string;
+      groupId: string | null;
       videoChannelId: string;
       tags: string[];
       videoChannel: { name: string } | null;
@@ -188,7 +188,7 @@ export class StreamReminderService implements OnModuleInit, OnModuleDestroy {
   private async dispatchLiveNotification(stream: {
     id: string;
     title: string;
-    groupId: string;
+    groupId: string | null;
     videoChannelId: string;
     tags: string[];
     videoChannel: { name: string } | null;
@@ -228,10 +228,12 @@ export class StreamReminderService implements OnModuleInit, OnModuleDestroy {
         where: { videoChannelId: stream.videoChannelId },
         select: { userId: true },
       }),
-      this.prisma.groupMember.findMany({
-        where: { groupId: stream.groupId },
-        select: { userId: true },
-      }),
+      stream.groupId
+        ? this.prisma.groupMember.findMany({
+            where: { groupId: stream.groupId },
+            select: { userId: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const targetUserIds = Array.from(

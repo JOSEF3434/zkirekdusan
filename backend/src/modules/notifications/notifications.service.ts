@@ -252,6 +252,84 @@ export class NotificationsService {
     });
   }
 
+  async notifyChannelStatus(
+    userId: string,
+    channelName: string,
+    channelId: string,
+    status: string,
+    reason?: string,
+  ) {
+    const isApproved = status === 'APPROVED' || status === 'ACTIVE';
+    const title = isApproved
+      ? `Channel Approved: ${channelName}`
+      : `Channel ${status}: ${channelName}`;
+    const body = isApproved
+      ? `Congratulations! Your channel "${channelName}" has been approved and is now active.`
+      : `Your channel "${channelName}" was ${status.toLowerCase()}.${reason ? ` Reason: ${reason}` : ''}`;
+
+    return this.create({
+      userId,
+      type: NotificationType.CHANNEL_STATUS,
+      title,
+      body,
+      data: { channelId, status, reason },
+    });
+  }
+
+  async notifyChannelNewVideo(
+    subscriberIds: string[],
+    channelName: string,
+    channelId: string,
+    videoTitle: string,
+    videoId: string,
+  ) {
+    for (const userId of subscriberIds) {
+      await this.create({
+        userId,
+        type: NotificationType.CHANNEL_NEW_VIDEO,
+        title: `${channelName} uploaded a new video`,
+        body: videoTitle,
+        data: { channelId, videoId },
+      }).catch(() => null);
+    }
+  }
+
+  async notifyChannelNewPost(
+    subscriberIds: string[],
+    channelName: string,
+    channelId: string,
+    postTitle: string,
+    postId: string,
+  ) {
+    for (const userId of subscriberIds) {
+      await this.create({
+        userId,
+        type: NotificationType.CHANNEL_NEW_POST,
+        title: `New post from ${channelName}`,
+        body: postTitle,
+        data: { channelId, postId },
+      }).catch(() => null);
+    }
+  }
+
+  async notifyChannelLive(
+    subscriberIds: string[],
+    channelName: string,
+    channelId: string,
+    streamTitle: string,
+    streamId: string,
+  ) {
+    for (const userId of subscriberIds) {
+      await this.create({
+        userId,
+        type: NotificationType.CHANNEL_LIVE,
+        title: `${channelName} is live!`,
+        body: streamTitle,
+        data: { channelId, streamId },
+      }).catch(() => null);
+    }
+  }
+
   async notifyMention(
     recipientId: string,
     senderName: string,

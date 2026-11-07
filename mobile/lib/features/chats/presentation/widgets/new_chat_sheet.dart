@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/create_group_sheet.dart';
+import 'package:mobile/features/chats/presentation/widgets/create_channel_sheet.dart';
 import 'package:mobile/features/explore/data/search_repository.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
@@ -341,6 +342,16 @@ class _NewChatSheetState extends ConsumerState<NewChatSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           CreateGroupSheet.show(context, isPrivate: false);
+                        },
+                      ),
+                      _QuickActionTile(
+                        icon: Icons.campaign_rounded,
+                        color: const Color(0xFFFF0055),
+                        title: 'New Broadcast Channel',
+                        subtitle: 'YouTube-style video & content broadcast',
+                        onTap: () {
+                          Navigator.pop(context);
+                          CreateChannelSheet.show(context);
                         },
                       ),
                       _QuickActionTile(

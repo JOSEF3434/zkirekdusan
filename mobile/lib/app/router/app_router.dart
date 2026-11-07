@@ -489,7 +489,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         redirect: (context, state) {
           final id = state.pathParameters['id'];
-          return '/groups/$id';
+          return '/channel/$id';
         },
       ),
       GoRoute(

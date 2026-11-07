@@ -28,7 +28,8 @@ export class FollowsService {
         include: { group: true },
       });
       if (channel) {
-        if (channel.group.createdById === followerId) {
+        const isOwner = channel.ownerId === followerId || (channel.group && channel.group.createdById === followerId);
+        if (isOwner) {
           throw new BadRequestException('You cannot follow your own channel');
         }
         await this.prisma.videoSubscription.upsert({

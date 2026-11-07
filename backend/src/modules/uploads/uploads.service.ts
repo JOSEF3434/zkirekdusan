@@ -312,7 +312,7 @@ export class UploadsService {
       userId,
       file,
       `channels/${channelId}/avatar`,
-      channel.groupId,
+      channel.groupId ?? undefined,
     );
 
     await this.prisma.videoChannel.update({
@@ -348,7 +348,7 @@ export class UploadsService {
       userId,
       file,
       `channels/${channelId}/banner`,
-      channel.groupId,
+      channel.groupId ?? undefined,
     );
 
     await this.prisma.videoChannel.update({
