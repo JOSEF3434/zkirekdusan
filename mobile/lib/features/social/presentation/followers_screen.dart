@@ -82,52 +82,74 @@ class FollowersScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(tr('nav.channels', {'fallback': 'Channels'})),
-          bottom: TabBar(
-            tabs: [
-              Tab(
-                text: tr('channels.suggested', {
-                  'fallback': 'Suggested Channels',
-                }),
-              ),
-              Tab(text: tr('social.tab_following', {'fallback': 'Following'})),
-              if (hasOwnedChannels)
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        tr('channels.my_channels', {
-                          'fallback': 'My Channels',
-                        }),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+          centerTitle: false,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Container(
+              width: double.infinity,
+              alignment: Alignment.center,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TabBar(
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      tabs: [
+                        Tab(
+                          text: tr('channels.suggested', {
+                            'fallback': 'Suggested Channels',
+                          }),
                         ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${myChannels.length}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        Tab(text: tr('social.tab_following', {'fallback': 'Following'})),
+                        if (hasOwnedChannels)
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  tr('channels.my_channels', {
+                                    'fallback': 'My Channels',
+                                  }),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${myChannels.length}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-            ],
+              ),
+            ),
           ),
         ),
         body: ResponsiveLayout.maxReadingWidth(
-          maxWidth: 1200,
-          child: TabBarView(
+          maxWidth: 1000,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TabBarView(
             children: [
               _FollowList(
                 provider: suggestedChannelsProvider,
@@ -145,6 +167,7 @@ class FollowersScreen extends ConsumerWidget {
                   onRefresh: () async => ref.invalidate(myOwnedChannelsProvider),
                 ),
             ],
+          ),
           ),
         ),
       ),
@@ -402,7 +425,7 @@ class _FollowList extends ConsumerWidget {
                   if (user.username != null && user.username!.isNotEmpty) {
                     context.push('/@${user.username}');
                   } else {
-                    context.push('/profile/${user.id}');
+                    context.push('/profile/user/${user.id}');
                   }
                 },
                 leading: CircleAvatar(

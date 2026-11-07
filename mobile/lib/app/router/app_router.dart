@@ -541,25 +541,34 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
               ),
               GoRoute(
-                path: ':id/followers',
+                path: ':id',
                 builder: (context, state) {
                   final id = state.pathParameters['id']!;
-                  return FollowersScreen(profileId: id, initialTabIndex: 0);
+                  return PublicProfileScreen(username: id);
                 },
-              ),
-              GoRoute(
-                path: ':id/following',
-                builder: (context, state) {
-                  final id = state.pathParameters['id']!;
-                  final tab = state.uri.queryParameters['tab'];
-                  int initialIndex = 1;
-                  if (tab == 'suggested' || tab == '0') {
-                    initialIndex = 0;
-                  } else if (tab == 'my' || tab == 'my_channels' || tab == '2') {
-                    initialIndex = 2;
-                  }
-                  return FollowersScreen(profileId: id, initialTabIndex: initialIndex);
-                },
+                routes: [
+                  GoRoute(
+                    path: 'followers',
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      return FollowersScreen(profileId: id, initialTabIndex: 0);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'following',
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      final tab = state.uri.queryParameters['tab'];
+                      int initialIndex = 1;
+                      if (tab == 'suggested' || tab == '0') {
+                        initialIndex = 0;
+                      } else if (tab == 'my' || tab == 'my_channels' || tab == '2') {
+                        initialIndex = 2;
+                      }
+                      return FollowersScreen(profileId: id, initialTabIndex: initialIndex);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

@@ -1,4 +1,6 @@
 // lib/features/stories/presentation/screens/story_viewer_screen.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -485,8 +487,25 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     }
 
     // Image Story
-    final resolvedImageUrl = MediaUrlResolver.resolve(story.mediaUrl);
+    final rawUrl = story.mediaUrl;
+    final resolvedImageUrl = MediaUrlResolver.resolve(rawUrl);
     if (resolvedImageUrl != null && resolvedImageUrl.isNotEmpty) {
+      // 1. Check if local filesystem image
+      final isLocal = !kIsWeb &&
+          (resolvedImageUrl.startsWith('file://') ||
+              RegExp(r'^[a-zA-Z]:[/\\]').hasMatch(resolvedImageUrl) ||
+              File(resolvedImageUrl.replaceFirst('file://', '')).existsSync());
+
+      if (isLocal) {
+        return Image.file(
+          File(resolvedImageUrl.replaceFirst('file://', '')),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildImageError(context, resolvedImageUrl),
+        );
+      }
+
+      // 2. Network image: CachedNetworkImage with Image.network fallback
       return CachedNetworkImage(
         imageUrl: resolvedImageUrl,
         fit: BoxFit.contain,
@@ -494,37 +513,17 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
             const Center(child: CircularProgressIndicator(color: Colors.white)),
         errorWidget: (context, url, error) {
           debugPrint(
-            '[StoryViewer] Image load failed for: $resolvedImageUrl (error: $error)',
+            '[StoryViewer] CachedNetworkImage failed for: $resolvedImageUrl ($error), trying Image.network',
           );
-          final tr = ref.read(trProvider);
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.broken_image_outlined,
-                  color: Colors.white54,
-                  size: 48,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  tr('stories.media_load_failed'),
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white30),
-                  ),
-                  onPressed: () {
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: Text(tr('common.retry')),
-                ),
-              ],
-            ),
+          return Image.network(
+            resolvedImageUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (context, err2, st2) {
+              debugPrint(
+                '[StoryViewer] Image.network also failed for: $resolvedImageUrl ($err2)',
+              );
+              return _buildImageError(context, resolvedImageUrl);
+            },
           );
         },
       );
@@ -537,6 +536,43 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
           'No media available',
           style: TextStyle(color: Colors.white70),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImageError(BuildContext context, String imageUrl) {
+    final tr = ref.read(trProvider);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.broken_image_outlined,
+            color: Colors.white54,
+            size: 48,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            tr('stories.media_load_failed', {
+              'fallback': 'Failed to load media',
+            }),
+            style: const TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: const BorderSide(color: Colors.white30),
+            ),
+            onPressed: () {
+              setState(() {});
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: Text(
+              tr('common.retry', {'fallback': 'Retry'}),
+            ),
+          ),
+        ],
       ),
     );
   }

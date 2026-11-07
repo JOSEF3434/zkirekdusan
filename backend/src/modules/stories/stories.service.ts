@@ -447,7 +447,14 @@ export class StoriesService {
 
   private sanitizeUrl(url: string | null | undefined): string | null {
     if (!url) return null;
-    const RENDER_HOST = 'https://zikrekidusan.onrender.com';
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!isProduction) {
+      return url;
+    }
+    const renderHost =
+      process.env.APP_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      'https://zikrekidusan.onrender.com';
     const LOCALHOST_PATTERNS = [
       /^http:\/\/localhost:\d+/,
       /^http:\/\/127\.0\.0\.1:\d+/,
@@ -455,7 +462,7 @@ export class StoriesService {
       /^http:\/\/10\.0\.2\.2:\d+/,
     ];
     for (const pattern of LOCALHOST_PATTERNS) {
-      if (pattern.test(url)) return url.replace(pattern, RENDER_HOST);
+      if (pattern.test(url)) return url.replace(pattern, renderHost);
     }
     return url;
   }

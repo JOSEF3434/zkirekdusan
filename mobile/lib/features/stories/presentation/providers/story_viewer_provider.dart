@@ -2,9 +2,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/stories/data/datasources/stories_remote_datasource.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/data/models/story_model.dart';
+import 'package:mobile/features/stories/data/models/story_reaction_model.dart';
+import 'package:mobile/features/stories/data/models/story_view_model.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 
 class StoryViewerState {
@@ -249,13 +252,37 @@ class StoryViewerNotifier extends StateNotifier<StoryViewerState> {
     if (_viewedStoryIds.contains(story.id)) return;
     _viewedStoryIds.add(story.id);
 
-    // Call backend view recording silently
-    _ref.read(storiesRemoteDatasourceProvider).viewStory(story.id).catchError((
-      e,
-    ) {
-      debugPrint('[StoryViewer] view tracking failed: $e');
-      return story;
-    });
+    // Call backend view recording and apply updated counters
+    _ref
+        .read(storiesRemoteDatasourceProvider)
+        .viewStory(story.id)
+        .then((updated) {
+          _updateCurrentStoryLocally(updated);
+        })
+        .catchError((e) {
+          debugPrint('[StoryViewer] view tracking failed: $e');
+        });
+
+    // For story author viewing their own story, fetch live viewers & reactions count
+    final myUserId = _ref.read(authProvider).user?.id;
+    if (story.author.id == myUserId) {
+      Future.wait([
+        _ref.read(storiesRemoteDatasourceProvider).getViewers(story.id),
+        _ref.read(storiesRemoteDatasourceProvider).getReactions(story.id),
+      ]).then((results) {
+        final viewers = results[0] as List<StoryViewModel>;
+        final reactions = results[1] as List<StoryReactionModel>;
+        final current = state.currentStory;
+        if (current != null && current.id == story.id) {
+          _updateCurrentStoryLocally(
+            current.copyWith(
+              viewsCount: viewers.length,
+              reactionsCount: reactions.length,
+            ),
+          );
+        }
+      }).catchError((_) {});
+    }
 
     // Update local feed state so ring borders update smoothly
     _ref

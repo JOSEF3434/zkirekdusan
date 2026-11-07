@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import 'package:mobile/features/social/presentation/widgets/report_sheet.dart';
 
 import 'package:mobile/features/groups/domain/group_context_dto.dart';
 import 'package:mobile/features/groups/domain/group_enums.dart';
+import 'package:mobile/features/groups/domain/group_member_dto.dart';
 import 'package:mobile/features/groups/presentation/providers/group_detail_provider.dart';
 import 'package:mobile/features/groups/presentation/providers/group_members_provider.dart';
 import 'package:mobile/features/groups/presentation/screens/tabs/group_playlists_tab.dart';
@@ -42,7 +44,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -223,7 +225,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
           ),
         ],
       ),
-      body: NestedScrollView(
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 1000,
+        child: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverToBoxAdapter(
@@ -499,11 +503,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                                 'Member';
 
                             return ListTile(
-                              onTap: member.username != null
-                                  ? () => context.push(
-                                        '/profile/user/${member.username}',
-                                      )
-                                  : null,
+                              onTap: () => _navigateToMemberProfile(context, member),
                               leading: CircleAvatar(
                                 radius: 20,
                                 backgroundColor: const Color(0xFF00C6FF)
@@ -635,6 +635,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                         Tab(text: 'GIFs'),
                         Tab(text: 'Videos'),
                         Tab(text: 'Playlists'),
+                        Tab(text: 'Members'),
                       ],
                     ),
                   ),
@@ -672,8 +673,12 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
               groupContext: groupContext,
               activeChannel: groupContext.primaryChannel,
             ),
+
+            // Tab 8: Members (Full member roster with profile navigation)
+            _buildMembersListTab(members, isDark, canManageMembers),
           ],
         ),
+      ),
       ),
     );
   }
@@ -947,6 +952,187 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
           fontSize: 15,
         ),
       ),
+    );
+  }
+
+  void _navigateToMemberProfile(BuildContext context, GroupMemberDto member) {
+    final target = (member.username != null && member.username!.trim().isNotEmpty)
+        ? member.username!.trim()
+        : member.userId;
+    if (target.isNotEmpty) {
+      context.push('/profile/user/$target');
+    }
+  }
+
+  Widget _buildMembersListTab(
+    List<GroupMemberDto> members,
+    bool isDark,
+    bool canManageMembers,
+  ) {
+    if (members.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.group_outlined,
+              size: 48,
+              color: isDark ? Colors.grey[600] : Colors.grey[400],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No members found',
+              style: TextStyle(
+                fontSize: 15,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final totalCount = members.length + (canManageMembers ? 1 : 0);
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: totalCount,
+      separatorBuilder: (context, index) => Divider(
+        height: 1,
+        indent: 56,
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.06),
+      ),
+      itemBuilder: (context, index) {
+        if (canManageMembers && index == 0) {
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_add_alt_1_rounded,
+                color: Color(0xFF00C6FF),
+                size: 22,
+              ),
+            ),
+            title: Text(
+              'Add Members',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            subtitle: Text(
+              'Invite more people to this group',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+            onTap: () => AddGroupMemberSheet.show(context, widget.groupId),
+          );
+        }
+
+        final member = members[canManageMembers ? index - 1 : index];
+        final isOwner = member.role == GroupRole.groupAdmin;
+        final isAdmin = member.role == GroupRole.moderator;
+        final memberName = member.displayName ?? member.username ?? 'Member';
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          onTap: () => _navigateToMemberProfile(context, member),
+          leading: CircleAvatar(
+            radius: 22,
+            backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
+            child: Text(
+              memberName.isNotEmpty ? memberName[0].toUpperCase() : 'U',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF00C6FF),
+                fontSize: 16,
+              ),
+            ),
+          ),
+          title: Text(
+            memberName,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          subtitle: Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'online',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF10B981) : Colors.green[700],
+                ),
+              ),
+              if (member.username != null && member.username!.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '@${member.username}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          trailing: isOwner || isAdmin
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isOwner
+                        ? const Color(0xFF8B5CF6).withValues(alpha: 0.2)
+                        : const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isOwner
+                          ? const Color(0xFF8B5CF6).withValues(alpha: 0.4)
+                          : const Color(0xFF00C6FF).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    isOwner ? 'Owner' : 'Admin',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isOwner
+                          ? const Color(0xFFA78BFA)
+                          : const Color(0xFF00C6FF),
+                    ),
+                  ),
+                )
+              : const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Colors.grey,
+                ),
+        );
+      },
     );
   }
 
