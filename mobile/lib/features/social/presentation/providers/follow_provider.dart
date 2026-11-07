@@ -11,13 +11,22 @@ class FollowState {
   final bool isFollowedBy;
   final bool isLoading;
   final String? error;
+  /// Whether the user was following at load time (used for optimistic count delta).
+  final bool initialIsFollowing;
 
   const FollowState({
     this.isFollowing = false,
     this.isFollowedBy = false,
     this.isLoading = false,
     this.error,
+    this.initialIsFollowing = false,
   });
+
+  /// +1 if we just followed, -1 if we just unfollowed, 0 if unchanged.
+  int get followerCountDelta {
+    if (isFollowing == initialIsFollowing) return 0;
+    return isFollowing ? 1 : -1;
+  }
 
   FollowState copyWith({
     bool? isFollowing,
@@ -25,12 +34,14 @@ class FollowState {
     bool? isLoading,
     String? error,
     bool clearError = false,
+    bool? initialIsFollowing,
   }) {
     return FollowState(
       isFollowing: isFollowing ?? this.isFollowing,
       isFollowedBy: isFollowedBy ?? this.isFollowedBy,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
+      initialIsFollowing: initialIsFollowing ?? this.initialIsFollowing,
     );
   }
 }
@@ -54,6 +65,7 @@ class FollowNotifier extends FamilyAsyncNotifier<FollowState, String> {
     return FollowState(
       isFollowing: status.isFollowing,
       isFollowedBy: status.isFollowedBy,
+      initialIsFollowing: status.isFollowing,
     );
   }
 

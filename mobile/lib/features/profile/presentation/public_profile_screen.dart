@@ -1,5 +1,3 @@
-// lib/features/profile/presentation/public_profile_screen.dart
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +7,7 @@ import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_call_dialog.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
@@ -17,11 +16,13 @@ import 'package:mobile/features/social/presentation/widgets/report_sheet.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_posts_provider.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_provider.dart';
+import 'package:mobile/features/social/domain/follow_model.dart';
+import 'package:mobile/features/social/presentation/followers_screen.dart';
+import 'package:mobile/features/social/presentation/providers/follow_provider.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/data/models/story_model.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
-
 class PublicProfileScreen extends ConsumerStatefulWidget {
   final String username;
 
@@ -41,7 +42,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -252,6 +253,17 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     final displayName = profile.displayName ?? profile.username ?? 'User';
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
     final tr = ref.watch(trProvider);
+    final authState = ref.watch(authProvider);
+    final currentUserId = authState.user?.id;
+    final isOwnProfile = currentUserId != null &&
+        currentUserId.isNotEmpty &&
+        currentUserId == profile.userId;
+
+    // Follow state (only relevant when viewing someone else's profile)
+    final followAsync = !isOwnProfile
+        ? ref.watch(followProvider(profile.userId))
+        : const AsyncData(FollowState());
+    final followState = followAsync.valueOrNull ?? const FollowState();
 
     return ResponsiveLayout.maxReadingWidth(
       maxWidth: 1200,
@@ -364,6 +376,76 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+
+                // ── Stats Row ──────────────────────────────────────────────
+                // Apply +/-1 optimistic delta when the current user follows/unfollows.
+                // Always use profile.stats.followersCount as the base; apply delta on top.
+                Builder(builder: (context) {
+                  final delta = isOwnProfile ? 0 : followState.followerCountDelta;
+                  // Use profile.stats as the authoritative count; apply optimistic delta
+                  final baseCount = profile.stats.followersCount;
+                  final followersDisplay = (baseCount + delta).clamp(0, 999999999);
+                  return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _StatChip(
+                        label: 'Followers',
+                        count: followersDisplay,
+                        // Navigate to dedicated followers list page
+                        onTap: () => context.push(
+                          '/profile/user/${profile.userId}/followers',
+                        ),
+                      ),
+                      Container(
+                        height: 28,
+                        width: 1,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.1),
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      _StatChip(
+                        label: 'Following',
+                        count: profile.stats.followingCount,
+                        // Navigate to following list page
+                        onTap: () => context.push(
+                          '/profile/user/${profile.userId}/following',
+                        ),
+                      ),
+                      Container(
+                        height: 28,
+                        width: 1,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.1),
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      _StatChip(
+                        label: 'Posts',
+                        count: profile.stats.postsCount,
+                        onTap: null,
+                      ),
+                    ],
+                  ),
+                );
+                }),
+                const SizedBox(height: 14),
+
+                // ── Follow / Unfollow Button ────────────────────────────────
+                if (!isOwnProfile)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 42,
+                      child: _buildFollowButton(
+                          profile, followState, isDark, tr),
+                    ),
+                  ),
+
                 const SizedBox(height: 20),
 
                 // 3. Four Action Buttons Row (Screenshot 1: Message, Mute, Call, Video)
@@ -586,6 +668,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                       Tab(text: 'Media'),
                       Tab(text: 'Files'),
                       Tab(text: 'Links'),
+                      Tab(text: 'Followers'),
                       Tab(text: 'Groups'),
                     ],
                   ),
@@ -598,7 +681,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Tab 1: Posts (2-column media grid, matching Screenshot 1!)
+          // Tab 1: Posts (2-column media grid)
           _buildPostsMediaGrid(profile.userId, isDark),
 
           // Tab 2: Media (Photos & Videos)
@@ -610,7 +693,10 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
           // Tab 4: Links
           _buildLinksList(profile.website, isDark),
 
-          // Tab 5: Groups
+          // Tab 5: Followers
+          _buildFollowersList(profile.userId, isDark),
+
+          // Tab 6: Groups
           _buildGroupsList(isDark),
         ],
       ),
@@ -632,9 +718,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
         width: 76,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF17212B)
-              : Colors.white,
+          color: isDark ? const Color(0xFF17212B) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -657,11 +741,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                 ),
               )
             else
-              Icon(
-                icon,
-                color: const Color(0xFF00C6FF),
-                size: 24,
-              ),
+              Icon(icon, color: const Color(0xFF00C6FF), size: 24),
             const SizedBox(height: 6),
             Text(
               label,
@@ -673,6 +753,272 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Follow Button ───────────────────────────────────────────────────────────
+
+  Widget _buildFollowButton(
+    ProfileModel profile,
+    FollowState followState,
+    bool isDark,
+    String Function(String, [Map<String, dynamic>?]) tr,
+  ) {
+    final isFollowing = followState.isFollowing;
+    final isFollowedBy = followState.isFollowedBy;
+    final isLoading = followState.isLoading;
+
+    String label;
+    if (isLoading) {
+      label = '...';
+    } else if (isFollowing) {
+      label = 'Following ✓';
+    } else if (isFollowedBy) {
+      label = 'Follow Back';
+    } else {
+      label = 'Follow';
+    }
+
+    if (isFollowing) {
+      return OutlinedButton.icon(
+        onPressed: isLoading
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                ref
+                    .read(followProvider(profile.userId).notifier)
+                    .unfollow();
+              },
+        icon: isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.check_rounded, size: 18),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF10B981),
+          side: const BorderSide(color: Color(0xFF10B981)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+      );
+    }
+
+    return FilledButton.icon(
+      onPressed: isLoading
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              ref.read(followProvider(profile.userId).notifier).follow();
+            },
+      icon: isLoading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            )
+          : Icon(
+              isFollowedBy
+                  ? Icons.person_add_alt_1_rounded
+                  : Icons.person_add_rounded,
+              size: 18,
+            ),
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF00C6FF),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
+      ),
+    );
+  }
+
+  // ── Followers Tab ───────────────────────────────────────────────────────────
+
+  Widget _buildFollowersList(String userId, bool isDark) {
+    final followersAsync = ref.watch(followersProvider(userId));
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(followersProvider(userId)),
+      child: followersAsync.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: Color(0xFF00C6FF))),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+              const SizedBox(height: 12),
+              const Text('Could not load followers'),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => ref.invalidate(followersProvider(userId)),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (response) {
+          final followers = response.data;
+          // Show empty state only when the backend total is also 0.
+          // If meta.total > 0 but data is empty it means the backend has a
+          // count/list inconsistency — show a soft "could not load" message.
+          final totalFromMeta = response.meta.total;
+          if (followers.isEmpty) {
+            if (totalFromMeta == 0) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 60),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 56,
+                          color: isDark ? Colors.grey[600] : Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No followers yet',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            // meta.total > 0 but list came back empty — backend inconsistency
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 60),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 56,
+                        color: isDark ? Colors.grey[600] : Colors.grey[400],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '$totalFromMeta follower${totalFromMeta == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Follower list could not be loaded',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => ref.invalidate(followersProvider(userId)),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: followers.length,
+            separatorBuilder: (_, i) => Divider(
+              height: 1,
+              indent: 56,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.06),
+            ),
+            itemBuilder: (context, index) {
+              final follower = followers[index];
+              final name = follower.displayName ?? follower.username ?? 'User';
+              return ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                onTap: () {
+                  if (follower.username != null &&
+                      follower.username!.isNotEmpty) {
+                    context.push('/@${follower.username}');
+                  } else {
+                    context.push('/profile/user/${follower.id}');
+                  }
+                },
+                leading: CircleAvatar(
+                  radius: 22,
+                  backgroundColor:
+                      const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                  backgroundImage: follower.avatarUrl != null &&
+                          follower.avatarUrl!.isNotEmpty
+                      ? CachedNetworkImageProvider(follower.avatarUrl!)
+                      : null,
+                  child: follower.avatarUrl == null ||
+                          follower.avatarUrl!.isEmpty
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00C6FF),
+                            fontSize: 16,
+                          ),
+                        )
+                      : null,
+                ),
+                title: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                subtitle: follower.username != null
+                    ? Text(
+                        '@${follower.username}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      )
+                    : null,
+                trailing: _ProfileFollowButton(follower: follower),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -1097,6 +1443,118 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     );
   }
 }
+
+// ── _StatChip ────────────────────────────────────────────────────────────────
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final VoidCallback? onTap;
+
+  const _StatChip({required this.label, required this.count, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            count >= 1000000
+                ? '${(count / 1000000).toStringAsFixed(1)}M'
+                : count >= 1000
+                    ? '${(count / 1000).toStringAsFixed(1)}K'
+                    : '$count',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── _ProfileFollowButton ──────────────────────────────────────────────────────
+
+class _ProfileFollowButton extends ConsumerWidget {
+  final FollowerDto follower;
+
+  const _ProfileFollowButton({required this.follower});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final followAsync = ref.watch(followProvider(follower.id));
+    final isFollowing =
+        followAsync.valueOrNull?.isFollowing ?? follower.isFollowing;
+    final isLoading = followAsync.valueOrNull?.isLoading ?? false;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: isFollowing
+          ? OutlinedButton(
+              key: const ValueKey('following'),
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      ref
+                          .read(followProvider(follower.id).notifier)
+                          .unfollow();
+                    },
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Following', style: TextStyle(fontSize: 13)),
+            )
+          : FilledButton(
+              key: const ValueKey('follow'),
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      ref.read(followProvider(follower.id).notifier).follow();
+                    },
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Follow', style: TextStyle(fontSize: 13)),
+            ),
+    );
+  }
+}
+
+// ── _SliverTabHeaderDelegate ──────────────────────────────────────────────────
 
 class _SliverTabHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;

@@ -11,6 +11,10 @@ class ExploreChannelDto {
   final String? description;
   final String? avatarUrl;
   final int subscribersCount;
+  /// Channel/group status from backend — only 'ACTIVE' (and admin-approved)
+  /// should be shown in public explore pages.
+  final String? status;
+  final bool? isApproved;
 
   const ExploreChannelDto({
     required this.id,
@@ -18,7 +22,17 @@ class ExploreChannelDto {
     this.description,
     this.avatarUrl,
     this.subscribersCount = 0,
+    this.status,
+    this.isApproved,
   });
+
+  /// Returns true only when the channel is active and approved for display.
+  bool get isPubliclyVisible {
+    final s = status?.toUpperCase();
+    // If backend sends no status, treat as visible (backward compat)
+    if (s == null) return true;
+    return s == 'ACTIVE';
+  }
 
   factory ExploreChannelDto.fromJson(Map<String, dynamic> json) {
     return ExploreChannelDto(
@@ -27,6 +41,8 @@ class ExploreChannelDto {
       description: json['description'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       subscribersCount: json['subscribersCount'] as int? ?? 0,
+      status: json['status'] as String?,
+      isApproved: json['isApproved'] as bool?,
     );
   }
 }

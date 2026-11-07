@@ -88,6 +88,9 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
         groupContext.capabilities.canUpdateGroup ||
         groupContext.capabilities.canDeleteGroup;
     final canManageMembers = groupContext.capabilities.canManageMembers;
+    // The inline members panel (Add Members + member preview) is owner-only.
+    // Owners have groupAdmin role; admins/mods see the Members tab only.
+    final isGroupOwner = groupContext.callerRole == GroupRole.groupAdmin;
     final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
     final membersState = ref.watch(groupMembersProvider(widget.groupId));
     final members = membersState.members;
@@ -436,7 +439,8 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                   ),
                   const SizedBox(height: 16),
 
-                  // 5. Members Section Card (Screenshot 2: Add Members + Member List)
+                  // 5. Members Section Card -- only visible to group owner
+                  if (isGroupOwner)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Container(

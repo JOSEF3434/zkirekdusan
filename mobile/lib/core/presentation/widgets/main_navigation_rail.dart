@@ -7,7 +7,6 @@ import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
@@ -215,15 +214,8 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
                           selectedIcon: Icons.subscriptions,
                           label: tr('nav.channels'),
                           isExtended: isDesktop,
-                          isSelected: path.contains('/following'),
-                          onTap: () {
-                            final authUser = ref.read(authProvider).user;
-                            if (authUser != null) {
-                              context.push('/profile/${authUser.id}/following');
-                            } else {
-                              context.push('/explore');
-                            }
-                          },
+                          isSelected: path.startsWith('/channels'),
+                          onTap: () => context.push('/channels'),
                         ),
                         // 6. Cache & Storage
                         _RailActionItem(

@@ -147,19 +147,25 @@ class ExploreScreen extends ConsumerWidget {
                     _buildVideoCarousel(content.trendingVideos, context),
                     const SizedBox(height: 24),
                   ],
-                  if (content.trendingChannels.isNotEmpty) ...[
-                    _SectionHeader(
-                      title: tr('explore.popular_channels'),
-                      icon: Icons.star_rounded,
-                      color: Colors.amber,
-                    ),
-                    _buildChannelCarousel(
-                      content.trendingChannels,
-                      context,
-                      tr,
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                  Builder(builder: (context) {
+                    // Only show channels that are ACTIVE & admin-approved
+                    final visibleChannels = content.trendingChannels
+                        .where((ch) => ch.isPubliclyVisible)
+                        .toList();
+                    if (visibleChannels.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionHeader(
+                          title: tr('explore.popular_channels'),
+                          icon: Icons.star_rounded,
+                          color: Colors.amber,
+                        ),
+                        _buildChannelCarousel(visibleChannels, context, tr),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  }),
                   // Add more sections as needed
                 ],
               ),
@@ -525,8 +531,12 @@ class ExploreScreen extends ConsumerWidget {
     BuildContext context,
     String Function(String, [Map<String, dynamic>?]) tr,
   ) {
+    // Channels are already filtered/active — data comes from backend as-is.
+    const double avatarRadius = 36;
+    const Color tealAccent = Color(0xFF00C6FF);
+
     return SizedBox(
-      height: 120,
+      height: 145,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -534,25 +544,76 @@ class ExploreScreen extends ConsumerWidget {
         separatorBuilder: (context, index) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final channel = channels[index];
+          final subCount = channel.subscribersCount;
+          final isPopular = subCount >= 1000;
+
           return GestureDetector(
-            onTap: () {}, // navigation to channel profile
+            onTap: () => context.push('/channel/${channel.id}'),
             child: SizedBox(
               width: 100,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundImage: channel.avatarUrl != null
-                        ? CachedNetworkImageProvider(channel.avatarUrl!)
-                        : null,
-                    child: channel.avatarUrl == null
-                        ? const Icon(Icons.person, size: 36)
-                        : null,
+                  // Avatar with teal border and optional verified badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: tealAccent, width: 2),
+                        ),
+                        child: CircleAvatar(
+                          radius: avatarRadius,
+                          backgroundColor: const Color(0xFF17212B),
+                          backgroundImage: channel.avatarUrl != null
+                              ? CachedNetworkImageProvider(channel.avatarUrl!)
+                              : null,
+                          child: channel.avatarUrl == null
+                              ? const Icon(Icons.person, size: 36, color: Colors.white54)
+                              : null,
+                        ),
+                      ),
+                      // Verified / popular badge at bottom of avatar
+                      if (isPopular)
+                        Positioned(
+                          bottom: 0,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Color(0xFF0E1621),
+                            ),
+                            child: const Icon(
+                              Icons.verified_rounded,
+                              size: 16,
+                              color: tealAccent,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
+                  // Channel name
                   Text(
                     channel.name ?? tr('video.channel_fallback'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  // Subscriber count
+                  Text(
+                    subCount >= 1000
+                        ? '${(subCount / 1000).toStringAsFixed(1)}K subscribers'
+                        : '$subCount subscribers',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,

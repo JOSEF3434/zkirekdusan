@@ -64,7 +64,9 @@ import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:mobile/core/navigation/navigation_service.dart';
-import 'package:mobile/features/social/presentation/followers_screen.dart';
+import 'package:mobile/features/social/presentation/user_follow_list_screen.dart';
+import 'package:mobile/features/social/presentation/followers_screen.dart'
+    show FollowersScreen;
 import 'package:mobile/features/creator/presentation/screens/creator_workspace_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/create_group_screen.dart';
 import 'package:mobile/features/creator/presentation/screens/channel_selector_screen.dart';
@@ -95,6 +97,7 @@ import 'package:mobile/features/admin/presentation/screens/admin_rbac_screen.dar
 import 'package:mobile/features/admin/presentation/screens/admin_auth_policy_screen.dart';
 import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
+import 'package:mobile/features/groups/presentation/screens/channel_detail_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/playlist_detail_screen.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
 import 'package:mobile/features/stories/presentation/screens/story_creation_screen.dart';
@@ -141,6 +144,7 @@ class RouterNotifier extends ChangeNotifier {
     if (location.startsWith('/g/') ||
         location.startsWith('/c/') ||
         location.startsWith('/groups/') ||
+        location.startsWith('/channel/') ||
         location.startsWith('/join/group/') ||
         location.startsWith('/video/') ||
         location.startsWith('/posts/') ||
@@ -511,6 +515,34 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ─────────────────────────────────────────────
+      // Profile Follow List Routes (full-screen above shell)
+      // These handle /profile/user/:id/followers and /profile/user/:id/following
+      // as top-level routes so they work from any navigation context.
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: '/profile/user/:id/followers',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return UserFollowListScreen(
+            userId: id,
+            mode: FollowListMode.followers,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/profile/user/:id/following',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return UserFollowListScreen(
+            userId: id,
+            mode: FollowListMode.following,
+          );
+        },
+      ),
+
+      // ─────────────────────────────────────────────
       // Desktop / Web Persistent Sidebar Shell Routes
       // (Explore, Profile, Search, Notifications, Creator, Admin, Groups, Playlists, Settings, Library)
       // ─────────────────────────────────────────────
@@ -539,6 +571,28 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final username = state.pathParameters['username']!;
                   return PublicProfileScreen(username: username);
                 },
+                routes: [
+                  GoRoute(
+                    path: 'followers',
+                    builder: (context, state) {
+                      final id = state.pathParameters['username']!;
+                      return UserFollowListScreen(
+                        userId: id,
+                        mode: FollowListMode.followers,
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'following',
+                    builder: (context, state) {
+                      final id = state.pathParameters['username']!;
+                      return UserFollowListScreen(
+                        userId: id,
+                        mode: FollowListMode.following,
+                      );
+                    },
+                  ),
+                ],
               ),
               GoRoute(
                 path: ':id',
@@ -551,21 +605,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'followers',
                     builder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return FollowersScreen(profileId: id, initialTabIndex: 0);
+                      // Dedicated followers list page for this user
+                      return UserFollowListScreen(
+                        userId: id,
+                        mode: FollowListMode.followers,
+                      );
                     },
                   ),
                   GoRoute(
                     path: 'following',
                     builder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      final tab = state.uri.queryParameters['tab'];
-                      int initialIndex = 1;
-                      if (tab == 'suggested' || tab == '0') {
-                        initialIndex = 0;
-                      } else if (tab == 'my' || tab == 'my_channels' || tab == '2') {
-                        initialIndex = 2;
-                      }
-                      return FollowersScreen(profileId: id, initialTabIndex: initialIndex);
+                      // Dedicated following list page for this user
+                      return UserFollowListScreen(
+                        userId: id,
+                        mode: FollowListMode.following,
+                      );
                     },
                   ),
                 ],
@@ -579,6 +634,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/notifications',
             builder: (context, state) => const NotificationsScreen(),
+          ),
+          // Channels page — Suggested Channels / Subscriptions / My Channels
+          GoRoute(
+            path: '/channels',
+            builder: (context, state) {
+              return const FollowersScreen();
+            },
           ),
           GoRoute(
             path: '/creator/workspace',
@@ -732,6 +794,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               final id = state.pathParameters['id']!;
               final tab = state.uri.queryParameters['tab'];
               return GroupChannelScreen(groupId: id, initialTab: tab);
+            },
+          ),
+          GoRoute(
+            path: '/channel/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return ChannelDetailScreen(channelId: id);
             },
           ),
           GoRoute(
