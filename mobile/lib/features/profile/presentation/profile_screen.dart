@@ -324,10 +324,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              // Navigate to Channels page directly opening the My Channels tab
-                              context.push(
-                                '/profile/${profile.userId}/following?tab=my',
-                              );
+                              // Navigate directly to Channels page (Suggested / Subscriptions / My Channels)
+                              context.push('/channels');
                             },
                             icon: const Icon(
                               Icons.smart_display_outlined,

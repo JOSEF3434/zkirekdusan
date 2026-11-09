@@ -376,11 +376,77 @@ class _SuggestedChannelCard extends ConsumerStatefulWidget {
 class _SuggestedChannelCardState
     extends ConsumerState<_SuggestedChannelCard> {
   late bool _isSubscribed;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _isSubscribed = widget.channel.isSubscribed;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SuggestedChannelCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.channel.id != widget.channel.id ||
+        oldWidget.channel.isSubscribed != widget.channel.isSubscribed) {
+      _isSubscribed = widget.channel.isSubscribed;
+    }
+  }
+
+  Future<void> _handleUnsubscribe(String channelId) async {
+    if (_isLoading) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isLoading = true;
+      _isSubscribed = false;
+    });
+    try {
+      await ref
+          .read(channelSubscribeProvider(channelId).notifier)
+          .unsubscribe();
+      ref.invalidate(mySubscribedChannelsProvider);
+      ref.invalidate(suggestedChannelsProvider);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubscribed = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to unsubscribe: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleSubscribe(String channelId) async {
+    if (_isLoading) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isLoading = true;
+      _isSubscribed = true;
+    });
+    try {
+      await ref
+          .read(channelSubscribeProvider(channelId).notifier)
+          .subscribe();
+      ref.invalidate(mySubscribedChannelsProvider);
+      ref.invalidate(suggestedChannelsProvider);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubscribed = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to subscribe: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -495,10 +561,9 @@ class _SuggestedChannelCardState
                 child: _isSubscribed
                     ? OutlinedButton(
                         key: const ValueKey('subscribed'),
-                        onPressed: () {
-                          setState(() => _isSubscribed = false);
-                          // TODO: call unsubscribe API
-                        },
+                        onPressed: _isLoading
+                            ? null
+                            : () => _handleUnsubscribe(ch.id),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 6),
@@ -510,16 +575,22 @@ class _SuggestedChannelCardState
                           ),
                           visualDensity: VisualDensity.compact,
                         ),
-                        child: const Text('Subscribed',
-                            style: TextStyle(fontSize: 12)),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Subscribed',
+                                style: TextStyle(fontSize: 12)),
                       )
                     : FilledButton(
                         key: const ValueKey('subscribe'),
-                        onPressed: () {
-                          setState(() => _isSubscribed = true);
-                          // TODO: call subscribe API
-                          context.push('/channel/${ch.id}');
-                        },
+                        onPressed: _isLoading
+                            ? null
+                            : () => _handleSubscribe(ch.id),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 6),
@@ -530,11 +601,20 @@ class _SuggestedChannelCardState
                               const Color(0xFF00C6FF),
                           visualDensity: VisualDensity.compact,
                         ),
-                        child: const Text('Subscribe',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.black87,
-                                fontWeight: FontWeight.bold)),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black87,
+                                ),
+                              )
+                            : const Text('Subscribe',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.bold)),
                       ),
               ),
             ],

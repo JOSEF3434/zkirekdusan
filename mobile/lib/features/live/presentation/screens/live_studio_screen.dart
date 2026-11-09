@@ -2839,9 +2839,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   if (streamId.isNotEmpty)
                     MultiCameraSwitcherWidget(
                       streamId: streamId,
-                      onSourceSelected: (sourceId) {
-                        debugPrint('[LiveStudio] Switched on-air source: $sourceId');
-                      },
+                      onSourceSelected: _handleOnAirSourceSwitched,
                     ),
 
                   // Below Monitor: Title, Channel, Stats, Controls
@@ -3063,10 +3061,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                 if (streamId.isNotEmpty)
                   MultiCameraSwitcherWidget(
                     streamId: streamId,
-                    onSourceSelected: (sourceId) {
-                      // TODO: route audio mix if needed based on active source
-                      debugPrint('[LiveStudio] Switched on-air source: ');
-                    },
+                    onSourceSelected: _handleOnAirSourceSwitched,
                   ),
 
                 Expanded(
@@ -3602,6 +3597,49 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       try {
         await _liveStreamController!.setIsMuted(nextMute);
       } catch (_) {}
+    }
+  }
+
+  void _handleOnAirSourceSwitched(String sourceId) {
+    debugPrint('[LiveStudio] Switched on-air source: $sourceId');
+    _routeAudioMixForSource(sourceId);
+  }
+
+  void _routeAudioMixForSource(String sourceId) {
+    // Audio mix management based on the active on-air video source:
+    // 1. Built-in camera (__builtin__): Route audio from the device microphone
+    //    respecting the studio's _isMicMuted state.
+    // 2. Screen share (__screen__): If screen media stream has audio tracks,
+    //    route/unmute them alongside commentator mic.
+    // 3. Remote cast cameras (remote phones/encoders): Keep host commentator
+    //    mic live so director/host voiceover continues seamlessly.
+    try {
+      if (sourceId == '__screen__') {
+        final screenStream = ref.read(screenShareStreamProvider);
+        if (screenStream != null) {
+          for (final track in screenStream.getAudioTracks()) {
+            track.enabled = !_isMicMuted;
+          }
+        }
+      } else if (sourceId == '__builtin__') {
+        if (kIsWeb) {
+          _whipBroadcaster?.setMuted(_isMicMuted);
+          for (final t in _webPreviewStream?.getAudioTracks() ?? []) {
+            t.enabled = !_isMicMuted;
+          }
+        } else if (_liveStreamController != null && _isCameraInitialized) {
+          _liveStreamController!.setIsMuted(_isMicMuted);
+        }
+      } else {
+        // Remote camera source: maintain commentator microphone feed
+        if (kIsWeb) {
+          _whipBroadcaster?.setMuted(_isMicMuted);
+        } else if (_liveStreamController != null && _isCameraInitialized) {
+          _liveStreamController!.setIsMuted(_isMicMuted);
+        }
+      }
+    } catch (e) {
+      debugPrint('[LiveStudio] Error routing audio mix for source $sourceId: $e');
     }
   }
 

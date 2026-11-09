@@ -639,7 +639,37 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/channels',
             builder: (context, state) {
-              return const FollowersScreen();
+              final tabParam = state.uri.queryParameters['tab'];
+              int initialTabIndex = 0;
+              if (tabParam != null) {
+                switch (tabParam.toLowerCase()) {
+                  case 'subscriptions':
+                  case 'subscribed':
+                  case '1':
+                    initialTabIndex = 1;
+                    break;
+                  case 'following':
+                  case '2':
+                    initialTabIndex = 2;
+                    break;
+                  case 'my':
+                  case 'my_channels':
+                  case '3':
+                    initialTabIndex = 3;
+                    break;
+                  case 'suggested':
+                  case '0':
+                    initialTabIndex = 0;
+                    break;
+                  default:
+                    initialTabIndex = int.tryParse(tabParam) ?? 0;
+                }
+              }
+              final profileId = state.uri.queryParameters['profileId'] ?? '';
+              return FollowersScreen(
+                profileId: profileId,
+                initialTabIndex: initialTabIndex,
+              );
             },
           ),
           GoRoute(
