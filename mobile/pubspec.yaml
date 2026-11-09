@@ -39,6 +39,8 @@ dependencies:
   share_plus: ^10.0.0
   flutter_staggered_animations: ^1.1.1
   qr_flutter: ^4.1.0
+  app_links: ^6.3.4
+  mobile_scanner: ^6.0.0
 
   # F5: Live Streaming
   camera: ^0.11.0+2

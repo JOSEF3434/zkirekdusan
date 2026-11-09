@@ -54,14 +54,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Android App Links for app.zikrekidusan.com -->
+            <!-- Android App Links for zikire-kdusan.onrender.com (Render frontend) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="app.zikrekidusan.com" />
+                    android:host="zikire-kdusan.onrender.com" />
             </intent-filter>
 
             <!-- Custom Scheme: zikrekidusan:// -->

@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.example.mobile",
+        "paths": [
+          "/u/*",
+          "/g/*",
+          "/c/*",
+          "/join/group/*",
+          "/video/*",
+          "/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAMID.com.example.mobile"]
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.zikrekidusan.mobile",
+      "sha256_cert_fingerprints": [
+        "FE:C8:D5:2A:86:62:68:17:76:AC:4B:91:BB:B0:F1:33:AA:43:2B:5D:A6:7C:0A:37:E0:00:E7:B5:F0:6A:EC:3D"
+      ]
+    }
+  }
+]

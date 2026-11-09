@@ -142,7 +142,8 @@ async function bootstrap() {
 
   // Set global API prefix (excluding public web sharing viewer endpoints)
   app.setGlobalPrefix('api', {
-    exclude: ['share/:id', 'web/:id'],
+    // Exclude share/web viewer routes AND /.well-known/* for App Links / Universal Links verification
+    exclude: ['share/:id', 'web/:id', '.well-known/(.*)'],
   });
 
   // Configure Swagger OpenAPI documentation

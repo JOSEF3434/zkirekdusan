@@ -1,9 +1,11 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
+import 'package:mobile/core/services/deep_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calls/data/call_lifecycle_manager.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_socket_lifecycle_provider.dart';
@@ -26,11 +28,18 @@ class AppScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-class StreamHubApp extends ConsumerWidget {
+class StreamHubApp extends ConsumerStatefulWidget {
   const StreamHubApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StreamHubApp> createState() => _StreamHubAppState();
+}
+
+class _StreamHubAppState extends ConsumerState<StreamHubApp> {
+  bool _deepLinkInitialized = false;
+
+  @override
+  Widget build(BuildContext context) {
     // Keep background socket listeners alive
     ref.watch(callLifecycleProvider);
     ref.watch(notificationLifecycleProvider);
@@ -39,6 +48,14 @@ class StreamHubApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final prefsState = ref.watch(preferencesProvider);
     final tr = ref.watch(trProvider);
+
+    // Initialize deep link service once after the router is ready (mobile only)
+    if (!kIsWeb && !_deepLinkInitialized) {
+      _deepLinkInitialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        DeepLinkService.initialize(router);
+      });
+    }
 
     return MaterialApp.router(
       title: tr('app.name'),
@@ -68,5 +85,11 @@ class StreamHubApp extends ConsumerWidget {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    DeepLinkService.dispose();
+    super.dispose();
   }
 }

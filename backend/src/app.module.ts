@@ -81,6 +81,9 @@ import { ReportsModule } from './modules/reports/reports.module.js';
 // Health Check
 import { HealthModule } from './modules/health/health.module.js';
 
+// Deep Link Verification
+import { WellKnownModule } from './modules/well-known/well-known.module.js';
+
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
@@ -201,6 +204,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     // Phase 7 — Admin Platform & Reports
     AdminModule,
     ReportsModule,
+
+    // Deep Link Verification (Android App Links & iOS Universal Links)
+    WellKnownModule,
   ],
 
   controllers: [AppController],

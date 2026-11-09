@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QrScannerScreen extends ConsumerStatefulWidget {
   const QrScannerScreen({super.key});
@@ -19,6 +20,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _animation;
+  late MobileScannerController _scannerController;
   bool _isTorchOn = false;
   bool _isProcessing = false;
   final TextEditingController _manualInputController = TextEditingController();
@@ -33,12 +35,17 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
+    _scannerController = MobileScannerController(
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
   }
 
   @override
   void dispose() {
     _animController.dispose();
     _manualInputController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -73,16 +80,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
               color: _isTorchOn ? const Color(0xFFFFB300) : Colors.white70,
             ),
             tooltip: 'Flashlight',
-            onPressed: () {
+            onPressed: () async {
+              await _scannerController.toggleTorch();
               setState(() => _isTorchOn = !_isTorchOn);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _isTorchOn ? 'Flashlight enabled' : 'Flashlight disabled',
-                  ),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
             },
           ),
         ],
@@ -90,17 +90,19 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Darkened Camera Background Simulation
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.2,
-                colors: [Color(0xFF131D2A), Color(0xFF090D14), Colors.black],
-              ),
-            ),
+          // Real camera feed via mobile_scanner
+          MobileScanner(
+            controller: _scannerController,
+            onDetect: (capture) {
+              final barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                final raw = barcode.rawValue;
+                if (raw != null && raw.isNotEmpty && !_isProcessing) {
+                  _handleScannedCode(raw);
+                  break;
+                }
+              }
+            },
           ),
 
           // Scanning Overlay with Cutout
@@ -177,7 +179,7 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
             ),
           ),
 
-          // Bottom Action Buttons (Manual Input / Gallery)
+          // Bottom Action Buttons
           Positioned(
             bottom: 40,
             left: 20,
@@ -206,34 +208,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                     'Enter Code / @user',
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                // Demo Scanner Trigger (Simulate scan)
-                FilledButton.icon(
-                  onPressed: () => _handleScannedCode(
-                    'https://zikire-kdusan.onrender.com/u/0e599727-5c5c-4219-be29-7bfdcdea6147',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C6FF),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.qr_code_scanner_rounded,
-                    color: Colors.black,
-                  ),
-                  label: const Text(
-                    'Test QR',
-                    style: TextStyle(
-                      color: Colors.black,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -313,7 +287,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                 bottom: BorderSide(color: color, width: strokeWidth),
                 right: BorderSide(color: color, width: strokeWidth),
               ),
-              borderRadius: BorderRadius.only(bottomRight: Radius.circular(12)),
+              borderRadius: BorderRadius.only(
+                bottomRight: Radius.circular(12),
+              ),
             ),
           ),
         ),
@@ -397,6 +373,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     if (_isProcessing) return;
     _isProcessing = true;
 
+    // Pause scanning while processing to avoid duplicate triggers
+    _scannerController.stop();
+
     final parsed = AppLinkService.parse(rawCode);
 
     switch (parsed.type) {
@@ -417,6 +396,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
         context.pushReplacement('/chats/conversation/${parsed.identifier}');
         break;
       case AppLinkEntityType.unknown:
+        _isProcessing = false;
+        _scannerController.start();
         _showGenericResult(parsed.rawUrl);
         break;
     }
@@ -435,13 +416,16 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
       }
     } catch (_) {}
     if (mounted) {
+      _isProcessing = false;
+      _scannerController.start();
       _showGenericResult(token);
     }
   }
 
-  void _navigateToProfile(String username) {
+  void _navigateToProfile(String identifier) {
     HapticFeedback.mediumImpact();
-    context.pushReplacement('/profile/user/$username');
+    // Use /u/ path which handles both usernames and UUIDs (backend tries both)
+    context.pushReplacement('/u/$identifier');
   }
 
   void _navigateToGroup(String groupId) {
@@ -450,7 +434,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
   }
 
   void _showGenericResult(String result) {
-    _isProcessing = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF17212B),
@@ -509,7 +492,10 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
                       backgroundColor: const Color(0xFF00C6FF),
                       foregroundColor: Colors.black,
                     ),
-                    onPressed: () => Navigator.pop(ctx),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _scannerController.start();
+                    },
                     child: Consumer(
                       builder: (_, ref, _) => Text(
                         ref.watch(trProvider)('common.done'),
