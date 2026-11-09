@@ -439,157 +439,173 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                   ),
                   const SizedBox(height: 16),
 
-                  // 5. Members Section Card -- only visible to group owner
-                  if (isGroupOwner)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
+                  // 5. Group Admins & Owner Card (Display only Owner & Administrators; all members are in Members tab)
+                  Builder(
+                    builder: (context) {
+                      final adminAndOwners = members.where((m) =>
+                          m.role == GroupRole.groupAdmin ||
+                          m.role == GroupRole.moderator).toList();
+
+                      if (!isGroupOwner && !canManageMembers && adminAndOwners.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // "Add Members" button
-                          ListTile(
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00C6FF)
-                                    .withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.person_add_alt_1_rounded,
-                                color: Color(0xFF00C6FF),
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              'Add Members',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                            onTap: () =>
-                                AddGroupMemberSheet.show(context, widget.groupId),
-                          ),
-
-                          if (members.isNotEmpty)
-                            Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.06)
-                                  : Colors.black.withValues(alpha: 0.06),
-                            ),
-
-                          // Member preview list items (Screenshot 2: Yossief Enyew, online, Owner)
-                          ...members.take(5).map((member) {
-                            final isOwner =
-                                member.role == GroupRole.groupAdmin;
-                            final isAdmin =
-                                member.role == GroupRole.moderator;
-                            final memberName = member.displayName ??
-                                member.username ??
-                                'Member';
-
-                            return ListTile(
-                              onTap: () => _navigateToMemberProfile(context, member),
-                              leading: CircleAvatar(
-                                radius: 20,
-                                backgroundColor: const Color(0xFF00C6FF)
-                                    .withValues(alpha: 0.2),
-                                child: Text(
-                                  memberName.isNotEmpty
-                                      ? memberName[0].toUpperCase()
-                                      : 'U',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF00C6FF),
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                memberName,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                              subtitle: Row(
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF10B981),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // "Add Members" button (only for members with add permission)
+                              if (canManageMembers || isGroupOwner) ...[
+                                ListTile(
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF00C6FF)
+                                          .withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'online',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? const Color(0xFF10B981)
-                                          : Colors.green[700],
+                                    child: const Icon(
+                                      Icons.person_add_alt_1_rounded,
+                                      color: Color(0xFF00C6FF),
+                                      size: 20,
                                     ),
                                   ),
-                                ],
-                              ),
-                              trailing: isOwner || isAdmin
-                                  ? Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 3,
+                                  title: Text(
+                                    'Add Members',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                  onTap: () => AddGroupMemberSheet.show(
+                                      context, widget.groupId),
+                                ),
+                                if (adminAndOwners.isNotEmpty)
+                                  Divider(
+                                    height: 1,
+                                    indent: 16,
+                                    endIndent: 16,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : Colors.black.withValues(alpha: 0.06),
+                                  ),
+                              ],
+
+                              // Display ONLY Admin and Owner members in this top card
+                              ...adminAndOwners.map((member) {
+                                final isOwner =
+                                    member.role == GroupRole.groupAdmin;
+                                final isAdmin =
+                                    member.role == GroupRole.moderator;
+                                final memberName = member.displayName ??
+                                    member.username ??
+                                    'Member';
+
+                                return ListTile(
+                                  onTap: () =>
+                                      _navigateToMemberProfile(context, member),
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: const Color(0xFF00C6FF)
+                                        .withValues(alpha: 0.2),
+                                    child: Text(
+                                      memberName.isNotEmpty
+                                          ? memberName[0].toUpperCase()
+                                          : 'U',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF00C6FF),
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: isOwner
-                                            ? const Color(0xFF8B5CF6)
-                                                .withValues(alpha: 0.2)
-                                            : const Color(0xFF00C6FF)
-                                                .withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isOwner
-                                              ? const Color(0xFF8B5CF6)
-                                                  .withValues(alpha: 0.4)
-                                              : const Color(0xFF00C6FF)
-                                                  .withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    memberName,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  subtitle: Row(
+                                    children: [
+                                      Container(
+                                        width: 7,
+                                        height: 7,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF10B981),
+                                          shape: BoxShape.circle,
                                         ),
                                       ),
-                                      child: Text(
-                                        isOwner ? 'Owner' : 'Admin',
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'online',
                                         style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isOwner
-                                              ? const Color(0xFFA78BFA)
-                                              : const Color(0xFF00C6FF),
+                                          fontSize: 12,
+                                          color: isDark
+                                              ? const Color(0xFF10B981)
+                                              : Colors.green[700],
                                         ),
                                       ),
-                                    )
-                                  : null,
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
+                                    ],
+                                  ),
+                                  trailing: isOwner || isAdmin
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isOwner
+                                                ? const Color(0xFF8B5CF6)
+                                                    .withValues(alpha: 0.2)
+                                                : const Color(0xFF00C6FF)
+                                                    .withValues(alpha: 0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: isOwner
+                                                  ? const Color(0xFF8B5CF6)
+                                                      .withValues(alpha: 0.4)
+                                                  : const Color(0xFF00C6FF)
+                                                      .withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isOwner ? 'Owner' : 'Admin',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: isOwner
+                                                  ? const Color(0xFFA78BFA)
+                                                  : const Color(0xFF00C6FF),
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],

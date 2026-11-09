@@ -175,10 +175,20 @@ export class VideoChannelsService {
     };
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const channel = await this.repo.findById(id);
     if (!channel) throw new NotFoundException('Video channel not found');
-    return this.mapChannelToDto(channel);
+    let isSubscribed = false;
+    let isOwner = false;
+    if (userId) {
+      isSubscribed = await this.repo.isSubscribed(userId, id);
+      isOwner = channel.ownerId === userId;
+    }
+    return {
+      ...this.mapChannelToDto(channel),
+      isSubscribed,
+      isOwner,
+    };
   }
 
   async update(id: string, userId: string, dto: UpdateVideoChannelDto) {
@@ -224,12 +234,13 @@ export class VideoChannelsService {
     if (!channel) throw new NotFoundException('Video channel not found');
 
     const isSubbed = await this.repo.isSubscribed(userId, channelId);
-    if (isSubbed)
+    if (isSubbed) {
       throw new BadRequestException('Already subscribed to this channel');
+    }
 
     await this.repo.subscribe(userId, channelId);
     await this.repo.incrementSubscribers(channelId, 1);
-    return { message: 'Subscribed successfully' };
+    return { message: 'Subscribed successfully', isSubscribed: true };
   }
 
   async unsubscribe(userId: string, channelId: string) {
@@ -237,12 +248,18 @@ export class VideoChannelsService {
     if (!channel) throw new NotFoundException('Video channel not found');
 
     const isSubbed = await this.repo.isSubscribed(userId, channelId);
-    if (!isSubbed)
+    if (!isSubbed) {
       throw new BadRequestException('Not subscribed to this channel');
+    }
 
     await this.repo.unsubscribe(userId, channelId);
     await this.repo.incrementSubscribers(channelId, -1);
-    return { message: 'Unsubscribed successfully' };
+    return { message: 'Unsubscribed successfully', isSubscribed: false };
+  }
+
+  async isSubscribed(userId: string, channelId: string): Promise<boolean> {
+    if (!userId) return false;
+    return this.repo.isSubscribed(userId, channelId);
   }
 
   async getSubscribers(channelId: string, page = 1, limit = 20) {

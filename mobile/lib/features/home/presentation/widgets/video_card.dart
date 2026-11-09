@@ -53,6 +53,17 @@ class VideoCard extends StatelessWidget {
     return '$views views';
   }
 
+  void _navigateToChannel(BuildContext context) {
+    if (video.channelId != null && video.channelId!.isNotEmpty) {
+      context.push('/channel/${video.channelId}');
+    } else if (video.author.username != null &&
+        video.author.username!.isNotEmpty) {
+      context.push('/@${video.author.username}');
+    } else if (video.author.id.isNotEmpty) {
+      context.push('/profile/user/${video.author.id}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -221,24 +232,28 @@ class VideoCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar
-                CircleAvatar(
-                  radius: isCompact ? 16 : 20,
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  backgroundImage: video.author.avatarUrl != null
-                      ? AppNetworkImage.provider(
-                          _resolveUrl(video.author.avatarUrl)!)
-                      : null,
-                  child: video.author.avatarUrl == null
-                      ? Text(
-                          video.author.displayName?.isNotEmpty == true
-                              ? video.author.displayName![0].toUpperCase()
-                              : (video.author.username?.isNotEmpty == true
-                                    ? video.author.username![0].toUpperCase()
-                                    : '?'),
-                          style: TextStyle(fontSize: isCompact ? 12 : 14),
-                        )
-                      : null,
+                // Avatar (Tap navigates to channel)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _navigateToChannel(context),
+                  child: CircleAvatar(
+                    radius: isCompact ? 16 : 20,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    backgroundImage: video.author.avatarUrl != null
+                        ? AppNetworkImage.provider(
+                            _resolveUrl(video.author.avatarUrl)!)
+                        : null,
+                    child: video.author.avatarUrl == null
+                        ? Text(
+                            video.author.displayName?.isNotEmpty == true
+                                ? video.author.displayName![0].toUpperCase()
+                                : (video.author.username?.isNotEmpty == true
+                                      ? video.author.username![0].toUpperCase()
+                                      : '?'),
+                            style: TextStyle(fontSize: isCompact ? 12 : 14),
+                          )
+                        : null,
+                  ),
                 ),
                 SizedBox(width: isCompact ? 8 : 12),
 
@@ -247,22 +262,32 @@ class VideoCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        video.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontSize: isCompact ? 13.5 : 15,
-                          height: 1.2,
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          context.push('/video/${video.id}');
+                        },
+                        child: Text(
+                          video.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: isCompact ? 13.5 : 15,
+                            height: 1.2,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Text(
-                        '${video.channelName ?? (video.author.displayName?.isNotEmpty == true ? video.author.displayName! : (video.author.username?.isNotEmpty == true ? video.author.username! : "Creator"))} • ${_formatViews(video.viewsCount)} • ${timeago.format(video.publishedAt ?? video.createdAt)}',
-                        maxLines: isCompact ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: isCompact ? 11 : 12,
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _navigateToChannel(context),
+                        child: Text(
+                          '${video.channelName ?? (video.author.displayName?.isNotEmpty == true ? video.author.displayName! : (video.author.username?.isNotEmpty == true ? video.author.username! : "Creator"))} • ${_formatViews(video.viewsCount)} • ${timeago.format(video.publishedAt ?? video.createdAt)}',
+                          maxLines: isCompact ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: isCompact ? 11 : 12,
+                          ),
                         ),
                       ),
                     ],

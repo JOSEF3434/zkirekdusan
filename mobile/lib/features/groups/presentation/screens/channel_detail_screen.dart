@@ -279,9 +279,9 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                   entityType: AppLinkEntityType.group,
                 );
               } else if (value == 'copy') {
+                final messenger = ScaffoldMessenger.of(context);
                 await Clipboard.setData(ClipboardData(text: canonicalUrl));
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Channel link copied!'),
                     backgroundColor: Color(0xFF10B981),
@@ -810,13 +810,16 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
     final isLoading = subscribeState?.isLoading ?? false;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: isLoading
           ? null
-          : () {
+          : () async {
               HapticFeedback.selectionClick();
-              ref
+              await ref
                   .read(channelSubscribeProvider(widget.channelId).notifier)
-                  .toggle();
+                  .toggle(isSubscribed);
+              ref.invalidate(channelDetailProvider(widget.channelId));
+              ref.invalidate(channelSubscribersProvider(widget.channelId));
             },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
@@ -1630,6 +1633,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
             ),
             onPressed: () async {
               if (!formKey.currentState!.validate()) return;
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(ctx);
               try {
                 final dio = ref.read(apiClientProvider);
@@ -1637,13 +1641,11 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                   'content': contentController.text.trim(),
                 });
                 ref.invalidate(channelCommunityPostsProvider(channelId));
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Community post published!')),
                 );
               } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(content: Text('Failed to publish post: $e')),
                 );
               }

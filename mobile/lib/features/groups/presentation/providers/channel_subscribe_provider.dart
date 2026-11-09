@@ -67,24 +67,23 @@ class ChannelSubscribeNotifier
 
   Future<void> subscribe() async {
     if (_actionInProgress) return;
-    final current = state.valueOrNull;
-    if (current == null || current.isSubscribed) return;
     _actionInProgress = true;
+    final prev = state.valueOrNull ?? const ChannelSubscribeState();
 
     // Optimistic update
     state = AsyncValue.data(
-      current.copyWith(isSubscribed: true, isLoading: true),
+      prev.copyWith(isSubscribed: true, isLoading: true, clearError: true),
     );
     try {
       final dio = ref.read(apiClientProvider);
       await dio.post('/video-channels/$_channelId/subscribe');
       state = AsyncValue.data(
-        current.copyWith(isSubscribed: true, isLoading: false, clearError: true),
+        prev.copyWith(isSubscribed: true, isLoading: false, clearError: true),
       );
     } catch (e) {
       // Rollback
       state = AsyncValue.data(
-        current.copyWith(
+        prev.copyWith(
           isSubscribed: false,
           isLoading: false,
           error: e.toString(),
@@ -97,25 +96,31 @@ class ChannelSubscribeNotifier
 
   Future<void> unsubscribe() async {
     if (_actionInProgress) return;
-    final current = state.valueOrNull;
-    if (current == null || !current.isSubscribed) return;
     _actionInProgress = true;
+    final prev = state.valueOrNull ?? const ChannelSubscribeState(isSubscribed: true);
 
     // Optimistic update
     state = AsyncValue.data(
-      current.copyWith(isSubscribed: false, isLoading: true),
+      prev.copyWith(isSubscribed: false, isLoading: true, clearError: true),
     );
     try {
       final dio = ref.read(apiClientProvider);
-      await dio.delete('/video-channels/$_channelId/subscribe');
+      try {
+        await dio.post('/video-channels/$_channelId/unsubscribe');
+      } catch (_) {
+        await dio.delete('/video-channels/$_channelId/subscribe');
+      }
       state = AsyncValue.data(
-        current.copyWith(
-            isSubscribed: false, isLoading: false, clearError: true),
+        prev.copyWith(
+          isSubscribed: false,
+          isLoading: false,
+          clearError: true,
+        ),
       );
     } catch (e) {
       // Rollback
       state = AsyncValue.data(
-        current.copyWith(
+        prev.copyWith(
           isSubscribed: true,
           isLoading: false,
           error: e.toString(),
@@ -126,10 +131,9 @@ class ChannelSubscribeNotifier
     }
   }
 
-  Future<void> toggle() async {
-    final current = state.valueOrNull;
-    if (current == null) return;
-    if (current.isSubscribed) {
+  Future<void> toggle([bool? currentStatus]) async {
+    final isSub = state.valueOrNull?.isSubscribed ?? currentStatus ?? false;
+    if (isSub) {
       await unsubscribe();
     } else {
       await subscribe();

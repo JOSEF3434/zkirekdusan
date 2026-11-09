@@ -266,8 +266,19 @@ export class VideoChannelsPublicController {
   @ApiOperation({ summary: 'Get channel details by ID' })
   async getChannelById(
     @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId?: string,
   ) {
-    return this.service.findById(channelId);
+    return this.service.findById(channelId, userId);
+  }
+
+  @Get(':channelId/subscribe-status')
+  @ApiOperation({ summary: 'Get current user subscribe status for channel' })
+  async getSubscribeStatus(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    const isSubscribed = await this.service.isSubscribed(userId, channelId);
+    return { isSubscribed };
   }
 
   @Patch(':channelId')
