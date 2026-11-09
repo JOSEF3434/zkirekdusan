@@ -15,6 +15,7 @@ import 'package:mobile/features/chats/presentation/widgets/create_channel_sheet.
 import 'package:mobile/features/chats/presentation/widgets/create_group_sheet.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
+import 'package:mobile/features/stories/presentation/providers/stories_enabled_provider.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_section.dart';
 
@@ -205,8 +206,9 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
             parent: BouncingScrollPhysics(),
           ),
           slivers: [
-            // Stories Section (Matches Screenshot 2: Your Story + Friends with stories or Empty State)
-            const SliverToBoxAdapter(child: StorySection()),
+            // Stories Section — hidden when admin disables Stories Service
+            if (ref.watch(storiesEnabledProvider))
+              const SliverToBoxAdapter(child: StorySection()),
 
             // Search Bar Input (Search only in chat page and its messages)
             SliverToBoxAdapter(

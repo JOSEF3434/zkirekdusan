@@ -5,6 +5,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/stories/data/datasources/stories_remote_datasource.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/data/models/story_model.dart';
+import 'package:mobile/features/stories/presentation/providers/stories_enabled_provider.dart';
 
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 
@@ -17,11 +18,20 @@ class StoryFeedNotifier extends AsyncNotifier<List<StoryFeedGroupModel>> {
   @override
   Future<List<StoryFeedGroupModel>> build() async {
     ref.watch(authProvider);
+    // If the Stories service is disabled by admin, return an empty feed
+    // immediately without hitting the network.
+    final storiesEnabled = ref.watch(storiesEnabledProvider);
+    if (!storiesEnabled) return [];
     final datasource = ref.watch(storiesRemoteDatasourceProvider);
     return _fetchAndSortFeed(datasource);
   }
 
   Future<void> refresh() async {
+    final storiesEnabled = ref.read(storiesEnabledProvider);
+    if (!storiesEnabled) {
+      state = const AsyncData([]);
+      return;
+    }
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final datasource = ref.read(storiesRemoteDatasourceProvider);

@@ -8,6 +8,7 @@ import 'package:mobile/features/admin/presentation/providers/admin_permissions_p
 import 'package:mobile/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
+import 'package:mobile/features/stories/presentation/providers/stories_enabled_provider.dart';
 import 'package:mobile/features/books/presentation/providers/book_download_settings_provider.dart';
 import 'package:mobile/features/books/presentation/widgets/book_download_settings_dialog.dart';
 
@@ -88,6 +89,43 @@ class _AdminSystemScreenState extends ConsumerState<AdminSystemScreen> {
                       value: _aiModerationEnabled,
                       onChanged: (val) {
                         setState(() => _aiModerationEnabled = val);
+                      },
+                    ),
+                    const Divider(),
+                    // ── Stories Service Toggle (Super-Admin only) ──
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final storiesEnabled =
+                            ref.watch(storiesEnabledProvider);
+                        return SwitchListTile(
+                          secondary:
+                              const Icon(Icons.auto_stories_rounded),
+                          title: const Text('Stories Service'),
+                          subtitle: const Text(
+                            'When OFF, the Stories feature is hidden '
+                            'platform-wide. Users will not see story strips, '
+                            'cannot create stories, or access the story viewer.',
+                          ),
+                          value: storiesEnabled,
+                          activeThumbColor: const Color(0xFF10B981),
+                          onChanged: (val) {
+                            ref
+                                .read(storiesEnabledProvider.notifier)
+                                .setEnabled(val);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  val
+                                      ? 'Stories service enabled platform-wide.'
+                                      : 'Stories service disabled. Story strips are now hidden.',
+                                ),
+                                backgroundColor: val
+                                    ? const Color(0xFF10B981)
+                                    : Colors.redAccent,
+                              ),
+                            );
+                          },
+                        );
                       },
                     ),
                     const Divider(),

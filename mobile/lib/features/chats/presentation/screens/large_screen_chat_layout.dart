@@ -27,6 +27,7 @@ import 'package:mobile/features/chats/presentation/widgets/conversation_list_til
 import 'package:mobile/features/chats/presentation/widgets/new_chat_sheet.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
+import 'package:mobile/features/stories/presentation/providers/stories_enabled_provider.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
 
@@ -519,7 +520,11 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
       }
     }
     final bool hasMyStories = myGroup != null && myGroup.stories.isNotEmpty;
+    // hasAnyStories = whether real story content exists (independent of the
+    // feature toggle — used for expanded strip logic only).
     final bool hasAnyStories = hasMyStories || otherGroups.isNotEmpty;
+    // storiesEnabled = admin-controlled feature flag.
+    final bool storiesEnabled = ref.watch(storiesEnabledProvider);
 
     return Scaffold(
       backgroundColor: widget.listBg,
@@ -612,6 +617,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 child: _buildSearchBarRow(
                   isDark: isDark,
+                  storiesEnabled: storiesEnabled,
                   hasAnyStories: hasAnyStories,
                   hasMyStories: hasMyStories,
                   userName: userName,
@@ -623,7 +629,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
               ),
             ),
             // ── Expanded stories strip (Screenshot 2) ───────────────────────
-            if (_isStoriesExpanded)
+            if (_isStoriesExpanded && storiesEnabled)
               SliverToBoxAdapter(
                 child: _buildExpandedStoriesStrip(
                   isDark: isDark,
@@ -637,7 +643,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
                 ),
               ),
             // ── Subtle divider ───────────────────────────────────────────────
-            if (_isStoriesExpanded)
+            if (_isStoriesExpanded && storiesEnabled)
               SliverToBoxAdapter(
                 child: Divider(
                   height: 1,
@@ -894,6 +900,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
   // ── Search bar row with compact story cluster (Telegram Screenshot 1) ───────
   Widget _buildSearchBarRow({
     required bool isDark,
+    required bool storiesEnabled,
     required bool hasAnyStories,
     required bool hasMyStories,
     required String userName,
@@ -956,29 +963,33 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
           ),
         ),
         // ── Compact overlapping story avatars (right of search) ─────────────
-        const SizedBox(width: 8),
-        _CompactStoryCluster(
-          groups: otherGroups.isNotEmpty ? otherGroups : allGroups,
-          allGroups: allGroups,
-          userName: userName,
-          userAvatar: userAvatar,
-          hasMyStories: hasMyStories,
-          myGroup: myGroup,
-          isExpanded: _isStoriesExpanded,
-          isDark: isDark,
-          onToggle: () =>
-              setState(() => _isStoriesExpanded = !_isStoriesExpanded),
-          onGroupTap: (group) {
-            final idx = allGroups.indexOf(group);
-            context.push(
-              '/story-viewer',
-              extra: StoryViewerArgs(
-                groups: allGroups,
-                initialGroupIndex: idx >= 0 ? idx : 0,
-              ),
-            );
-          },
-        ),
+        // Visible whenever the Stories Service is enabled by admin — the
+        // cluster shows the "Your Story" + button even with no content.
+        if (storiesEnabled) ...[
+          const SizedBox(width: 8),
+          _CompactStoryCluster(
+            groups: otherGroups.isNotEmpty ? otherGroups : allGroups,
+            allGroups: allGroups,
+            userName: userName,
+            userAvatar: userAvatar,
+            hasMyStories: hasMyStories,
+            myGroup: myGroup,
+            isExpanded: _isStoriesExpanded,
+            isDark: isDark,
+            onToggle: () =>
+                setState(() => _isStoriesExpanded = !_isStoriesExpanded),
+            onGroupTap: (group) {
+              final idx = allGroups.indexOf(group);
+              context.push(
+                '/story-viewer',
+                extra: StoryViewerArgs(
+                  groups: allGroups,
+                  initialGroupIndex: idx >= 0 ? idx : 0,
+                ),
+              );
+            },
+          ),
+        ],
       ],
     );
   }

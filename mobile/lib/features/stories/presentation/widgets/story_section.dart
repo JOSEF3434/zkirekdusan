@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
+import 'package:mobile/features/stories/presentation/providers/stories_enabled_provider.dart';
 import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/screens/story_viewer_screen.dart';
 import 'package:mobile/features/stories/presentation/widgets/my_story_item.dart';
@@ -15,6 +16,9 @@ class StorySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Hidden platform-wide when admin disables the Stories Service.
+    if (!ref.watch(storiesEnabledProvider)) return const SizedBox.shrink();
+
     final authState = ref.watch(authProvider);
     final isAuthenticated = authState.status == AuthStatus.authenticated;
     final feedAsync = ref.watch(storyFeedProvider);
