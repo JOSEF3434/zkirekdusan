@@ -2,14 +2,14 @@
 //
 // Responsive multi-panel chat layout.
 //
-//  ≥ 900px  → Large:  [Chat List] | [Conversation] | [Info panel (toggleable)]
+//  ≥ 900px  → Large:  [Chat List] | [Conversation] | [Info panel (open by default)]
 //  600–900px → Medium: [Chat List] | [Conversation]  (info via toggle/sheet)
 //  < 600px  → Small:  Mobile-like page stack:
 //              Page 0: Friend/Chat list
 //              Page 1: Message bubble (back → list)
 //              Page 2: Info panel     (back → messages)
 //
-// Info panel defaults to CLOSED (false). Toggle via ℹ️ button in header.
+// Info panel defaults to OPEN (true) on large screens. Toggle via ℹ️ button.
 // All large-screen panels are resizable via drag handles.
 
 import 'package:flutter/material.dart';
@@ -53,8 +53,8 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
   String? _selectedTargetGroupId;
 
   /// Whether the right info/details panel is open.
-  /// Defaults to FALSE – closed by default (toggle via ℹ️ button).
-  bool _isDetailsPanelOpen = false;
+  /// Defaults to TRUE on large screens — open by default (toggle via ℹ️ button).
+  bool _isDetailsPanelOpen = true;
 
   /// Mobile-like navigation index for small/medium screens:
   /// 0 = friend list, 1 = message bubble, 2 = info page
@@ -143,12 +143,14 @@ class _LargeScreenChatLayoutState extends ConsumerState<LargeScreenChatLayout> {
         _selectedConversationId = convId;
         _selectedTargetUserId = item.targetUserId;
         _selectedTargetGroupId = item.targetGroupId;
-        // Info panel stays closed by default (user opens it via ℹ️ toggle)
-        _isDetailsPanelOpen = false;
-        // On mobile/medium, navigate to message bubble page
+        // On large screens the info panel stays open when switching conversations.
+        // On mobile/medium it stays hidden (user opens via ℹ️ icon).
         if (isMobile) {
+          _isDetailsPanelOpen = false;
           _mobilePageIndex = 1;
         }
+        // Large screen: preserve current _isDetailsPanelOpen state
+        // (defaults to true on first open, user can toggle it)
       });
     }
   }

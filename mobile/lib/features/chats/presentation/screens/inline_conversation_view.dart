@@ -335,117 +335,137 @@ class InlineConversationViewState
                   _lastMessageCount = messageList.length;
                 }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: messageList.length,
-                  itemBuilder: (context, index) {
-                    final message = messageList[index];
-                    final isMe = message.sender.id == currentUserId;
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    // On large/XL panels (width > 520px) constrain the message
+                    // list to a readable max-width and anchor it to the left so
+                    // bubbles don't stretch across a very wide center column.
+                    final isWidePanel = constraints.maxWidth > 520;
+                    final listView = ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: messageList.length,
+                      itemBuilder: (context, index) {
+                        final message = messageList[index];
+                        final isMe = message.sender.id == currentUserId;
 
-                    final showDateSep = index == 0 ||
-                        !_isSameDay(
-                          message.createdAt,
-                          messageList[index - 1].createdAt,
+                        final showDateSep = index == 0 ||
+                            !_isSameDay(
+                              message.createdAt,
+                              messageList[index - 1].createdAt,
+                            );
+
+                        final isGroupStart = index == 0 ||
+                            messageList[index - 1].sender.id !=
+                                message.sender.id ||
+                            message.createdAt
+                                    .difference(
+                                        messageList[index - 1].createdAt)
+                                    .inMinutes >
+                                5;
+
+                        final isGroupEnd = index == messageList.length - 1 ||
+                            messageList[index + 1].sender.id !=
+                                message.sender.id ||
+                            messageList[index + 1]
+                                    .createdAt
+                                    .difference(message.createdAt)
+                                    .inMinutes >
+                                5;
+
+                        return Column(
+                          children: [
+                            if (showDateSep)
+                              DateSeparator(date: message.createdAt),
+                            MessageBubble(
+                              message: message,
+                              isMe: isMe,
+                              currentUserId: currentUserId,
+                              isGroupStart: isGroupStart,
+                              isGroupEnd: isGroupEnd,
+                              showAvatar: !isMe &&
+                                  (isGroupEnd ||
+                                      conversation?.type != 'DIRECT'),
+                              canManageForEveryone: isMe || isGroupOwnerOrAdmin,
+                              onReply: () {
+                                setState(() {
+                                  _replyToMessageId = message.id;
+                                  _editingMessage = null;
+                                });
+                                _composerFocusNode.requestFocus();
+                              },
+                              onReaction: (emoji) {
+                                ref
+                                    .read(chatMessagesProvider(
+                                            widget.conversationId)
+                                        .notifier)
+                                    .addReaction(message.id, emoji);
+                              },
+                              onPinForMe: () {
+                                ref
+                                    .read(chatMessagesProvider(widget.conversationId)
+                                        .notifier)
+                                    .pinMessageForMe(message.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Pinned for you (Saved)')),
+                                );
+                              },
+                              onPinForEveryone: () {
+                                ref
+                                    .read(chatMessagesProvider(widget.conversationId)
+                                        .notifier)
+                                    .pinMessageForEveryone(message.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Pinned for everyone')),
+                                );
+                              },
+                              onUnpin: () {
+                                ref
+                                    .read(chatMessagesProvider(widget.conversationId)
+                                        .notifier)
+                                    .unpinMessage(message.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Unpinned message')),
+                                );
+                              },
+                              onDeleteMessage: (forEveryone) {
+                                ref
+                                    .read(chatMessagesProvider(widget.conversationId)
+                                        .notifier)
+                                    .deleteMessage(message.id, forEveryone: forEveryone);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(forEveryone
+                                        ? 'Message deleted for everyone'
+                                        : 'Message deleted for you'),
+                                  ),
+                                );
+                              },
+                              onEdit: isMe
+                                  ? () {
+                                      setState(() {
+                                        _editingMessage = message;
+                                        _replyToMessageId = null;
+                                      });
+                                      _composerFocusNode.requestFocus();
+                                    }
+                                  : null,
+                            ),
+                          ],
                         );
+                      },
+                    );
 
-                    final isGroupStart = index == 0 ||
-                        messageList[index - 1].sender.id !=
-                            message.sender.id ||
-                        message.createdAt
-                                .difference(
-                                    messageList[index - 1].createdAt)
-                                .inMinutes >
-                            5;
-
-                    final isGroupEnd = index == messageList.length - 1 ||
-                        messageList[index + 1].sender.id !=
-                            message.sender.id ||
-                        messageList[index + 1]
-                                .createdAt
-                                .difference(message.createdAt)
-                                .inMinutes >
-                            5;
-
-                    return Column(
-                      children: [
-                        if (showDateSep)
-                          DateSeparator(date: message.createdAt),
-                        MessageBubble(
-                          message: message,
-                          isMe: isMe,
-                          currentUserId: currentUserId,
-                          isGroupStart: isGroupStart,
-                          isGroupEnd: isGroupEnd,
-                          showAvatar: !isMe &&
-                              (isGroupEnd ||
-                                  conversation?.type != 'DIRECT'),
-                          canManageForEveryone: isMe || isGroupOwnerOrAdmin,
-                          onReply: () {
-                            setState(() {
-                              _replyToMessageId = message.id;
-                              _editingMessage = null;
-                            });
-                            _composerFocusNode.requestFocus();
-                          },
-                          onReaction: (emoji) {
-                            ref
-                                .read(chatMessagesProvider(
-                                        widget.conversationId)
-                                    .notifier)
-                                .addReaction(message.id, emoji);
-                          },
-                          onPinForMe: () {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId)
-                                    .notifier)
-                                .pinMessageForMe(message.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pinned for you (Saved)')),
-                            );
-                          },
-                          onPinForEveryone: () {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId)
-                                    .notifier)
-                                .pinMessageForEveryone(message.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pinned for everyone')),
-                            );
-                          },
-                          onUnpin: () {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId)
-                                    .notifier)
-                                .unpinMessage(message.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Unpinned message')),
-                            );
-                          },
-                          onDeleteMessage: (forEveryone) {
-                            ref
-                                .read(chatMessagesProvider(widget.conversationId)
-                                    .notifier)
-                                .deleteMessage(message.id, forEveryone: forEveryone);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(forEveryone
-                                    ? 'Message deleted for everyone'
-                                    : 'Message deleted for you'),
-                              ),
-                            );
-                          },
-                          onEdit: isMe
-                              ? () {
-                                  setState(() {
-                                    _editingMessage = message;
-                                    _replyToMessageId = null;
-                                  });
-                                  _composerFocusNode.requestFocus();
-                                }
-                              : null,
-                        ),
-                      ],
+                    // On large/XL panels (width > 520px) anchor the message
+                    // list to the left side with a readable max width so bubbles
+                    // don't stretch across a very wide center column.
+                    if (!isWidePanel) return listView;
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 820),
+                        child: listView,
+                      ),
                     );
                   },
                 );
