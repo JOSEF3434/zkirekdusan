@@ -75,10 +75,36 @@ export class VideoChannelsRepository {
   }
 
   async findById(id: string) {
-    return this.prisma.videoChannel.findUnique({
+    let channel = await this.prisma.videoChannel.findUnique({
       where: { id, deletedAt: null },
       select: VIDEO_CHANNEL_SELECT,
     });
+    if (!channel) {
+      // If the channel was archived/superseded, seamlessly resolve to the active channel in that group
+      const raw = await this.prisma.videoChannel.findUnique({
+        where: { id },
+        select: { groupId: true },
+      });
+      if (raw?.groupId) {
+        channel = await this.prisma.videoChannel.findFirst({
+          where: {
+            groupId: raw.groupId,
+            deletedAt: null,
+            status: VideoChannelStatus.ACTIVE,
+          },
+          select: VIDEO_CHANNEL_SELECT,
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+      if (!channel) {
+        // Fallback: return the channel even if deletedAt is set so historical links never 404
+        channel = await this.prisma.videoChannel.findUnique({
+          where: { id },
+          select: VIDEO_CHANNEL_SELECT,
+        });
+      }
+    }
+    return channel;
   }
 
   async findByHandle(handle: string) {

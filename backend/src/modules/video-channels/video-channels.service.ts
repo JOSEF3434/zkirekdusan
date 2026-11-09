@@ -181,7 +181,7 @@ export class VideoChannelsService {
     let isSubscribed = false;
     let isOwner = false;
     if (userId) {
-      isSubscribed = await this.repo.isSubscribed(userId, id);
+      isSubscribed = await this.repo.isSubscribed(userId, channel.id);
       isOwner = channel.ownerId === userId;
     }
     return {
