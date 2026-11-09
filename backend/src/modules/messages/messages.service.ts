@@ -15,6 +15,8 @@ import {
   MessageResponseDto,
   PaginatedMessagesDto,
 } from './dto/message-response.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '@prisma/client';
 
 // Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
 interface IMessagingGateway extends MessagingGateway {}
@@ -26,6 +28,8 @@ export class MessagesService {
     private readonly conversationsRepository: ConversationsRepository,
     @Inject(forwardRef(() => MessagingGateway))
     private readonly messagingGateway: IMessagingGateway,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ── Send a message to a conversation (DM or Channel) ──────────────────────
@@ -94,6 +98,23 @@ export class MessagesService {
       ? conversation.members.map((m: any) => m.userId)
       : [];
     this.messagingGateway.emitNewMessage(conversationId, messageDto, memberIds);
+
+    // Dispatch mention notifications (fire-and-forget, never blocks send)
+    if (dto.mentionedUserIds?.length) {
+      const senderUsername = message.sender?.username ?? 'Someone';
+      for (const mentionedId of dto.mentionedUserIds) {
+        if (mentionedId === senderId) continue; // don't self-notify
+        this.notificationsService
+          .create({
+            userId: mentionedId,
+            type: NotificationType.MENTION,
+            title: 'You were mentioned',
+            body: `${senderUsername} mentioned you in a message`,
+            data: { conversationId, messageId: message.id },
+          })
+          .catch(() => null);
+      }
+    }
 
     for (const uid of onlineMemberIds) {
       this.messagingGateway.emitDeliveryReceipt(

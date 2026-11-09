@@ -11,8 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-
 class MessageComposer extends ConsumerStatefulWidget {
   final String conversationId;
   final FocusNode focusNode;
@@ -38,7 +39,7 @@ class MessageComposer extends ConsumerStatefulWidget {
 }
 
 class _MessageComposerState extends ConsumerState<MessageComposer> {
-  final TextEditingController _controller = TextEditingController();
+  final MentionTextController _controller = MentionTextController();
   final AudioRecorder _audioRecorder = AudioRecorder();
 
   bool _isRecording = false;
@@ -277,7 +278,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Widget _buildInputUI(bool isDark) {
     final hasText = _controller.text.trim().isNotEmpty;
 
-    return Row(
+    return RichTextComposer(
+      controller: _controller,
+      focusNode: widget.focusNode,
+      child: Row(
       children: [
         // Camera / Attachment Button (matching Screenshot 2 camera/plus icon)
         GestureDetector(
@@ -424,7 +428,8 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
           ),
         ),
       ],
-    );
+    ), // end Row
+    ); // end RichTextComposer
   }
 
   Widget _buildRecordingUI(bool isDark) {
@@ -532,14 +537,19 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       return;
     }
 
+    // Extract mentioned user IDs BEFORE clearing the controller
+    final mentionedUserIds = _controller.extractMentionedUserIds();
+
     setState(() => _isSending = true);
+    final rawContent = _controller.text.trim();
     _controller.clear();
     _stopTypingIndicator();
 
     try {
       await ref.read(chatMessagesProvider(widget.conversationId).notifier).sendMessage(
-            content: text,
+            content: rawContent,
             replyToId: widget.replyToMessageId,
+            mentionedUserIds: mentionedUserIds.isEmpty ? null : mentionedUserIds,
           );
 
       widget.onCancelReply?.call();

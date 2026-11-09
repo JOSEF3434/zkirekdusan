@@ -11,6 +11,7 @@ import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/presentation/widgets/voice_message_player.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/core/utils/web_context_menu_manager.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:intl/intl.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -307,7 +308,10 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: _textBubbleDecoration(isDark),
-            child: Text(message.content!, style: _textStyle(isDark)),
+            child: RichTextRenderer(
+              content: message.content!,
+              style: _textStyle(isDark),
+            ),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
       ],
@@ -337,7 +341,10 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.only(top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: _textBubbleDecoration(isDark),
-            child: Text(message.content!, style: _textStyle(isDark)),
+            child: RichTextRenderer(
+              content: message.content!,
+              style: _textStyle(isDark),
+            ),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
       ],
@@ -360,7 +367,10 @@ class MessageBubble extends StatelessWidget {
           if (_shouldShowTextContent)
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: Text(message.content!, style: _textStyle(isDark)),
+              child: RichTextRenderer(
+                content: message.content!,
+                style: _textStyle(isDark),
+              ),
             ),
           _buildTimestampRow(
             isMe: isMe,

@@ -5,6 +5,7 @@ import {
   UseGuards,
   ValidationPipe,
   Inject,
+  Request,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -50,4 +51,57 @@ export class SearchController {
 
     return result;
   }
+
+  /**
+   * GET /api/search/unified?q=abc&limit=12
+   *
+   * Flat list of mixed content for the # content picker.
+   * Returns items tagged with their `entityType` so the Flutter client
+   * knows where to navigate.
+   */
+  @Get('unified')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Flat unified content search for # content picker' })
+  async unifiedSearch(
+    @CurrentUser('sub') userId: string | undefined,
+    @Query(new ValidationPipe({ transform: true })) query: SearchQueryDto,
+  ) {
+    const q = query.q?.trim() ?? '';
+    const limit = Math.min(query.limit ?? 12, 30);
+
+    const result = await this.searchService.search(userId, {
+      ...query,
+      q,
+      limit: Math.ceil(limit / 4), // distribute among types
+      type: undefined,
+    });
+
+    const { results } = result;
+
+    // Build a flat array with entityType tag for the Flutter content picker
+    const flat: any[] = [];
+
+    (results.videos ?? []).forEach((v: any) =>
+      flat.push({ entityType: 'video', ...v }),
+    );
+    (results.users ?? []).forEach((u: any) =>
+      flat.push({ entityType: 'user', ...u }),
+    );
+    (results.groups ?? []).forEach((g: any) =>
+      flat.push({ entityType: 'group', ...g }),
+    );
+    (results.channels ?? []).forEach((c: any) =>
+      flat.push({ entityType: 'channel', ...c }),
+    );
+    (results.posts ?? []).forEach((p: any) =>
+      flat.push({ entityType: 'post', ...p }),
+    );
+    (results.streams ?? []).forEach((s: any) =>
+      flat.push({ entityType: 'stream', ...s }),
+    );
+
+    return { items: flat.slice(0, limit), total: flat.length };
+  }
 }
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/presentation/widgets/post_header.dart';
 import 'package:mobile/features/home/presentation/widgets/post_media_grid.dart';
@@ -47,8 +48,8 @@ class PostCard extends StatelessWidget {
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: Text(
-                  post.content!,
+                child: RichTextRenderer(
+                  content: post.content!,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),

@@ -360,6 +360,7 @@ class ChatMessagesNotifier
     String type = 'TEXT',
     List<MessageAttachmentModel>? initialAttachments,
     MessageVoiceNoteModel? voiceNote,
+    List<String>? mentionedUserIds,
   }) async {
     final tempId = 'temp_${const Uuid().v4()}';
     final currentUser = _ref.read(authProvider).user;
@@ -401,6 +402,7 @@ class ChatMessagesNotifier
         clientId: tempId,
         initialAttachments: initialAttachments,
         voiceNote: voiceNote,
+        mentionedUserIds: mentionedUserIds,
       );
 
       // 2. Reconcile optimistic message with server message

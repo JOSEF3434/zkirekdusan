@@ -237,6 +237,7 @@ class ChatRemoteDatasource {
     List<String>? attachmentIds,
     String type = 'TEXT',
     String? clientId,
+    List<String>? mentionedUserIds,
   }) async {
     try {
       final Map<String, dynamic> body = {'type': type};
@@ -247,6 +248,9 @@ class ChatRemoteDatasource {
         body['fileIds'] = attachmentIds;
       }
       if (clientId != null) body['clientId'] = clientId;
+      if (mentionedUserIds != null && mentionedUserIds.isNotEmpty) {
+        body['mentionedUserIds'] = mentionedUserIds;
+      }
 
       final response = await _apiClient.post(
         '/conversations/$conversationId/messages',

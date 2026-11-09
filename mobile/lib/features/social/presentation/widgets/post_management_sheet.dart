@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
@@ -241,19 +243,22 @@ class PostManagementSheet extends ConsumerWidget {
 
   void _showEditPostDialog(BuildContext context, WidgetRef ref) {
     final tr = ref.read(trProvider);
-    final textController = TextEditingController(text: post.content ?? '');
+    final textController = MentionTextController(text: post.content ?? '');
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: Text(tr('social.edit_post')),
-        content: TextField(
+        content: RichTextComposer(
           controller: textController,
-          maxLines: 5,
-          decoration: InputDecoration(
-            hintText: tr('social.edit_post_hint'),
-            border: const OutlineInputBorder(),
+          child: TextField(
+            controller: textController,
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: tr('social.edit_post_hint'),
+              border: const OutlineInputBorder(),
+            ),
+            autofocus: true,
           ),
-          autofocus: true,
         ),
         actions: [
           TextButton(

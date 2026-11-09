@@ -306,6 +306,7 @@ class ChatRepositoryImpl implements ChatRepository {
     String? clientId,
     List<MessageAttachmentModel>? initialAttachments,
     MessageVoiceNoteModel? voiceNote,
+    List<String>? mentionedUserIds,
   }) async {
     final now = DateTime.now();
     final effectiveClientId = clientId ?? 'temp_${const Uuid().v4()}';
@@ -413,6 +414,7 @@ class ChatRepositoryImpl implements ChatRepository {
           attachmentIds: attachmentIds,
           type: type,
           clientId: effectiveClientId,
+          mentionedUserIds: mentionedUserIds,
         );
 
         // Reconcile temporary message with server message ID

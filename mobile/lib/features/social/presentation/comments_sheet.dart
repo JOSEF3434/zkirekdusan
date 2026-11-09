@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/social/presentation/providers/comments_provider.dart';
 
@@ -30,7 +33,7 @@ class CommentsSheet extends ConsumerStatefulWidget {
 
 class _CommentsSheetState extends ConsumerState<CommentsSheet> {
   final _scrollController = ScrollController();
-  final _textController = TextEditingController();
+  final _textController = MentionTextController();
 
   (String, bool) get _arg => (widget.postId, widget.isVideo);
 
@@ -178,7 +181,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                           ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 4.0),
-                            child: Text(comment.content),
+                            child: RichTextRenderer(content: comment.content),
                           ),
                           trailing: _CommentLikeButton(
                             likesCount: comment.likesCount,
@@ -209,36 +212,39 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                   right: 16,
                   top: 8,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textController,
-                        decoration: InputDecoration(
-                          hintText: tr('comments.hint'),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
+                child: RichTextComposer(
+                  controller: _textController,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          decoration: InputDecoration(
+                            hintText: tr('comments.hint'),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: theme.colorScheme.surfaceContainerHighest,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                           ),
-                          filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
+                          maxLines: null,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _submitComment(),
                         ),
-                        maxLines: null,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _submitComment(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      color: theme.colorScheme.primary,
-                      onPressed: _submitComment,
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        color: theme.colorScheme.primary,
+                        onPressed: _submitComment,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

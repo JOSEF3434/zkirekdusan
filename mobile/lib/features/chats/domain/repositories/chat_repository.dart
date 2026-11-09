@@ -40,6 +40,7 @@ abstract class ChatRepository {
     String? clientId,
     List<MessageAttachmentModel>? initialAttachments,
     MessageVoiceNoteModel? voiceNote,
+    List<String>? mentionedUserIds,
   });
   
   Future<MessageModel> editMessage({

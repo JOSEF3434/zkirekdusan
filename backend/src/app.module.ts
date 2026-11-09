@@ -64,6 +64,7 @@ import { SearchModule } from './modules/search/search.module.js';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module.js';
 import { TrendingModule } from './modules/trending/trending.module.js';
 import { ExploreModule } from './modules/explore/explore.module.js';
+import { MentionsModule } from './modules/mentions/mentions.module.js';
 
 // Ethiopian Calendar
 import { CalendarModule } from './modules/calendar/calendar.module.js';
@@ -191,6 +192,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     RecommendationsModule,
     TrendingModule,
     ExploreModule,
+    MentionsModule,
 
     // Ethiopian Calendar
     CalendarModule,
