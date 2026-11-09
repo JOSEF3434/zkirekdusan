@@ -360,9 +360,9 @@ class _OnlineStatusChipState extends State<OnlineStatusChip>
   }
 
   String _fmt() {
-    if (widget.lastSeen == null) return 'offline';
+    if (widget.lastSeen == null) return 'last seen recently';
     try {
-      final dt = DateTime.parse(widget.lastSeen!);
+      final dt = DateTime.parse(widget.lastSeen!).toLocal();
       final diff = DateTime.now().difference(dt);
       if (diff.inMinutes < 1) return 'last seen just now';
       if (diff.inMinutes < 60) return 'last seen ${diff.inMinutes}m ago';
@@ -370,7 +370,7 @@ class _OnlineStatusChipState extends State<OnlineStatusChip>
       if (diff.inDays == 1) return 'last seen yesterday';
       return 'last seen ${diff.inDays}d ago';
     } catch (_) {
-      return 'offline';
+      return 'last seen recently';
     }
   }
 

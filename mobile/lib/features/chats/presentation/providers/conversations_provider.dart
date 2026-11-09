@@ -411,9 +411,11 @@ class ChatDiscoveryNotifier
       // This ensures events received while state is loading are not lost.
       _presenceOnline[userId] = isOnline;
       if (lastSeen != null) _presenceLastSeen[userId] = lastSeen;
-      if (!isOnline && lastSeen == null) {
-        _presenceLastSeen[userId] = DateTime.now().toIso8601String();
-      }
+      // Note: do NOT fabricate a local lastSeen timestamp when the server
+      // did not provide one.  The backend records lastSeenAt only on the
+      // OFFLINE transition and always sends it in the presence:changed payload.
+      // Inventing a local "now" timestamp would cause "last seen just now" to
+      // appear incorrectly.
 
       // Sync with reactive Riverpod providers so UI rebuilds instantly
       if (_ref != null) {

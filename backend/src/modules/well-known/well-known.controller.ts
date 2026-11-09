@@ -8,7 +8,7 @@
 // with a catch-all redirect that would otherwise swallow these paths.
 
 import { Controller, Get, Res } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 

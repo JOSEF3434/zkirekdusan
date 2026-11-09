@@ -259,6 +259,13 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
         currentUserId.isNotEmpty &&
         currentUserId == profile.userId;
 
+    // ── Real-time presence for the VIEWED profile user (not the logged-in user)
+    // Reads from the shared livePresenceMapProvider which is updated by socket
+    // presence:changed events. Falls back to false if no data is available.
+    // Viewing this profile NEVER affects the viewed user's presence.
+    final liveOnline = ref.watch(userOnlineStatusProvider(profile.userId));
+    final liveLastSeen = ref.watch(userLastSeenStatusProvider(profile.userId));
+
     // Follow state (only relevant when viewing someone else's profile)
     final followAsync = !isOwnProfile
         ? ref.watch(followProvider(profile.userId))
@@ -353,29 +360,14 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                 ),
                 const SizedBox(height: 4),
 
-                // Subtitle: Status (Screenshot 1: "last seen at 10:02 AM")
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'online',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? const Color(0xFF10B981) : Colors.green[700],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                // Subtitle: Real presence status
+                // Only show if not viewing own profile (own status is managed separately)
+                if (!isOwnProfile)
+                  _ProfilePresenceChip(
+                    isOnline: liveOnline,
+                    lastSeen: liveLastSeen,
+                    isDark: isDark,
+                  ),
                 const SizedBox(height: 14),
 
                 // ── Stats Row ──────────────────────────────────────────────
@@ -1577,4 +1569,73 @@ class _SliverTabHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverTabHeaderDelegate oldDelegate) => true;
+}
+
+// ── Presence status chip shown below the display name on the public profile ───
+
+/// Shows "● online" in green when [isOnline] is true, or a "last seen X"
+/// relative timestamp when offline. Never hardcoded — always driven by the
+/// shared [userOnlineStatusProvider] / [userLastSeenStatusProvider].
+class _ProfilePresenceChip extends StatelessWidget {
+  final bool isOnline;
+  final String? lastSeen;
+  final bool isDark;
+
+  const _ProfilePresenceChip({
+    required this.isOnline,
+    required this.lastSeen,
+    required this.isDark,
+  });
+
+  String _fmtLastSeen() {
+    if (lastSeen == null) return 'last seen recently';
+    try {
+      final dt = DateTime.parse(lastSeen!).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'last seen just now';
+      if (diff.inMinutes < 60) return 'last seen ${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return 'last seen ${diff.inHours}h ago';
+      if (diff.inDays == 1) return 'last seen yesterday';
+      return 'last seen ${diff.inDays}d ago';
+    } catch (_) {
+      return 'last seen recently';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isOnline) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Color(0xFF10B981),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'online',
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? const Color(0xFF10B981) : Colors.green[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      _fmtLastSeen(),
+      style: TextStyle(
+        fontSize: 13,
+        color: isDark ? Colors.grey[400] : Colors.grey[600],
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
 }
