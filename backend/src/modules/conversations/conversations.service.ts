@@ -261,13 +261,22 @@ export class ConversationsService {
   }
 
   async markAsRead(conversationId: string, userId: string): Promise<void> {
+    const conversation =
+      await this.conversationsRepository.findById(conversationId);
+    if (conversation) {
+      const isMember = conversation.members?.some(
+        (m: any) => m.userId === userId,
+      );
+      if (!isMember) {
+        return;
+      }
+    }
+
     const newlyReadIds =
       await this.conversationsRepository.markAllMessagesAsRead(
         conversationId,
         userId,
       );
-    const conversation =
-      await this.conversationsRepository.findById(conversationId);
     const memberIds =
       conversation?.members?.map((m: any) => m.userId) ?? [];
 
@@ -306,11 +315,13 @@ export class ConversationsService {
       const isMe = latestMsg.senderId === currentUserId;
       const isSeen =
         isMe &&
-        (latestMsg.reads ?? []).some((r: any) => r.userId !== currentUserId);
+        (latestMsg.reads ?? []).some(
+          (r: any) => r.userId && r.userId !== latestMsg.senderId,
+        );
       const isDelivered =
         isMe &&
         (latestMsg.deliveries ?? []).some(
-          (d: any) => d.userId !== currentUserId,
+          (d: any) => d.userId && d.userId !== latestMsg.senderId,
         );
       lastMessage = {
         id: latestMsg.id,

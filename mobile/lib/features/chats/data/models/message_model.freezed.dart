@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MessageModel {
 
- String get id; String get conversationId; String? get channelId; MessageSenderModel get sender; String? get content; String get type; String? get replyToId; MessageReplyModel? get replyTo; bool get isEdited; bool get isPinned; List<MessageAttachmentModel> get attachments; List<MessageReactionModel> get reactions; List<String> get readBy; List<String> get deliveredTo; MessageVoiceNoteModel? get voiceNote; MessageForwardModel? get forward; List<String> get mentions; DateTime get createdAt; DateTime get updatedAt;
+ String get id; String get conversationId; String? get channelId; MessageSenderModel get sender; String? get content; String get type; String? get replyToId; MessageReplyModel? get replyTo; bool get isEdited; bool get isPinned; List<MessageAttachmentModel> get attachments; List<MessageReactionModel> get reactions; List<String> get readBy; List<String> get deliveredTo; MessageVoiceNoteModel? get voiceNote; MessageForwardModel? get forward; List<String> get mentions; bool get isPending; bool get isFailed; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of MessageModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $MessageModelCopyWith<MessageModel> get copyWith => _$MessageModelCopyWithImpl<M
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessageModel&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.channelId, channelId) || other.channelId == channelId)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.isEdited, isEdited) || other.isEdited == isEdited)&&(identical(other.isPinned, isPinned) || other.isPinned == isPinned)&&const DeepCollectionEquality().equals(other.attachments, attachments)&&const DeepCollectionEquality().equals(other.reactions, reactions)&&const DeepCollectionEquality().equals(other.readBy, readBy)&&const DeepCollectionEquality().equals(other.deliveredTo, deliveredTo)&&(identical(other.voiceNote, voiceNote) || other.voiceNote == voiceNote)&&(identical(other.forward, forward) || other.forward == forward)&&const DeepCollectionEquality().equals(other.mentions, mentions)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MessageModel&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.channelId, channelId) || other.channelId == channelId)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.isEdited, isEdited) || other.isEdited == isEdited)&&(identical(other.isPinned, isPinned) || other.isPinned == isPinned)&&const DeepCollectionEquality().equals(other.attachments, attachments)&&const DeepCollectionEquality().equals(other.reactions, reactions)&&const DeepCollectionEquality().equals(other.readBy, readBy)&&const DeepCollectionEquality().equals(other.deliveredTo, deliveredTo)&&(identical(other.voiceNote, voiceNote) || other.voiceNote == voiceNote)&&(identical(other.forward, forward) || other.forward == forward)&&const DeepCollectionEquality().equals(other.mentions, mentions)&&(identical(other.isPending, isPending) || other.isPending == isPending)&&(identical(other.isFailed, isFailed) || other.isFailed == isFailed)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,conversationId,channelId,sender,content,type,replyToId,replyTo,isEdited,isPinned,const DeepCollectionEquality().hash(attachments),const DeepCollectionEquality().hash(reactions),const DeepCollectionEquality().hash(readBy),const DeepCollectionEquality().hash(deliveredTo),voiceNote,forward,const DeepCollectionEquality().hash(mentions),createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,conversationId,channelId,sender,content,type,replyToId,replyTo,isEdited,isPinned,const DeepCollectionEquality().hash(attachments),const DeepCollectionEquality().hash(reactions),const DeepCollectionEquality().hash(readBy),const DeepCollectionEquality().hash(deliveredTo),voiceNote,forward,const DeepCollectionEquality().hash(mentions),isPending,isFailed,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'MessageModel(id: $id, conversationId: $conversationId, channelId: $channelId, sender: $sender, content: $content, type: $type, replyToId: $replyToId, replyTo: $replyTo, isEdited: $isEdited, isPinned: $isPinned, attachments: $attachments, reactions: $reactions, readBy: $readBy, deliveredTo: $deliveredTo, voiceNote: $voiceNote, forward: $forward, mentions: $mentions, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'MessageModel(id: $id, conversationId: $conversationId, channelId: $channelId, sender: $sender, content: $content, type: $type, replyToId: $replyToId, replyTo: $replyTo, isEdited: $isEdited, isPinned: $isPinned, attachments: $attachments, reactions: $reactions, readBy: $readBy, deliveredTo: $deliveredTo, voiceNote: $voiceNote, forward: $forward, mentions: $mentions, isPending: $isPending, isFailed: $isFailed, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $MessageModelCopyWith<$Res>  {
   factory $MessageModelCopyWith(MessageModel value, $Res Function(MessageModel) _then) = _$MessageModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String conversationId, String? channelId, MessageSenderModel sender, String? content, String type, String? replyToId, MessageReplyModel? replyTo, bool isEdited, bool isPinned, List<MessageAttachmentModel> attachments, List<MessageReactionModel> reactions, List<String> readBy, List<String> deliveredTo, MessageVoiceNoteModel? voiceNote, MessageForwardModel? forward, List<String> mentions, DateTime createdAt, DateTime updatedAt
+ String id, String conversationId, String? channelId, MessageSenderModel sender, String? content, String type, String? replyToId, MessageReplyModel? replyTo, bool isEdited, bool isPinned, List<MessageAttachmentModel> attachments, List<MessageReactionModel> reactions, List<String> readBy, List<String> deliveredTo, MessageVoiceNoteModel? voiceNote, MessageForwardModel? forward, List<String> mentions, bool isPending, bool isFailed, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -65,7 +65,7 @@ class _$MessageModelCopyWithImpl<$Res>
 
 /// Create a copy of MessageModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? channelId = freezed,Object? sender = null,Object? content = freezed,Object? type = null,Object? replyToId = freezed,Object? replyTo = freezed,Object? isEdited = null,Object? isPinned = null,Object? attachments = null,Object? reactions = null,Object? readBy = null,Object? deliveredTo = null,Object? voiceNote = freezed,Object? forward = freezed,Object? mentions = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? channelId = freezed,Object? sender = null,Object? content = freezed,Object? type = null,Object? replyToId = freezed,Object? replyTo = freezed,Object? isEdited = null,Object? isPinned = null,Object? attachments = null,Object? reactions = null,Object? readBy = null,Object? deliveredTo = null,Object? voiceNote = freezed,Object? forward = freezed,Object? mentions = null,Object? isPending = null,Object? isFailed = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
@@ -84,7 +84,9 @@ as List<String>,deliveredTo: null == deliveredTo ? _self.deliveredTo : delivered
 as List<String>,voiceNote: freezed == voiceNote ? _self.voiceNote : voiceNote // ignore: cast_nullable_to_non_nullable
 as MessageVoiceNoteModel?,forward: freezed == forward ? _self.forward : forward // ignore: cast_nullable_to_non_nullable
 as MessageForwardModel?,mentions: null == mentions ? _self.mentions : mentions // ignore: cast_nullable_to_non_nullable
-as List<String>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<String>,isPending: null == isPending ? _self.isPending : isPending // ignore: cast_nullable_to_non_nullable
+as bool,isFailed: null == isFailed ? _self.isFailed : isFailed // ignore: cast_nullable_to_non_nullable
+as bool,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
@@ -216,10 +218,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  bool isPending,  bool isFailed,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MessageModel() when $default != null:
-return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.isPending,_that.isFailed,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -237,10 +239,10 @@ return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  bool isPending,  bool isFailed,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _MessageModel():
-return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.isPending,_that.isFailed,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -257,10 +259,10 @@ return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String? channelId,  MessageSenderModel sender,  String? content,  String type,  String? replyToId,  MessageReplyModel? replyTo,  bool isEdited,  bool isPinned,  List<MessageAttachmentModel> attachments,  List<MessageReactionModel> reactions,  List<String> readBy,  List<String> deliveredTo,  MessageVoiceNoteModel? voiceNote,  MessageForwardModel? forward,  List<String> mentions,  bool isPending,  bool isFailed,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _MessageModel() when $default != null:
-return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that.content,_that.type,_that.replyToId,_that.replyTo,_that.isEdited,_that.isPinned,_that.attachments,_that.reactions,_that.readBy,_that.deliveredTo,_that.voiceNote,_that.forward,_that.mentions,_that.isPending,_that.isFailed,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -272,7 +274,7 @@ return $default(_that.id,_that.conversationId,_that.channelId,_that.sender,_that
 @JsonSerializable()
 
 class _MessageModel implements MessageModel {
-  const _MessageModel({required this.id, required this.conversationId, this.channelId, required this.sender, this.content, required this.type, this.replyToId, this.replyTo, this.isEdited = false, this.isPinned = false, final  List<MessageAttachmentModel> attachments = const [], final  List<MessageReactionModel> reactions = const [], final  List<String> readBy = const [], final  List<String> deliveredTo = const [], this.voiceNote, this.forward, final  List<String> mentions = const [], required this.createdAt, required this.updatedAt}): _attachments = attachments,_reactions = reactions,_readBy = readBy,_deliveredTo = deliveredTo,_mentions = mentions;
+  const _MessageModel({required this.id, required this.conversationId, this.channelId, required this.sender, this.content, required this.type, this.replyToId, this.replyTo, this.isEdited = false, this.isPinned = false, final  List<MessageAttachmentModel> attachments = const [], final  List<MessageReactionModel> reactions = const [], final  List<String> readBy = const [], final  List<String> deliveredTo = const [], this.voiceNote, this.forward, final  List<String> mentions = const [], this.isPending = false, this.isFailed = false, required this.createdAt, required this.updatedAt}): _attachments = attachments,_reactions = reactions,_readBy = readBy,_deliveredTo = deliveredTo,_mentions = mentions;
   factory _MessageModel.fromJson(Map<String, dynamic> json) => _$MessageModelFromJson(json);
 
 @override final  String id;
@@ -322,6 +324,8 @@ class _MessageModel implements MessageModel {
   return EqualUnmodifiableListView(_mentions);
 }
 
+@override@JsonKey() final  bool isPending;
+@override@JsonKey() final  bool isFailed;
 @override final  DateTime createdAt;
 @override final  DateTime updatedAt;
 
@@ -338,16 +342,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessageModel&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.channelId, channelId) || other.channelId == channelId)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.isEdited, isEdited) || other.isEdited == isEdited)&&(identical(other.isPinned, isPinned) || other.isPinned == isPinned)&&const DeepCollectionEquality().equals(other._attachments, _attachments)&&const DeepCollectionEquality().equals(other._reactions, _reactions)&&const DeepCollectionEquality().equals(other._readBy, _readBy)&&const DeepCollectionEquality().equals(other._deliveredTo, _deliveredTo)&&(identical(other.voiceNote, voiceNote) || other.voiceNote == voiceNote)&&(identical(other.forward, forward) || other.forward == forward)&&const DeepCollectionEquality().equals(other._mentions, _mentions)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MessageModel&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.channelId, channelId) || other.channelId == channelId)&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.content, content) || other.content == content)&&(identical(other.type, type) || other.type == type)&&(identical(other.replyToId, replyToId) || other.replyToId == replyToId)&&(identical(other.replyTo, replyTo) || other.replyTo == replyTo)&&(identical(other.isEdited, isEdited) || other.isEdited == isEdited)&&(identical(other.isPinned, isPinned) || other.isPinned == isPinned)&&const DeepCollectionEquality().equals(other._attachments, _attachments)&&const DeepCollectionEquality().equals(other._reactions, _reactions)&&const DeepCollectionEquality().equals(other._readBy, _readBy)&&const DeepCollectionEquality().equals(other._deliveredTo, _deliveredTo)&&(identical(other.voiceNote, voiceNote) || other.voiceNote == voiceNote)&&(identical(other.forward, forward) || other.forward == forward)&&const DeepCollectionEquality().equals(other._mentions, _mentions)&&(identical(other.isPending, isPending) || other.isPending == isPending)&&(identical(other.isFailed, isFailed) || other.isFailed == isFailed)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,conversationId,channelId,sender,content,type,replyToId,replyTo,isEdited,isPinned,const DeepCollectionEquality().hash(_attachments),const DeepCollectionEquality().hash(_reactions),const DeepCollectionEquality().hash(_readBy),const DeepCollectionEquality().hash(_deliveredTo),voiceNote,forward,const DeepCollectionEquality().hash(_mentions),createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,conversationId,channelId,sender,content,type,replyToId,replyTo,isEdited,isPinned,const DeepCollectionEquality().hash(_attachments),const DeepCollectionEquality().hash(_reactions),const DeepCollectionEquality().hash(_readBy),const DeepCollectionEquality().hash(_deliveredTo),voiceNote,forward,const DeepCollectionEquality().hash(_mentions),isPending,isFailed,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'MessageModel(id: $id, conversationId: $conversationId, channelId: $channelId, sender: $sender, content: $content, type: $type, replyToId: $replyToId, replyTo: $replyTo, isEdited: $isEdited, isPinned: $isPinned, attachments: $attachments, reactions: $reactions, readBy: $readBy, deliveredTo: $deliveredTo, voiceNote: $voiceNote, forward: $forward, mentions: $mentions, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'MessageModel(id: $id, conversationId: $conversationId, channelId: $channelId, sender: $sender, content: $content, type: $type, replyToId: $replyToId, replyTo: $replyTo, isEdited: $isEdited, isPinned: $isPinned, attachments: $attachments, reactions: $reactions, readBy: $readBy, deliveredTo: $deliveredTo, voiceNote: $voiceNote, forward: $forward, mentions: $mentions, isPending: $isPending, isFailed: $isFailed, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -358,7 +362,7 @@ abstract mixin class _$MessageModelCopyWith<$Res> implements $MessageModelCopyWi
   factory _$MessageModelCopyWith(_MessageModel value, $Res Function(_MessageModel) _then) = __$MessageModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String conversationId, String? channelId, MessageSenderModel sender, String? content, String type, String? replyToId, MessageReplyModel? replyTo, bool isEdited, bool isPinned, List<MessageAttachmentModel> attachments, List<MessageReactionModel> reactions, List<String> readBy, List<String> deliveredTo, MessageVoiceNoteModel? voiceNote, MessageForwardModel? forward, List<String> mentions, DateTime createdAt, DateTime updatedAt
+ String id, String conversationId, String? channelId, MessageSenderModel sender, String? content, String type, String? replyToId, MessageReplyModel? replyTo, bool isEdited, bool isPinned, List<MessageAttachmentModel> attachments, List<MessageReactionModel> reactions, List<String> readBy, List<String> deliveredTo, MessageVoiceNoteModel? voiceNote, MessageForwardModel? forward, List<String> mentions, bool isPending, bool isFailed, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -375,7 +379,7 @@ class __$MessageModelCopyWithImpl<$Res>
 
 /// Create a copy of MessageModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? channelId = freezed,Object? sender = null,Object? content = freezed,Object? type = null,Object? replyToId = freezed,Object? replyTo = freezed,Object? isEdited = null,Object? isPinned = null,Object? attachments = null,Object? reactions = null,Object? readBy = null,Object? deliveredTo = null,Object? voiceNote = freezed,Object? forward = freezed,Object? mentions = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? channelId = freezed,Object? sender = null,Object? content = freezed,Object? type = null,Object? replyToId = freezed,Object? replyTo = freezed,Object? isEdited = null,Object? isPinned = null,Object? attachments = null,Object? reactions = null,Object? readBy = null,Object? deliveredTo = null,Object? voiceNote = freezed,Object? forward = freezed,Object? mentions = null,Object? isPending = null,Object? isFailed = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_MessageModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
@@ -394,7 +398,9 @@ as List<String>,deliveredTo: null == deliveredTo ? _self._deliveredTo : delivere
 as List<String>,voiceNote: freezed == voiceNote ? _self.voiceNote : voiceNote // ignore: cast_nullable_to_non_nullable
 as MessageVoiceNoteModel?,forward: freezed == forward ? _self.forward : forward // ignore: cast_nullable_to_non_nullable
 as MessageForwardModel?,mentions: null == mentions ? _self._mentions : mentions // ignore: cast_nullable_to_non_nullable
-as List<String>,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as List<String>,isPending: null == isPending ? _self.isPending : isPending // ignore: cast_nullable_to_non_nullable
+as bool,isFailed: null == isFailed ? _self.isFailed : isFailed // ignore: cast_nullable_to_non_nullable
+as bool,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));

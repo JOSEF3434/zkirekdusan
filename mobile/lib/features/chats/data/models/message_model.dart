@@ -25,6 +25,8 @@ abstract class MessageModel with _$MessageModel {
     MessageVoiceNoteModel? voiceNote,
     MessageForwardModel? forward,
     @Default([]) List<String> mentions,
+    @Default(false) bool isPending,
+    @Default(false) bool isFailed,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _MessageModel;

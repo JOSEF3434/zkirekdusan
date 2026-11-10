@@ -17,20 +17,3 @@ Map<String, dynamic> _$FollowStatusDtoToJson(_FollowStatusDto instance) =>
       'isFollowing': instance.isFollowing,
       'isFollowedBy': instance.isFollowedBy,
     };
-
-_FollowerDto _$FollowerDtoFromJson(Map<String, dynamic> json) => _FollowerDto(
-  id: json['id'] as String,
-  username: json['username'] as String?,
-  displayName: json['displayName'] as String?,
-  avatarUrl: json['avatarUrl'] as String?,
-  isFollowing: json['isFollowing'] as bool? ?? false,
-);
-
-Map<String, dynamic> _$FollowerDtoToJson(_FollowerDto instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'username': instance.username,
-      'displayName': instance.displayName,
-      'avatarUrl': instance.avatarUrl,
-      'isFollowing': instance.isFollowing,
-    };

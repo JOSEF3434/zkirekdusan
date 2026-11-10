@@ -125,6 +125,13 @@ class SyncManager extends StateNotifier<SyncStatus> {
               nextRetryAt: null,
               error: e.toString(),
             );
+            if (SyncOperationType.fromString(entry.operationType) ==
+                SyncOperationType.createMessage) {
+              await _db.messagesDao.updateMessageStatus(
+                entry.entityId,
+                'failed',
+              );
+            }
           }
         }
       }

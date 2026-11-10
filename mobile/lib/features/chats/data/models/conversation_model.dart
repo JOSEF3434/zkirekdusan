@@ -53,6 +53,8 @@ abstract class MessagePreviewModel with _$MessagePreviewModel {
     bool? isMe,
     bool? isSeen,
     bool? isDelivered,
+    bool? isPending,
+    bool? isFailed,
     String? attachmentPreview,
   }) = _MessagePreviewModel;
 

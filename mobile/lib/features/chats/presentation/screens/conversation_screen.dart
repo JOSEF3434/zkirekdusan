@@ -686,6 +686,29 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
                                     _composerFocusNode.requestFocus();
                                   }
                                 : null,
+                            onRetry: isMe && message.isFailed
+                                ? () async {
+                                    try {
+                                      await ref
+                                          .read(
+                                            chatMessagesProvider(
+                                              widget.conversationId,
+                                            ).notifier,
+                                          )
+                                          .retryFailedMessage(message.id);
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Failed to send: $e'),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                : null,
                           ),
                         ],
                       );

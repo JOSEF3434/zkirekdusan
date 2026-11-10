@@ -94,6 +94,8 @@ _MessagePreviewModel _$MessagePreviewModelFromJson(Map<String, dynamic> json) =>
       isMe: json['isMe'] as bool?,
       isSeen: json['isSeen'] as bool?,
       isDelivered: json['isDelivered'] as bool?,
+      isPending: json['isPending'] as bool?,
+      isFailed: json['isFailed'] as bool?,
       attachmentPreview: json['attachmentPreview'] as String?,
     );
 
@@ -107,6 +109,8 @@ Map<String, dynamic> _$MessagePreviewModelToJson(
   'isMe': instance.isMe,
   'isSeen': instance.isSeen,
   'isDelivered': instance.isDelivered,
+  'isPending': instance.isPending,
+  'isFailed': instance.isFailed,
   'attachmentPreview': instance.attachmentPreview,
 };
 

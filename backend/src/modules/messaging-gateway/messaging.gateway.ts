@@ -516,15 +516,23 @@ export class MessagingGateway
     const userId = (client as any).userId as string;
     if (!userId || !data?.conversationId) return;
     try {
+      const conversation =
+        await this.conversationsRepository.findById(data.conversationId);
+      if (!conversation) return;
+      const memberIds =
+        conversation.members?.map((m: any) => m.userId) ?? [];
+      if (!memberIds.includes(userId)) {
+        client.emit(WS_EVENTS.ERROR, {
+          message: 'Not a member of this conversation',
+        });
+        return;
+      }
+
       const newlyReadIds =
         await this.conversationsRepository.markAllMessagesAsRead(
           data.conversationId,
           userId,
         );
-      const conversation =
-        await this.conversationsRepository.findById(data.conversationId);
-      const memberIds =
-        conversation?.members?.map((m: any) => m.userId) ?? [];
       for (const msgId of newlyReadIds) {
         const payload = {
           messageId: msgId,

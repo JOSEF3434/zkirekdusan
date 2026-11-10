@@ -448,11 +448,14 @@ class ChatRepositoryImpl implements ChatRepository {
 
         return resolvedMessage;
       } catch (e) {
-        debugPrint('[ChatRepo] Immediate send failed (queued for sync): $e');
+        await _db.messagesDao.updateMessageStatus(localId, 'failed');
+        await _db.syncQueueDao.removeEntriesForEntity(localId);
+        debugPrint('[ChatRepo] Immediate send failed: $e');
+        rethrow;
       }
     }
 
-    // Return optimistic local pending message
+    // Return optimistic local pending message (offline queue mode)
     return MessageModel(
       id: localId,
       conversationId: conversationId,
@@ -467,6 +470,7 @@ class ChatRepositoryImpl implements ChatRepository {
       replyToId: replyToId,
       attachments: optimisticAttachments,
       voiceNote: voiceNote,
+      isPending: true,
       createdAt: now,
       updatedAt: now,
     );
@@ -920,6 +924,8 @@ class ChatRepositoryImpl implements ChatRepository {
       reactions: reactions,
       readBy: readBy,
       deliveredTo: deliveredTo,
+      isPending: d.serverId == null && d.status != 'failed',
+      isFailed: d.status == 'failed',
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     );

@@ -7,6 +7,7 @@ import 'package:mobile/features/chats/data/models/chat_discovery_model.dart';
 import 'package:mobile/features/chats/presentation/providers/chat_messages_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/online_aware_avatar.dart';
 import 'package:mobile/features/chats/presentation/widgets/chat_activity_indicator.dart';
+import 'package:mobile/features/chats/presentation/widgets/message_status_indicator.dart';
 
 class UnifiedChatListTile extends ConsumerWidget {
   final UnifiedChatItem item;
@@ -161,24 +162,13 @@ class UnifiedChatListTile extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (item.conversation?.lastMessage?.isMe == true) ...[
-                              if (item.conversation?.lastMessage?.isSeen == true)
-                                const Icon(
-                                  Icons.done_all_rounded,
-                                  size: 15,
-                                  color: Color(0xFF00C6FF),
-                                )
-                              else if (item.conversation?.lastMessage?.isDelivered == true)
-                                Icon(
-                                  Icons.done_all_rounded,
-                                  size: 15,
-                                  color: Colors.grey[500],
-                                )
-                              else
-                                Icon(
-                                  Icons.done_rounded,
-                                  size: 14,
-                                  color: Colors.grey[500],
+                              MessageStatusIndicator(
+                                status: resolvePreviewDeliveryStatus(
+                                  item.conversation!.lastMessage!,
                                 ),
+                                surface: MessageStatusSurface.surface,
+                                size: 14,
+                              ),
                               const SizedBox(width: 4),
                             ],
                             Text(

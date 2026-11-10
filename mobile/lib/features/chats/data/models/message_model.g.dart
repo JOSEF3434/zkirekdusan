@@ -52,6 +52,8 @@ _MessageModel _$MessageModelFromJson(
   mentions:
       (json['mentions'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const [],
+  isPending: json['isPending'] as bool? ?? false,
+  isFailed: json['isFailed'] as bool? ?? false,
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
 );
@@ -75,6 +77,8 @@ Map<String, dynamic> _$MessageModelToJson(_MessageModel instance) =>
       'voiceNote': instance.voiceNote,
       'forward': instance.forward,
       'mentions': instance.mentions,
+      'isPending': instance.isPending,
+      'isFailed': instance.isFailed,
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
     };

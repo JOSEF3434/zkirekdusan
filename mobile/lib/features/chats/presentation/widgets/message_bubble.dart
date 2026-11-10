@@ -12,6 +12,7 @@ import 'package:mobile/features/chats/presentation/widgets/voice_message_player.
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/core/utils/web_context_menu_manager.dart';
 import 'package:mobile/core/rich_text/rich_text_renderer.dart';
+import 'package:mobile/features/chats/presentation/widgets/message_status_indicator.dart';
 import 'package:intl/intl.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -29,6 +30,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onUnpin;
   final bool canManageForEveryone;
   final VoidCallback? onEdit;
+  final VoidCallback? onRetry;
   final String? currentUserId;
 
   const MessageBubble({
@@ -47,6 +49,7 @@ class MessageBubble extends StatelessWidget {
     this.onUnpin,
     this.canManageForEveryone = false,
     this.onEdit,
+    this.onRetry,
     this.currentUserId,
   });
 
@@ -394,23 +397,6 @@ class MessageBubble extends StatelessWidget {
         ? (isDark ? Colors.grey[400] : Colors.grey[600])
         : (isMe ? Colors.black.withValues(alpha: 0.65) : Colors.grey[400]);
 
-    final iconColor = isOutsideBubble
-        ? (isDark ? const Color(0xFF2DD4BF) : const Color(0xFF0D9488))
-        : (isMe
-              ? Colors.black.withValues(alpha: 0.75)
-              : const Color(0xFF00C6FF));
-
-    final isSending =
-        message.id.startsWith('temp_') || message.id.startsWith('local_');
-    final isSeen =
-        message.readBy.isNotEmpty &&
-        (currentUserId == null ||
-            message.readBy.any((u) => u != currentUserId));
-    final isDelivered =
-        message.deliveredTo.isNotEmpty &&
-        (currentUserId == null ||
-            message.deliveredTo.any((u) => u != currentUserId));
-
     return Padding(
       padding: EdgeInsets.only(
         top: isOutsideBubble ? 4 : 2,
@@ -440,18 +426,17 @@ class MessageBubble extends StatelessWidget {
           ),
           if (isMe) ...[
             const SizedBox(width: 4),
-            if (isSending)
-              Icon(Icons.access_time_rounded, size: 12, color: textColor)
-            else if (isSeen)
-              const Icon(
-                Icons.done_all_rounded,
-                size: 15,
-                color: Color(0xFF00C6FF),
-              )
-            else if (isDelivered)
-              Icon(Icons.done_all_rounded, size: 15, color: textColor)
-            else
-              Icon(Icons.done_rounded, size: 14, color: iconColor),
+            MessageStatusIndicator(
+              status: resolveMessageDeliveryStatus(
+                message,
+                currentUserId: currentUserId,
+              ),
+              surface: isOutsideBubble
+                  ? MessageStatusSurface.surface
+                  : MessageStatusSurface.outgoingBubble,
+              size: 14,
+              onRetry: onRetry,
+            ),
           ],
         ],
       ),

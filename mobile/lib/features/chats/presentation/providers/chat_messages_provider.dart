@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/chats/data/models/conversation_model.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 import 'package:mobile/features/chats/data/repositories/chat_repository_impl.dart';
 import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
+import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 
 final pinnedMessagesProvider =
     FutureProvider.family<List<MessageModel>, String>((
@@ -53,6 +55,7 @@ class ChatMessagesNotifier
   StreamSubscription? _reactionSub;
   StreamSubscription? _readReceiptSub;
   StreamSubscription? _deliveryReceiptSub;
+  StreamSubscription? _connectionSub;
 
   ChatMessagesNotifier(
     this.conversationId,
@@ -133,6 +136,12 @@ class ChatMessagesNotifier
   }
 
   void _setupRealtimeListeners() {
+    _connectionSub = _socketService.connectionStatus.listen((connected) {
+      if (connected && mounted) {
+        loadMessages();
+      }
+    });
+
     // New message received
     _newMessageSub = _socketService.messageReceived.listen((message) {
       if (!mounted) return;
@@ -146,7 +155,8 @@ class ChatMessagesNotifier
           // Check if this incoming message matches a pending optimistic message by current user
           final pendingIndex = messages.indexWhere(
             (m) =>
-                m.id.startsWith('temp_') &&
+                (m.id.startsWith('temp_') || m.id.startsWith('local_')) &&
+                !m.isFailed &&
                 m.sender.id == message.sender.id &&
                 (m.content == message.content ||
                     (m.content == null && message.content == null)),
@@ -154,8 +164,12 @@ class ChatMessagesNotifier
 
           if (pendingIndex != -1) {
             final updated = [...messages];
-            updated[pendingIndex] = message;
+            updated[pendingIndex] = message.copyWith(
+              isPending: false,
+              isFailed: false,
+            );
             state = AsyncValue.data(updated);
+            _syncConversationPreview(updated[pendingIndex]);
             return;
           }
 
@@ -317,6 +331,8 @@ class ChatMessagesNotifier
         if (index == -1) return;
 
         final message = messages[index];
+        // Never record the message sender as a recipient delivery acknowledgement
+        if (userId == message.sender.id) return;
         if (!message.deliveredTo.contains(userId)) {
           final updatedDeliveredTo = [...message.deliveredTo, userId];
           final updatedMessages = [...messages];
@@ -342,6 +358,8 @@ class ChatMessagesNotifier
         if (index == -1) return;
 
         final message = messages[index];
+        // Never record the message sender as having read their own message
+        if (userId == message.sender.id) return;
         if (!message.readBy.contains(userId)) {
           final updatedReadBy = [...message.readBy, userId];
           final updatedMessages = [...messages];
@@ -351,6 +369,114 @@ class ChatMessagesNotifier
         }
       });
     });
+  }
+
+  void _syncConversationPreview(MessageModel msg) {
+    try {
+      final currentUserId = _ref.read(authProvider).user?.id;
+      final senderId = msg.sender.id;
+      if (currentUserId == null || senderId != currentUserId) return;
+
+      bool isOtherUser(String uid) =>
+          uid.isNotEmpty && uid != senderId && uid != currentUserId;
+
+      _ref
+          .read(chatDiscoveryProvider.notifier)
+          .syncLocalLastMessage(
+            conversationId,
+            MessagePreviewModel(
+              id: msg.id,
+              content: msg.content,
+              type: msg.type,
+              senderName: msg.sender.displayName ?? msg.sender.username,
+              isMe: true,
+              isDelivered: msg.deliveredTo.any(isOtherUser),
+              isSeen: msg.readBy.any(isOtherUser),
+              isPending:
+                  !msg.isFailed &&
+                  (msg.isPending ||
+                      msg.id.startsWith('temp_') ||
+                      msg.id.startsWith('local_')),
+              isFailed: msg.isFailed,
+            ),
+            lastMessageAt: msg.createdAt,
+          );
+    } catch (_) {
+      // Safe no-op when discovery provider isn't mounted (e.g. unit tests)
+    }
+  }
+
+  MessageModel _reconcileOutgoingMessage(
+    String localId,
+    MessageModel serverMessage,
+  ) {
+    final resolved = serverMessage.copyWith(
+      isPending:
+          !serverMessage.isFailed &&
+          (serverMessage.isPending ||
+              serverMessage.id.startsWith('temp_') ||
+              serverMessage.id.startsWith('local_')),
+      isFailed: serverMessage.isFailed,
+    );
+
+    MessageModel finalMessage = resolved;
+    state.whenData((messages) {
+      if (!mounted) return;
+      final existingIndex = messages.indexWhere((m) => m.id == resolved.id);
+      final tempIndex = messages.indexWhere((m) => m.id == localId);
+
+      if (existingIndex != -1 && tempIndex != -1 && existingIndex != tempIndex) {
+        final existing = messages[existingIndex];
+        finalMessage = resolved.copyWith(
+          readBy: {...existing.readBy, ...resolved.readBy}.toList(),
+          deliveredTo:
+              {...existing.deliveredTo, ...resolved.deliveredTo}.toList(),
+        );
+        final updated = [...messages];
+        updated[existingIndex] = finalMessage;
+        updated.removeAt(tempIndex);
+        state = AsyncValue.data(updated);
+      } else if (tempIndex != -1) {
+        final updated = [...messages];
+        updated[tempIndex] = resolved;
+        state = AsyncValue.data(updated);
+      } else if (existingIndex != -1) {
+        final existing = messages[existingIndex];
+        finalMessage = resolved.copyWith(
+          readBy: {...existing.readBy, ...resolved.readBy}.toList(),
+          deliveredTo:
+              {...existing.deliveredTo, ...resolved.deliveredTo}.toList(),
+        );
+        final updated = [...messages];
+        updated[existingIndex] = finalMessage;
+        state = AsyncValue.data(updated);
+      } else {
+        state = AsyncValue.data([...messages, resolved]);
+      }
+    });
+
+    _syncConversationPreview(finalMessage);
+    return finalMessage;
+  }
+
+  void _markLocalMessageFailed(String localId) {
+    MessageModel? failedMessage;
+    state.whenData((messages) {
+      if (!mounted) return;
+      final idx = messages.indexWhere((m) => m.id == localId);
+      if (idx != -1) {
+        failedMessage = messages[idx].copyWith(
+          isFailed: true,
+          isPending: false,
+        );
+        final updated = [...messages];
+        updated[idx] = failedMessage!;
+        state = AsyncValue.data(updated);
+      }
+    });
+    if (failedMessage != null) {
+      _syncConversationPreview(failedMessage!);
+    }
   }
 
   Future<MessageModel> sendMessage({
@@ -366,7 +492,7 @@ class ChatMessagesNotifier
     final currentUser = _ref.read(authProvider).user;
     final now = DateTime.now();
 
-    // 1. Instantly display optimistic message with sending clock icon
+    // 1. Instantly display optimistic message with tiny circular loading indicator
     final optimisticMessage = MessageModel(
       id: tempId,
       conversationId: conversationId,
@@ -381,8 +507,11 @@ class ChatMessagesNotifier
       replyToId: replyToId,
       attachments: initialAttachments ?? [],
       voiceNote: voiceNote,
+      mentions: mentionedUserIds ?? [],
       readBy: [],
       deliveredTo: [],
+      isPending: true,
+      isFailed: false,
       createdAt: now,
       updatedAt: now,
     );
@@ -391,6 +520,7 @@ class ChatMessagesNotifier
       if (!mounted) return;
       state = AsyncValue.data([...messages, optimisticMessage]);
     });
+    _syncConversationPreview(optimisticMessage);
 
     try {
       final message = await _repository.sendMessage(
@@ -405,28 +535,51 @@ class ChatMessagesNotifier
         mentionedUserIds: mentionedUserIds,
       );
 
-      // 2. Reconcile optimistic message with server message
-      state.whenData((messages) {
-        if (!mounted) return;
-        final tempIndex = messages.indexWhere((m) => m.id == tempId);
-        if (tempIndex != -1) {
-          final updated = [...messages];
-          updated[tempIndex] = message;
-          state = AsyncValue.data(updated);
-        } else {
-          final existingIndex = messages.indexWhere((m) => m.id == message.id);
-          if (existingIndex != -1) {
-            final updated = [...messages];
-            updated[existingIndex] = message;
-            state = AsyncValue.data(updated);
-          } else {
-            state = AsyncValue.data([...messages, message]);
-          }
-        }
-      });
-
-      return message;
+      return _reconcileOutgoingMessage(tempId, message);
     } catch (e) {
+      _markLocalMessageFailed(tempId);
+      rethrow;
+    }
+  }
+
+  /// Retries sending a message that previously entered `FAILED` state.
+  Future<MessageModel?> retryFailedMessage(String failedMessageId) async {
+    final messages = state.valueOrNull;
+    if (messages == null) return null;
+    final index = messages.indexWhere((m) => m.id == failedMessageId);
+    if (index == -1) return null;
+
+    final target = messages[index];
+    final retrying = target.copyWith(isFailed: false, isPending: true);
+    state.whenData((current) {
+      if (!mounted) return;
+      final idx = current.indexWhere((m) => m.id == failedMessageId);
+      if (idx == -1) return;
+      final updated = [...current];
+      updated[idx] = retrying;
+      state = AsyncValue.data(updated);
+    });
+    _syncConversationPreview(retrying);
+
+    try {
+      final attachmentIds = target.attachments.isNotEmpty
+          ? target.attachments.map((a) => a.fileId).toList()
+          : null;
+      final message = await _repository.sendMessage(
+        conversationId: conversationId,
+        content: target.content,
+        replyToId: target.replyToId,
+        attachmentIds: attachmentIds,
+        type: target.type,
+        clientId: failedMessageId,
+        initialAttachments: target.attachments,
+        voiceNote: target.voiceNote,
+        mentionedUserIds: target.mentions.isEmpty ? null : target.mentions,
+      );
+
+      return _reconcileOutgoingMessage(failedMessageId, message);
+    } catch (e) {
+      _markLocalMessageFailed(failedMessageId);
       rethrow;
     }
   }
@@ -702,6 +855,7 @@ class ChatMessagesNotifier
   @override
   void dispose() {
     _socketService.leaveConversation(conversationId);
+    _connectionSub?.cancel();
     _newMessageSub?.cancel();
     _updatedMessageSub?.cancel();
     _deletedMessageSub?.cancel();

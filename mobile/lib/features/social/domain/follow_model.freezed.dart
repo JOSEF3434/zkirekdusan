@@ -277,7 +277,6 @@ as bool,
 
 }
 
-
 /// @nodoc
 mixin _$FollowerDto {
 
@@ -288,8 +287,6 @@ mixin _$FollowerDto {
 @pragma('vm:prefer-inline')
 $FollowerDtoCopyWith<FollowerDto> get copyWith => _$FollowerDtoCopyWithImpl<FollowerDto>(this as FollowerDto, _$identity);
 
-  /// Serializes this FollowerDto to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -297,7 +294,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is FollowerDto&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,id,username,displayName,avatarUrl,isFollowing);
 
@@ -476,11 +473,11 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarUrl,_that.
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _FollowerDto implements FollowerDto {
   const _FollowerDto({required this.id, this.username, this.displayName, this.avatarUrl, this.isFollowing = false});
-  factory _FollowerDto.fromJson(Map<String, dynamic> json) => _$FollowerDtoFromJson(json);
+  
 
 @override final  String id;
 @override final  String? username;
@@ -494,17 +491,14 @@ class _FollowerDto implements FollowerDto {
 @pragma('vm:prefer-inline')
 _$FollowerDtoCopyWith<_FollowerDto> get copyWith => __$FollowerDtoCopyWithImpl<_FollowerDto>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$FollowerDtoToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is _FollowerDto&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.isFollowing, isFollowing) || other.isFollowing == isFollowing));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,id,username,displayName,avatarUrl,isFollowing);
 

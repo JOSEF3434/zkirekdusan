@@ -84,6 +84,7 @@ class ChatDiscoveryNotifier
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _deliveryReceiptSubscription;
   StreamSubscription? _presenceQuerySubscription;
+  StreamSubscription? _connectionSubscription;
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
 
@@ -249,8 +250,21 @@ class ChatDiscoveryNotifier
   }
 
   void _setupRealtimeUpdates() {
+    _connectionSubscription = _socketService.connectionStatus.listen((connected) {
+      if (connected && mounted) {
+        refreshDiscovery();
+      }
+    });
+
     _messageSubscription = _socketService.messageReceived.listen((message) {
       if (!mounted) return;
+      final senderId = message.sender.id;
+      if (_currentUserId != null &&
+          senderId != _currentUserId &&
+          !message.deliveredTo.contains(_currentUserId)) {
+        _socketService.markDelivered(message.conversationId, message.id);
+      }
+
       state.whenData((discovery) {
         if (!mounted) return;
         final conversations = [...discovery.conversations];
@@ -259,8 +273,12 @@ class ChatDiscoveryNotifier
         );
         if (index != -1) {
           final conv = conversations[index];
-          final isDelivered = message.deliveredTo.isNotEmpty;
-          final isSeen = message.readBy.isNotEmpty;
+          final isDelivered = message.deliveredTo.any(
+            (u) => u.isNotEmpty && u != senderId,
+          );
+          final isSeen = message.readBy.any(
+            (u) => u.isNotEmpty && u != senderId,
+          );
           conversations[index] = conv.copyWith(
             lastMessageAt: message.createdAt,
             lastMessage: MessagePreviewModel(
@@ -268,13 +286,15 @@ class ChatDiscoveryNotifier
               content: message.content,
               type: message.type,
               senderName: message.sender.displayName ?? message.sender.username,
-              isMe: message.sender.id == _currentUserId,
+              isMe: senderId == _currentUserId,
               isDelivered: isDelivered,
               isSeen: isSeen,
+              isPending: false,
+              isFailed: false,
             ),
           );
 
-          if (message.sender.id != _currentUserId) {
+          if (senderId != _currentUserId) {
             final memberIndex = conversations[index].members.indexWhere(
               (m) => m.userId == _currentUserId,
             );
@@ -316,8 +336,10 @@ class ChatDiscoveryNotifier
         if (!mounted) return;
         bool changed = false;
         final conversations = discovery.conversations.map((conv) {
-          if ((conversationId != null && conv.id == conversationId) ||
-              (messageId != null && conv.lastMessage?.id == messageId)) {
+          final matchesConv =
+              (conversationId != null && conv.id == conversationId) ||
+              (messageId != null && conv.lastMessage?.id == messageId);
+          if (matchesConv) {
             var updatedConv = conv;
             // If the current user read messages in this conversation, reset our unread count
             if (userId == _currentUserId) {
@@ -332,9 +354,20 @@ class ChatDiscoveryNotifier
               }
             }
 
-            // If last message was sent by me, mark it seen and delivered
-            if (updatedConv.lastMessage != null && updatedConv.lastMessage!.isMe == true) {
-              if (updatedConv.lastMessage!.isSeen != true || updatedConv.lastMessage!.isDelivered != true) {
+            // Only update last outgoing message preview when a genuine OTHER
+            // recipient has read that specific message (never on self-read).
+            final isRecipientRead =
+                userId != null &&
+                _currentUserId != null &&
+                userId != _currentUserId;
+            final matchesLastMessage =
+                updatedConv.lastMessage != null &&
+                updatedConv.lastMessage!.isMe == true &&
+                (messageId == null || updatedConv.lastMessage!.id == messageId);
+
+            if (isRecipientRead && matchesLastMessage) {
+              if (updatedConv.lastMessage!.isSeen != true ||
+                  updatedConv.lastMessage!.isDelivered != true) {
                 updatedConv = updatedConv.copyWith(
                   lastMessage: updatedConv.lastMessage!.copyWith(
                     isSeen: true,
@@ -366,17 +399,27 @@ class ChatDiscoveryNotifier
       if (!mounted) return;
       final conversationId = data['conversationId'] as String?;
       final messageId = data['messageId'] as String?;
+      final userId = data['userId'] as String?;
       if (conversationId == null && messageId == null) return;
+      // Never treat sender's own ID as a recipient delivery acknowledgement
+      if (userId != null &&
+          _currentUserId != null &&
+          userId == _currentUserId) {
+        return;
+      }
 
       state.whenData((discovery) {
         if (!mounted) return;
         bool changed = false;
         final conversations = discovery.conversations.map((conv) {
-          if ((conversationId != null && conv.id == conversationId) ||
-              (messageId != null && conv.lastMessage?.id == messageId)) {
-            if (conv.lastMessage != null &&
-                conv.lastMessage!.isMe == true &&
-                conv.lastMessage!.isDelivered != true &&
+          final matchesConv =
+              (conversationId == null || conv.id == conversationId);
+          final matchesLastMessage =
+              conv.lastMessage != null &&
+              conv.lastMessage!.isMe == true &&
+              (messageId == null || conv.lastMessage!.id == messageId);
+          if (matchesConv && matchesLastMessage) {
+            if (conv.lastMessage!.isDelivered != true &&
                 conv.lastMessage!.isSeen != true) {
               changed = true;
               return conv.copyWith(
@@ -740,9 +783,48 @@ class ChatDiscoveryNotifier
     );
   }
 
+  /// Synchronizes the conversation preview directly from an outgoing local,
+  /// acknowledged, or failed message so the conversation list stays aligned
+  /// with message bubbles in real time.
+  void syncLocalLastMessage(
+    String conversationId,
+    MessagePreviewModel preview, {
+    DateTime? lastMessageAt,
+  }) {
+    if (!mounted) return;
+    state.whenData((discovery) {
+      if (!mounted) return;
+      final conversations = [...discovery.conversations];
+      final index = conversations.indexWhere((c) => c.id == conversationId);
+      if (index == -1) return;
+
+      final existing = conversations[index];
+      final existingPreview = existing.lastMessage;
+      final mergedPreview =
+          existingPreview != null && existingPreview.id == preview.id
+              ? preview.copyWith(
+                  isSeen: preview.isSeen == true || existingPreview.isSeen == true,
+                  isDelivered:
+                      preview.isDelivered == true ||
+                      existingPreview.isDelivered == true,
+                )
+              : preview;
+
+      conversations[index] = existing.copyWith(
+        lastMessageAt: lastMessageAt ?? existing.lastMessageAt,
+        lastMessage: mergedPreview,
+      );
+
+      _setDiscoveryState(
+        discovery.copyWith(conversations: conversations),
+      );
+    });
+  }
+
   @override
   void dispose() {
     _discoveryRequest = null;
+    _connectionSubscription?.cancel();
     _messageSubscription?.cancel();
     _presenceSubscription?.cancel();
     _readReceiptSubscription?.cancel();

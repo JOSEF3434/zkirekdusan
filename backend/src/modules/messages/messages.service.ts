@@ -412,6 +412,16 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
 
+    const members = (message as any).conversation?.members;
+    if (members && !members.some((m: any) => m.userId === userId)) {
+      throw new ForbiddenException('You are not a member of this conversation');
+    }
+
+    // Never record or emit delivery receipts for the sender's own message
+    if (message.senderId === userId) {
+      return { success: true };
+    }
+
     await this.messagesRepository.markDelivered(messageId, userId);
     const payload = {
       messageId,
@@ -419,8 +429,7 @@ export class MessagesService {
       userId,
       deliveredAt: new Date(),
     };
-    const memberIds =
-      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    const memberIds = members?.map((m: any) => m.userId) ?? [];
     this.messagingGateway.emitDeliveryReceipt(
       message.conversationId,
       payload,
@@ -467,6 +476,16 @@ export class MessagesService {
       throw new NotFoundException('Message not found');
     }
 
+    const members = (message as any).conversation?.members;
+    if (members && !members.some((m: any) => m.userId === userId)) {
+      throw new ForbiddenException('You are not a member of this conversation');
+    }
+
+    // Only recipients may mark a message as read; never emit self-read receipts
+    if (message.senderId === userId) {
+      return { success: true };
+    }
+
     await this.messagesRepository.markAsRead(messageId, userId);
     const payload = {
       messageId,
@@ -474,8 +493,7 @@ export class MessagesService {
       userId,
       readAt: new Date(),
     };
-    const memberIds =
-      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    const memberIds = members?.map((m: any) => m.userId) ?? [];
     this.messagingGateway.emitReadReceipt(
       message.conversationId,
       payload,
@@ -659,8 +677,12 @@ export class MessagesService {
         count: data.count,
         userIds: data.userIds,
       })),
-      readBy: (message.reads ?? []).map((r: any) => r.userId),
-      deliveredTo: (message.deliveries ?? []).map((d: any) => d.userId),
+      readBy: (message.reads ?? [])
+        .map((r: any) => r.userId)
+        .filter((uid: string) => uid && uid !== message.senderId),
+      deliveredTo: (message.deliveries ?? [])
+        .map((d: any) => d.userId)
+        .filter((uid: string) => uid && uid !== message.senderId),
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
     };
