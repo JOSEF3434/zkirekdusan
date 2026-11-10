@@ -177,6 +177,49 @@ class LiveStreamingRepository {
     }
   }
 
+  /// POST /streams/:id/prepare
+  /// Provisions and activates ingest credentials WITHOUT prematurely marking
+  /// the database status LIVE. Used so RTMP/WHIP transports connect first.
+  Future<({LiveStreamDto stream, String? streamKey})> prepareIngest(
+    String streamId,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/streams/$streamId/prepare',
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
+      final data = parseEnvelope(response.data);
+      final stream = LiveStreamDto.fromJson(data);
+      final rawKey = data['streamKey'] as String? ?? data['rawKey'] as String?;
+      return (stream: stream, streamKey: rawKey);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// POST /streams/:id/abort-start
+  /// Rolls back a failed or aborted broadcast attempt so streams never stick LIVE.
+  Future<void> abortStart(String streamId, {String? reason}) async {
+    try {
+      await _dio.post(
+        '/streams/$streamId/abort-start',
+        data: reason != null ? {'reason': reason} : const <String, dynamic>{},
+      );
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// GET /streams/:id/ingest-status
+  Future<Map<String, dynamic>> getIngestStatus(String streamId) async {
+    try {
+      final response = await _dio.get('/streams/$streamId/ingest-status');
+      return parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
   /// POST /streams/:id/go-live
   /// Returns the updated stream. The backend may embed a `streamKey` field
   /// (plain-text Cloudinary key) in the response — we extract and cache it.
@@ -184,7 +227,10 @@ class LiveStreamingRepository {
     String streamId,
   ) async {
     try {
-      final response = await _dio.post('/streams/$streamId/go-live');
+      final response = await _dio.post(
+        '/streams/$streamId/go-live',
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
       final data = parseEnvelope(response.data);
       final stream = LiveStreamDto.fromJson(data);
       final rawKey = data['streamKey'] as String? ?? data['rawKey'] as String?;
@@ -224,7 +270,10 @@ class LiveStreamingRepository {
     String streamId,
   ) async {
     try {
-      final response = await _dio.get('/streams/$streamId/whip-session');
+      final response = await _dio.get(
+        '/streams/$streamId/whip-session',
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
       final data = parseEnvelope(response.data);
       return (
         whipUrl: (data['whipUrl'] as String? ?? ''),

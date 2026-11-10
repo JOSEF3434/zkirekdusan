@@ -461,106 +461,325 @@ export class LiveStreamingService {
    *      the exact Cloudinary RTMP destination in the runOnAvailable FFmpeg cmd.
    *   5. Returns whipUrl, rtmpDestination (for debugging), and streamKey.
    */
-  async getWhipSession(
+  private async assertAuthorizedActiveStream(
     userId: string,
     streamId: string,
-  ): Promise<{ whipUrl: string; streamKey: string; rtmpUrl: string; rtmpDestination: string }> {
+    actionVerb: string,
+  ) {
     const stream = await this.repository.getStreamById(streamId);
-    if (!stream || stream.deletedAt)
+    if (!stream || stream.deletedAt) {
       throw new NotFoundException('Stream not found');
+    }
 
-    const hasPermission = await this.hasStreamPermission(userId, stream.groupId, stream.videoChannelId);
-    if (!hasPermission)
-      throw new ForbiddenException('You do not have permission to stream this channel');
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+      stream.videoChannelId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        `You do not have permission to ${actionVerb} this stream`,
+      );
+    }
 
     if (
       stream.status === LiveStreamStatus.ENDED ||
       stream.status === LiveStreamStatus.CANCELLED
     ) {
-      throw new BadRequestException('Cannot stream an ended or cancelled session');
+      throw new BadRequestException(
+        `Cannot ${actionVerb} an ended or cancelled stream`,
+      );
     }
 
-    // ── 1. Resolve the Cloudinary stream + actual stream key ──────────────────
-    let streamKeyRecord = await this.repository.getStreamKeyByChannelId(stream.videoChannelId);
-    let cldStreamId: string | undefined;
-    let actualStreamKey: string | undefined;
-    let rtmpIngestBase = 'rtmp://live.cloudinary.com/streams';
+    return stream;
+  }
 
-    const existingCldId = streamKeyRecord?.keyPrefix?.startsWith('cld_')
-      ? streamKeyRecord.keyPrefix.substring(4)
-      : null;
+  /**
+   * Provision (or reuse), activate, and synchronize Cloudinary live-stream
+   * metadata onto the PostgreSQL LiveStream record. Single source of truth for
+   * prepareIngest(), getWhipSession(), and startStream().
+   */
+  private async provisionAndActivateCloudinaryStream(stream: any): Promise<{
+    cldStreamId: string;
+    streamKey: string;
+    rtmpIngestUrl: string;
+    hlsUrl: string;
+    archivePublicId: string;
+    streamKeyRecordId?: string;
+  }> {
+    let streamKeyRecord = await this.repository.getStreamKeyByChannelId(
+      stream.videoChannelId,
+    );
+
+    const existingCldId = stream.webrtcUrl?.startsWith('cloudinary:')
+      ? stream.webrtcUrl.replace('cloudinary:', '')
+      : streamKeyRecord?.keyPrefix?.startsWith('cld_')
+        ? streamKeyRecord.keyPrefix.substring(4)
+        : null;
+
+    let cldStreamId: string | undefined;
+    let activeStreamKey: string | undefined;
+    let rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
+    let hlsUrl: string | undefined;
+    let archivePublicId: string | undefined;
+    let alreadyActive = false;
 
     if (existingCldId) {
-      // Try to fetch the existing Cloudinary stream and its key
-      try {
-        const cldData = await this.cloudinaryProvider.getLiveStream(existingCldId);
-        if (cldData?.input?.stream_key) {
-          cldStreamId = existingCldId;
-          actualStreamKey = cldData.input.stream_key as string;
-          rtmpIngestBase = (cldData.input?.uri as string) || rtmpIngestBase;
-        } else {
-          this.logger.warn(
-            `[WHIP] Cloudinary stream ${existingCldId} returned no stream_key — will reprovision.`,
-          );
-        }
-      } catch (err: any) {
+      const cldData =
+        await this.cloudinaryProvider.getLiveStream(existingCldId);
+      if (cldData?.input?.stream_key) {
+        cldStreamId = existingCldId;
+        activeStreamKey = cldData.input.stream_key as string;
+        alreadyActive = cldData.status === 'active';
+        const existingHlsOutput = cldData.outputs?.find(
+          (o: any) => o.type === 'hls',
+        );
+        hlsUrl =
+          existingHlsOutput?.uri ||
+          `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
+        archivePublicId = `live_stream_${cldStreamId}_archive`;
+        rtmpIngestUrl = (cldData.input?.uri as string) || rtmpIngestUrl;
+      } else {
         this.logger.warn(
-          `[WHIP] Could not fetch Cloudinary stream ${existingCldId}: ${err.message} — will reprovision.`,
+          `[Cloudinary] Stream ${existingCldId} unavailable on active cloud=${this.cloudinaryProvider.currentCloudName} — will provision fresh stream.`,
         );
       }
     }
 
-    if (!cldStreamId || !actualStreamKey) {
-      // Provision a fresh Cloudinary live stream
-      const safeSlug = (stream.slug || stream.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!cldStreamId || !activeStreamKey) {
+      const safeSlug = (stream.slug || stream.id).replace(
+        /[^a-zA-Z0-9_-]/g,
+        '_',
+      );
+      const archiveEnabled = stream.isRecordingEnabled ?? true;
+      this.logger.log(
+        `[LiveStreamingService] Provisioning Cloudinary live stream: ` +
+          `streamId=${stream.id}, cloud=${this.cloudinaryProvider.currentCloudName}, archiveEnabled=${archiveEnabled}`,
+      );
       const cld = await this.cloudinaryProvider.createLiveStream(
         `stream_${safeSlug}_${Date.now()}`,
-        { archiveEnabled: stream.isRecordingEnabled ?? true },
+        { archiveEnabled },
       );
       cldStreamId = cld.id;
-      actualStreamKey = cld.streamKey;
-      rtmpIngestBase = cld.rtmpIngestUrl || rtmpIngestBase;
+      activeStreamKey = cld.streamKey;
+      rtmpIngestUrl = cld.rtmpIngestUrl || rtmpIngestUrl;
+      hlsUrl = cld.hlsUrl;
+      archivePublicId = cld.archivePublicId;
+      alreadyActive = false;
 
-      const keyHash = createHash('sha256').update(actualStreamKey).digest('hex');
-      const keyPrefix = `cld_${cld.id}`;
+      const keyHash = createHash('sha256')
+        .update(activeStreamKey)
+        .digest('hex');
       streamKeyRecord = await this.repository.upsertStreamKey(
         stream.videoChannelId,
         keyHash,
-        keyPrefix,
+        `cld_${cldStreamId}`,
       );
-      // Persist Cloudinary URLs
-      await this.prisma.liveStream.update({
-        where: { id: streamId },
-        data: {
-          hlsUrl: cld.hlsUrl,
-          rtmpIngestUrl: cld.rtmpIngestUrl,
-          webrtcUrl: `cloudinary:${cld.id}`,
-          dashUrl: cld.archivePublicId,
-        },
-      });
     }
 
-    // ── 2. Activate the Cloudinary stream ────────────────────────────────────
-    if (cldStreamId) {
-      try {
-        await this.cloudinaryProvider.activateLiveStream(cldStreamId);
-        // Re-fetch key after activation if still missing
-        if (!actualStreamKey) {
-          const cldData = await this.cloudinaryProvider.getLiveStream(cldStreamId);
-          actualStreamKey = cldData?.input?.stream_key;
-        }
-      } catch (err: any) {
-        this.logger.warn(`[WHIP] activateLiveStream failed: ${err.message}`);
+    if (!alreadyActive) {
+      await this.cloudinaryProvider.activateLiveStream(cldStreamId);
+      if (!activeStreamKey) {
+        const cldData =
+          await this.cloudinaryProvider.getLiveStream(cldStreamId);
+        activeStreamKey = cldData?.input?.stream_key;
       }
     }
 
-    if (!actualStreamKey) {
+    if (!activeStreamKey) {
       throw new BadRequestException(
         'Could not obtain Cloudinary stream key. Please retry in a moment.',
       );
     }
 
-    // ── 3. Build WHIP URL + RTMP destination ─────────────────────────────────
+    await this.prisma.liveStream.update({
+      where: { id: stream.id },
+      data: {
+        hlsUrl,
+        rtmpIngestUrl,
+        webrtcUrl: `cloudinary:${cldStreamId}`,
+        dashUrl: archivePublicId,
+      },
+    });
+
+    return {
+      cldStreamId,
+      streamKey: activeStreamKey,
+      rtmpIngestUrl,
+      hlsUrl: hlsUrl!,
+      archivePublicId: archivePublicId!,
+      streamKeyRecordId: streamKeyRecord?.id,
+    };
+  }
+
+  /**
+   * Prepare Cloudinary/RTMP ingest credentials without prematurely setting
+   * LiveStream.status = LIVE. Clients can connect RTMP/WHIP first, then invoke
+   * go-live once transport media is flowing.
+   */
+  async prepareIngest(userId: string, streamId: string) {
+    const stream = await this.assertAuthorizedActiveStream(
+      userId,
+      streamId,
+      'prepare',
+    );
+
+    let activeStreamKey: string | undefined;
+    if (this.cloudinaryProvider?.configured) {
+      const cld = await this.provisionAndActivateCloudinaryStream(stream);
+      activeStreamKey = cld.streamKey;
+    } else {
+      const rtmpUrl = stream.rtmpIngestUrl || this.getRtmpServerUrl();
+      await this.prisma.liveStream.update({
+        where: { id: streamId },
+        data: { rtmpIngestUrl: rtmpUrl },
+      });
+    }
+
+    const refreshed = await this.repository.getStreamById(streamId);
+    return {
+      ...refreshed,
+      streamKey: activeStreamKey,
+    };
+  }
+
+  /**
+   * Roll back an aborted or failed broadcast attempt before media started
+   * flowing so streams never remain stuck in a ghost LIVE state.
+   */
+  async abortStart(userId: string, streamId: string, reason?: string) {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt) {
+      throw new NotFoundException('Stream not found');
+    }
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+      stream.videoChannelId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to abort this stream',
+      );
+    }
+
+    if (
+      stream.status === LiveStreamStatus.ENDED ||
+      stream.status === LiveStreamStatus.CANCELLED
+    ) {
+      return { aborted: false, status: stream.status };
+    }
+
+    const cldStreamId = stream.webrtcUrl?.startsWith('cloudinary:')
+      ? stream.webrtcUrl.replace('cloudinary:', '')
+      : null;
+
+    if (cldStreamId) {
+      if (this.cloudinaryProvider?.configured) {
+        await this.cloudinaryProvider.idleLiveStream(cldStreamId);
+      }
+      await this.mediaMtx.removeBroadcastPath(cldStreamId);
+    }
+
+    let nextStatus = stream.status;
+    if (stream.status === LiveStreamStatus.LIVE) {
+      const revertStatus = stream.scheduledAt
+        ? LiveStreamStatus.SCHEDULED
+        : LiveStreamStatus.DRAFT;
+      await this.prisma.liveStream.update({
+        where: { id: streamId },
+        data: {
+          status: revertStatus,
+          startedAt: null,
+          endedAt: null,
+        },
+      });
+      await this.repository.endStreamSession(streamId);
+      this.liveGateway.clearBroadcasterSession(streamId);
+      this.liveGateway.broadcastStreamEnded(streamId, undefined, 0);
+      nextStatus = revertStatus;
+    }
+
+    this.logger.warn(
+      `[LiveStreamingService] Aborted stream start for ${streamId} ` +
+        `(previous=${stream.status}, next=${nextStatus}, reason=${reason || 'unspecified'})`,
+    );
+
+    return { aborted: true, status: nextStatus };
+  }
+
+  /**
+   * Inspect real ingest health across PostgreSQL, Cloudinary, and MediaMTX.
+   */
+  async getIngestStatus(userId: string, streamId: string) {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt) {
+      throw new NotFoundException('Stream not found');
+    }
+
+    const hasPermission = await this.hasStreamPermission(
+      userId,
+      stream.groupId,
+      stream.videoChannelId,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException(
+        'You do not have permission to inspect this stream',
+      );
+    }
+
+    const cldStreamId = stream.webrtcUrl?.startsWith('cloudinary:')
+      ? stream.webrtcUrl.replace('cloudinary:', '')
+      : null;
+
+    const [cldData, mtxStatus] = await Promise.all([
+      cldStreamId && this.cloudinaryProvider?.configured
+        ? this.cloudinaryProvider.getLiveStream(cldStreamId)
+        : Promise.resolve(null),
+      cldStreamId ? this.mediaMtx.getPathStatus(cldStreamId) : Promise.resolve(null),
+    ]);
+
+    const cldStatus: string | null = cldData?.status ?? null;
+    let stage = 'unprovisioned';
+    if (cldStreamId) {
+      if (mtxStatus?.exists && mtxStatus.ready && mtxStatus.bytesReceived > 0) {
+        stage = 'mediamtx_ingesting';
+      } else if (cldStatus === 'active' && stream.status === LiveStreamStatus.LIVE) {
+        stage = 'cloudinary_active_live';
+      } else if (cldStatus === 'active') {
+        stage = 'cloudinary_ready';
+      } else {
+        stage = 'cloudinary_activating';
+      }
+    }
+
+    return {
+      streamId,
+      dbStatus: stream.status,
+      hlsUrl: stream.hlsUrl,
+      stage,
+      cloudinary: cldStreamId
+        ? {
+            streamId: cldStreamId,
+            status: cldStatus ?? 'unknown',
+            cloudName: this.cloudinaryProvider?.currentCloudName || null,
+          }
+        : null,
+      mediaMtx: mtxStatus,
+    };
+  }
+
+  async getWhipSession(
+    userId: string,
+    streamId: string,
+  ): Promise<{ whipUrl: string; streamKey: string; rtmpUrl: string; rtmpDestination: string }> {
+    const stream = await this.assertAuthorizedActiveStream(
+      userId,
+      streamId,
+      'stream',
+    );
+
     const whipGatewayBase =
       this.configService.get<string>('WHIP_GATEWAY_URL')?.replace(/\/$/, '') ?? '';
 
@@ -571,173 +790,48 @@ export class LiveStreamingService {
       );
     }
 
-    // Use the Cloudinary stream ID as the WHIP path identifier (URL-safe)
-    const whipPath = cldStreamId!;
+    const cld = await this.provisionAndActivateCloudinaryStream(stream);
+    const whipPath = cld.cldStreamId;
     const whipUrl = `${whipGatewayBase}/${whipPath}/whip`;
+    const rtmpDestination = `${cld.rtmpIngestUrl.replace(/\/$/, '')}/${cld.streamKey}`;
 
-    // Full Cloudinary RTMP destination: <base>/<stream_key>
-    // This is the exact URL FFmpeg must push to.
-    const rtmpDestination = `${rtmpIngestBase.replace(/\/$/, '')}/${actualStreamKey}`;
-
-    // ── 4. Register the MediaMTX path dynamically ────────────────────────────
-    // This sets the correct runOnAvailable FFmpeg command with the exact key.
     await this.mediaMtx.registerBroadcastPath(whipPath, {
       rtmpDestination,
     });
 
     this.logger.log(
       `[WHIP] Session ready: stream=${streamId} path=${whipPath} ` +
-        `rtmpDest=rtmp://live.cloudinary.com/streams/<key>`,
+        `rtmpDest=${cld.rtmpIngestUrl.replace(/\/$/, '')}/<key>`,
     );
 
     return {
       whipUrl,
-      streamKey: actualStreamKey,
-      rtmpUrl: rtmpIngestBase,
+      streamKey: cld.streamKey,
+      rtmpUrl: cld.rtmpIngestUrl,
       rtmpDestination,
     };
   }
 
   async startStream(userId: string, streamId: string) {
-    const stream = await this.repository.getStreamById(streamId);
-    if (!stream || stream.deletedAt)
-      throw new NotFoundException('Stream not found');
-
-    if (
-      stream.status === LiveStreamStatus.ENDED ||
-      stream.status === LiveStreamStatus.CANCELLED
-    ) {
-      throw new BadRequestException(
-        'Cannot restart an ended or cancelled stream',
-      );
-    }
-
-    const hasPermission = await this.hasStreamPermission(
+    const stream = await this.assertAuthorizedActiveStream(
       userId,
-      stream.groupId,
-      stream.videoChannelId,
+      streamId,
+      'start',
     );
-    if (!hasPermission) {
-      throw new ForbiddenException(
-        'You do not have permission to start this stream',
-      );
-    }
 
-    // Get stream key for the channel
-    let streamKey = await this.repository.getStreamKeyByChannelId(
+    const streamKey = await this.repository.getStreamKeyByChannelId(
       stream.videoChannelId,
     );
-    let rtmpBaseUrl = this.getRtmpServerUrl();
-    let rtmpIngestUrl = stream.rtmpIngestUrl || rtmpBaseUrl;
+    let rtmpIngestUrl = stream.rtmpIngestUrl || this.getRtmpServerUrl();
     let activeStreamKey: string | null = null;
+    let streamKeyId: string | undefined = streamKey?.id;
 
-    // If Cloudinary is configured, provision / activate Cloudinary live stream
     if (this.cloudinaryProvider?.configured) {
       try {
-        let cldStreamId = stream.webrtcUrl?.replace('cloudinary:', '');
-        let hlsUrl = stream.hlsUrl;
-        let archivePublicId = stream.dashUrl;
-
-        // Check if the channel already has a Cloudinary live stream provisioned via its stream key
-        const cldIdFromKey = streamKey?.keyPrefix?.startsWith('cld_')
-          ? streamKey.keyPrefix.replace('cld_', '')
-          : null;
-
-        if (cldIdFromKey && (!cldStreamId || cldStreamId === cldIdFromKey)) {
-          try {
-            const cldData =
-              await this.cloudinaryProvider.getLiveStream(cldIdFromKey);
-            if (cldData?.input?.stream_key) {
-              cldStreamId = cldIdFromKey;
-              activeStreamKey = cldData.input.stream_key;
-              // Prefer actual HLS URL from Cloudinary API (account-agnostic)
-              const existingHlsOutput = cldData.outputs?.find((o: any) => o.type === 'hls');
-              hlsUrl = existingHlsOutput?.uri ||
-                `https://res.cloudinary.com/${this.cloudinaryProvider.currentCloudName}/video/live/live_stream_${cldStreamId}_hls.m3u8`;
-              archivePublicId = `live_stream_${cldStreamId}_archive`;
-              rtmpBaseUrl = cldData.input?.uri || 'rtmp://live.cloudinary.com/streams';
-              rtmpIngestUrl = cldData.input?.uri || 'rtmp://live.cloudinary.com/streams';
-            }
-          } catch (err: any) {
-            this.logger.warn(
-              `Stored Cloudinary stream ${cldIdFromKey} is not accessible: ${err?.message}. Will provision fresh stream.`,
-            );
-            cldStreamId = undefined;
-          }
-        }
-
-        if (
-          !cldStreamId ||
-          !hlsUrl ||
-          !streamKey?.keyPrefix?.startsWith('cld_')
-        ) {
-          // If not already provisioned on Cloudinary, create it now
-          const safeSlug = (stream.slug || stream.id).replace(
-            /[^a-zA-Z0-9_-]/g,
-            '_',
-          );
-          const archiveEnabled = stream.isRecordingEnabled ?? true;
-          this.logger.log(
-            `[LiveStreamingService] Provisioning Cloudinary live stream: ` +
-              `streamId=${streamId}, archiveEnabled=${archiveEnabled}`,
-          );
-          const cld = await this.cloudinaryProvider.createLiveStream(
-            `stream_${safeSlug}_${Date.now()}`,
-            { archiveEnabled },
-          );
-          cldStreamId = cld.id;
-          hlsUrl = cld.hlsUrl;
-          archivePublicId = cld.archivePublicId;
-          rtmpBaseUrl = cld.rtmpIngestUrl;
-          rtmpIngestUrl = cld.rtmpIngestUrl;
-          activeStreamKey = cld.streamKey;
-
-          // Upsert channel's stream key to match Cloudinary
-          const keyHash = createHash('sha256')
-            .update(cld.streamKey)
-            .digest('hex');
-          const keyPrefix = `cld_${cld.id}`;
-          streamKey = await this.repository.upsertStreamKey(
-            stream.videoChannelId,
-            keyHash,
-            keyPrefix,
-          );
-        } else {
-          rtmpBaseUrl = 'rtmp://live.cloudinary.com/streams';
-          rtmpIngestUrl = 'rtmp://live.cloudinary.com/streams';
-        }
-
-        // Activate Cloudinary live stream (polls until status=active, up to 35s)
-        if (cldStreamId) {
-          await this.cloudinaryProvider.activateLiveStream(cldStreamId);
-
-          // Re-fetch stream key after activation — Cloudinary may not expose
-          // the stream_key field until the stream reaches the "active" state.
-          // This guarantees the key is always returned to the mobile broadcaster.
-          if (!activeStreamKey) {
-            try {
-              const cldData =
-                await this.cloudinaryProvider.getLiveStream(cldStreamId);
-              if (cldData?.input?.stream_key) {
-                activeStreamKey = cldData.input.stream_key;
-                this.logger.log(
-                  `Cloudinary stream key retrieved after activation for stream ${streamId}`,
-                );
-              }
-            } catch (_) {}
-          }
-        }
-
-        // Update stream with Cloudinary playback & ingest URLs
-        await this.prisma.liveStream.update({
-          where: { id: streamId },
-          data: {
-            hlsUrl,
-            rtmpIngestUrl,
-            webrtcUrl: `cloudinary:${cldStreamId}`,
-            dashUrl: archivePublicId,
-          },
-        });
+        const cld = await this.provisionAndActivateCloudinaryStream(stream);
+        rtmpIngestUrl = cld.rtmpIngestUrl;
+        activeStreamKey = cld.streamKey;
+        streamKeyId = cld.streamKeyRecordId ?? streamKeyId;
       } catch (err: any) {
         this.logger.error(
           `Error provisioning Cloudinary live stream: ${err.message}`,
@@ -755,7 +849,7 @@ export class LiveStreamingService {
     );
 
     // Create a stream session for tracking
-    await this.repository.createStreamSession(streamId, streamKey?.id);
+    await this.repository.createStreamSession(streamId, streamKeyId);
 
     // Create chat room if chat is enabled
     if (stream.isChatEnabled) {

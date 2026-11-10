@@ -21,6 +21,7 @@ import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_stream_progress_bar.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/web_hls_player_shim.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
@@ -66,6 +67,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   // Player
   VideoPlayerController? _playerCtrl;
+  String? _webHlsUrl;
   bool _playerInitialized = false;
   bool _isPlayerInitializing = false;
   bool _playerError = false;
@@ -247,6 +249,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
     final oldCtrl = _playerCtrl;
     _playerCtrl = null;
+    _webHlsUrl = null;
     _playerInitialized = false;
     oldCtrl?.dispose().ignore();
 
@@ -274,6 +277,27 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     if (!warmupRetry) {
       _playerRetryTimer?.cancel();
     }
+
+    // On Flutter Web, video_player_web assigns `.m3u8` directly to <video src>
+    // without invoking hls.js, failing on Chrome/Edge/Firefox with
+    // MEDIA_ERR_SRC_NOT_SUPPORTED. Hand `.m3u8` streams to WebHlsPlayer (hls.js).
+    if (kIsWeb && resolved.toLowerCase().contains('.m3u8')) {
+      final oldCtrl = _playerCtrl;
+      _playerCtrl = null;
+      oldCtrl?.dispose().ignore();
+      if (mounted) {
+        setState(() {
+          _webHlsUrl = resolved;
+          _playerInitialized = true;
+          _isPlayerInitializing = false;
+          _playerError = false;
+          _streamNotYetPublishing = false;
+          _initAttemptCount = 0;
+        });
+      }
+      return;
+    }
+
     _isPlayerInitializing = true;
     if (force) {
       _initAttemptCount = 0;
@@ -402,35 +426,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           _initAttemptCount = 0;
         });
 
-        // Only create the warm-up retry timer if one is NOT already running.
-        // When called from the timer itself (warmupRetry=true), the periodic
-        // timer is still alive — do not create a competing one.
-        if (!warmupRetry && (_playerRetryTimer == null || !_playerRetryTimer!.isActive)) {
-          _playerRetryTimer?.cancel();
-          // Retry every 10s. Guard: skip tick if already initialising or
-          // if the player succeeded via another code path.
-          _playerRetryTimer = Timer.periodic(const Duration(seconds: 10), (t) {
-            if (!mounted || _playerInitialized) {
-              t.cancel();
-              return;
-            }
-            final phase = ref.read(liveRoomProvider(widget.streamId)).phase;
-            if (phase.isTerminal || phase == LiveStreamPhase.ended) {
-              t.cancel();
-              return;
-            }
-            // Skip tick if a previous attempt is still running.
-            if (_isPlayerInitializing) return;
-            // Refresh stream from backend to pick up new hlsUrl if reprovisioned.
-            ref.read(liveRoomProvider(widget.streamId).notifier).refresh();
-            final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
-            if (hls != null && hls.isNotEmpty && mounted) {
-              setState(() => _streamNotYetPublishing = false);
-              // Pass warmupRetry=true so _initPlayer does NOT cancel this timer.
-              // The timer auto-cancels when _playerInitialized becomes true.
-              _initPlayer(hls, force: true, warmupRetry: true);
-            }
-          });
+        if (!warmupRetry) {
+          _scheduleWarmupRetry();
         }
       } else {
         setState(() {
@@ -451,6 +448,28 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
       }
     }
+  }
+
+  void _scheduleWarmupRetry() {
+    if (_playerRetryTimer != null && _playerRetryTimer!.isActive) return;
+    _playerRetryTimer = Timer.periodic(const Duration(seconds: 10), (t) {
+      if (!mounted || _playerInitialized) {
+        t.cancel();
+        return;
+      }
+      final phase = ref.read(liveRoomProvider(widget.streamId)).phase;
+      if (phase.isTerminal || phase == LiveStreamPhase.ended) {
+        t.cancel();
+        return;
+      }
+      if (_isPlayerInitializing) return;
+      ref.read(liveRoomProvider(widget.streamId).notifier).refresh();
+      final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
+      if (hls != null && hls.isNotEmpty && mounted) {
+        setState(() => _streamNotYetPublishing = false);
+        _initPlayer(hls, force: true, warmupRetry: true);
+      }
+    });
   }
 
   // ── Controls visibility ────────────────────────────────────────────────────
@@ -589,6 +608,12 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       if (next.phase == LiveStreamPhase.ended) {
         _playerRetryTimer?.cancel();
         _playerCtrl?.pause();
+        if (_webHlsUrl != null) {
+          setState(() {
+            _webHlsUrl = null;
+            _playerInitialized = false;
+          });
+        }
       }
       final hls = next.stream?.hlsUrl;
       if ((next.phase == LiveStreamPhase.live ||
@@ -969,15 +994,71 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
+  Widget _buildActiveVideoSurface() {
+    if (kIsWeb && _webHlsUrl != null) {
+      return WebHlsPlayer(
+        url: _webHlsUrl!,
+        onReady: () {
+          if (!mounted) return;
+          setState(() {
+            _playerError = false;
+            _streamNotYetPublishing = false;
+          });
+          ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
+        },
+        onWaitingForStream: () {
+          if (!mounted) return;
+          setState(() {
+            _playerInitialized = false;
+            _webHlsUrl = null;
+            _streamNotYetPublishing = true;
+            _playerError = false;
+          });
+          _scheduleWarmupRetry();
+        },
+        onFatalError: (err) {
+          debugPrint('[LiveRoom][WebHLS] fatal error: $err');
+          if (!mounted) return;
+          final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
+          if (phaseNow == LiveStreamPhase.live ||
+              phaseNow == LiveStreamPhase.starting) {
+            setState(() {
+              _playerInitialized = false;
+              _webHlsUrl = null;
+              _streamNotYetPublishing = true;
+              _playerError = false;
+            });
+            _scheduleWarmupRetry();
+          } else {
+            setState(() {
+              _playerInitialized = false;
+              _webHlsUrl = null;
+              _playerError = true;
+            });
+            ref
+                .read(liveRoomProvider(widget.streamId).notifier)
+                .notifyPlayerInterruption();
+          }
+        },
+      );
+    }
+    if (_playerCtrl != null) {
+      return VideoPlayer(_playerCtrl!);
+    }
+    return const SizedBox.shrink();
+  }
+
   Widget _buildPlayerContent(LiveRoomState state) {
+    final hasActivePlayer =
+        _playerInitialized && (_playerCtrl != null || (kIsWeb && _webHlsUrl != null));
     switch (state.phase) {
       case LiveStreamPhase.loading:
         return _buildBuffering();
       case LiveStreamPhase.scheduled:
         return _buildStreamScheduled(state);
       case LiveStreamPhase.starting:
-        if (_playerInitialized && _playerCtrl != null) {
-          return VideoPlayer(_playerCtrl!);
+        if (hasActivePlayer) {
+          return _buildActiveVideoSurface();
         } else if (_isPlayerInitializing) {
           return _buildBuffering();
         } else if (_streamNotYetPublishing) {
@@ -986,8 +1067,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           return _buildStreamStarting(state);
         }
       case LiveStreamPhase.live:
-        if (_playerInitialized && _playerCtrl != null) {
-          return VideoPlayer(_playerCtrl!);
+        if (hasActivePlayer) {
+          return _buildActiveVideoSurface();
         } else if (_streamNotYetPublishing) {
           return _buildWaitingForBroadcast();
         } else if (_playerError) {
@@ -1384,6 +1465,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
               setState(() {
                 _playerError = false;
                 _playerInitialized = false;
+                _webHlsUrl = null;
                 _isPlayerInitializing = false;
                 _initAttemptCount = 0;
               });
@@ -1444,6 +1526,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 _playerRetryTimer?.cancel();
                 setState(() {
                   _streamNotYetPublishing = false;
+                  _webHlsUrl = null;
                   _initAttemptCount = 0;
                 });
                 final hls =

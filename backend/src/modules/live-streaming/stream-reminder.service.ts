@@ -300,10 +300,12 @@ export class StreamReminderService implements OnModuleInit, OnModuleDestroy {
           select: { userId: true },
         });
 
-        const members = await this.prisma.groupMember.findMany({
-          where: { groupId: stream.groupId },
-          select: { userId: true },
-        });
+        const members = stream.groupId
+          ? await this.prisma.groupMember.findMany({
+              where: { groupId: stream.groupId },
+              select: { userId: true },
+            })
+          : [];
 
         const targetUserIds = Array.from(
           new Set([

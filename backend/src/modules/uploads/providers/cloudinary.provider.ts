@@ -71,6 +71,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       this.apiKey = api_key;
       this.apiSecret = api_secret;
       this.logger.log(`Cloudinary configured: cloud=${cloud_name}`);
+      this.warnOnConflictingEnvVars(cloud_name);
     } else {
       this.isConfigured = false;
       this.cloudName = '';
@@ -78,6 +79,45 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       this.apiSecret = '';
       this.logger.warn('Cloudinary credentials missing — stub mode active');
     }
+  }
+
+  /**
+   * Detect legacy/conflicting Cloudinary environment variables (e.g. Cloud_name,
+   * your_api_key, or mismatched HLS_BASE_URL) early at startup without printing secrets.
+   */
+  private warnOnConflictingEnvVars(activeCloudName: string): void {
+    const primaryCloud = this.getEnv('CLOUDINARY_CLOUD_NAME');
+    const legacyCloud = this.getEnv('Cloud_name');
+    if (primaryCloud && legacyCloud && primaryCloud !== legacyCloud) {
+      this.logger.error(
+        `Conflicting Cloudinary cloud names detected: CLOUDINARY_CLOUD_NAME="${primaryCloud}" ` +
+          `vs legacy Cloud_name="${legacyCloud}". Remove legacy Cloud_name from environment variables.`,
+      );
+    }
+
+    if (
+      (this.getEnv('CLOUDINARY_API_KEY') && this.getEnv('your_api_key')) ||
+      (this.getEnv('CLOUDINARY_API_SECRET') && this.getEnv('your_api_secret'))
+    ) {
+      this.logger.warn(
+        'Legacy env vars "your_api_key" / "your_api_secret" are still present alongside CLOUDINARY_* vars. Remove legacy variables.',
+      );
+    }
+
+    const hlsBaseUrl = this.getEnv('HLS_BASE_URL');
+    if (hlsBaseUrl) {
+      const match = /^https?:\/\/res\.cloudinary\.com\/([^/]+)\//i.exec(hlsBaseUrl);
+      if (match && match[1] && match[1] !== activeCloudName) {
+        this.logger.error(
+          `HLS_BASE_URL references cloud "${match[1]}", which does NOT match active CLOUDINARY_CLOUD_NAME="${activeCloudName}". ` +
+            'Live HLS playback URLs and RTMP ingest accounts will be inconsistent until aligned.',
+        );
+      }
+    }
+  }
+
+  private getEnv(key: string): string | undefined {
+    return this.configService.get<string>(key) || process.env[key];
   }
 
   get configured(): boolean {
@@ -613,6 +653,10 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     );
   }
 
+  private buildLiveStreamUrl(streamId: string, suffix = ''): string {
+    return `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}${suffix}`;
+  }
+
   /**
    * Manually idle a live stream when broadcasting ends, triggering VOD archiving.
    */
@@ -620,16 +664,16 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     if (!this.isConfigured) return;
     try {
       const res = await fetch(
-        `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}/idle`,
+        this.buildLiveStreamUrl(streamId, '/idle'),
         {
           method: 'POST',
           headers: { Authorization: this.basicAuthHeader },
         },
       );
       if (!res.ok) {
-        const body = await res.text();
+        const body = await res.text().catch(() => '');
         this.logger.warn(
-          `Cloudinary idleLiveStream warning (${res.status}): ${body}`,
+          `Cloudinary idleLiveStream warning (${res.status}) for cloud=${this.cloudName}: ${body.slice(0, 300)}`,
         );
       }
     } catch (err: any) {
@@ -646,15 +690,24 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     if (!this.isConfigured) return null;
     try {
       const res = await fetch(
-        `https://api.cloudinary.com/v2/video/${this.cloudName}/live_streams/${streamId}`,
+        this.buildLiveStreamUrl(streamId),
         {
           headers: { Authorization: this.basicAuthHeader },
         },
       );
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        this.logger.warn(
+          `Cloudinary getLiveStream(${streamId}) failed for cloud=${this.cloudName} (HTTP ${res.status}): ${body.slice(0, 300)}`,
+        );
+        return null;
+      }
       const json = await res.json();
       return json.data;
-    } catch {
+    } catch (err: any) {
+      this.logger.warn(
+        `Cloudinary getLiveStream(${streamId}) network error for cloud=${this.cloudName}: ${err?.message}`,
+      );
       return null;
     }
   }

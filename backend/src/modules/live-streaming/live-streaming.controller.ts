@@ -28,6 +28,7 @@ import { UpdateStreamDto } from './dto/update-stream.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 // ─── Channel-scoped Stream Controller ──────────────────────────────────────
 
@@ -122,6 +123,7 @@ export class LiveStreamingController {
 export class StreamsController {
   constructor(private readonly liveStreamingService: LiveStreamingService) {}
 
+  @Public()
   @Get('live')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'List all currently live public streams' })
@@ -137,6 +139,7 @@ export class StreamsController {
     return this.liveStreamingService.getLiveStreams(userId, page ?? 1, limit ?? 20, category);
   }
 
+  @Public()
   @Get('scheduled')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'List all upcoming scheduled public streams' })
@@ -153,6 +156,7 @@ export class StreamsController {
   }
 
 
+  @Public()
   @Get('user/:userId')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
@@ -174,6 +178,7 @@ export class StreamsController {
     );
   }
 
+  @Public()
   @Get(':id')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
@@ -210,6 +215,54 @@ export class StreamsController {
     @Param('id') streamId: string,
   ) {
     return this.liveStreamingService.deleteStream(userId, streamId);
+  }
+
+  @Post(':id/prepare')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Provision/activate ingest credentials without marking DB status LIVE yet',
+  })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  async prepareIngest(
+    @CurrentUser('sub') userId: string,
+    @Param('id') streamId: string,
+  ) {
+    return this.liveStreamingService.prepareIngest(userId, streamId);
+  }
+
+  @Post(':id/abort-start')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Roll back a failed or aborted broadcast attempt so streams never stick in LIVE',
+  })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  async abortStart(
+    @CurrentUser('sub') userId: string,
+    @Param('id') streamId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.liveStreamingService.abortStart(userId, streamId, body?.reason);
+  }
+
+  @Get(':id/ingest-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Inspect live ingest state across DB, Cloudinary live_streams API, and MediaMTX',
+  })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  async getIngestStatus(
+    @CurrentUser('sub') userId: string,
+    @Param('id') streamId: string,
+  ) {
+    return this.liveStreamingService.getIngestStatus(userId, streamId);
   }
 
   @Get(':id/whip-session')
@@ -270,6 +323,7 @@ export class StreamsController {
     return this.liveStreamingService.publishVod(userId, streamId);
   }
 
+  @Public()
   @Post('rtmp/webhook/on_publish')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -286,6 +340,7 @@ export class StreamsController {
     return { code: 0, message: 'OK' }; // code 0 allows stream in SRS, HTTP 200 allows in Nginx
   }
 
+  @Public()
   @Post('rtmp/webhook/on_done')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -305,6 +360,7 @@ export class StreamsController {
     return { code: 0, message: 'OK' };
   }
 
+  @Public()
   @Post('cloudinary/webhook')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

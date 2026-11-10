@@ -2926,7 +2926,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                                     'Go Live',
                                     style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                                  onPressed: () => _handleGoLive(streamId, bState),
+                                  onPressed: (bState.isGoingLive || !_isCameraReady)
+                                      ? null
+                                      : () => _handleGoLive(streamId, bState),
                                 ),
                               ],
                             ],
@@ -3780,22 +3782,21 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   Future<void> _startRtmpBroadcast(
     LiveStreamDto stream,
-    String streamKey,
-  ) async {
+    String streamKey, {
+    ({String whipUrl, String streamKey, String rtmpUrl})? preResolvedWhipSession,
+  }) async {
     final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
 
     if (kIsWeb) {
-      // â”€â”€ Web: WebRTC WHIP via MediaMTX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-      // Flow: Browser getUserMedia â†’ flutter_webrtc RTCPeerConnection
-      //       â†’ WHIP POST to MediaMTX â†’ MediaMTX ffmpeg â†’ Cloudinary RTMP
       debugPrint('[WEB BROADCAST] Starting WebRTC WHIP ingest...');
 
       try {
-        // Fetch the WHIP endpoint URL from the backend.
-        // This also ensures a Cloudinary stream key exists for this session.
-        final session = await ref
-            .read(liveStreamingRepositoryProvider)
-            .getWhipSession(stream.id);
+        // Reuse pre-resolved WHIP session when available so Go Live only queries
+        // GET /streams/:id/whip-session once per start attempt.
+        final session = preResolvedWhipSession ??
+            await ref
+                .read(liveStreamingRepositoryProvider)
+                .getWhipSession(stream.id);
 
         final whipUrl = session.whipUrl;
         if (whipUrl.isEmpty) {
@@ -4104,8 +4105,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         context,
         cameraSource: _selectedCameraSource,
         initialRecordLocally: _isRecordingEnabled,
-        rtmpServerUrl: bState.stream?.rtmpIngestUrl ??
-            'rtmp://stream.zikrekidusan.org/live',
+        rtmpServerUrl: bState.stream?.rtmpIngestUrl ?? Env.rtmpServerUrl,
         streamKey: bState.streamKey?.rawKey ?? _lastStreamKey,
       );
       if (confirmedMode == null) {
@@ -4116,110 +4116,154 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           confirmedMode == BroadcastRecordingMode.streamAndRecordLocally;
       setState(() => _isRecordingEnabled = shouldRecordLocally);
 
-      // On Web: preview is already live via flutter_webrtc getUserMedia.
-      // On Mobile: require camera to be initialized before going live.
+      // On Mobile: require camera to be initialized before preparing ingest.
       if (!kIsWeb && !_isCameraReady) {
-        debugPrint('[LiveStudio] Camera not ready â€” attempting re-init');
+        debugPrint('[LiveStudio] Camera not ready — attempting re-init');
         await _setupCamera(front: _isFrontCamera);
         if (!_isCameraReady) {
           throw Exception('Camera is not ready. Please allow camera access and retry.');
         }
       }
 
-      // On Web: verify WHIP gateway readiness before marking stream LIVE in DB
-      if (kIsWeb) {
-        debugPrint('[LiveStudio] Performing Web WHIP pre-flight check...');
-        final session = await ref
-            .read(liveStreamingRepositoryProvider)
-            .getWhipSession(streamId);
-        if (session.whipUrl.isEmpty) {
-          throw Exception(
-            'WHIP gateway URL is empty. Please set WHIP_GATEWAY_URL in the backend environment.',
-          );
-        }
-      }
-
       final notifier = ref.read(
         broadcasterProvider((streamId, channelId)).notifier,
       );
+      final repo = ref.read(liveStreamingRepositoryProvider);
 
-      // Step 1: Call go-live â€” backend provisions Cloudinary and embeds the key in response
-      await notifier.goLive();
+      String? key;
+      LiveStreamDto? currentStream;
 
-      final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
-      if (updatedState.error != null && updatedState.error!.isNotEmpty) {
-        throw Exception(updatedState.error);
-      }
+      if (_selectedCameraSource.requiresLocalHardware) {
+        // Connect media transport (RTMP on mobile / WHIP on Web) BEFORE marking
+        // the stream LIVE in PostgreSQL, preventing ghost LIVE streams if connect fails.
+        ({String whipUrl, String streamKey, String rtmpUrl})? webWhipSession;
+        LiveStreamDto? preparedStream = bState.stream;
 
-      // Safe diagnostic metadata logging (trace response without leaking secrets)
-      final liveStream = updatedState.stream;
-      final rawKeyCandidate = updatedState.streamKey?.rawKey;
-      final keyLen = rawKeyCandidate?.length ?? 0;
-      final safeKeyPreview = keyLen >= 8
-          ? '${rawKeyCandidate!.substring(0, 4)}...${rawKeyCandidate.substring(keyLen - 4)}'
-          : (keyLen > 0 ? '***' : 'NONE');
-      debugPrint('[LiveStudio][Diagnostic] go-live response: '
-          'success=${updatedState.error == null}, '
-          'streamKeyExists=${updatedState.streamKey != null}, '
-          'rawKeyExists=${rawKeyCandidate != null && rawKeyCandidate.isNotEmpty}, '
-          'keyLen=$keyLen, '
-          'keyPreview=$safeKeyPreview, '
-          'rtmpServerUrl=${liveStream?.rtmpIngestUrl}, '
-          'cloudinaryStreamId=${liveStream?.webrtcUrl}, '
-          'cloudinaryArchiveId=${liveStream?.dashUrl}, '
-          'streamStatus=${liveStream?.status.name}');
-
-      // Step 2: Prefer the key embedded by the go-live response (Cloudinary plain-text key)
-      var key = updatedState.streamKey?.rawKey;
-      if (key == null || key.isEmpty) {
-        key = _lastStreamKey;
-      }
-      if (key == null || key.isEmpty) {
-        key = bState.streamKey?.rawKey;
-      }
-      // If still missing, ask backend to regenerate
-      if (key == null || key.isEmpty) {
-        await notifier.regenerateStreamKey();
-        key = ref
-            .read(broadcasterProvider((streamId, channelId)))
-            .streamKey
-            ?.rawKey;
-      }
-      if (key == null || key.isEmpty) {
-        throw Exception(
-          'Could not obtain stream key. Please tap Regenerate Key and try again.',
-        );
-      }
-
-      _lastStreamKey = key;
-
-      final currentStream = updatedState.stream;
-      if (currentStream != null) {
-        if (_selectedCameraSource.requiresLocalHardware) {
-          await _startRtmpBroadcast(currentStream, key);
-        } else {
-          // External hardware/software encoder (OBS, ATEM Mini, vMix) or Network camera
-          // The external device is responsible for encoding and transmitting to the RTMP/RTSP ingest.
-          // The mobile studio updates local state to active monitor mode.
-          if (mounted) {
-            setState(() {
-              _isStreamingRtmp = true;
-              _streamingError = null;
-            });
+        if (kIsWeb) {
+          debugPrint('[LiveStudio] Preparing single Web WHIP session...');
+          webWhipSession = await repo.getWhipSession(streamId);
+          if (webWhipSession.whipUrl.isEmpty) {
+            throw Exception(
+              'WHIP gateway URL is empty. Please set WHIP_GATEWAY_URL in the backend environment.',
+            );
           }
-          debugPrint(
-            '[LiveStudio] External camera/encoder (${_selectedCameraSource.label}) '
-            'active for stream $streamId. Ingest: ${currentStream.rtmpIngestUrl}',
+          key = webWhipSession.streamKey;
+          preparedStream ??= await repo.getStreamById(streamId);
+        } else {
+          final prepared = await notifier.prepareIngest(keepBusy: true);
+          final preparedState = ref.read(broadcasterProvider((streamId, channelId)));
+          if (!prepared ||
+              (preparedState.error != null && preparedState.error!.isNotEmpty)) {
+            throw Exception(
+              preparedState.error ?? 'Failed to prepare live stream ingest.',
+            );
+          }
+          preparedStream = preparedState.stream;
+          key = preparedState.streamKey?.rawKey ??
+              _lastStreamKey ??
+              bState.streamKey?.rawKey;
+          if (key == null || key.isEmpty) {
+            await notifier.regenerateStreamKey();
+            key = ref
+                .read(broadcasterProvider((streamId, channelId)))
+                .streamKey
+                ?.rawKey;
+          }
+        }
+
+        if (key == null || key.isEmpty) {
+          throw Exception(
+            'Could not obtain stream key. Please tap Regenerate Key and try again.',
+          );
+        }
+        if (preparedStream == null) {
+          throw Exception('Stream metadata missing after prepare.');
+        }
+
+        _lastStreamKey = key;
+
+        try {
+          await _startRtmpBroadcast(
+            preparedStream,
+            key,
+            preResolvedWhipSession: webWhipSession,
+          );
+        } catch (transportErr) {
+          unawaited(notifier.abortStart(reason: 'transport_connect_failed'));
+          rethrow;
+        }
+
+        // Media transport is active — transition DB status to LIVE.
+        await notifier.goLive();
+        final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
+        if (updatedState.error != null && updatedState.error!.isNotEmpty) {
+          if (kIsWeb) {
+            unawaited(_whipBroadcaster?.stop());
+          } else {
+            unawaited(_liveStreamController?.stopStreaming());
+          }
+          unawaited(notifier.abortStart(reason: 'go_live_failed'));
+          throw Exception(updatedState.error);
+        }
+        currentStream = updatedState.stream;
+      } else {
+        // External encoders (OBS/ATEM/vMix) or network RTSP cameras need the stream LIVE
+        // first so the operator sees active ingest credentials immediately.
+        await notifier.goLive();
+        final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
+        if (updatedState.error != null && updatedState.error!.isNotEmpty) {
+          throw Exception(updatedState.error);
+        }
+
+        key = updatedState.streamKey?.rawKey ??
+            _lastStreamKey ??
+            bState.streamKey?.rawKey;
+        if (key == null || key.isEmpty) {
+          await notifier.regenerateStreamKey();
+          key = ref
+              .read(broadcasterProvider((streamId, channelId)))
+              .streamKey
+              ?.rawKey;
+        }
+        if (key == null || key.isEmpty) {
+          throw Exception(
+            'Could not obtain stream key. Please tap Regenerate Key and try again.',
           );
         }
 
-        // Start local audio recording if enabled by user
-        if (_isRecordingEnabled) {
-          final title = currentStream.title.isNotEmpty
-              ? currentStream.title
-              : _titleCtrl.text.trim();
-          unawaited(_startLocalRecording(title));
+        _lastStreamKey = key;
+        currentStream = updatedState.stream;
+
+        if (mounted) {
+          setState(() {
+            _isStreamingRtmp = true;
+            _streamingError = null;
+          });
         }
+        debugPrint(
+          '[LiveStudio] External camera/encoder (${_selectedCameraSource.label}) '
+          'active for stream $streamId. Ingest: ${currentStream?.rtmpIngestUrl}',
+        );
+      }
+
+      // Safe diagnostic metadata logging (never print raw stream key)
+      final safeKeyPreview = key.length >= 8
+          ? '${key.substring(0, 4)}...${key.substring(key.length - 4)}'
+          : '***';
+      debugPrint('[LiveStudio][Diagnostic] broadcast live: '
+          'keyLen=${key.length}, '
+          'keyPreview=$safeKeyPreview, '
+          'rtmpServerUrl=${currentStream?.rtmpIngestUrl}, '
+          'cloudinaryStreamId=${currentStream?.webrtcUrl}, '
+          'cloudinaryArchiveId=${currentStream?.dashUrl}, '
+          'streamStatus=${currentStream?.status.name}');
+
+      // Start local audio recording if enabled by user
+      if (currentStream != null && _isRecordingEnabled) {
+        final title = currentStream.title.isNotEmpty
+            ? currentStream.title
+            : _titleCtrl.text.trim();
+        unawaited(_startLocalRecording(title));
       }
     } catch (e) {
       if (mounted) {

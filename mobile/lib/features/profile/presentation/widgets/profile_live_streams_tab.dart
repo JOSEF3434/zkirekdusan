@@ -9,6 +9,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'package:mobile/app/env/env.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
@@ -1385,8 +1386,7 @@ class _StreamCard extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        stream.rtmpIngestUrl ??
-                            'rtmp://live.zikrekidusan.com/live',
+                        stream.rtmpIngestUrl ?? Env.rtmpServerUrl,
                         style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -1398,9 +1398,7 @@ class _StreamCard extends ConsumerWidget {
                       onPressed: () {
                         Clipboard.setData(
                           ClipboardData(
-                            text:
-                                stream.rtmpIngestUrl ??
-                                'rtmp://live.zikrekidusan.com/live',
+                            text: stream.rtmpIngestUrl ?? Env.rtmpServerUrl,
                           ),
                         );
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -18,6 +18,7 @@ import 'package:web/web.dart' as web;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:mobile/features/live/data/sdp_codec_helper.dart';
 
 /// Lifecycle state of a WHIP broadcast session.
 enum WhipState {
@@ -154,12 +155,15 @@ class WebWhipBroadcaster {
         await _pc!.addTrack(track, _localStream!);
       }
 
-      // ── 3. Create SDP offer ───────────────────────────────────────────────
+      // ── 3. Create SDP offer (prefer H.264 for FLV/RTMP compatibility) ────
       final offer = await _pc!.createOffer({
         'offerToReceiveAudio': false,
         'offerToReceiveVideo': false,
       });
-      await _pc!.setLocalDescription(offer);
+      final preferredSdp = preferH264InSdp(offer.sdp ?? '');
+      await _pc!.setLocalDescription(
+        RTCSessionDescription(preferredSdp, offer.type),
+      );
 
       // Wait for all ICE candidates (send full SDP to avoid trickle ICE complexity)
       await _waitForIceGathering();
@@ -186,7 +190,7 @@ class WebWhipBroadcaster {
 
       _whipResourceUrl = locationHeader ?? whipUrl;
 
-      // ── 5. Set SDP answer ─────────────────────────────────────────────────
+      // ── 5. Set SDP answer & verify ICE/RTP media actually flows ───────────
       if (responseBody.isEmpty || !responseBody.trimLeft().startsWith('v=')) {
         throw Exception('WHIP server returned invalid or empty SDP answer');
       }
@@ -194,6 +198,8 @@ class WebWhipBroadcaster {
       await _pc!.setRemoteDescription(
         RTCSessionDescription(responseBody, 'answer'),
       );
+
+      await _verifyIceAndOutboundMedia();
 
       _setState(WhipState.connected);
       debugPrint('[WHIP] ✓ WHIP session established — media flowing to MediaMTX');
@@ -384,15 +390,85 @@ class WebWhipBroadcaster {
     _pc = null;
   }
 
+  // ─── ICE Verification & Outbound Media Check ──────────────────────────────
+
+  Future<void> _verifyIceAndOutboundMedia() async {
+    const maxWait = Duration(seconds: 8);
+    const step = Duration(milliseconds: 350);
+    final deadline = DateTime.now().add(maxWait);
+
+    while (DateTime.now().isBefore(deadline)) {
+      final pc = _pc;
+      if (pc == null || _state == WhipState.failed || _state == WhipState.stopped) {
+        throw Exception('WebRTC session aborted during ICE negotiation.');
+      }
+
+      final iceState = pc.iceConnectionState;
+      if (iceState == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        throw Exception(
+          'ICE connection failed before media flowed — open 8189/udp+tcp or configure TURN on MediaMTX.',
+        );
+      }
+
+      if (iceState == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          iceState == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        try {
+          final stats = await pc.getStats();
+          final hasOutbound = stats.any((report) {
+            if (report.type != 'outbound-rtp') return false;
+            final rawBytes = report.values['bytesSent'];
+            final bytes = rawBytes is num ? rawBytes.toInt() : int.tryParse('$rawBytes') ?? 0;
+            return bytes > 0;
+          });
+          if (hasOutbound) {
+            debugPrint('[WHIP] Verified outbound-rtp bytesSent > 0');
+            return;
+          }
+        } catch (_) {
+          // If getStats is unsupported on a browser quirk, ICE connected suffices.
+          return;
+        }
+      }
+
+      await Future<void>.delayed(step);
+    }
+
+    final finalIce = _pc?.iceConnectionState;
+    if (finalIce == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+        finalIce == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+      debugPrint('[WHIP] ICE connected (${finalIce?.name}); proceeding.');
+      return;
+    }
+
+    throw Exception(
+      'WebRTC ICE negotiation timed out (state=${finalIce?.name ?? "unknown"}). '
+      'Check MediaMTX UDP/TCP port 8189 and TURN configuration.',
+    );
+  }
+
   // ─── RTCPeerConnection Config ─────────────────────────────────────────────
 
-  Map<String, dynamic> _iceConfiguration() => {
-    'iceServers': [
+  static const _turnUrl = String.fromEnvironment('WEBRTC_TURN_URL');
+  static const _turnUser = String.fromEnvironment('WEBRTC_TURN_USERNAME');
+  static const _turnCredential = String.fromEnvironment('WEBRTC_TURN_CREDENTIAL');
+
+  Map<String, dynamic> _iceConfiguration() {
+    final iceServers = <Map<String, dynamic>>[
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
-    ],
-    'bundlePolicy': 'max-bundle',
-    'rtcpMuxPolicy': 'require',
-    'sdpSemantics': 'unified-plan',
-  };
+    ];
+    if (_turnUrl.isNotEmpty) {
+      iceServers.add({
+        'urls': _turnUrl,
+        if (_turnUser.isNotEmpty) 'username': _turnUser,
+        if (_turnCredential.isNotEmpty) 'credential': _turnCredential,
+      });
+    }
+    return {
+      'iceServers': iceServers,
+      'bundlePolicy': 'max-bundle',
+      'rtcpMuxPolicy': 'require',
+      'sdpSemantics': 'unified-plan',
+    };
+  }
 }

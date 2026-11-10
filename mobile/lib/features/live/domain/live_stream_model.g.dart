@@ -45,7 +45,7 @@ _LiveStreamDto _$LiveStreamDtoFromJson(
 ) => _LiveStreamDto(
   id: json['id'] as String,
   videoChannelId: json['videoChannelId'] as String,
-  groupId: json['groupId'] as String,
+  groupId: json['groupId'] as String?,
   createdById: json['createdById'] as String,
   title: json['title'] as String,
   description: json['description'] as String?,

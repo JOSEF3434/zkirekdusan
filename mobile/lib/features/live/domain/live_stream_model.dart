@@ -95,7 +95,7 @@ abstract class LiveStreamDto with _$LiveStreamDto {
   const factory LiveStreamDto({
     required String id,
     required String videoChannelId,
-    required String groupId,
+    String? groupId,
     required String createdById,
     required String title,
     String? description,

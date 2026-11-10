@@ -6,6 +6,7 @@ import {
   PrismaHealthIndicator,
 } from '@nestjs/terminus';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 
 @ApiTags('Health')
 @Controller('health')
@@ -16,6 +17,7 @@ export class HealthController {
     private prismaService: PrismaService,
   ) {}
 
+  @Public()
   @Get()
   @HealthCheck()
   @ApiOperation({ summary: 'Check application health and database connection' })

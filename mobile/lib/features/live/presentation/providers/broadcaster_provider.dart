@@ -165,21 +165,53 @@ class BroadcasterNotifier extends StateNotifier<BroadcasterState> {
     }
   }
 
+  StreamKeyDto? _mergeEmbeddedKey(LiveStreamDto stream, String? embeddedKey) {
+    if (embeddedKey == null || embeddedKey.isEmpty) {
+      return state.streamKey;
+    }
+    return StreamKeyDto(
+      channelId: _channelId,
+      keyPrefix: state.streamKey?.keyPrefix,
+      rtmpUrl: state.streamKey?.rtmpUrl ?? stream.rtmpIngestUrl,
+      rawKey: embeddedKey,
+    );
+  }
+
+  /// Provision/activate Cloudinary credentials BEFORE transitioning DB status
+  /// to LIVE so the mobile/web encoder can connect first.
+  Future<bool> prepareIngest({bool keepBusy = false}) async {
+    state = state.copyWith(isGoingLive: true, clearError: true);
+    try {
+      final result = await _repo.prepareIngest(_streamId);
+      final updatedKey = _mergeEmbeddedKey(result.stream, result.streamKey);
+      state = state.copyWith(
+        stream: result.stream,
+        streamKey: updatedKey,
+        isGoingLive: keepBusy,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(isGoingLive: false, error: e.toString());
+      return false;
+    }
+  }
+
+  /// Roll back a failed start attempt so streams never remain stuck in LIVE.
+  Future<void> abortStart({String? reason}) async {
+    try {
+      await _repo.abortStart(_streamId, reason: reason);
+      final refreshed = await _repo.getStreamById(_streamId);
+      state = state.copyWith(stream: refreshed, isGoingLive: false);
+    } catch (_) {
+      state = state.copyWith(isGoingLive: false);
+    }
+  }
+
   Future<void> goLive() async {
     state = state.copyWith(isGoingLive: true, clearError: true);
     try {
       final result = await _repo.startStream(_streamId);
-      // Extract embedded stream key (Cloudinary plain-text key) if provided
-      final embeddedKey = result.streamKey;
-      StreamKeyDto? updatedKey = state.streamKey;
-      if (embeddedKey != null && embeddedKey.isNotEmpty) {
-        updatedKey = StreamKeyDto(
-          channelId: _channelId,
-          keyPrefix: state.streamKey?.keyPrefix,
-          rtmpUrl: state.streamKey?.rtmpUrl ?? result.stream.rtmpIngestUrl,
-          rawKey: embeddedKey,
-        );
-      }
+      final updatedKey = _mergeEmbeddedKey(result.stream, result.streamKey);
       state = state.copyWith(
         stream: result.stream,
         streamKey: updatedKey,
