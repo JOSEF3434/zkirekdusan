@@ -9,20 +9,21 @@ export class MentionQueryDto {
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ default: 8 })
+  @ApiPropertyOptional({ default: 10 })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(20)
+  @Max(25)
   @Type(() => Number)
-  limit?: number = 8;
+  limit?: number = 10;
 }
 
 export class MentionSuggestionDto {
   id!: string;
   type!: 'user' | 'group' | 'channel';
-  username!: string;      // unique handle used in mention token
+  username!: string; // canonical handle/label used in mention token (without leading @)
   displayName!: string;
   avatarUrl?: string;
   isVerified?: boolean;
+  subtitle?: string;
 }

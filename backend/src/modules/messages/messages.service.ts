@@ -16,6 +16,7 @@ import {
   PaginatedMessagesDto,
 } from './dto/message-response.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { MentionsService } from '../mentions/mentions.service.js';
 import { NotificationType } from '@prisma/client';
 
 // Interface to avoid circular dependency TDZ in TypeScript emitDecoratorMetadata
@@ -30,6 +31,7 @@ export class MessagesService {
     private readonly messagingGateway: IMessagingGateway,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    private readonly mentionsService: MentionsService,
   ) {}
 
   // ── Send a message to a conversation (DM or Channel) ──────────────────────
@@ -52,10 +54,34 @@ export class MessagesService {
       throw new ForbiddenException('You are not a member of this conversation');
     }
 
+    // Sanitize content and validate @[user:uuid:...] mention IDs server-side
+    const sanitizedContent = this.mentionsService.sanitizePlainText(dto.content);
+    const validatedMentionedUserIds =
+      await this.mentionsService.extractAndValidateAtMentionUserIds(
+        sanitizedContent,
+        dto.mentionedUserIds ?? [],
+        senderId,
+      );
+
+    // For DM/private conversations, ensure mentioned users only receive notifications
+    // if they are conversation members (do not leak private chat existence via mentions).
+    const convMemberSet = new Set<string>(
+      (conversation.members ?? []).map((m: any) => m.userId),
+    );
+    const notifiableMentionIds = validatedMentionedUserIds.filter((id) =>
+      convMemberSet.has(id),
+    );
+
+    const safeDto: SendMessageDto = {
+      ...dto,
+      content: sanitizedContent,
+      mentionedUserIds: validatedMentionedUserIds,
+    };
+
     const message = await this.messagesRepository.create(
       conversationId,
       senderId,
-      dto,
+      safeDto,
       conversation.channelId ?? undefined,
     );
 
@@ -100,16 +126,24 @@ export class MessagesService {
     this.messagingGateway.emitNewMessage(conversationId, messageDto, memberIds);
 
     // Dispatch mention notifications (fire-and-forget, never blocks send)
-    if (dto.mentionedUserIds?.length) {
-      const senderUsername = message.sender?.username ?? 'Someone';
-      for (const mentionedId of dto.mentionedUserIds) {
-        if (mentionedId === senderId) continue; // don't self-notify
+    if (notifiableMentionIds.length > 0) {
+      const senderLabel =
+        message.sender?.profile?.displayName ??
+        message.sender?.username ??
+        'Someone';
+      const preview = this.mentionsService.stripTokensToReadableText(
+        message.content,
+      );
+      for (const mentionedId of notifiableMentionIds) {
+        if (mentionedId === senderId) continue;
         this.notificationsService
           .create({
             userId: mentionedId,
             type: NotificationType.MENTION,
             title: 'You were mentioned',
-            body: `${senderUsername} mentioned you in a message`,
+            body: preview
+              ? `${senderLabel}: ${preview.slice(0, 120)}`
+              : `${senderLabel} mentioned you in a message`,
             data: { conversationId, messageId: message.id },
           })
           .catch(() => null);
@@ -222,9 +256,11 @@ export class MessagesService {
       throw new ForbiddenException('Cannot edit a deleted message');
     }
 
+    const safeContent =
+      this.mentionsService.sanitizePlainText(dto.content) ?? dto.content;
     const updated = await this.messagesRepository.update(
       messageId,
-      dto.content,
+      safeContent,
     );
     const updatedDto = this.mapToDto(updated);
     this.messagingGateway.emitMessageUpdated(

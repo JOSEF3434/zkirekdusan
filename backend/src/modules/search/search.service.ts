@@ -17,6 +17,7 @@ export class SearchService {
       groups: [],
       channels: [],
       posts: [],
+      books: [],
       videos: [],
       reels: [],
       streams: [],
@@ -34,13 +35,17 @@ export class SearchService {
         .catch(() => null);
     }
 
+    const blockedIds = await this.searchRepository
+      .getBlockedUserIds(userId)
+      .catch(() => [] as string[]);
+
     let results: Record<string, any> = {};
 
     switch (type) {
       case SearchEntityType.USERS:
         results = {
           users: await this.searchRepository
-            .searchUsers(cleanQ, limit, skip)
+            .searchUsers(cleanQ, limit, skip, { requesterId: userId, blockedIds })
             .catch((err) => {
               this.logger.error(`Error searching users: ${err.message}`);
               return [];
@@ -50,7 +55,7 @@ export class SearchService {
       case SearchEntityType.GROUPS:
         results = {
           groups: await this.searchRepository
-            .searchGroups(cleanQ, limit, skip)
+            .searchGroups(cleanQ, limit, skip, userId)
             .catch((err) => {
               this.logger.error(`Error searching groups: ${err.message}`);
               return [];
@@ -60,7 +65,7 @@ export class SearchService {
       case SearchEntityType.CHANNELS:
         results = {
           channels: await this.searchRepository
-            .searchChannels(cleanQ, limit, skip)
+            .searchChannels(cleanQ, limit, skip, userId)
             .catch((err) => {
               this.logger.error(`Error searching channels: ${err.message}`);
               return [];
@@ -70,9 +75,19 @@ export class SearchService {
       case SearchEntityType.POSTS:
         results = {
           posts: await this.searchRepository
-            .searchPosts(cleanQ, limit, skip)
+            .searchPosts(cleanQ, limit, skip, { requesterId: userId, blockedIds })
             .catch((err) => {
               this.logger.error(`Error searching posts: ${err.message}`);
+              return [];
+            }),
+        };
+        break;
+      case SearchEntityType.BOOKS:
+        results = {
+          books: await this.searchRepository
+            .searchBooks(cleanQ, limit, skip)
+            .catch((err) => {
+              this.logger.error(`Error searching books: ${err.message}`);
               return [];
             }),
         };
@@ -80,7 +95,7 @@ export class SearchService {
       case SearchEntityType.VIDEOS:
         results = {
           videos: await this.searchRepository
-            .searchVideos(cleanQ, limit, skip)
+            .searchVideos(cleanQ, limit, skip, { requesterId: userId, blockedIds })
             .catch((err) => {
               this.logger.error(`Error searching videos: ${err.message}`);
               return [];
@@ -90,7 +105,7 @@ export class SearchService {
       case SearchEntityType.REELS:
         results = {
           reels: await this.searchRepository
-            .searchReels(cleanQ, limit, skip)
+            .searchReels(cleanQ, limit, skip, { blockedIds })
             .catch((err) => {
               this.logger.error(`Error searching reels: ${err.message}`);
               return [];
@@ -108,33 +123,56 @@ export class SearchService {
         };
         break;
       default: {
-        // Unified search using allSettled to ensure fault-tolerance across models
+        const perTypeLimit = Math.max(5, Math.min(limit, 10));
+        const perTypeSkip = page > 1 ? (page - 1) * perTypeLimit : 0;
+
+        // Unified fault-tolerant search across all supported categories
         const [
           usersRes,
           groupsRes,
           channelsRes,
           postsRes,
+          booksRes,
           videosRes,
           reelsRes,
           streamsRes,
         ] = await Promise.allSettled([
-          this.searchRepository.searchUsers(cleanQ, 5, 0),
-          this.searchRepository.searchGroups(cleanQ, 5, 0),
-          this.searchRepository.searchChannels(cleanQ, 5, 0),
-          this.searchRepository.searchPosts(cleanQ, 5, 0),
-          this.searchRepository.searchVideos(cleanQ, 10, 0),
-          this.searchRepository.searchReels(cleanQ, 5, 0),
-          this.searchRepository.searchLiveStreams(cleanQ, 5, 0),
+          this.searchRepository.searchUsers(cleanQ, perTypeLimit, perTypeSkip, {
+            requesterId: userId,
+            blockedIds,
+          }),
+          this.searchRepository.searchGroups(cleanQ, perTypeLimit, perTypeSkip, userId),
+          this.searchRepository.searchChannels(cleanQ, perTypeLimit, perTypeSkip, userId),
+          this.searchRepository.searchPosts(cleanQ, perTypeLimit, perTypeSkip, {
+            requesterId: userId,
+            blockedIds,
+          }),
+          this.searchRepository.searchBooks(cleanQ, perTypeLimit, perTypeSkip),
+          this.searchRepository.searchVideos(cleanQ, Math.max(10, perTypeLimit), perTypeSkip, {
+            requesterId: userId,
+            blockedIds,
+          }),
+          this.searchRepository.searchReels(cleanQ, perTypeLimit, perTypeSkip, {
+            blockedIds,
+          }),
+          this.searchRepository.searchLiveStreams(cleanQ, perTypeLimit, perTypeSkip),
         ]);
 
+        const unwrap = (res: PromiseSettledResult<any[]>, label: string) => {
+          if (res.status === 'fulfilled') return res.value;
+          this.logger.error(`Unified search [${label}] failed: ${res.reason}`);
+          return [];
+        };
+
         results = {
-          users: usersRes.status === 'fulfilled' ? usersRes.value : [],
-          groups: groupsRes.status === 'fulfilled' ? groupsRes.value : [],
-          channels: channelsRes.status === 'fulfilled' ? channelsRes.value : [],
-          posts: postsRes.status === 'fulfilled' ? postsRes.value : [],
-          videos: videosRes.status === 'fulfilled' ? videosRes.value : [],
-          reels: reelsRes.status === 'fulfilled' ? reelsRes.value : [],
-          streams: streamsRes.status === 'fulfilled' ? streamsRes.value : [],
+          users: unwrap(usersRes, 'users'),
+          groups: unwrap(groupsRes, 'groups'),
+          channels: unwrap(channelsRes, 'channels'),
+          posts: unwrap(postsRes, 'posts'),
+          books: unwrap(booksRes, 'books'),
+          videos: unwrap(videosRes, 'videos'),
+          reels: unwrap(reelsRes, 'reels'),
+          streams: unwrap(streamsRes, 'streams'),
         };
       }
     }

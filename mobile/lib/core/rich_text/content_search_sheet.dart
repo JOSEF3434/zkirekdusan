@@ -1,17 +1,23 @@
 // lib/core/rich_text/content_search_sheet.dart
 //
-// Bottom sheet for # content search. Opens when user types # in a composer.
-// Shows a search field and mixed content results (videos, books, groups, etc.).
-// User taps an item → token inserted into the composer text field.
+// Global Content Search sheet triggered by `#` in any RichTextComposer.
+// Directly backed by `SearchRepository` (`/api/search`), supporting:
+//   • All entity categories (Videos, Books & Dictionaries, People, Groups,
+//     Channels, Posts, Live Streams, Reels)
+//   • Category filter chips matching the top-left Global Search screen
+//   • Recent searches history + paginated load-more
+//   • Error state with retry + clean dark/light & Amharic/English UX
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/rich_text/mention_entity.dart';
 import 'package:mobile/core/rich_text/providers/content_search_provider.dart';
+import 'package:mobile/features/explore/domain/search_model.dart';
+import 'package:mobile/features/explore/presentation/providers/search_provider.dart';
 
-/// Shows the content search sheet and returns the selected [ContentSearchItem],
-/// or `null` if the user dismissed without selecting.
+/// Shows the global content search picker and returns the selected [ContentSearchItem],
+/// or `null` if dismissed.
 Future<ContentSearchItem?> showContentSearchSheet(
   BuildContext context, {
   String initialQuery = '',
@@ -20,6 +26,7 @@ Future<ContentSearchItem?> showContentSearchSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    constraints: const BoxConstraints(maxWidth: 620),
     builder: (_) => _ContentSearchSheet(initialQuery: initialQuery),
   );
 }
@@ -35,13 +42,14 @@ class _ContentSearchSheet extends ConsumerStatefulWidget {
 
 class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
   late final TextEditingController _searchCtrl;
+  late final ScrollController _scrollCtrl;
 
   @override
   void initState() {
     super.initState();
     _searchCtrl = TextEditingController(text: widget.initialQuery);
-    // Run initial search if query was pre-filled
-    if (widget.initialQuery.isNotEmpty) {
+    _scrollCtrl = ScrollController()..addListener(_onScroll);
+    if (widget.initialQuery.trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref
             .read(contentSearchProvider.notifier)
@@ -53,8 +61,22 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
   @override
   void dispose() {
     _searchCtrl.dispose();
-    ref.read(contentSearchProvider.notifier).clear();
+    _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    if (_scrollCtrl.offset >= _scrollCtrl.position.maxScrollExtent - 160) {
+      ref.read(contentSearchProvider.notifier).loadNextPage();
+    }
+  }
+
+  void _selectQuery(String q) {
+    _searchCtrl.text = q;
+    _searchCtrl.selection = TextSelection.collapsed(offset: q.length);
+    setState(() {});
+    ref.read(contentSearchProvider.notifier).search(q);
   }
 
   @override
@@ -62,6 +84,7 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final state = ref.watch(contentSearchProvider);
+    final recentAsync = ref.watch(recentSearchesProvider);
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -73,7 +96,6 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
           Container(
             margin: const EdgeInsets.only(top: 10, bottom: 4),
             width: 36,
@@ -83,16 +105,18 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Row(
               children: [
-                const Icon(Icons.search_rounded,
-                    color: Color(0xFF00C6FF), size: 20),
+                const Icon(
+                  Icons.tag_rounded,
+                  color: Color(0xFF00C6FF),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  'Search Content',
+                  'Insert Reference (Global Search)',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -109,9 +133,9 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
               ],
             ),
           ),
-          // Search field
+          // Search input
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
             child: TextField(
               controller: _searchCtrl,
               autofocus: true,
@@ -120,25 +144,25 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
                 fontSize: 15,
               ),
               decoration: InputDecoration(
-                hintText: 'Search videos, books, channels, groups…',
-                hintStyle: TextStyle(
-                  color: isDark ? Colors.grey[500] : Colors.grey[500],
-                  fontSize: 14,
-                ),
+                hintText: 'Search videos, books, channels, groups, users…',
+                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
                 filled: true,
-                fillColor:
-                    isDark ? const Color(0xFF1E2638) : Colors.grey[100],
+                fillColor: isDark ? const Color(0xFF1E2638) : Colors.grey[100],
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    size: 18, color: Color(0xFF00C6FF)),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: Color(0xFF00C6FF),
+                ),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 16),
                         onPressed: () {
                           _searchCtrl.clear();
+                          setState(() {});
                           ref.read(contentSearchProvider.notifier).clear();
                         },
                       )
@@ -147,16 +171,21 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
                 contentPadding:
                     const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
               ),
-              onChanged: (q) =>
-                  ref.read(contentSearchProvider.notifier).search(q),
+              onChanged: (q) {
+                setState(() {});
+                ref.read(contentSearchProvider.notifier).search(q);
+              },
             ),
           ),
-          // Results
+          // Category Filter Chips
+          _buildFilterChips(state, isDark, theme),
+          const Divider(height: 1),
+          // Results list / states
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.5,
+              maxHeight: MediaQuery.of(context).size.height * 0.52,
             ),
-            child: _buildResults(state, isDark),
+            child: _buildBody(state, recentAsync, isDark),
           ),
           const SizedBox(height: 8),
         ],
@@ -164,10 +193,65 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
     );
   }
 
-  Widget _buildResults(ContentSearchState state, bool isDark) {
+  Widget _buildFilterChips(
+    ContentSearchState state,
+    bool isDark,
+    ThemeData theme,
+  ) {
+    final chips = <(SearchEntityType?, String)>[
+      (null, 'All'),
+      (SearchEntityType.videos, 'Videos'),
+      (SearchEntityType.books, 'Books'),
+      (SearchEntityType.channels, 'Channels'),
+      (SearchEntityType.groups, 'Groups'),
+      (SearchEntityType.users, 'People'),
+      (SearchEntityType.posts, 'Posts'),
+      (SearchEntityType.streams, 'Live'),
+    ];
+
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        itemCount: chips.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final chip = chips[index];
+          final selected = state.selectedType == chip.$1;
+          return ChoiceChip(
+            label: Text(
+              chip.$2,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected
+                    ? Colors.black87
+                    : (isDark ? Colors.grey[300] : Colors.black87),
+              ),
+            ),
+            selected: selected,
+            showCheckmark: false,
+            selectedColor: const Color(0xFF00C6FF),
+            backgroundColor: isDark ? const Color(0xFF1E2638) : Colors.grey[200],
+            side: BorderSide.none,
+            visualDensity: VisualDensity.compact,
+            onSelected: (_) =>
+                ref.read(contentSearchProvider.notifier).setType(chip.$1),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    ContentSearchState state,
+    AsyncValue<List<String>> recentAsync,
+    bool isDark,
+  ) {
     if (state.isLoading && state.items.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(36),
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2,
@@ -177,35 +261,62 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
       );
     }
 
-    if (state.query.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.search_rounded,
-                size: 40, color: Colors.grey[400]),
-            const SizedBox(height: 10),
-            Text(
-              'Type to search videos, books,\nchannels, groups and more.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 13,
+    if (state.query.trim().isEmpty) {
+      return recentAsync.when(
+        loading: () => _buildEmptyHint(),
+        error: (_, _) => _buildEmptyHint(),
+        data: (recents) {
+          if (recents.isEmpty) return _buildEmptyHint();
+          return ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                child: Text(
+                  'Recent searches',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[500],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+              ...recents.take(6).map(
+                (q) => ListTile(
+                  dense: true,
+                  leading: Icon(Icons.history_rounded,
+                      size: 18, color: Colors.grey[500]),
+                  title: Text(q, style: const TextStyle(fontSize: 14)),
+                  onTap: () => _selectQuery(q),
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
 
-    if (state.error != null) {
+    if (state.error != null && state.items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(
-          state.error!,
-          style: const TextStyle(color: Colors.redAccent),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 36, color: Colors.redAccent),
+            const SizedBox(height: 10),
+            Text(
+              state.error!,
+              style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[800]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => ref.read(contentSearchProvider.notifier).retry(),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
         ),
       );
     }
@@ -213,22 +324,74 @@ class _ContentSearchSheetState extends ConsumerState<_ContentSearchSheet> {
     if (state.items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(
-          'No results for "${state.query}"',
-          style: TextStyle(color: Colors.grey[500], fontSize: 13),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off_rounded, size: 40, color: Colors.grey[500]),
+            const SizedBox(height: 10),
+            Text(
+              'No results for "${state.query.trim()}"',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13.5),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      itemCount: state.items.length,
-      itemBuilder: (ctx, i) => _ContentItemTile(
-        item: state.items[i],
-        isDark: isDark,
-        onTap: () => Navigator.pop(ctx, state.items[i]),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (state.isLoading)
+          const LinearProgressIndicator(
+            minHeight: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6FF)),
+          ),
+        Flexible(
+          child: ListView.builder(
+            controller: _scrollCtrl,
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
+            itemBuilder: (ctx, i) {
+              if (i >= state.items.length) {
+                return const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
+              return _ContentItemTile(
+                item: state.items[i],
+                isDark: isDark,
+                onTap: () => Navigator.pop(ctx, state.items[i]),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyHint() {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_rounded, size: 40, color: Colors.grey[400]),
+          const SizedBox(height: 10),
+          Text(
+            'Search across Zikre Kedusan for videos, books, dictionaries, channels, groups, posts, or people.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+          ),
+        ],
       ),
     );
   }
@@ -246,37 +409,41 @@ class _ContentItemTile extends StatelessWidget {
   });
 
   IconData get _icon => switch (item.entityType) {
-        'video' => Icons.play_circle_outline_rounded,
-        'book' => Icons.menu_book_rounded,
-        'channel' => Icons.subscriptions_rounded,
-        'group' => Icons.group_rounded,
-        'post' => Icons.article_outlined,
-        'stream' => Icons.live_tv_rounded,
-        'user' => Icons.person_rounded,
-        _ => Icons.link_rounded,
-      };
+    'video' => Icons.play_circle_outline_rounded,
+    'book' => Icons.menu_book_rounded,
+    'channel' => Icons.tv_rounded,
+    'group' => Icons.group_rounded,
+    'post' => Icons.article_outlined,
+    'stream' => Icons.live_tv_rounded,
+    'user' => Icons.person_rounded,
+    'reel' => Icons.movie_creation_outlined,
+    _ => Icons.link_rounded,
+  };
 
   Color get _iconColor => switch (item.entityType) {
-        'video' => const Color(0xFF10B981),
-        'book' => const Color(0xFFFFB300),
-        'channel' => const Color(0xFF00C6FF),
-        'group' => const Color(0xFF8B5CF6),
-        'post' => const Color(0xFFEC4899),
-        'stream' => const Color(0xFFEF4444),
-        _ => const Color(0xFF00C6FF),
-      };
+    'video' => const Color(0xFF10B981),
+    'book' => const Color(0xFFFFB300),
+    'channel' => const Color(0xFF00C6FF),
+    'group' => const Color(0xFF8B5CF6),
+    'post' => const Color(0xFFEC4899),
+    'stream' => const Color(0xFFEF4444),
+    'reel' => const Color(0xFFF97316),
+    _ => const Color(0xFF00C6FF),
+  };
 
   @override
   Widget build(BuildContext context) {
+    final badgeText = item.badgeLabel ?? item.entityType;
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         child: Row(
           children: [
-            // Thumbnail or icon
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(
+                item.entityType == 'user' ? 22 : 8,
+              ),
               child: SizedBox(
                 width: 44,
                 height: 44,
@@ -290,21 +457,34 @@ class _ContentItemTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // Title + subtitle
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item.title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (item.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified_rounded,
+                          size: 13,
+                          color: Color(0xFF00C6FF),
+                        ),
+                      ],
+                    ],
                   ),
                   if (item.subtitle != null && item.subtitle!.isNotEmpty)
                     Text(
@@ -319,20 +499,21 @@ class _ContentItemTile extends StatelessWidget {
                 ],
               ),
             ),
-            // Type badge
+            const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: _iconColor.withValues(alpha: 0.12),
+                color: item.isLive
+                    ? Colors.red
+                    : _iconColor.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                item.entityType,
+                badgeText,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: _iconColor,
+                  fontWeight: FontWeight.w700,
+                  color: item.isLive ? Colors.white : _iconColor,
                 ),
               ),
             ),
@@ -343,8 +524,8 @@ class _ContentItemTile extends StatelessWidget {
   }
 
   Widget _iconBox() => Container(
-        color: _iconColor.withValues(alpha: 0.15),
-        alignment: Alignment.center,
-        child: Icon(_icon, color: _iconColor, size: 22),
-      );
+    color: _iconColor.withValues(alpha: 0.15),
+    alignment: Alignment.center,
+    child: Icon(_icon, color: _iconColor, size: 22),
+  );
 }

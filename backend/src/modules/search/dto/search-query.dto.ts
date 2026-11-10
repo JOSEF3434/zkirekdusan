@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -7,6 +7,7 @@ export enum SearchEntityType {
   GROUPS = 'GROUPS',
   CHANNELS = 'CHANNELS',
   POSTS = 'POSTS',
+  BOOKS = 'BOOKS',
   VIDEOS = 'VIDEOS',
   REELS = 'REELS',
   PLAYLISTS = 'PLAYLISTS',
@@ -34,6 +35,7 @@ export class SearchQueryDto {
   @ApiPropertyOptional()
   @IsInt()
   @Min(1)
+  @Max(50)
   @Type(() => Number)
   @IsOptional()
   limit?: number = 20;

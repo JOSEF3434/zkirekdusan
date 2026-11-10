@@ -1,22 +1,13 @@
 // lib/core/rich_text/rich_text_composer.dart
 //
-// A self-contained composer widget that wraps a TextField (or any child) with:
-//   • @ mention autocomplete panel (floats above the field)
-//   • # content search sheet (opens as bottom sheet)
+// Shared composer wrapper adding:
+//   • @ mention autocomplete panel (Users, Groups, Channels) with keyboard nav
+//   • # Global Content Search sheet (powered by SearchRepository)
 //
-// Usage — replace a plain TextField block with:
-//
-//   RichTextComposer(
-//     controller: _mentionController,       // MentionTextController
-//     focusNode: widget.focusNode,
-//     child: TextField(controller: _mentionController, ...),
-//     onMentionSelected: (s) => _mentionController.insertMention(s),
-//     onContentRefSelected: (c) => _mentionController.insertContentRef(c),
-//   )
-//
-// The widget manages the suggestion panel visibility internally.
+// Preserves existing TextField behavior when no trigger panel is active.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/rich_text/content_search_sheet.dart';
 import 'package:mobile/core/rich_text/mention_entity.dart';
@@ -25,18 +16,10 @@ import 'package:mobile/core/rich_text/providers/mention_suggestions_provider.dar
 import 'package:mobile/core/rich_text/suggestion_overlay.dart';
 
 class RichTextComposer extends ConsumerStatefulWidget {
-  /// Must be a [MentionTextController].
   final MentionTextController controller;
-
   final FocusNode? focusNode;
-
-  /// The actual TextField widget — built by the caller.
   final Widget child;
-
-  /// Called when a mention suggestion is selected (@ flow).
   final void Function(MentionSuggestion)? onMentionSelected;
-
-  /// Called when a content reference is selected (# flow).
   final void Function(ContentSearchItem)? onContentRefSelected;
 
   const RichTextComposer({
@@ -55,8 +38,6 @@ class RichTextComposer extends ConsumerStatefulWidget {
 class _RichTextComposerState extends ConsumerState<RichTextComposer> {
   MentionTrigger _currentTrigger = MentionTrigger.none;
   bool _sheetOpen = false;
-  /// Temporarily suppresses the # trigger after the sheet is dismissed
-  /// to prevent an immediate re-open caused by residual trigger state.
   bool _suppressHashTrigger = false;
 
   @override
@@ -86,20 +67,23 @@ class _RichTextComposerState extends ConsumerState<RichTextComposer> {
     if (trigger == MentionTrigger.atMention) {
       setState(() => _currentTrigger = trigger);
       ref.read(mentionSuggestionsProvider.notifier).search(query);
-    } else if (trigger == MentionTrigger.hashContent && !_sheetOpen && !_suppressHashTrigger) {
+    } else if (trigger == MentionTrigger.hashContent &&
+        !_sheetOpen &&
+        !_suppressHashTrigger) {
       setState(() {
         _currentTrigger = MentionTrigger.none;
         _sheetOpen = true;
       });
       _openContentSheet(query);
     } else if (trigger == MentionTrigger.none) {
-      setState(() => _currentTrigger = MentionTrigger.none);
+      if (_currentTrigger != MentionTrigger.none) {
+        setState(() => _currentTrigger = MentionTrigger.none);
+      }
       ref.read(mentionSuggestionsProvider.notifier).clear();
     }
   }
 
   Future<void> _openContentSheet(String initialQuery) async {
-    // Unfocus to avoid keyboard fighting the sheet
     widget.focusNode?.unfocus();
     FocusScope.of(context).unfocus();
 
@@ -114,19 +98,66 @@ class _RichTextComposerState extends ConsumerState<RichTextComposer> {
       widget.controller.insertContentRef(selected);
       widget.onContentRefSelected?.call(selected);
     } else if (mounted) {
-      // User dismissed — remove the # trigger text so it doesn't re-open.
-      // Also suppress the hash trigger briefly so the text change caused by
-      // dismissTrigger() doesn't immediately re-open the sheet.
       _suppressHashTrigger = true;
-      widget.controller.dismissTrigger();
-      // Allow # to trigger again after the text-change settles
+      widget.controller.dismissTrigger(removeHashText: true);
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) _suppressHashTrigger = false;
       });
     }
 
-    // Re-focus the text field after sheet closes
     if (mounted) widget.focusNode?.requestFocus();
+  }
+
+  void _selectMention(MentionSuggestion suggestion) {
+    widget.controller.insertMention(suggestion);
+    widget.onMentionSelected?.call(suggestion);
+    setState(() => _currentTrigger = MentionTrigger.none);
+    ref.read(mentionSuggestionsProvider.notifier).clear();
+    widget.focusNode?.requestFocus();
+  }
+
+  void _dismissAtPanel() {
+    setState(() => _currentTrigger = MentionTrigger.none);
+    widget.controller.dismissTrigger(removeHashText: false);
+    ref.read(mentionSuggestionsProvider.notifier).clear();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (_currentTrigger != MentionTrigger.atMention) {
+      return KeyEventResult.ignored;
+    }
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final notifier = ref.read(mentionSuggestionsProvider.notifier);
+    final suggState = ref.read(mentionSuggestionsProvider);
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _dismissAtPanel();
+      return KeyEventResult.handled;
+    }
+
+    if (suggState.suggestions.isNotEmpty) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        notifier.moveHighlight(1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        notifier.moveHighlight(-1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter ||
+          event.logicalKey == LogicalKeyboardKey.tab) {
+        final chosen = notifier.highlightedSuggestion;
+        if (chosen != null) {
+          _selectMention(chosen);
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -134,24 +165,27 @@ class _RichTextComposerState extends ConsumerState<RichTextComposer> {
     final suggestionsState = ref.watch(mentionSuggestionsProvider);
     final showPanel = _currentTrigger == MentionTrigger.atMention;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // @ suggestion panel (above the composer)
-        if (showPanel)
-          MentionSuggestionPanel(
-            suggestions: suggestionsState.suggestions,
-            isLoading: suggestionsState.isLoading,
-            onSelect: (suggestion) {
-              widget.controller.insertMention(suggestion);
-              widget.onMentionSelected?.call(suggestion);
-              setState(() => _currentTrigger = MentionTrigger.none);
-              ref.read(mentionSuggestionsProvider.notifier).clear();
-            },
-          ),
-        // The actual text input widget (passed by caller)
-        widget.child,
-      ],
+    return Focus(
+      skipTraversal: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showPanel)
+            MentionSuggestionPanel(
+              query: suggestionsState.query,
+              suggestions: suggestionsState.suggestions,
+              isLoading: suggestionsState.isLoading,
+              hasSearched: suggestionsState.hasSearched,
+              error: suggestionsState.error,
+              highlightedIndex: suggestionsState.highlightedIndex,
+              onSelect: _selectMention,
+              onRetry: () => ref.read(mentionSuggestionsProvider.notifier).retry(),
+              onDismiss: _dismissAtPanel,
+            ),
+          widget.child,
+        ],
+      ),
     );
   }
 }

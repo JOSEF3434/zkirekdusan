@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
 import 'package:mobile/features/groups/data/group_repository.dart';
@@ -199,8 +200,8 @@ class _GroupChannelHeaderState extends ConsumerState<GroupChannelHeader> {
           ),
           if (group.description != null && group.description!.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(
-              group.description!,
+            RichTextRenderer(
+              content: group.description!,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

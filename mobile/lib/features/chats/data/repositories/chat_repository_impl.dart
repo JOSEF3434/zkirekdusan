@@ -381,6 +381,7 @@ class ChatRepositoryImpl implements ChatRepository {
               'type': type,
               'replyToId': replyToId,
               'fileIds': attachmentIds,
+              'mentionedUserIds': mentionedUserIds,
               'clientId': effectiveClientId,
               'localId': localId,
             }),

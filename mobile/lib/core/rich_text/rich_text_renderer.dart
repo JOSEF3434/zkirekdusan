@@ -1,26 +1,21 @@
 // lib/core/rich_text/rich_text_renderer.dart
 //
-// Parses rich-text content strings containing @[type:id:label] and
-// #[type:id:label] tokens and renders them as tappable InlineSpans.
-//
-// Falls back gracefully to plain Text for legacy content without tokens.
+// Centralized interactive rich-text parser & renderer.
+// Parses @[type:uuid:label] and #[type:uuid:label] inline tokens into
+// tappable spans that open the destination entity via InternalLinkHandler,
+// while preserving normal text, Amharic/Unicode, line breaks, and emojis.
+// Disposes TapGestureRecognizers cleanly on rebuild and unmount.
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/core/rich_text/internal_link_handler.dart';
 import 'package:mobile/core/rich_text/mention_entity.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
 
-// Token regex: matches @[type:uuid:label] or #[type:uuid:label]
-// Supports labels with spaces, Amharic, Unicode, and punctuation.
-final _tokenRegex = RegExp(
-  r'([@#])\[([a-z]+):([0-9a-f-]{36}):([^\]]+)\]',
-  unicode: true,
-);
-
-/// Parses a content string into a list of [RichTextEntity].
+/// Parses a content string into structured [RichTextEntity] objects.
 List<RichTextEntity> parseEntities(String content) {
   final entities = <RichTextEntity>[];
-  for (final match in _tokenRegex.allMatches(content)) {
+  for (final match in richTextTokenRegex.allMatches(content)) {
     final trigger = match.group(1)!;
     final typeStr = match.group(2)!;
     final id = match.group(3)!;
@@ -28,17 +23,19 @@ List<RichTextEntity> parseEntities(String content) {
     final type = MentionEntityTypeX.fromPrefix(typeStr);
     if (type == null) continue;
 
-    // Validate trigger aligns with entity type
-    final expectedTrigger = (type == MentionEntityType.user ||
-            type == MentionEntityType.group ||
-            type == MentionEntityType.channel)
-        ? '@'
-        : '#';
-    if (trigger != expectedTrigger) continue;
+    // `@` is valid for mentionable entities (user, group, channel);
+    // `#` is valid for ALL Global Search content references (including user/group/channel refs).
+    if (trigger == '@' &&
+        type != MentionEntityType.user &&
+        type != MentionEntityType.group &&
+        type != MentionEntityType.channel) {
+      continue;
+    }
 
     entities.add(RichTextEntity(
       start: match.start,
       end: match.end,
+      triggerChar: trigger,
       type: type,
       id: id,
       label: label,
@@ -47,32 +44,26 @@ List<RichTextEntity> parseEntities(String content) {
   return entities;
 }
 
-/// Returns the plain-text representation of a rich-text string
-/// (strips tokens, shows @username or #Title).
+/// Converts inline tokens into clean readable plain text
+/// (`@[user:uuid:jj]` -> `@jj`, `#[video:uuid:Test]` -> `#Test`)
+/// for reply previews, chat list snippets, clipboard copy, and notifications.
 String stripTokens(String content) {
-  return content.replaceAllMapped(_tokenRegex, (m) {
+  if (content.isEmpty) return content;
+  return content.replaceAllMapped(richTextTokenRegex, (m) {
     final trigger = m.group(1)!;
     final label = m.group(4)!;
     return '$trigger$label';
   });
 }
 
-/// Reusable rich-text display widget.
-///
-/// Usage:
-/// ```dart
-/// RichTextRenderer(
-///   content: message.content ?? '',
-///   style: Theme.of(context).textTheme.bodyMedium,
-/// )
-/// ```
-class RichTextRenderer extends StatelessWidget {
+class RichTextRenderer extends StatefulWidget {
   final String content;
   final TextStyle? style;
   final TextStyle? linkStyle;
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign textAlign;
+  final bool selectable;
 
   const RichTextRenderer({
     super.key,
@@ -82,39 +73,87 @@ class RichTextRenderer extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign = TextAlign.start,
+    this.selectable = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (content.isEmpty) return const SizedBox.shrink();
+  State<RichTextRenderer> createState() => _RichTextRendererState();
+}
 
-    // Fast path: no tokens present — just render plain text
-    if (!_tokenRegex.hasMatch(content)) {
+class _RichTextRendererState extends State<RichTextRenderer> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _disposeRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _disposeRecognizers();
+
+    if (widget.content.isEmpty) return const SizedBox.shrink();
+
+    // Fast path: plain text without tokens
+    if (!richTextTokenRegex.hasMatch(widget.content)) {
+      if (widget.selectable) {
+        return SelectableText(
+          widget.content,
+          style: widget.style,
+          maxLines: widget.maxLines,
+          textAlign: widget.textAlign,
+        );
+      }
       return Text(
-        content,
-        style: style,
-        maxLines: maxLines,
-        overflow: overflow,
-        textAlign: textAlign,
+        widget.content,
+        style: widget.style,
+        maxLines: widget.maxLines,
+        overflow: widget.overflow,
+        textAlign: widget.textAlign,
       );
     }
 
     final theme = Theme.of(context);
-    final baseStyle = style ?? theme.textTheme.bodyMedium ?? const TextStyle();
-    final effectiveLinkStyle = linkStyle ??
+    final baseStyle = widget.style ?? theme.textTheme.bodyMedium ?? const TextStyle();
+    final defaultLinkColor = theme.brightness == Brightness.dark
+        ? const Color(0xFF38BDF8)
+        : theme.colorScheme.primary;
+    final effectiveLinkStyle = widget.linkStyle ??
         baseStyle.copyWith(
-          color: const Color(0xFF00C6FF),
+          color: defaultLinkColor,
           fontWeight: FontWeight.w600,
-          decoration: TextDecoration.none,
+          decoration: TextDecoration.underline,
+          decorationColor: defaultLinkColor.withValues(alpha: 0.6),
         );
 
-    final spans = _buildSpans(content, baseStyle, effectiveLinkStyle, context);
+    final spans = _buildSpans(
+      widget.content,
+      baseStyle,
+      effectiveLinkStyle,
+      context,
+    );
+
+    if (widget.selectable) {
+      return SelectableText.rich(
+        TextSpan(children: spans),
+        maxLines: widget.maxLines,
+        textAlign: widget.textAlign,
+      );
+    }
 
     return Text.rich(
       TextSpan(children: spans),
-      maxLines: maxLines,
-      overflow: overflow,
-      textAlign: textAlign,
+      maxLines: widget.maxLines,
+      overflow: widget.overflow,
+      textAlign: widget.textAlign,
     );
   }
 
@@ -125,47 +164,30 @@ class RichTextRenderer extends StatelessWidget {
     BuildContext context,
   ) {
     final spans = <InlineSpan>[];
+    final entities = parseEntities(content);
     int cursor = 0;
 
-    for (final match in _tokenRegex.allMatches(content)) {
-      // Plain text before the token
-      if (match.start > cursor) {
+    for (final entity in entities) {
+      if (entity.start > cursor) {
         spans.add(TextSpan(
-          text: content.substring(cursor, match.start),
+          text: content.substring(cursor, entity.start),
           style: base,
         ));
       }
 
-      final trigger = match.group(1)!;
-      final typeStr = match.group(2)!;
-      final id = match.group(3)!;
-      final label = match.group(4)!;
-      final type = MentionEntityTypeX.fromPrefix(typeStr);
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => InternalLinkHandler.navigate(context, entity);
+      _recognizers.add(recognizer);
 
-      if (type != null) {
-        final entity = RichTextEntity(
-          start: match.start,
-          end: match.end,
-          type: type,
-          id: id,
-          label: label,
-        );
+      spans.add(TextSpan(
+        text: entity.displayText,
+        style: linkStyle,
+        recognizer: recognizer,
+      ));
 
-        spans.add(TextSpan(
-          text: '$trigger$label',
-          style: linkStyle,
-          recognizer: TapGestureRecognizer()
-            ..onTap = () => InternalLinkHandler.navigate(context, entity),
-        ));
-      } else {
-        // Unknown type — render raw
-        spans.add(TextSpan(text: match.group(0), style: base));
-      }
-
-      cursor = match.end;
+      cursor = entity.end;
     }
 
-    // Remaining plain text after last token
     if (cursor < content.length) {
       spans.add(TextSpan(
         text: content.substring(cursor),

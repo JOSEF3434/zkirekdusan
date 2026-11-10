@@ -8,12 +8,17 @@ import { VideoCommentsRepository } from './video-comments.repository.js';
 import { CreateVideoCommentDto } from './dto/create-video-comment.dto.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AppRole } from '../../common/constants/roles.js';
+import { MentionsService } from '../mentions/mentions.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class VideoCommentsService {
   constructor(
     private readonly repo: VideoCommentsRepository,
     private readonly prisma: PrismaService,
+    private readonly mentionsService: MentionsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(videoId: string, userId: string, dto: CreateVideoCommentDto) {
@@ -22,7 +27,40 @@ export class VideoCommentsService {
     });
     if (!video) throw new NotFoundException('Video not found');
 
-    return this.repo.create(videoId, userId, dto.content, dto.parentId);
+    const sanitized =
+      this.mentionsService.sanitizePlainText(dto.content) ?? dto.content;
+    const created = await this.repo.create(
+      videoId,
+      userId,
+      sanitized,
+      dto.parentId,
+    );
+
+    if (video.visibility !== 'PRIVATE') {
+      const mentionedIds =
+        await this.mentionsService.extractAndValidateAtMentionUserIds(
+          sanitized,
+          [],
+          userId,
+        );
+      if (mentionedIds.length > 0) {
+        const preview = this.mentionsService.stripTokensToReadableText(sanitized);
+        for (const mentionedId of mentionedIds) {
+          if (mentionedId === userId) continue;
+          this.notificationsService
+            .create({
+              userId: mentionedId,
+              type: NotificationType.MENTION,
+              title: 'You were mentioned on a video',
+              body: preview ? preview.slice(0, 120) : 'Someone mentioned you in a video comment',
+              data: { videoId, commentId: created.id },
+            })
+            .catch(() => null);
+        }
+      }
+    }
+
+    return created;
   }
 
   async findByVideo(videoId: string, page = 1, limit = 20) {

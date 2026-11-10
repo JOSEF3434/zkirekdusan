@@ -10,6 +10,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
@@ -1325,8 +1328,8 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                     const SizedBox(height: 12),
 
                     // Content
-                    Text(
-                      content,
+                    RichTextRenderer(
+                      content: content,
                       style: TextStyle(
                         fontSize: 14,
                         color: isDark ? Colors.grey[200] : Colors.black87,
@@ -1507,16 +1510,23 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               const SizedBox(height: 8),
-              Text(
-                channel.description != null && channel.description!.isNotEmpty
-                    ? channel.description!
-                    : 'No description provided.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.grey[300] : Colors.grey[700],
-                  height: 1.4,
-                ),
-              ),
+              channel.description != null && channel.description!.isNotEmpty
+                  ? RichTextRenderer(
+                      content: channel.description!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[300] : Colors.grey[700],
+                        height: 1.4,
+                      ),
+                    )
+                  : Text(
+                      'No description provided.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.grey[300] : Colors.grey[700],
+                        height: 1.4,
+                      ),
+                    ),
             ],
           ),
         ),
@@ -1599,7 +1609,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
   // ── Community Post Dialogs ──────────────────────────────────────────────────
 
   Future<void> _createCommunityPost(BuildContext context, String channelId) async {
-    final contentController = TextEditingController();
+    final contentController = MentionTextController();
     final formKey = GlobalKey<FormState>();
 
     await showDialog(
@@ -1609,16 +1619,22 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
         title: const Text('New Community Post'),
         content: Form(
           key: formKey,
-          child: TextFormField(
-            controller: contentController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: 'Share an announcement or update with your subscribers...',
-              border: OutlineInputBorder(),
+          child: SizedBox(
+            width: 420,
+            child: RichTextComposer(
+              controller: contentController,
+              child: TextFormField(
+                controller: contentController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Share an announcement or update (@mention, #content)...',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Content cannot be empty'
+                    : null,
+              ),
             ),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Content cannot be empty'
-                : null,
           ),
         ),
         actions: [
@@ -1666,7 +1682,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
   }
 
   Future<void> _showCommentsSheet(BuildContext context, String channelId, String postId) async {
-    final commentController = TextEditingController();
+    final commentController = MentionTextController();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     await showModalBottomSheet(
@@ -1726,7 +1742,7 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                           final text = c['content'] ?? '';
                           return ListTile(
                             title: Text(authorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: Text(text),
+                            subtitle: RichTextRenderer(content: text),
                           );
                         },
                       );
@@ -1738,34 +1754,37 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF0E1621) : Colors.grey[100],
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: commentController,
-                          decoration: const InputDecoration(
-                            hintText: 'Add a comment...',
-                            border: InputBorder.none,
+                  child: RichTextComposer(
+                    controller: commentController,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: commentController,
+                            decoration: const InputDecoration(
+                              hintText: 'Add a comment (@mention, #content)...',
+                              border: InputBorder.none,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.send_rounded, color: Color(0xFF00C6FF)),
-                        onPressed: () async {
-                          final txt = commentController.text.trim();
-                          if (txt.isEmpty) return;
-                          commentController.clear();
-                          try {
-                            final dio = ref.read(apiClientProvider);
-                            await dio.post('/video-channels/$channelId/posts/$postId/comments', data: {
-                              'content': txt,
-                            });
-                            ref.invalidate(channelCommunityPostsProvider(channelId));
-                            setSheetState(() {});
-                          } catch (_) {}
-                        },
-                      ),
-                    ],
+                        IconButton(
+                          icon: const Icon(Icons.send_rounded, color: Color(0xFF00C6FF)),
+                          onPressed: () async {
+                            final txt = commentController.text.trim();
+                            if (txt.isEmpty) return;
+                            commentController.clear();
+                            try {
+                              final dio = ref.read(apiClientProvider);
+                              await dio.post('/video-channels/$channelId/posts/$postId/comments', data: {
+                                'content': txt,
+                              });
+                              ref.invalidate(channelCommunityPostsProvider(channelId));
+                              setSheetState(() {});
+                            } catch (_) {}
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

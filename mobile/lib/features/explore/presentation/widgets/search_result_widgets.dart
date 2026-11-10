@@ -184,8 +184,8 @@ class SearchChannelTile extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        channel.handle != null
-            ? '@${channel.handle}'
+        channel.cleanHandle != null && channel.cleanHandle!.isNotEmpty
+            ? '@${channel.cleanHandle}'
             : (channel.description ?? ''),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -193,7 +193,7 @@ class SearchChannelTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: () {
         if (channel.id.isNotEmpty) {
-          context.push('/channels/${channel.id}');
+          context.push('/channel/${channel.id}');
         }
       },
     );
@@ -319,6 +319,121 @@ class SearchVideoResultCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: VideoCard(video: video),
+    );
+  }
+}
+
+// ── Book & Dictionary Tile ────────────────────────────────────────────────────
+
+class SearchBookTile extends StatelessWidget {
+  final SearchBookDto book;
+  const SearchBookTile({super.key, required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleParts = <String>[
+      if (book.isDictionary) 'Dictionary',
+      if (book.author != null && book.author!.isNotEmpty) book.author!,
+      if (book.categoryName != null && book.categoryName!.isNotEmpty)
+        book.categoryName!,
+      if (book.titleAm != null &&
+          book.titleAm!.isNotEmpty &&
+          book.titleAm != book.title)
+        book.titleAm!,
+    ];
+
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 44,
+          height: 56,
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: book.coverUrl != null && book.coverUrl!.isNotEmpty
+              ? AppNetworkImage(
+                  imageUrl: book.coverUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => Icon(
+                    book.isDictionary
+                        ? Icons.translate_rounded
+                        : Icons.menu_book_rounded,
+                    color: const Color(0xFFFFB300),
+                  ),
+                )
+              : Icon(
+                  book.isDictionary
+                      ? Icons.translate_rounded
+                      : Icons.menu_book_rounded,
+                  color: const Color(0xFFFFB300),
+                ),
+        ),
+      ),
+      title: Text(
+        book.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: subtitleParts.isNotEmpty
+          ? Text(
+              subtitleParts.join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+      onTap: () {
+        if (book.id.isNotEmpty) {
+          context.push('/books/${book.id}');
+        }
+      },
+    );
+  }
+}
+
+// ── Post Tile ─────────────────────────────────────────────────────────────────
+
+class SearchPostTile extends StatelessWidget {
+  final SearchPostDto post;
+  const SearchPostTile({super.key, required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final authorLabel = post.authorDisplayName ??
+        (post.authorUsername != null ? '@${post.authorUsername}' : 'Post');
+    return ListTile(
+      leading: CircleAvatar(
+        radius: 22,
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        backgroundImage: post.thumbnailUrl != null && post.thumbnailUrl!.isNotEmpty
+            ? AppNetworkImage.provider(post.thumbnailUrl!)
+            : (post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty
+                ? AppNetworkImage.provider(post.authorAvatarUrl!)
+                : null),
+        child: (post.thumbnailUrl == null || post.thumbnailUrl!.isEmpty) &&
+                (post.authorAvatarUrl == null || post.authorAvatarUrl!.isEmpty)
+            ? const Icon(Icons.article_outlined)
+            : null,
+      ),
+      title: Text(
+        post.content,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      subtitle: Text(
+        '$authorLabel · ${post.likesCount} likes · ${post.commentsCount} comments',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+      onTap: () {
+        if (post.id.isNotEmpty) {
+          context.push('/posts/${post.id}');
+        }
+      },
     );
   }
 }

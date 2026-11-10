@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/core/presentation/providers/pip_provider.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/core/services/pip_service.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/browser_fullscreen_helper.dart';
@@ -1522,8 +1523,8 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.description,
+          RichTextRenderer(
+            content: widget.description,
             maxLines: _expanded ? null : 3,
             overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
           ),

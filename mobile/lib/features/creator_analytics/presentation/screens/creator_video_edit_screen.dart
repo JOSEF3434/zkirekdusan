@@ -1,6 +1,8 @@
 // lib/features/creator_analytics/presentation/screens/creator_video_edit_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/features/creator_analytics/domain/creator_video_dto.dart';
@@ -29,7 +31,7 @@ class _CreatorVideoEditScreenState
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _titleCtrl;
-  late final TextEditingController _descCtrl;
+  late final MentionTextController _descCtrl;
   late CreatorVideoVisibility _visibility;
   late String _downloadPerm;
   bool _isSaving = false;
@@ -38,7 +40,7 @@ class _CreatorVideoEditScreenState
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.initialVideo?.title ?? '');
-    _descCtrl = TextEditingController(
+    _descCtrl = MentionTextController(
       text: widget.initialVideo?.description ?? '',
     );
     _visibility =
@@ -125,13 +127,16 @@ class _CreatorVideoEditScreenState
                     v == null || v.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              RichTextComposer(
                 controller: _descCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
+                child: TextFormField(
+                  controller: _descCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
                 ),
-                maxLines: 5,
               ),
               const SizedBox(height: 24),
               const Text(

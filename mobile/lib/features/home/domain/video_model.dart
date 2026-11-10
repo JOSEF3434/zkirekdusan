@@ -43,16 +43,34 @@ class VideoRenditionDto {
   });
 
   factory VideoRenditionDto.fromJson(Map<String, dynamic> json) {
+    final rawRes = json['resolution'];
+    final int parsedRes;
+    if (rawRes is num) {
+      parsedRes = rawRes.toInt();
+    } else if (rawRes is String) {
+      parsedRes =
+          int.tryParse(rawRes.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    } else {
+      parsedRes = (json['height'] as num?)?.toInt() ?? 0;
+    }
+
+    final rawQuality = json['quality'] as String?;
+    final quality = (rawQuality != null && rawQuality.isNotEmpty)
+        ? rawQuality
+        : (json['resolutionLabel'] as String? ??
+              (parsedRes > 0 ? '${parsedRes}p' : ''));
+
     return VideoRenditionDto(
       id: json['id'] as String? ?? '',
-      quality: json['quality'] as String? ?? '',
-      resolution: json['resolution'] as int? ?? 0,
-      bitrate: json['bitrate'] as int? ?? 0,
+      quality: quality,
+      resolution: parsedRes,
+      bitrate: (json['bitrate'] as num?)?.toInt() ?? 0,
       format: json['format'] as String? ?? '',
-      status: json['status'] as String? ?? '',
+      status: json['status'] as String? ??
+          (json['isReady'] == true ? 'READY' : ''),
       url: json['url'] as String? ?? '',
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

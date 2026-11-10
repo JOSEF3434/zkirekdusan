@@ -37,9 +37,15 @@ class NotificationNavigationResolver {
       switch (type) {
         case 'MESSAGE':
         case 'MENTION':
+          final postId = data['postId'] as String?;
+          final videoId = data['videoId'] as String?;
           final conversationId = data['conversationId'] as String?;
-          if (conversationId != null && conversationId.isNotEmpty) {
-            context.push('/chats');
+          if (postId != null && postId.isNotEmpty) {
+            context.push('/posts/$postId');
+          } else if (videoId != null && videoId.isNotEmpty) {
+            context.push('/video/$videoId');
+          } else if (conversationId != null && conversationId.isNotEmpty) {
+            context.push('/chats/conversation/$conversationId');
           } else {
             context.push('/notifications');
           }
@@ -52,8 +58,7 @@ class NotificationNavigationResolver {
           if (videoId != null && videoId.isNotEmpty) {
             context.push('/video/$videoId');
           } else if (postId != null && postId.isNotEmpty) {
-            // Navigate to home/feed as we don't have a dedicated post route
-            context.push('/home');
+            context.push('/posts/$postId');
           } else {
             context.push('/notifications');
           }

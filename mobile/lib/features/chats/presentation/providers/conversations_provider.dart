@@ -9,6 +9,7 @@ import 'package:mobile/features/chats/domain/repositories/chat_repository.dart';
 import 'package:mobile/features/chats/data/datasources/messaging_socket_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 
 /// In-memory reactive map for live user presence (userId -> isOnline)
 final livePresenceMapProvider = StateProvider<Map<String, bool>>((ref) => {});
@@ -827,9 +828,9 @@ final unifiedChatListProvider = Provider<AsyncValue<List<UnifiedChatItem>>>((
           otherMember?.username ??
           'Chat';
 
-      final subtitle =
-          conv.lastMessage?.content ??
-          (conv.type == 'DIRECT' ? 'Direct Message' : 'Group Chat');
+      final subtitle = conv.lastMessage?.content != null
+          ? stripTokens(conv.lastMessage!.content!)
+          : (conv.type == 'DIRECT' ? 'Direct Message' : 'Group Chat');
 
       final avatarUrl = conv.type == 'DIRECT'
           ? otherMember?.avatarUrl

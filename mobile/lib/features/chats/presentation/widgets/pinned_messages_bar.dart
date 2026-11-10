@@ -1,6 +1,7 @@
 // lib/features/chats/presentation/widgets/pinned_messages_bar.dart
 
 import 'package:flutter/material.dart';
+import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
 class PinnedMessagesBar extends StatefulWidget {
@@ -185,7 +186,9 @@ class _PinnedMessagesBarState extends State<PinnedMessagesBar>
     if (msg.attachments.isNotEmpty) {
       return '📎 ${msg.attachments.first.originalName}';
     }
-    return msg.content?.isNotEmpty == true ? msg.content! : 'Pinned message';
+    return msg.content?.isNotEmpty == true
+        ? stripTokens(msg.content!)
+        : 'Pinned message';
   }
 
   @override

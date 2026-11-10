@@ -8,22 +8,64 @@ import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
 import { PostResponseDto } from './dto/post-response.dto.js';
 import { UploadsService } from '../uploads/uploads.service.js';
+import { MentionsService } from '../mentions/mentions.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class PostsService {
   constructor(
     private readonly postsRepository: PostsRepository,
     private readonly uploadsService: UploadsService,
+    private readonly mentionsService: MentionsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createPost(
     authorId: string,
     dto: CreatePostDto,
   ): Promise<PostResponseDto> {
-    const post = await this.postsRepository.createPost(authorId, dto);
+    const sanitizedContent = this.mentionsService.sanitizePlainText(dto.content);
+    const validatedMentions =
+      await this.mentionsService.extractAndValidateAtMentionUserIds(
+        sanitizedContent,
+        dto.mentions ?? [],
+        authorId,
+      );
+
+    const post = await this.postsRepository.createPost(authorId, {
+      ...dto,
+      content: sanitizedContent,
+      mentions: validatedMentions,
+    });
     if (!post) {
       throw new NotFoundException('Failed to create post');
     }
+
+    if (validatedMentions.length > 0 && post.visibility !== 'PRIVATE') {
+      const authorLabel =
+        post.author?.profile?.displayName ??
+        post.author?.username ??
+        'Someone';
+      const preview = this.mentionsService.stripTokensToReadableText(
+        post.content,
+      );
+      for (const mentionedId of validatedMentions) {
+        if (mentionedId === authorId) continue;
+        this.notificationsService
+          .create({
+            userId: mentionedId,
+            type: NotificationType.MENTION,
+            title: 'You were mentioned in a post',
+            body: preview
+              ? `${authorLabel}: ${preview.slice(0, 120)}`
+              : `${authorLabel} mentioned you in a post`,
+            data: { postId: post.id },
+          })
+          .catch(() => null);
+      }
+    }
+
     return this.mapToDto(post);
   }
 

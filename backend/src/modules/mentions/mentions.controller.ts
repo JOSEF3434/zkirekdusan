@@ -1,58 +1,62 @@
 // src/modules/mentions/mentions.controller.ts
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { MentionsService } from './mentions.service.js';
 import { MentionQueryDto } from './dto/mention-suggestion.dto.js';
 
 @ApiTags('Mentions')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('mentions')
 export class MentionsController {
   constructor(private readonly mentionsService: MentionsService) {}
 
   /**
-   * GET /api/mentions/suggest?q=abc&limit=8
+   * GET /api/mentions/suggest?q=abc&limit=10
    * Combined users + groups + channels for @ autocomplete.
    */
   @Get('suggest')
   @ApiOperation({ summary: 'Autocomplete @ mentions (users, groups, channels)' })
-  async suggest(@Query() dto: MentionQueryDto, @Request() req: any) {
-    return this.mentionsService.suggestAll(dto, req.user?.sub);
+  async suggest(
+    @Query() dto: MentionQueryDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.mentionsService.suggestAll(dto, userId);
   }
 
   /**
-   * GET /api/mentions/users?q=abc&limit=8
-   * User-only suggestions.
+   * GET /api/mentions/users?q=abc&limit=10
    */
   @Get('users')
   @ApiOperation({ summary: 'Autocomplete user mentions' })
-  async users(@Query() dto: MentionQueryDto, @Request() req: any) {
-    return this.mentionsService.suggestUsers(dto, req.user?.sub);
+  async users(
+    @Query() dto: MentionQueryDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.mentionsService.suggestUsers(dto, userId);
   }
 
   /**
-   * GET /api/mentions/groups?q=abc&limit=8
+   * GET /api/mentions/groups?q=abc&limit=10
    */
   @Get('groups')
   @ApiOperation({ summary: 'Autocomplete group mentions' })
-  async groups(@Query() dto: MentionQueryDto) {
-    return this.mentionsService.suggestGroups(dto);
+  async groups(
+    @Query() dto: MentionQueryDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.mentionsService.suggestGroups(dto, userId);
   }
 
   /**
-   * GET /api/mentions/channels?q=abc&limit=8
+   * GET /api/mentions/channels?q=abc&limit=10
    */
   @Get('channels')
   @ApiOperation({ summary: 'Autocomplete channel mentions' })
-  async channels(@Query() dto: MentionQueryDto) {
-    return this.mentionsService.suggestChannels(dto);
+  async channels(
+    @Query() dto: MentionQueryDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.mentionsService.suggestChannels(dto, userId);
   }
 }

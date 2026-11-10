@@ -244,10 +244,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   int _countItems(SearchResultsDto results) {
     int count = 0;
-    if (results.users.isNotEmpty) count += results.users.length + 1; // +1 header
     if (results.videos.isNotEmpty) count += results.videos.length + 1;
+    if (results.books.isNotEmpty) count += results.books.length + 1;
+    if (results.users.isNotEmpty) count += results.users.length + 1;
     if (results.groups.isNotEmpty) count += results.groups.length + 1;
     if (results.channels.isNotEmpty) count += results.channels.length + 1;
+    if (results.posts.isNotEmpty) count += results.posts.length + 1;
     if (results.streams.isNotEmpty) count += results.streams.length + 1;
     if (results.reels.isNotEmpty) count += results.reels.length + 1;
     return count;
@@ -256,17 +258,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Widget> _buildResultItems(SearchResultsDto results) {
     final widgets = <Widget>[];
 
-    if (results.users.isNotEmpty) {
-      widgets.add(const SearchSectionHeader(title: 'People'));
-      for (final u in results.users) {
-        widgets.add(SearchUserTile(user: u));
-      }
-    }
-
     if (results.videos.isNotEmpty) {
       widgets.add(const SearchSectionHeader(title: 'Videos'));
       for (final v in results.videos) {
         widgets.add(SearchVideoResultCard(video: v));
+      }
+    }
+
+    if (results.books.isNotEmpty) {
+      widgets.add(const SearchSectionHeader(title: 'Books & Dictionaries'));
+      for (final b in results.books) {
+        widgets.add(SearchBookTile(book: b));
+      }
+    }
+
+    if (results.users.isNotEmpty) {
+      widgets.add(const SearchSectionHeader(title: 'People'));
+      for (final u in results.users) {
+        widgets.add(SearchUserTile(user: u));
       }
     }
 
@@ -281,6 +290,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       widgets.add(const SearchSectionHeader(title: 'Channels'));
       for (final c in results.channels) {
         widgets.add(SearchChannelTile(channel: c));
+      }
+    }
+
+    if (results.posts.isNotEmpty) {
+      widgets.add(const SearchSectionHeader(title: 'Posts'));
+      for (final p in results.posts) {
+        widgets.add(SearchPostTile(post: p));
       }
     }
 
@@ -313,11 +329,13 @@ class _FilterChips extends ConsumerWidget {
     final chips = [
       (null, 'All'),
       (SearchEntityType.videos, 'Videos'),
+      (SearchEntityType.books, 'Books'),
       (SearchEntityType.users, 'People'),
       (SearchEntityType.groups, 'Groups'),
       (SearchEntityType.channels, 'Channels'),
-      (SearchEntityType.reels, 'Reels'),
+      (SearchEntityType.posts, 'Posts'),
       (SearchEntityType.streams, 'Live'),
+      (SearchEntityType.reels, 'Reels'),
     ];
 
     return SizedBox(

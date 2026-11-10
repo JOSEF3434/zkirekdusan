@@ -35,19 +35,8 @@ class SearchRepository {
       cancelToken: cancelToken,
     );
 
-    // The search endpoint returns: { results: {...}, page, limit }
-    // It is NOT wrapped in the standard NestJS envelope.
-    final raw = response.data;
-    final Map<String, dynamic> data;
-    if (raw is Map<String, dynamic> && raw.containsKey('success')) {
-      final payload = raw['data'];
-      data = (payload is Map<String, dynamic>) ? payload : {};
-    } else if (raw is Map<String, dynamic>) {
-      data = raw;
-    } else {
-      data = {};
-    }
-
+    // Unwrap optional NestJS ResponseInterceptor envelope safely via parseEnvelope
+    final data = parseEnvelope(response.data);
     return SearchResponseDto.fromJson(data);
   }
 }

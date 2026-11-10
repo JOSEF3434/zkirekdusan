@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/rich_text/mention_text_controller.dart';
+import 'package:mobile/core/rich_text/rich_text_composer.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/creator/presentation/providers/creator_workspace_provider.dart';
@@ -57,7 +59,7 @@ class EditGroupSheet extends ConsumerStatefulWidget {
 class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _descController;
+  late final MentionTextController _descController;
   late final TextEditingController _websiteController;
   late final TextEditingController _countryController;
   late String _visibility;
@@ -68,7 +70,7 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _descController = TextEditingController(
+    _descController = MentionTextController(
       text: widget.initialDescription ?? '',
     );
     _websiteController = TextEditingController(
@@ -226,13 +228,16 @@ class _EditGroupSheetState extends ConsumerState<EditGroupSheet> {
                     (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              RichTextComposer(
                 controller: _descController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
+                child: TextFormField(
+                  controller: _descController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.description),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

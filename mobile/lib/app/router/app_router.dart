@@ -14,6 +14,7 @@ import 'package:mobile/features/splash/presentation/providers/splash_provider.da
 import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
 import 'package:mobile/features/home/presentation/home_screen.dart';
+import 'package:mobile/features/home/presentation/post_detail_screen.dart';
 import 'package:mobile/features/profile/presentation/profile_screen.dart';
 import 'package:mobile/features/profile/presentation/edit_profile_screen.dart';
 import 'package:mobile/features/library/presentation/library_screen.dart';
@@ -376,6 +377,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return VideoPlayerScreen(videoId: id);
+        },
+      ),
+      GoRoute(
+        path: '/posts/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return PostDetailScreen(postId: id);
         },
       ),
       GoRoute(

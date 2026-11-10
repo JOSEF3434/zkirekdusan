@@ -8,12 +8,17 @@ import { CommentsRepository } from './comments.repository.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { CommentResponseDto } from './dto/comment-response.dto.js';
 import { PostsRepository } from '../posts/posts.repository.js';
+import { MentionsService } from '../mentions/mentions.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly commentsRepository: CommentsRepository,
     private readonly postsRepository: PostsRepository,
+    private readonly mentionsService: MentionsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createComment(
@@ -33,11 +38,47 @@ export class CommentsService {
       }
     }
 
+    const sanitizedContent =
+      this.mentionsService.sanitizePlainText(dto.content) ?? dto.content;
     const comment = await this.commentsRepository.createComment(
       postId,
       authorId,
-      dto,
+      { ...dto, content: sanitizedContent },
     );
+
+    // Notify explicit @[user:uuid:...] mentions on non-private posts
+    if (post.visibility !== 'PRIVATE') {
+      const mentionedIds =
+        await this.mentionsService.extractAndValidateAtMentionUserIds(
+          sanitizedContent,
+          [],
+          authorId,
+        );
+      if (mentionedIds.length > 0) {
+        const authorLabel =
+          comment.author?.profile?.displayName ??
+          comment.author?.username ??
+          'Someone';
+        const preview = this.mentionsService.stripTokensToReadableText(
+          comment.content,
+        );
+        for (const mentionedId of mentionedIds) {
+          if (mentionedId === authorId) continue;
+          this.notificationsService
+            .create({
+              userId: mentionedId,
+              type: NotificationType.MENTION,
+              title: 'You were mentioned in a comment',
+              body: preview
+                ? `${authorLabel}: ${preview.slice(0, 120)}`
+                : `${authorLabel} mentioned you in a comment`,
+              data: { postId, commentId: comment.id },
+            })
+            .catch(() => null);
+        }
+      }
+    }
+
     return this.mapToDto(comment);
   }
 

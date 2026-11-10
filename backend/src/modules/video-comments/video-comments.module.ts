@@ -3,8 +3,11 @@ import { Module } from '@nestjs/common';
 import { VideoCommentsController } from './video-comments.controller.js';
 import { VideoCommentsService } from './video-comments.service.js';
 import { VideoCommentsRepository } from './video-comments.repository.js';
+import { MentionsModule } from '../mentions/mentions.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
+  imports: [MentionsModule, NotificationsModule],
   controllers: [VideoCommentsController],
   providers: [VideoCommentsService, VideoCommentsRepository],
   exports: [VideoCommentsService],

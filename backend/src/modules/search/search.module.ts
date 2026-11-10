@@ -8,6 +8,6 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
   imports: [PrismaModule],
   controllers: [SearchController],
   providers: [SearchService, SearchRepository],
-  exports: [SearchService],
+  exports: [SearchService, SearchRepository],
 })
 export class SearchModule {}

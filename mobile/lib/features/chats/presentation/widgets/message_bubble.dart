@@ -311,6 +311,7 @@ class MessageBubble extends StatelessWidget {
             child: RichTextRenderer(
               content: message.content!,
               style: _textStyle(isDark),
+              linkStyle: _linkStyle(isDark),
             ),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
@@ -344,6 +345,7 @@ class MessageBubble extends StatelessWidget {
             child: RichTextRenderer(
               content: message.content!,
               style: _textStyle(isDark),
+              linkStyle: _linkStyle(isDark),
             ),
           ),
         _buildTimestampRow(isMe: isMe, isDark: isDark, isOutsideBubble: true),
@@ -370,6 +372,7 @@ class MessageBubble extends StatelessWidget {
               child: RichTextRenderer(
                 content: message.content!,
                 style: _textStyle(isDark),
+                linkStyle: _linkStyle(isDark),
               ),
             ),
           _buildTimestampRow(
@@ -493,6 +496,28 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  TextStyle _linkStyle(bool isDark) {
+    if (isMe) {
+      return const TextStyle(
+        fontSize: 15,
+        color: Color(0xFF062A4E),
+        fontWeight: FontWeight.w700,
+        decoration: TextDecoration.underline,
+        decorationColor: Color(0xFF062A4E),
+        height: 1.35,
+      );
+    }
+    final color = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+    return TextStyle(
+      fontSize: 15,
+      color: color,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: color.withValues(alpha: 0.7),
+      height: 1.35,
+    );
+  }
+
   TextStyle _textStyle(bool isDark) {
     return TextStyle(
       fontSize: 15,
@@ -538,7 +563,9 @@ class MessageBubble extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            reply.content ?? _getMessageTypeLabel(reply.type),
+            reply.content != null
+                ? stripTokens(reply.content!)
+                : _getMessageTypeLabel(reply.type),
             style: TextStyle(
               fontSize: 13,
               color: isMe
@@ -1015,7 +1042,9 @@ class MessageBubble extends StatelessWidget {
             ),
             onTap: () {
               if (message.content != null) {
-                Clipboard.setData(ClipboardData(text: message.content!));
+                Clipboard.setData(
+                  ClipboardData(text: stripTokens(message.content!)),
+                );
               }
               Navigator.pop(popupContext);
             },

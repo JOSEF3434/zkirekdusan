@@ -4,9 +4,11 @@ import { CommentsController } from './comments.controller.js';
 import { CommentsService } from './comments.service.js';
 import { CommentsRepository } from './comments.repository.js';
 import { PostsModule } from '../posts/posts.module.js';
+import { MentionsModule } from '../mentions/mentions.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
-  imports: [PostsModule],
+  imports: [PostsModule, MentionsModule, NotificationsModule],
   controllers: [CommentsController],
   providers: [CommentsService, CommentsRepository],
   exports: [CommentsService, CommentsRepository],

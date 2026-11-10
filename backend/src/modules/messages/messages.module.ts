@@ -5,12 +5,14 @@ import { MessagesRepository } from './messages.repository.js';
 import { ConversationsModule } from '../conversations/conversations.module.js';
 import { MessagingGatewayModule } from '../messaging-gateway/messaging-gateway.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { MentionsModule } from '../mentions/mentions.module.js';
 
 @Module({
   imports: [
     forwardRef(() => ConversationsModule),
     forwardRef(() => MessagingGatewayModule),
     forwardRef(() => NotificationsModule),
+    MentionsModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService, MessagesRepository],

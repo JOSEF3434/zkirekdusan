@@ -217,14 +217,8 @@ class SearchNotifier extends Notifier<SearchState> {
           : newResults;
 
       // Determine if there are more pages
-      final totalInPage =
-          newResults.videos.length +
-          newResults.users.length +
-          newResults.groups.length +
-          newResults.channels.length +
-          newResults.streams.length +
-          newResults.reels.length;
-      final hasMore = totalInPage >= 20;
+      final hasMore = newResults.totalCount >= 5 &&
+          (state.type != null ? newResults.totalCount >= 20 : newResults.totalCount >= 10);
 
       state = state.copyWith(
         results: merged,
@@ -256,9 +250,11 @@ class SearchNotifier extends Notifier<SearchState> {
     SearchResultsDto newPage,
   ) {
     final existingVideoIds = existing.videos.map((v) => v.id).toSet();
+    final existingBookIds = existing.books.map((b) => b.id).toSet();
     final existingUserIds = existing.users.map((u) => u.id).toSet();
     final existingGroupIds = existing.groups.map((g) => g.id).toSet();
     final existingChannelIds = existing.channels.map((c) => c.id).toSet();
+    final existingPostIds = existing.posts.map((p) => p.id).toSet();
     final existingStreamIds = existing.streams.map((s) => s.id).toSet();
     final existingReelIds = existing.reels.map((r) => r.id).toSet();
 
@@ -266,6 +262,10 @@ class SearchNotifier extends Notifier<SearchState> {
       videos: [
         ...existing.videos,
         ...newPage.videos.where((v) => !existingVideoIds.contains(v.id)),
+      ],
+      books: [
+        ...existing.books,
+        ...newPage.books.where((b) => !existingBookIds.contains(b.id)),
       ],
       users: [
         ...existing.users,
@@ -278,6 +278,10 @@ class SearchNotifier extends Notifier<SearchState> {
       channels: [
         ...existing.channels,
         ...newPage.channels.where((c) => !existingChannelIds.contains(c.id)),
+      ],
+      posts: [
+        ...existing.posts,
+        ...newPage.posts.where((p) => !existingPostIds.contains(p.id)),
       ],
       streams: [
         ...existing.streams,
