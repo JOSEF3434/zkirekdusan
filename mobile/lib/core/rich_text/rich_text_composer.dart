@@ -55,6 +55,9 @@ class RichTextComposer extends ConsumerStatefulWidget {
 class _RichTextComposerState extends ConsumerState<RichTextComposer> {
   MentionTrigger _currentTrigger = MentionTrigger.none;
   bool _sheetOpen = false;
+  /// Temporarily suppresses the # trigger after the sheet is dismissed
+  /// to prevent an immediate re-open caused by residual trigger state.
+  bool _suppressHashTrigger = false;
 
   @override
   void initState() {
@@ -83,7 +86,7 @@ class _RichTextComposerState extends ConsumerState<RichTextComposer> {
     if (trigger == MentionTrigger.atMention) {
       setState(() => _currentTrigger = trigger);
       ref.read(mentionSuggestionsProvider.notifier).search(query);
-    } else if (trigger == MentionTrigger.hashContent && !_sheetOpen) {
+    } else if (trigger == MentionTrigger.hashContent && !_sheetOpen && !_suppressHashTrigger) {
       setState(() {
         _currentTrigger = MentionTrigger.none;
         _sheetOpen = true;
@@ -111,8 +114,15 @@ class _RichTextComposerState extends ConsumerState<RichTextComposer> {
       widget.controller.insertContentRef(selected);
       widget.onContentRefSelected?.call(selected);
     } else if (mounted) {
-      // User dismissed — remove the # trigger text so it doesn't re-open
+      // User dismissed — remove the # trigger text so it doesn't re-open.
+      // Also suppress the hash trigger briefly so the text change caused by
+      // dismissTrigger() doesn't immediately re-open the sheet.
+      _suppressHashTrigger = true;
       widget.controller.dismissTrigger();
+      // Allow # to trigger again after the text-change settles
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _suppressHashTrigger = false;
+      });
     }
 
     // Re-focus the text field after sheet closes

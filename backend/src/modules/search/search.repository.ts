@@ -102,8 +102,11 @@ export class SearchRepository {
     const rawVideos = await this.prisma.video.findMany({
       where: {
         deletedAt: null,
-        status: 'READY',
-        visibility: 'PUBLIC',
+        // Include all watchable statuses (not just READY) so uploading/processing
+        // videos still appear in content search for the creator
+        status: { in: ['READY', 'UPLOADING', 'QUEUED', 'PROCESSING'] as any },
+        // Include PUBLIC, UNLISTED, GROUP_ONLY — exclude only PRIVATE/SCHEDULED
+        visibility: { notIn: ['PRIVATE', 'SCHEDULED'] as any },
         OR: [
           { title: { contains: query, mode: 'insensitive' } },
           { description: { contains: query, mode: 'insensitive' } },

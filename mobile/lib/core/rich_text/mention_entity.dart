@@ -120,10 +120,34 @@ class MentionSuggestion {
   }
 
   /// Build the token string to insert into the text field.
-  String toToken() => '@[${type.prefix}:$id:$username]';
+  /// Square brackets in the username are stripped to avoid breaking the token format.
+  String toToken() {
+    final safeUsername = username.replaceAll('[', '(').replaceAll(']', ')');
+    return '@[${type.prefix}:$id:$safeUsername]';
+  }
 }
 
 // ── Content item returned by /api/search/unified ──────────────────────────────
+
+/// Safely extracts a thumbnail/avatar URL from a unified search result JSON map.
+/// Handles multiple backend structures: direct thumbnailUrl, nested avatarFile,
+/// nested profile.avatar, flat avatarUrl, etc.
+String? _extractThumbnail(Map<String, dynamic> json) {
+  if (json['thumbnailUrl'] is String) return json['thumbnailUrl'] as String;
+  if (json['thumbnailFileUrl'] is String) return json['thumbnailFileUrl'] as String;
+  final avatarFile = json['avatarFile'];
+  if (avatarFile is Map && avatarFile['url'] is String) return avatarFile['url'] as String;
+  final avatar = json['avatar'];
+  if (avatar is Map && avatar['url'] is String) return avatar['url'] as String;
+  final profile = json['profile'];
+  if (profile is Map) {
+    final pAvatar = profile['avatar'];
+    if (pAvatar is Map && pAvatar['url'] is String) return pAvatar['url'] as String;
+  }
+  if (json['avatarUrl'] is String) return json['avatarUrl'] as String;
+  if (json['coverUrl'] is String) return json['coverUrl'] as String;
+  return null;
+}
 
 class ContentSearchItem {
   final String id;
@@ -142,20 +166,35 @@ class ContentSearchItem {
 
   factory ContentSearchItem.fromJson(Map<String, dynamic> json) {
     final type = json['entityType'] as String? ?? 'video';
+
+    // Title resolution — different entity types use different field names
     final title = json['title'] as String? ??
         json['name'] as String? ??
         json['content'] as String? ??
         json['username'] as String? ??
         '';
-    final thumb = json['thumbnailUrl'] as String? ??
-        json['thumbnailFileUrl'] as String? ??
-        json['avatarUrl'] as String? ??
-        json['coverUrl'] as String?;
 
+    // Thumbnail resolution — video has thumbnailUrl directly on the object;
+    // channels use avatarFile.url; users use profile.avatar.url; groups avatarUrl
+    final thumb = _extractThumbnail(json);
+
+    // Subtitle resolution per entity type
     String? sub;
-    if (type == 'video') sub = json['channelName'] as String?;
-    if (type == 'user') sub = '@${json['username'] ?? ''}';
-    if (type == 'group' || type == 'channel') sub = json['slug'] as String?;
+    if (type == 'video') {
+      sub = json['channelName'] as String? ??
+          (json['videoChannel'] as Map?)?['name'] as String?;
+    } else if (type == 'user') {
+      sub = '@${json['username'] ?? ''}';
+    } else if (type == 'group') {
+      sub = json['slug'] as String? ?? json['handle'] as String?;
+    } else if (type == 'channel') {
+      sub = json['handle'] as String? ?? json['slug'] as String?;
+    } else if (type == 'post') {
+      sub = json['author']?['username'] as String?;
+    } else if (type == 'stream') {
+      sub = json['channelName'] as String? ??
+          (json['channel'] as Map?)?['name'] as String?;
+    }
 
     return ContentSearchItem(
       id: json['id'] as String,
@@ -167,7 +206,11 @@ class ContentSearchItem {
   }
 
   /// Build the content reference token to insert into text.
-  String toToken() => '#[$entityType:$id:$title]';
+  /// Square brackets in the title are stripped to avoid breaking the token format.
+  String toToken() {
+    final safeTitle = title.replaceAll('[', '(').replaceAll(']', ')');
+    return '#[$entityType:$id:$safeTitle]';
+  }
 
   MentionEntityType? get mentionEntityType =>
       MentionEntityTypeX.fromPrefix(entityType);
