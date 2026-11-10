@@ -289,6 +289,10 @@ export class ConversationsService {
       };
       this.messagingGateway.emitReadReceipt(conversationId, payload, memberIds);
     }
+    this.messagingGateway.emitConversationUnread?.(userId, {
+      conversationId,
+      unreadCount: 0,
+    });
   }
 
   private mapToDto(conv: any, currentUserId: string): ConversationResponseDto {

@@ -174,15 +174,19 @@ class ChatMessagesNotifier
           }
 
           var newMsg = message;
-          // If from peer and current user has this conversation open, mark delivered and read
+          // Acknowledge delivery for incoming peer messages, and only mark read
+          // when this conversation is actively viewed in the foreground.
           if (currentUserId != null && message.sender.id != currentUserId) {
             _socketService.markDelivered(conversationId, message.id);
-            _socketService.markAsRead(conversationId, message.id);
-            _repository.markAsRead(message.id);
-            if (!newMsg.readBy.contains(currentUserId)) {
-              newMsg = newMsg.copyWith(
-                readBy: [...newMsg.readBy, currentUserId],
-              );
+            final activeConvId = _safeReadActiveViewingConversation();
+            if (activeConvId == conversationId) {
+              _socketService.markAsRead(conversationId, message.id);
+              _repository.markAsRead(message.id);
+              if (!newMsg.readBy.contains(currentUserId)) {
+                newMsg = newMsg.copyWith(
+                  readBy: [...newMsg.readBy, currentUserId],
+                );
+              }
             }
           }
           state = AsyncValue.data([...messages, newMsg]);
@@ -369,6 +373,14 @@ class ChatMessagesNotifier
         }
       });
     });
+  }
+
+  String? _safeReadActiveViewingConversation() {
+    try {
+      return _ref.read(activeViewingConversationProvider);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _syncConversationPreview(MessageModel msg) {

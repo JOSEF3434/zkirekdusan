@@ -37,9 +37,11 @@ double _contrastRatio(Color a, Color b) {
 
 class _FakeChatRepository extends Fake implements ChatRepository {
   Completer<MessageModel>? nextSendCompleter;
+  Completer<ChatDiscoveryModel>? nextDiscoveryCompleter;
   bool shouldFailSend = false;
   int sendCallCount = 0;
   final List<String> markedReadMessageIds = [];
+  final List<String> markedConversationReadIds = [];
   List<ConversationModel> discoveryConversations = [];
 
   @override
@@ -60,8 +62,17 @@ class _FakeChatRepository extends Fake implements ChatRepository {
       discoveryConversations;
 
   @override
-  Future<ChatDiscoveryModel> getChatDiscovery() async =>
-      ChatDiscoveryModel(conversations: discoveryConversations);
+  Future<ChatDiscoveryModel> getChatDiscovery() async {
+    if (nextDiscoveryCompleter != null) {
+      return nextDiscoveryCompleter!.future;
+    }
+    return ChatDiscoveryModel(conversations: discoveryConversations);
+  }
+
+  @override
+  Future<void> markConversationAsRead(String conversationId) async {
+    markedConversationReadIds.add(conversationId);
+  }
 
   @override
   Future<MessageModel> sendMessage({
@@ -113,6 +124,7 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
   final _reactCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _readCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _delivCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _unreadCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _connCtrl = StreamController<bool>.broadcast();
   final _presCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _presQueryCtrl =
@@ -120,6 +132,7 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
 
   final List<String> deliveredCalls = [];
   final List<String> readCalls = [];
+  final List<String> conversationReadCalls = [];
 
   @override
   bool get isConnected => true;
@@ -137,6 +150,8 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
   @override
   Stream<Map<String, dynamic>> get deliveryReceipt => _delivCtrl.stream;
   @override
+  Stream<Map<String, dynamic>> get unreadUpdate => _unreadCtrl.stream;
+  @override
   Stream<bool> get connectionStatus => _connCtrl.stream;
   @override
   Stream<Map<String, dynamic>> get presence => _presCtrl.stream;
@@ -145,8 +160,11 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
       _presQueryCtrl.stream;
 
   void emitIncomingMessage(MessageModel m) => _msgCtrl.add(m);
+  void emitMessageDeleted(String convId, String msgId) =>
+      _delCtrl.add({'conversationId': convId, 'messageId': msgId});
   void emitDelivery(Map<String, dynamic> data) => _delivCtrl.add(data);
   void emitRead(Map<String, dynamic> data) => _readCtrl.add(data);
+  void emitUnread(Map<String, dynamic> data) => _unreadCtrl.add(data);
   void emitConnection(bool connected) => _connCtrl.add(connected);
 
   @override
@@ -166,6 +184,11 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
     readCalls.add('$conversationId:$messageId');
   }
 
+  @override
+  void markConversationAsRead(String conversationId) {
+    conversationReadCalls.add(conversationId);
+  }
+
   Future<void> close() async {
     await _msgCtrl.close();
     await _updCtrl.close();
@@ -173,6 +196,7 @@ class _FakeSocketService extends Fake implements MessagingSocketService {
     await _reactCtrl.close();
     await _readCtrl.close();
     await _delivCtrl.close();
+    await _unreadCtrl.close();
     await _connCtrl.close();
     await _presCtrl.close();
     await _presQueryCtrl.close();
@@ -937,6 +961,278 @@ void main() {
         resolvePreviewDeliveryStatus(preview),
         equals(MessageDeliveryStatus.sent),
       );
+    });
+  });
+
+  group('Real-time Unread Count Synchronization & Deduplication', () {
+    late _FakeChatRepository fakeRepo;
+    late _FakeSocketService fakeSocket;
+    late ProviderContainer container;
+    const meUser = AuthUser(
+      id: currentUserId,
+      username: 'me',
+      email: 'me@example.com',
+      role: 'USER',
+    );
+
+    int convUnread(String convId) {
+      final convs = container.read(chatDiscoveryProvider).value!.conversations;
+      final conv = convs.firstWhere((c) => c.id == convId);
+      return conv.members.firstWhere((m) => m.userId == currentUserId).unreadCount;
+    }
+
+    setUp(() {
+      fakeRepo = _FakeChatRepository();
+      fakeSocket = _FakeSocketService();
+      final now = DateTime.now();
+      fakeRepo.discoveryConversations = [
+        ConversationModel(
+          id: 'conv-1',
+          type: 'DIRECT',
+          createdAt: now.subtract(const Duration(minutes: 10)),
+          lastMessageAt: now.subtract(const Duration(minutes: 10)),
+          members: const [
+            ConversationMemberModel(userId: currentUserId, username: 'me'),
+            ConversationMemberModel(userId: peerUserId, username: 'peer'),
+          ],
+        ),
+        ConversationModel(
+          id: 'conv-2',
+          type: 'DIRECT',
+          createdAt: now.subtract(const Duration(minutes: 5)),
+          lastMessageAt: now.subtract(const Duration(minutes: 5)),
+          members: const [
+            ConversationMemberModel(userId: currentUserId, username: 'me'),
+            ConversationMemberModel(userId: 'user-3', username: 'peer3'),
+          ],
+        ),
+      ];
+      container = ProviderContainer(
+        overrides: [
+          chatRepositoryProvider.overrideWithValue(fakeRepo),
+          messagingSocketServiceProvider.overrideWithValue(fakeSocket),
+          authProvider.overrideWith((ref) => _TestAuthNotifier(meUser)),
+        ],
+      );
+    });
+
+    tearDown(() async {
+      container.dispose();
+      await fakeSocket.close();
+    });
+
+    test(
+        'Test 1-3: new incoming messages increment immediately, deduplicate by ID, and isolate per conversation',
+        () async {
+      await container.read(chatDiscoveryProvider.notifier).loadDiscovery();
+      expect(container.read(totalUnreadChatCountProvider), 0);
+
+      final t0 = DateTime.now();
+      // Test 1: 1 new message in conv-1 immediately updates unread badge without refresh
+      final m1 = MessageModel(
+        id: 'msg-1',
+        conversationId: 'conv-1',
+        sender: peerSender,
+        content: 'First',
+        type: 'TEXT',
+        createdAt: t0,
+        updatedAt: t0,
+      );
+      fakeSocket.emitIncomingMessage(m1);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(convUnread('conv-1'), 1);
+      expect(convUnread('conv-2'), 0);
+      expect(container.read(totalUnreadChatCountProvider), 1);
+      // conv-1 moved to front
+      expect(
+        container.read(chatDiscoveryProvider).value!.conversations.first.id,
+        'conv-1',
+      );
+      // Duplicate emit of same message ID must not increment again
+      fakeSocket.emitIncomingMessage(m1);
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-1'), 1);
+
+      // Test 2: 4 more messages -> total 5 immediately
+      for (var i = 2; i <= 5; i++) {
+        fakeSocket.emitIncomingMessage(
+          MessageModel(
+            id: 'msg-$i',
+            conversationId: 'conv-1',
+            sender: peerSender,
+            content: 'Msg $i',
+            type: 'TEXT',
+            createdAt: t0.add(Duration(seconds: i)),
+            updatedAt: t0.add(Duration(seconds: i)),
+          ),
+        );
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-1'), 5);
+      expect(container.read(totalUnreadChatCountProvider), 5);
+
+      // Sender's own message never increments unread count
+      fakeSocket.emitIncomingMessage(
+        MessageModel(
+          id: 'own-msg-1',
+          conversationId: 'conv-2',
+          sender: sender,
+          content: 'My own msg',
+          type: 'TEXT',
+          createdAt: t0.add(const Duration(seconds: 10)),
+          updatedAt: t0.add(const Duration(seconds: 10)),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-2'), 0);
+
+      // Test 3: Another conversation receives 2 messages -> separate counts & sum = 7
+      for (var i = 1; i <= 2; i++) {
+        fakeSocket.emitIncomingMessage(
+          MessageModel(
+            id: 'c2-msg-$i',
+            conversationId: 'conv-2',
+            sender: const MessageSenderModel(id: 'user-3', username: 'peer3'),
+            content: 'Conv2 $i',
+            type: 'TEXT',
+            createdAt: t0.add(Duration(seconds: 20 + i)),
+            updatedAt: t0.add(Duration(seconds: 20 + i)),
+          ),
+        );
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-1'), 5);
+      expect(convUnread('conv-2'), 2);
+      expect(container.read(totalUnreadChatCountProvider), 7);
+    });
+
+    test(
+        'Test 4: active viewing keeps open chat at 0 & marks read, while hidden tab or other chats increment',
+        () async {
+      await container.read(chatDiscoveryProvider.notifier).loadDiscovery();
+      final messagesNotifier =
+          container.read(chatMessagesProvider('conv-1').notifier);
+      await messagesNotifier.loadMessages();
+
+      // User actively views conv-1 in foreground
+      container.read(activeViewingConversationProvider.notifier).state =
+          'conv-1';
+
+      final now = DateTime.now();
+      fakeSocket.emitIncomingMessage(
+        MessageModel(
+          id: 'live-open-1',
+          conversationId: 'conv-1',
+          sender: peerSender,
+          content: 'Looking right at it',
+          type: 'TEXT',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(convUnread('conv-1'), 0);
+      expect(
+        fakeSocket.readCalls.contains('conv-1:live-open-1'),
+        isTrue,
+      );
+
+      // Message to conv-2 while user is still viewing conv-1 increments conv-2 only
+      fakeSocket.emitIncomingMessage(
+        MessageModel(
+          id: 'bg-conv2-1',
+          conversationId: 'conv-2',
+          sender: const MessageSenderModel(id: 'user-3', username: 'peer3'),
+          content: 'Other chat',
+          type: 'TEXT',
+          createdAt: now.add(const Duration(seconds: 1)),
+          updatedAt: now.add(const Duration(seconds: 1)),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-1'), 0);
+      expect(convUnread('conv-2'), 1);
+
+      // User switches to Home tab / backgrounds app -> activeViewingConversation becomes null
+      container.read(activeViewingConversationProvider.notifier).state = null;
+      fakeSocket.emitIncomingMessage(
+        MessageModel(
+          id: 'live-bg-2',
+          conversationId: 'conv-1',
+          sender: peerSender,
+          content: 'Arrived while away from Chats',
+          type: 'TEXT',
+          createdAt: now.add(const Duration(seconds: 2)),
+          updatedAt: now.add(const Duration(seconds: 2)),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(convUnread('conv-1'), 1);
+      expect(fakeSocket.readCalls.contains('conv-1:live-bg-2'), isFalse);
+      expect(container.read(totalUnreadChatCountProvider), 2);
+    });
+
+    test(
+        'Test 5-7: multi-device unread sync, read reset isolation, and HTTP-vs-socket race protection',
+        () async {
+      await container.read(chatDiscoveryProvider.notifier).loadDiscovery();
+      final discoveryNotifier = container.read(chatDiscoveryProvider.notifier);
+
+      // Start a slow HTTP discovery refresh returning old unreadCount = 0
+      final slowRefresh = Completer<ChatDiscoveryModel>();
+      fakeRepo.nextDiscoveryCompleter = slowRefresh;
+      final refreshFuture = discoveryNotifier.refreshDiscovery();
+
+      // While HTTP refresh is in-flight, a newer real-time message arrives in conv-1!
+      final msgTime = DateTime.now().add(const Duration(seconds: 5));
+      fakeSocket.emitIncomingMessage(
+        MessageModel(
+          id: 'race-msg-1',
+          conversationId: 'conv-1',
+          sender: peerSender,
+          content: 'Arrived mid-refresh',
+          type: 'TEXT',
+          createdAt: msgTime,
+          updatedAt: msgTime,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-1'), 1);
+
+      // Now stale HTTP snapshot (0 unread, older lastMessageAt) resolves
+      slowRefresh.complete(
+        ChatDiscoveryModel(
+          conversations: [
+            fakeRepo.discoveryConversations.first,
+            fakeRepo.discoveryConversations[1],
+          ],
+        ),
+      );
+      await refreshFuture;
+
+      // Newer socket unread count (1) is preserved instead of overwritten by stale HTTP!
+      expect(convUnread('conv-1'), 1);
+
+      // Multi-device unread sync for conv-2 sets unread = 3 immediately
+      fakeSocket.emitUnread({'conversationId': 'conv-2', 'unreadCount': 3});
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-2'), 3);
+      expect(container.read(totalUnreadChatCountProvider), 4);
+
+      // Open & mark conv-1 read clears ONLY conv-1, leaving conv-2 at 3
+      await discoveryNotifier.markAsRead('conv-1');
+      expect(convUnread('conv-1'), 0);
+      expect(convUnread('conv-2'), 3);
+      expect(container.read(totalUnreadChatCountProvider), 3);
+
+      // Another device reads 1 message in conv-2 / message deleted -> server broadcasts unreadCount: 2
+      fakeSocket.emitUnread({'conversationId': 'conv-2', 'unreadCount': 2});
+      await Future<void>.delayed(Duration.zero);
+      expect(convUnread('conv-2'), 2);
+      expect(container.read(totalUnreadChatCountProvider), 2);
     });
   });
 

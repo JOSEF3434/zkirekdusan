@@ -103,6 +103,16 @@ const MESSAGE_INCLUDE = {
 export class MessagesRepository {
   constructor(private readonly prisma: PrismaService) { }
 
+  async findByClientId(senderId: string, clientId: string) {
+    return this.prisma.message.findFirst({
+      where: {
+        senderId,
+        clientId,
+      },
+      include: MESSAGE_INCLUDE,
+    });
+  }
+
   async create(
     conversationId: string,
     senderId: string,
@@ -111,13 +121,7 @@ export class MessagesRepository {
   ) {
     if (dto.clientId) {
       // Idempotency check: if message with this clientId from this sender already exists, return it
-      const existing = await this.prisma.message.findFirst({
-        where: {
-          senderId,
-          clientId: dto.clientId,
-        },
-        include: MESSAGE_INCLUDE,
-      });
+      const existing = await this.findByClientId(senderId, dto.clientId);
       if (existing) {
         return existing;
       }
@@ -393,6 +397,37 @@ export class MessagesRepository {
       where: { conversationId, userId: { not: excludeUserId } },
       data: { unreadCount: { increment: 1 } },
     });
+  }
+
+  async getConversationMemberUnreadCounts(conversationId: string) {
+    return this.prisma.conversationMember.findMany({
+      where: { conversationId },
+      select: { userId: true, unreadCount: true },
+    });
+  }
+
+  /**
+   * Computes the authoritative unread count for [userId] in [conversationId]
+   * from non-deleted messages sent by others without a MessageRead entry,
+   * and persists it onto ConversationMember.unreadCount.
+   */
+  async recalculateUnreadCount(
+    conversationId: string,
+    userId: string,
+  ): Promise<number> {
+    const unreadCount = await this.prisma.message.count({
+      where: {
+        conversationId,
+        deletedForEveryoneAt: null,
+        senderId: { not: userId },
+        reads: { none: { userId } },
+      },
+    });
+    await this.prisma.conversationMember.updateMany({
+      where: { conversationId, userId },
+      data: { unreadCount },
+    });
+    return unreadCount;
   }
 
   async muteConversation(

@@ -7,6 +7,7 @@ import 'package:mobile/core/presentation/app_shell.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
+import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/presentation/providers/unread_count_provider.dart';
 
@@ -130,6 +131,7 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
     final tr = ref.watch(trProvider);
     final isDesktop = ResponsiveLayout.isDesktop(context);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
+    final unreadChatsCount = ref.watch(totalUnreadChatCountProvider);
     final adminPermissions = ref.watch(adminPermissionsProvider);
 
     String path = widget.currentPath ?? '';
@@ -285,8 +287,14 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
                       label: Text(tr('nav.create')),
                     ),
                     NavigationRailDestination(
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      selectedIcon: const Icon(Icons.chat_bubble),
+                      icon: _withUnreadBadge(
+                        const Icon(Icons.chat_bubble_outline),
+                        unreadChatsCount,
+                      ),
+                      selectedIcon: _withUnreadBadge(
+                        const Icon(Icons.chat_bubble),
+                        unreadChatsCount,
+                      ),
                       label: Text(tr('nav.chats')),
                     ),
                     NavigationRailDestination(
@@ -301,6 +309,17 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
           ),
         );
       },
+    );
+  }
+  Widget _withUnreadBadge(Widget icon, int count) {
+    if (count <= 0) return icon;
+    return Badge(
+      label: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: Colors.redAccent,
+      child: icon,
     );
   }
 }

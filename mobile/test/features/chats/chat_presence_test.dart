@@ -34,6 +34,8 @@ class FakeMessagingSocketService implements MessagingSocketService {
   @override
   Stream<Map<String, dynamic>> get deliveryReceipt => const Stream.empty();
   @override
+  Stream<Map<String, dynamic>> get unreadUpdate => const Stream.empty();
+  @override
   Stream<bool> get connectionStatus => const Stream.empty();
   @override
   bool get isConnected => true;

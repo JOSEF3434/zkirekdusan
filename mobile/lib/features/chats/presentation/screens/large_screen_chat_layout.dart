@@ -496,9 +496,7 @@ class _ChatListPanelState extends ConsumerState<_ChatListPanel> {
     final tr = ref.watch(trProvider);
     final chatItemsAsync = ref.watch(unifiedChatListProvider);
     final filter = ref.watch(conversationFilterProvider);
-    final unreadCount = ref
-        .watch(chatDiscoveryProvider.notifier)
-        .getTotalUnreadCount();
+    final unreadCount = ref.watch(totalUnreadChatCountProvider);
     final isDark = widget.isDark;
     final storyFeedAsync = ref.watch(storyFeedProvider);
     final allGroups = storyFeedAsync.value ?? <StoryFeedGroupModel>[];

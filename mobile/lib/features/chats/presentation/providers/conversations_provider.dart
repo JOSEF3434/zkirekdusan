@@ -55,6 +55,35 @@ final userLastSeenStatusProvider = Provider.family<String?, String>((ref, userId
   return null;
 });
 
+/// Conversation ID currently open and visibly viewed in the foreground.
+/// Kept distinct from mounted-but-hidden tabs inside StatefulNavigationShell.
+final activeViewingConversationProvider = StateProvider<String?>((ref) => null);
+
+/// Tracks whether the Chats shell tab is currently the active tab.
+final isChatsTabActiveProvider = StateProvider<bool>((ref) => true);
+
+/// Reactive user-wide unread chat message counter for badges and filters.
+final totalUnreadChatCountProvider = Provider<int>((ref) {
+  final currentUserId = ref.watch(authProvider.select((auth) => auth.user?.id));
+  if (currentUserId == null || currentUserId.isEmpty) return 0;
+
+  final discovery = ref.watch(chatDiscoveryProvider).valueOrNull;
+  if (discovery == null) return 0;
+
+  int total = 0;
+  for (final conv in discovery.conversations) {
+    for (final m in conv.members) {
+      if (m.userId == currentUserId) {
+        if (!m.isMuted) {
+          total += m.unreadCount;
+        }
+        break;
+      }
+    }
+  }
+  return total;
+});
+
 final chatDiscoveryProvider =
     StateNotifierProvider<
       ChatDiscoveryNotifier,
@@ -80,13 +109,25 @@ class ChatDiscoveryNotifier
   final String? _currentUserId;
   final Ref? _ref;
   StreamSubscription? _messageSubscription;
+  StreamSubscription? _messageDeletedSubscription;
   StreamSubscription? _presenceSubscription;
   StreamSubscription? _readReceiptSubscription;
   StreamSubscription? _deliveryReceiptSubscription;
+  StreamSubscription? _unreadUpdateSubscription;
   StreamSubscription? _presenceQuerySubscription;
   StreamSubscription? _connectionSubscription;
   Timer? _refreshTimer;
   Future<void>? _discoveryRequest;
+
+  /// Bounded deduplication set keyed by stable server message ID so the same
+  /// message never increments unread counts twice across socket/reconnect/API.
+  final Set<String> _processedMessageIds = <String>{};
+
+  /// Race-protection timestamps for HTTP refresh vs concurrent real-time events.
+  final Map<String, DateTime> _lastSocketMessageAt = {};
+  final Map<String, DateTime> _lastUnreadEventAt = {};
+  final Map<String, int> _lastUnreadEventCount = {};
+  final Map<String, DateTime> _lastLocalMarkReadAt = {};
 
   /// In-memory presence truth — updated by every socket presence event.
   /// Applied to state on every state write so API/cache overwrites never win.
@@ -177,11 +218,100 @@ class ChatDiscoveryNotifier
     }
   }
 
+  bool _recordProcessedMessageId(String messageId) {
+    if (messageId.isEmpty) return false;
+    if (_processedMessageIds.length > 2000) {
+      _processedMessageIds.clear();
+    }
+    return _processedMessageIds.add(messageId);
+  }
+
+  void _seedProcessedMessageIds(List<ConversationModel> conversations) {
+    for (final c in conversations) {
+      final lastId = c.lastMessage?.id;
+      if (lastId != null && lastId.isNotEmpty) {
+        _recordProcessedMessageId(lastId);
+      }
+    }
+  }
+
+  /// Merges remote server discovery against newer local real-time state so an
+  /// older in-flight API snapshot never clobbers a message or read event that
+  /// arrived via Socket.IO after the HTTP request began.
+  ChatDiscoveryModel _mergeDiscoveryWithRealtime(
+    ChatDiscoveryModel remote,
+    DateTime requestStartedAt,
+  ) {
+    final existingMap = {
+      for (final c in state.valueOrNull?.conversations ?? <ConversationModel>[])
+        c.id: c,
+    };
+    final activeConvId = _ref?.read(activeViewingConversationProvider);
+
+    final mergedConversations = remote.conversations.map((remoteConv) {
+      final existing = existingMap[remoteConv.id];
+      final socketMsgAt = _lastSocketMessageAt[remoteConv.id];
+      final remoteMsgAt = remoteConv.lastMessageAt;
+
+      ConversationModel resolved = remoteConv;
+      if (existing != null &&
+          socketMsgAt != null &&
+          socketMsgAt.isAfter(requestStartedAt)) {
+        final existingAt = existing.lastMessageAt;
+        if (existingAt != null &&
+            (remoteMsgAt == null || existingAt.isAfter(remoteMsgAt))) {
+          resolved = existing;
+        }
+      }
+
+      final localReadAt = _lastLocalMarkReadAt[resolved.id];
+      final authUnreadAt = _lastUnreadEventAt[resolved.id];
+      final authUnread = _lastUnreadEventCount[resolved.id];
+
+      if (activeConvId == resolved.id ||
+          (localReadAt != null && localReadAt.isAfter(requestStartedAt))) {
+        resolved = _withMemberUnreadCount(resolved, 0);
+      } else if (authUnread != null &&
+          authUnreadAt != null &&
+          authUnreadAt.isAfter(requestStartedAt)) {
+        resolved = _withMemberUnreadCount(resolved, authUnread);
+      }
+
+      return resolved;
+    }).toList();
+
+    _seedProcessedMessageIds(mergedConversations);
+    return remote.copyWith(conversations: mergedConversations);
+  }
+
+  ConversationModel _withMemberUnreadCount(
+    ConversationModel conv,
+    int unreadCount,
+  ) {
+    if (_currentUserId == null || _currentUserId.isEmpty) return conv;
+    final memberIndex = conv.members.indexWhere(
+      (m) => m.userId == _currentUserId,
+    );
+    if (memberIndex == -1) return conv;
+    if (conv.members[memberIndex].unreadCount == unreadCount) return conv;
+    final members = [...conv.members];
+    members[memberIndex] = members[memberIndex].copyWith(
+      unreadCount: unreadCount < 0 ? 0 : unreadCount,
+    );
+    return conv.copyWith(members: members);
+  }
+
   Future<void> _loadDiscovery() async {
+    if (_currentUserId == null || _currentUserId.isEmpty) {
+      if (mounted) _setDiscoveryState(const ChatDiscoveryModel());
+      return;
+    }
+
     // 1. Immediately hydrate state from Drift cache
     try {
       final cached = await _repository.getCachedConversations();
       if (!mounted) return;
+      _seedProcessedMessageIds(cached);
       final cachedModel = ChatDiscoveryModel(conversations: cached);
       _setDiscoveryState(cachedModel);
       if (cached.isNotEmpty) _queryPresenceForAll(cachedModel);
@@ -191,6 +321,7 @@ class ChatDiscoveryNotifier
     }
 
     // 2. Refresh from server
+    final requestStartedAt = DateTime.now();
     try {
       final discovery = await _repository
           .getChatDiscovery()
@@ -199,16 +330,19 @@ class ChatDiscoveryNotifier
       if (discovery.conversations.isNotEmpty ||
           discovery.allUsers.isNotEmpty ||
           discovery.publicGroups.isNotEmpty ||
+          discovery.channels.isNotEmpty ||
           state.valueOrNull == null ||
           state.valueOrNull!.conversations.isEmpty) {
-        _setDiscoveryState(discovery);
-        _queryPresenceForAll(discovery);
+        final merged = _mergeDiscoveryWithRealtime(discovery, requestStartedAt);
+        _setDiscoveryState(merged);
+        _queryPresenceForAll(merged);
       }
     } catch (e) {
       if (!mounted) return;
       if (state.valueOrNull == null) {
         final cached = await _repository.getCachedConversations();
         if (!mounted) return;
+        _seedProcessedMessageIds(cached);
         _setDiscoveryState(ChatDiscoveryModel(conversations: cached));
       }
     }
@@ -216,6 +350,7 @@ class ChatDiscoveryNotifier
 
   Future<void> refreshDiscovery() async {
     if (!mounted) return;
+    if (_currentUserId == null || _currentUserId.isEmpty) return;
     if (_discoveryRequest != null) return _discoveryRequest!;
     final prev = mounted ? state.value : null;
     final request = _refreshDiscovery(prev);
@@ -230,6 +365,7 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> _refreshDiscovery(ChatDiscoveryModel? prev) async {
+    final requestStartedAt = DateTime.now();
     try {
       final discovery = await _repository
           .getChatDiscovery()
@@ -238,8 +374,11 @@ class ChatDiscoveryNotifier
       if (discovery.conversations.isNotEmpty ||
           discovery.allUsers.isNotEmpty ||
           discovery.publicGroups.isNotEmpty ||
+          discovery.channels.isNotEmpty ||
           prev == null) {
-        _setDiscoveryState(discovery);
+        final merged = _mergeDiscoveryWithRealtime(discovery, requestStartedAt);
+        _setDiscoveryState(merged);
+        _queryPresenceForAll(merged);
       }
     } catch (e) {
       if (!mounted) return;
@@ -253,76 +392,144 @@ class ChatDiscoveryNotifier
     _connectionSubscription = _socketService.connectionStatus.listen((connected) {
       if (connected && mounted) {
         refreshDiscovery();
+        _retryPresenceQueryWhenReady();
       }
     });
 
     _messageSubscription = _socketService.messageReceived.listen((message) {
       if (!mounted) return;
+      final isFirstSeen = _recordProcessedMessageId(message.id);
+      if (!isFirstSeen) return;
+
       final senderId = message.sender.id;
-      if (_currentUserId != null &&
-          senderId != _currentUserId &&
+      final isFromMe = _currentUserId != null && senderId == _currentUserId;
+      final activeConvId = _ref?.read(activeViewingConversationProvider);
+      final isActivelyViewing = activeConvId == message.conversationId;
+
+      if (!isFromMe &&
+          _currentUserId != null &&
           !message.deliveredTo.contains(_currentUserId)) {
         _socketService.markDelivered(message.conversationId, message.id);
       }
 
-      state.whenData((discovery) {
-        if (!mounted) return;
-        final conversations = [...discovery.conversations];
-        final index = conversations.indexWhere(
-          (c) => c.id == message.conversationId,
+      final discovery = state.valueOrNull;
+      if (discovery == null) {
+        refreshDiscovery();
+        return;
+      }
+
+      final conversations = [...discovery.conversations];
+      final index = conversations.indexWhere(
+        (c) => c.id == message.conversationId,
+      );
+      if (index != -1) {
+        final conv = conversations[index];
+        // Guard against double-counting if API refresh already surfaced this message
+        final alreadyPreviewed = conv.lastMessage?.id == message.id;
+        _lastSocketMessageAt[message.conversationId] = DateTime.now();
+
+        final isDelivered = message.deliveredTo.any(
+          (u) => u.isNotEmpty && u != senderId,
         );
-        if (index != -1) {
-          final conv = conversations[index];
-          final isDelivered = message.deliveredTo.any(
-            (u) => u.isNotEmpty && u != senderId,
-          );
-          final isSeen = message.readBy.any(
-            (u) => u.isNotEmpty && u != senderId,
-          );
-          conversations[index] = conv.copyWith(
-            lastMessageAt: message.createdAt,
-            lastMessage: MessagePreviewModel(
-              id: message.id,
-              content: message.content,
-              type: message.type,
-              senderName: message.sender.displayName ?? message.sender.username,
-              isMe: senderId == _currentUserId,
-              isDelivered: isDelivered,
-              isSeen: isSeen,
-              isPending: false,
-              isFailed: false,
-            ),
-          );
+        final isSeen = message.readBy.any(
+          (u) => u.isNotEmpty && u != senderId,
+        );
 
-          if (senderId != _currentUserId) {
-            final memberIndex = conversations[index].members.indexWhere(
-              (m) => m.userId == _currentUserId,
+        var updatedConv = conv.copyWith(
+          lastMessageAt: message.createdAt,
+          lastMessage: MessagePreviewModel(
+            id: message.id,
+            content: message.content,
+            type: message.type,
+            senderName: message.sender.displayName ?? message.sender.username,
+            isMe: isFromMe,
+            isDelivered: isDelivered,
+            isSeen: isSeen,
+            isPending: false,
+            isFailed: false,
+          ),
+        );
+
+        if (!isFromMe && _currentUserId != null) {
+          final memberIndex = updatedConv.members.indexWhere(
+            (m) => m.userId == _currentUserId,
+          );
+          if (memberIndex != -1) {
+            final members = [...updatedConv.members];
+            final currentUnread = members[memberIndex].unreadCount;
+            final nextUnread = isActivelyViewing
+                ? 0
+                : (alreadyPreviewed ? currentUnread : currentUnread + 1);
+            members[memberIndex] = members[memberIndex].copyWith(
+              unreadCount: nextUnread,
             );
-            if (memberIndex != -1) {
-              final members = [...conversations[index].members];
-              members[memberIndex] = members[memberIndex].copyWith(
-                unreadCount: members[memberIndex].unreadCount + 1,
-              );
-              conversations[index] = conversations[index].copyWith(
-                members: members,
-              );
-            }
+            updatedConv = updatedConv.copyWith(members: members);
           }
-
-          if (!mounted) return;
-          _setDiscoveryState(
-            ChatDiscoveryModel(
-              conversations: conversations,
-              publicGroups: discovery.publicGroups,
-              myPrivateGroups: discovery.myPrivateGroups,
-              allUsers: discovery.allUsers,
-            ),
-          );
-        } else {
-          // New conversation received that wasn't in discovery list yet
-          refreshDiscovery();
         }
-      });
+
+        // Move updated conversation to the front so list ordering reacts immediately
+        conversations.removeAt(index);
+        conversations.insert(0, updatedConv);
+
+        if (!mounted) return;
+        _setDiscoveryState(discovery.copyWith(conversations: conversations));
+      } else {
+        // New conversation received that wasn't in discovery list yet
+        refreshDiscovery();
+      }
+    });
+
+    _unreadUpdateSubscription = _socketService.unreadUpdate.listen((data) {
+      if (!mounted) return;
+      final conversationId = data['conversationId'] as String?;
+      final rawCount = data['unreadCount'];
+      final unreadCount = rawCount is num ? rawCount.toInt() : null;
+      if (conversationId == null || unreadCount == null) return;
+
+      _lastUnreadEventAt[conversationId] = DateTime.now();
+      _lastUnreadEventCount[conversationId] = unreadCount < 0 ? 0 : unreadCount;
+
+      final activeConvId = _ref?.read(activeViewingConversationProvider);
+      final effectiveCount =
+          activeConvId == conversationId ? 0 : (unreadCount < 0 ? 0 : unreadCount);
+
+      final discovery = state.valueOrNull;
+      if (discovery == null) {
+        refreshDiscovery();
+        return;
+      }
+
+      final conversations = [...discovery.conversations];
+      final index = conversations.indexWhere((c) => c.id == conversationId);
+      if (index == -1) {
+        refreshDiscovery();
+        return;
+      }
+
+      final updated = _withMemberUnreadCount(
+        conversations[index],
+        effectiveCount,
+      );
+      if (updated != conversations[index]) {
+        conversations[index] = updated;
+        _setDiscoveryState(discovery.copyWith(conversations: conversations));
+      }
+    });
+
+    _messageDeletedSubscription = _socketService.messageDeleted.listen((data) {
+      if (!mounted) return;
+      final conversationId = data['conversationId'];
+      final messageId = data['messageId'];
+      if (conversationId == null || messageId == null) return;
+
+      final discovery = state.valueOrNull;
+      if (discovery == null) return;
+      final matchesPreview = discovery.conversations.any(
+        (c) => c.id == conversationId && c.lastMessage?.id == messageId,
+      );
+      if (matchesPreview) {
+        refreshDiscovery();
+      }
     });
 
     _readReceiptSubscription = _socketService.readReceipt.listen((data) {
@@ -343,13 +550,10 @@ class ChatDiscoveryNotifier
             var updatedConv = conv;
             // If the current user read messages in this conversation, reset our unread count
             if (userId == _currentUserId) {
-              final memberIndex = updatedConv.members.indexWhere(
-                (m) => m.userId == _currentUserId,
-              );
-              if (memberIndex != -1 && updatedConv.members[memberIndex].unreadCount > 0) {
-                final members = [...updatedConv.members];
-                members[memberIndex] = members[memberIndex].copyWith(unreadCount: 0);
-                updatedConv = updatedConv.copyWith(members: members);
+              _lastLocalMarkReadAt[conv.id] = DateTime.now();
+              final cleared = _withMemberUnreadCount(updatedConv, 0);
+              if (cleared != updatedConv) {
+                updatedConv = cleared;
                 changed = true;
               }
             }
@@ -383,14 +587,7 @@ class ChatDiscoveryNotifier
         }).toList();
 
         if (changed) {
-          _setDiscoveryState(
-            ChatDiscoveryModel(
-              conversations: conversations,
-              publicGroups: discovery.publicGroups,
-              myPrivateGroups: discovery.myPrivateGroups,
-              allUsers: discovery.allUsers,
-            ),
-          );
+          _setDiscoveryState(discovery.copyWith(conversations: conversations));
         }
       });
     });
@@ -431,14 +628,7 @@ class ChatDiscoveryNotifier
         }).toList();
 
         if (changed) {
-          _setDiscoveryState(
-            ChatDiscoveryModel(
-              conversations: conversations,
-              publicGroups: discovery.publicGroups,
-              myPrivateGroups: discovery.myPrivateGroups,
-              allUsers: discovery.allUsers,
-            ),
-          );
+          _setDiscoveryState(discovery.copyWith(conversations: conversations));
         }
       });
     });
@@ -517,10 +707,8 @@ class ChatDiscoveryNotifier
       if (changed) {
         if (!mounted) return;
         state = AsyncValue.data(
-          ChatDiscoveryModel(
+          discovery.copyWith(
             conversations: convs,
-            publicGroups: discovery.publicGroups,
-            myPrivateGroups: discovery.myPrivateGroups,
             allUsers: users,
           ),
         );
@@ -561,12 +749,6 @@ class ChatDiscoveryNotifier
       final discovery = state.valueOrNull;
       if (discovery != null) _queryPresenceForAll(discovery);
     });
-
-    // On socket connect/reconnect, wait for discovery data then query presence
-    _socketService.connectionStatus.listen((connected) {
-      if (!mounted || !connected) return;
-      _retryPresenceQueryWhenReady();
-    });
   }
 
   /// Polls until discovery data is available, then fires presence query.
@@ -585,35 +767,26 @@ class ChatDiscoveryNotifier
   }
 
   Future<void> markAsRead(String conversationId) async {
-    _socketService.markConversationAsRead(conversationId);
-    await _repository.markConversationAsRead(conversationId);
-    if (!mounted) return;
+    _lastLocalMarkReadAt[conversationId] = DateTime.now();
+    _lastUnreadEventAt[conversationId] = DateTime.now();
+    _lastUnreadEventCount[conversationId] = 0;
+
+    // Clear unread count locally immediately so badges react with zero lag.
     state.whenData((discovery) {
       if (!mounted) return;
       final conversations = [...discovery.conversations];
       final index = conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
-        final memberIndex = conversations[index].members.indexWhere(
-          (m) => m.userId == _currentUserId,
-        );
-        if (memberIndex != -1) {
-          final members = [...conversations[index].members];
-          members[memberIndex] = members[memberIndex].copyWith(unreadCount: 0);
-          conversations[index] = conversations[index].copyWith(
-            members: members,
-          );
-          if (!mounted) return;
-          _setDiscoveryState(
-            ChatDiscoveryModel(
-              conversations: conversations,
-              publicGroups: discovery.publicGroups,
-              myPrivateGroups: discovery.myPrivateGroups,
-              allUsers: discovery.allUsers,
-            ),
-          );
+        final cleared = _withMemberUnreadCount(conversations[index], 0);
+        if (cleared != conversations[index]) {
+          conversations[index] = cleared;
+          _setDiscoveryState(discovery.copyWith(conversations: conversations));
         }
       }
     });
+
+    _socketService.markConversationAsRead(conversationId);
+    await _repository.markConversationAsRead(conversationId);
   }
 
   Future<void> muteConversation(String conversationId) async {
@@ -826,9 +999,11 @@ class ChatDiscoveryNotifier
     _discoveryRequest = null;
     _connectionSubscription?.cancel();
     _messageSubscription?.cancel();
+    _messageDeletedSubscription?.cancel();
     _presenceSubscription?.cancel();
     _readReceiptSubscription?.cancel();
     _deliveryReceiptSubscription?.cancel();
+    _unreadUpdateSubscription?.cancel();
     _presenceQuerySubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();

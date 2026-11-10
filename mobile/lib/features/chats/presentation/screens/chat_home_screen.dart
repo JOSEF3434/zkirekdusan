@@ -105,11 +105,8 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final chatItemsAsync = ref.watch(unifiedChatListProvider);
-    // chatDiscoveryProvider is watched via notifier below for unread count
     final filter = ref.watch(conversationFilterProvider);
-    final unreadCount = ref
-        .watch(chatDiscoveryProvider.notifier)
-        .getTotalUnreadCount();
+    final unreadCount = ref.watch(totalUnreadChatCountProvider);
     final profile = ref.watch(profileProvider).profile;
     final authUser = ref.watch(authProvider).user;
     final userName = profile?.displayName ?? authUser?.username ?? 'You';

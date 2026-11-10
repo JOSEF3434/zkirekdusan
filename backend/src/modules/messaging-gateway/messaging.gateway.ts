@@ -50,6 +50,7 @@ export const WS_EVENTS = {
   MESSAGE_NEW: 'message:new',
   MESSAGE_UPDATED: 'message:updated',
   MESSAGE_DELETED: 'message:deleted',
+  CONVERSATION_UNREAD: 'conversation:unread',
   REACTION_NEW: 'reaction:new',
   REACTION_REMOVED: 'reaction:removed',
   TYPING_INDICATOR: 'typing:indicator',
@@ -306,11 +307,8 @@ export class MessagingGateway
         dto,
       );
 
-      // Broadcast to all members of the conversation room
-      this.server
-        .to(`conversation:${conversationId}`)
-        .emit(WS_EVENTS.MESSAGE_NEW, message);
-
+      // Note: messagesService.sendMessage already broadcasts WS_EVENTS.MESSAGE_NEW
+      // to both the conversation room and every member's user room.
       return { success: true, message };
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
@@ -347,10 +345,10 @@ export class MessagingGateway
       isActive: true,
     };
 
-    const target = client.to(`conversation:${data.conversationId}`);
+    let target = client.to(`conversation:${data.conversationId}`);
     for (const member of conversation.members || []) {
       if (member.userId && member.userId !== userId) {
-        target.to(`user:${member.userId}`);
+        target = target.to(`user:${member.userId}`);
       }
     }
     target.emit(WS_EVENTS.ACTIVITY_UPDATE, payload);
@@ -371,10 +369,10 @@ export class MessagingGateway
         activity: data.activity || 'typing',
         isActive: false,
       };
-      const stopTarget = this.server.to(`conversation:${data.conversationId}`);
+      let stopTarget = this.server.to(`conversation:${data.conversationId}`);
       for (const member of conversation.members || []) {
         if (member.userId && member.userId !== userId) {
-          stopTarget.to(`user:${member.userId}`);
+          stopTarget = stopTarget.to(`user:${member.userId}`);
         }
       }
       stopTarget.emit(WS_EVENTS.ACTIVITY_UPDATE, stopPayload);
@@ -414,11 +412,11 @@ export class MessagingGateway
     const conversation = await this.conversationsRepository.findById(
       data.conversationId,
     );
-    const target = client.to(`conversation:${data.conversationId}`);
+    let target = client.to(`conversation:${data.conversationId}`);
     if (conversation?.members) {
       for (const member of conversation.members) {
         if (member.userId && member.userId !== userId) {
-          target.to(`user:${member.userId}`);
+          target = target.to(`user:${member.userId}`);
         }
       }
     }
@@ -542,6 +540,10 @@ export class MessagingGateway
         };
         this.emitReadReceipt(data.conversationId, payload, memberIds);
       }
+      this.emitConversationUnread(userId, {
+        conversationId: data.conversationId,
+        unreadCount: 0,
+      });
       return { success: true, count: newlyReadIds.length };
     } catch (err: any) {
       client.emit(WS_EVENTS.ERROR, { message: err.message });
@@ -1136,19 +1138,44 @@ export class MessagingGateway
     }
   }
 
-  /** Broadcast a new message to conversation room and to members directly */
+  private _toConversationAndMembers(
+    conversationId: string,
+    memberUserIds?: string[],
+  ) {
+    const rooms = new Set<string>([`conversation:${conversationId}`]);
+    if (memberUserIds && memberUserIds.length > 0) {
+      for (const userId of memberUserIds) {
+        if (userId) rooms.add(`user:${userId}`);
+      }
+    }
+    return this.server.to(Array.from(rooms));
+  }
+
+  /** Broadcast a new message to conversation room and to all members' user rooms */
   emitNewMessage(
     conversationId: string,
     message: any,
     memberUserIds?: string[],
   ) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
-    target.emit(WS_EVENTS.MESSAGE_NEW, message);
+    this._toConversationAndMembers(conversationId, memberUserIds).emit(
+      WS_EVENTS.MESSAGE_NEW,
+      message,
+    );
+  }
+
+  /** Broadcast authoritative per-user unread count across all of that user's sockets */
+  emitConversationUnread(
+    userId: string,
+    payload: {
+      conversationId: string;
+      unreadCount: number;
+      lastMessageId?: string;
+    },
+  ) {
+    if (!userId) return;
+    this.server
+      .to(`user:${userId}`)
+      .emit(WS_EVENTS.CONVERSATION_UNREAD, payload);
   }
 
   /** Broadcast a read receipt to conversation room and to members */
@@ -1157,12 +1184,7 @@ export class MessagingGateway
     payload: any,
     memberUserIds?: string[],
   ) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
+    const target = this._toConversationAndMembers(conversationId, memberUserIds);
     target.emit(WS_EVENTS.READ_RECEIPT, payload);
     target.emit('message:read', payload);
   }
@@ -1173,13 +1195,10 @@ export class MessagingGateway
     payload: any,
     memberUserIds?: string[],
   ) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
-    target.emit('message:delivered', payload);
+    this._toConversationAndMembers(conversationId, memberUserIds).emit(
+      'message:delivered',
+      payload,
+    );
   }
 
   /** Broadcast a message update to a conversation room (used by MessagesService internally) */
@@ -1188,13 +1207,10 @@ export class MessagingGateway
     message: any,
     memberUserIds?: string[],
   ) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
-    target.emit(WS_EVENTS.MESSAGE_UPDATED, message);
+    this._toConversationAndMembers(conversationId, memberUserIds).emit(
+      WS_EVENTS.MESSAGE_UPDATED,
+      message,
+    );
   }
 
   emitMessageDeleted(
@@ -1203,23 +1219,15 @@ export class MessagingGateway
     memberUserIds?: string[],
   ) {
     const payload = { conversationId, messageId };
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
-    target.emit(WS_EVENTS.MESSAGE_DELETED, payload);
+    this._toConversationAndMembers(conversationId, memberUserIds).emit(
+      WS_EVENTS.MESSAGE_DELETED,
+      payload,
+    );
   }
 
   /** Broadcast reaction added to conversation room and to members directly */
   emitReaction(conversationId: string, payload: any, memberUserIds?: string[]) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
+    const target = this._toConversationAndMembers(conversationId, memberUserIds);
     target.emit(WS_EVENTS.REACTION_NEW, payload);
     target.emit('reaction:updated', payload);
   }
@@ -1230,12 +1238,7 @@ export class MessagingGateway
     payload: any,
     memberUserIds?: string[],
   ) {
-    const target = this.server.to(`conversation:${conversationId}`);
-    if (memberUserIds && memberUserIds.length > 0) {
-      for (const userId of memberUserIds) {
-        target.to(`user:${userId}`);
-      }
-    }
+    const target = this._toConversationAndMembers(conversationId, memberUserIds);
     target.emit(WS_EVENTS.REACTION_REMOVED, payload);
     target.emit('reaction:updated', payload);
   }

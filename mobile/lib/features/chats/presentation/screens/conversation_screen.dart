@@ -32,11 +32,13 @@ class ConversationScreen extends ConsumerStatefulWidget {
 }
 
 class _ConversationScreenState extends ConsumerState<ConversationScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
   MessageModel? _editingMessage;
+  late final StateController<String?> _activeConvController;
+  bool _isAppForeground = true;
 
   bool _hasInitialScrolled = false;
   int _lastMessageCount = 0;
@@ -77,29 +79,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _activeConvController = ref.read(activeViewingConversationProvider.notifier);
     _scrollController.addListener(_onScroll);
 
-    // Mark conversation as read when opening
+    // Mark conversation as actively viewed and read when opening
     Future.microtask(() {
-      ref
-          .read(conversationsProvider.notifier)
-          .markAsRead(widget.conversationId);
-      final currentUserId = ref.read(authProvider).user?.id;
-      if (currentUserId != null) {
-        ref
-            .read(chatMessagesProvider(widget.conversationId).notifier)
-            .markIncomingAsRead(currentUserId);
-      }
+      if (!mounted) return;
+      _activeConvController.state = widget.conversationId;
+      _markCurrentConversationRead();
     });
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels <=
-        _scrollController.position.minScrollExtent + 100) {
-      ref
-          .read(chatMessagesProvider(widget.conversationId).notifier)
-          .loadMoreMessages();
-    }
+  void _markCurrentConversationRead() {
+    if (!mounted || !_isAppForeground) return;
+    ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
     final currentUserId = ref.read(authProvider).user?.id;
     if (currentUserId != null) {
       ref
@@ -109,27 +103,51 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground) {
+      if (mounted) {
+        _activeConvController.state = widget.conversationId;
+        _markCurrentConversationRead();
+      }
+    } else if (_activeConvController.state == widget.conversationId) {
+      _activeConvController.state = null;
+    }
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels <=
+        _scrollController.position.minScrollExtent + 100) {
+      ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .loadMoreMessages();
+    }
+    _markCurrentConversationRead();
+  }
+
+  @override
   void didUpdateWidget(covariant ConversationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.conversationId != widget.conversationId) {
       _hasInitialScrolled = false;
       _lastMessageCount = 0;
       Future.microtask(() {
-        ref
-            .read(conversationsProvider.notifier)
-            .markAsRead(widget.conversationId);
-        final currentUserId = ref.read(authProvider).user?.id;
-        if (currentUserId != null) {
-          ref
-              .read(chatMessagesProvider(widget.conversationId).notifier)
-              .markIncomingAsRead(currentUserId);
-        }
+        if (!mounted) return;
+        _activeConvController.state = widget.conversationId;
+        _markCurrentConversationRead();
       });
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final closingId = widget.conversationId;
+    Future.microtask(() {
+      if (_activeConvController.state == closingId) {
+        _activeConvController.state = null;
+      }
+    });
     _scrollController.dispose();
     _composerFocusNode.dispose();
     super.dispose();

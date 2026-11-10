@@ -32,6 +32,7 @@ class MessagingSocketService {
   final _reactionController = StreamController<Map<String, dynamic>>.broadcast();
   final _readReceiptController = StreamController<Map<String, dynamic>>.broadcast();
   final _deliveryReceiptController = StreamController<Map<String, dynamic>>.broadcast();
+  final _unreadUpdateController = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionStatusController = StreamController<bool>.broadcast();
 
   final Set<String> _joinedConversations = {};
@@ -47,6 +48,7 @@ class MessagingSocketService {
   Stream<Map<String, dynamic>> get reaction => _reactionController.stream;
   Stream<Map<String, dynamic>> get readReceipt => _readReceiptController.stream;
   Stream<Map<String, dynamic>> get deliveryReceipt => _deliveryReceiptController.stream;
+  Stream<Map<String, dynamic>> get unreadUpdate => _unreadUpdateController.stream;
   Stream<bool> get connectionStatus => _connectionStatusController.stream;
 
   MessagingSocketService(this._apiClient, this._ref);
@@ -127,27 +129,27 @@ class MessagingSocketService {
     });
   }
 
-  void _setupSocketListeners() {
-    _socket!.onConnect((_) {
-      _recoveryTimer?.cancel();
-      _isConnected = true;
+  void _handleConnected({bool isReconnect = false}) {
+    _recoveryTimer?.cancel();
+    final wasConnected = _isConnected;
+    _isConnected = true;
+    if (!wasConnected) {
       _connectionStatusController.add(true);
-      _logger.i('MessagingSocket: Connected to /chat');
-      // Re-join any tracked conversations
-      for (final id in _joinedConversations) {
-        _socket!.emit('conversation:join', {'conversationId': id});
-      }
-    });
+    }
+    _logger.i(
+      isReconnect
+          ? 'MessagingSocket: Reconnected, re-joining ${_joinedConversations.length} rooms'
+          : 'MessagingSocket: Connected to /chat',
+    );
+    for (final id in _joinedConversations) {
+      _socket?.emit('conversation:join', {'conversationId': id});
+    }
+  }
 
-    _socket!.on('reconnect', (_) {
-      _recoveryTimer?.cancel();
-      _isConnected = true;
-      _connectionStatusController.add(true);
-      _logger.i('MessagingSocket: Reconnected, re-joining ${_joinedConversations.length} rooms');
-      for (final id in _joinedConversations) {
-        _socket!.emit('conversation:join', {'conversationId': id});
-      }
-    });
+  void _setupSocketListeners() {
+    _socket!.onConnect((_) => _handleConnected(isReconnect: false));
+
+    _socket!.on('reconnect', (_) => _handleConnected(isReconnect: true));
 
     _socket!.onDisconnect((_) {
       _isConnected = false;
@@ -314,15 +316,28 @@ class MessagingSocketService {
 
     // Read receipts
     _socket!.on('message:read', (data) {
-      _readReceiptController.add(data as Map<String, dynamic>);
+      if (data is Map) {
+        _readReceiptController.add(Map<String, dynamic>.from(data));
+      }
     });
     _socket!.on('message:receipt', (data) {
-      _readReceiptController.add(data as Map<String, dynamic>);
+      if (data is Map) {
+        _readReceiptController.add(Map<String, dynamic>.from(data));
+      }
     });
 
     // Delivery receipts
     _socket!.on('message:delivered', (data) {
-      _deliveryReceiptController.add(data as Map<String, dynamic>);
+      if (data is Map) {
+        _deliveryReceiptController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    // Authoritative unread count updates across user devices
+    _socket!.on('conversation:unread', (data) {
+      if (data is Map) {
+        _unreadUpdateController.add(Map<String, dynamic>.from(data));
+      }
     });
   }
 
@@ -458,6 +473,7 @@ class MessagingSocketService {
     _reactionController.close();
     _readReceiptController.close();
     _deliveryReceiptController.close();
+    _unreadUpdateController.close();
     _connectionStatusController.close();
   }
 }

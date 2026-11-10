@@ -54,13 +54,16 @@ class InlineConversationView extends ConsumerStatefulWidget {
 }
 
 class InlineConversationViewState
-    extends ConsumerState<InlineConversationView> {
+    extends ConsumerState<InlineConversationView>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _composerFocusNode = FocusNode();
   String? _replyToMessageId;
   MessageModel? _editingMessage;
   bool _hasInitialScrolled = false;
   int _lastMessageCount = 0;
+  late final StateController<String?> _activeConvController;
+  bool _isAppForeground = true;
 
   void scrollToMessage(String messageId) {
     final messages = ref.read(chatMessagesProvider(widget.conversationId)).value ?? [];
@@ -99,19 +102,42 @@ class InlineConversationViewState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _activeConvController = ref.read(activeViewingConversationProvider.notifier);
     _scrollController.addListener(_onScroll);
-    // Mark conversation as read on open
     Future.microtask(() {
-      ref
-          .read(conversationsProvider.notifier)
-          .markAsRead(widget.conversationId);
-      final currentUserId = ref.read(authProvider).user?.id;
-      if (currentUserId != null) {
-        ref
-            .read(chatMessagesProvider(widget.conversationId).notifier)
-            .markIncomingAsRead(currentUserId);
-      }
+      if (!mounted) return;
+      _syncActiveViewingState();
     });
+  }
+
+  bool get _isChatsTabVisible => ref.read(isChatsTabActiveProvider);
+
+  void _syncActiveViewingState() {
+    if (!mounted) return;
+    if (_isAppForeground && _isChatsTabVisible) {
+      _activeConvController.state = widget.conversationId;
+      _markCurrentConversationRead();
+    } else if (_activeConvController.state == widget.conversationId) {
+      _activeConvController.state = null;
+    }
+  }
+
+  void _markCurrentConversationRead() {
+    if (!mounted || !_isAppForeground || !_isChatsTabVisible) return;
+    ref.read(conversationsProvider.notifier).markAsRead(widget.conversationId);
+    final currentUserId = ref.read(authProvider).user?.id;
+    if (currentUserId != null) {
+      ref
+          .read(chatMessagesProvider(widget.conversationId).notifier)
+          .markIncomingAsRead(currentUserId);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    _syncActiveViewingState();
   }
 
   @override
@@ -120,19 +146,10 @@ class InlineConversationViewState
     if (oldWidget.conversationId != widget.conversationId) {
       _hasInitialScrolled = false;
       _lastMessageCount = 0;
-      // New conversation selected: clear reply state
       setState(() => _replyToMessageId = null);
-      // Mark new conversation as read
       Future.microtask(() {
-        ref
-            .read(conversationsProvider.notifier)
-            .markAsRead(widget.conversationId);
-        final currentUserId = ref.read(authProvider).user?.id;
-        if (currentUserId != null) {
-          ref
-              .read(chatMessagesProvider(widget.conversationId).notifier)
-              .markIncomingAsRead(currentUserId);
-        }
+        if (!mounted) return;
+        _syncActiveViewingState();
       });
     }
   }
@@ -144,16 +161,18 @@ class InlineConversationViewState
           .read(chatMessagesProvider(widget.conversationId).notifier)
           .loadMoreMessages();
     }
-    final currentUserId = ref.read(authProvider).user?.id;
-    if (currentUserId != null) {
-      ref
-          .read(chatMessagesProvider(widget.conversationId).notifier)
-          .markIncomingAsRead(currentUserId);
-    }
+    _markCurrentConversationRead();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final closingId = widget.conversationId;
+    Future.microtask(() {
+      if (_activeConvController.state == closingId) {
+        _activeConvController.state = null;
+      }
+    });
     _scrollController.dispose();
     _composerFocusNode.dispose();
     super.dispose();
@@ -161,6 +180,11 @@ class InlineConversationViewState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(isChatsTabActiveProvider, (prev, next) {
+      if (prev != next) {
+        _syncActiveViewingState();
+      }
+    });
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final messages = ref.watch(chatMessagesProvider(widget.conversationId));
     final discoveryAsync = ref.watch(chatDiscoveryProvider);

@@ -78,6 +78,16 @@ export class MessagesService {
       mentionedUserIds: validatedMentionedUserIds,
     };
 
+    if (safeDto.clientId && this.messagesRepository.findByClientId) {
+      const existing = await this.messagesRepository.findByClientId(
+        senderId,
+        safeDto.clientId,
+      );
+      if (existing) {
+        return this.mapToDto(existing);
+      }
+    }
+
     const message = await this.messagesRepository.create(
       conversationId,
       senderId,
@@ -94,6 +104,10 @@ export class MessagesService {
       conversationId,
       senderId,
     );
+    const updatedMemberUnreads =
+      (await this.messagesRepository.getConversationMemberUnreadCounts?.(
+        conversationId,
+      )) ?? [];
 
     // Immediately mark message as delivered to any other conversation members currently online
     const onlineMemberIds = (conversation.members ?? [])
@@ -124,6 +138,16 @@ export class MessagesService {
       ? conversation.members.map((m: any) => m.userId)
       : [];
     this.messagingGateway.emitNewMessage(conversationId, messageDto, memberIds);
+
+    for (const member of updatedMemberUnreads) {
+      if (member.userId !== senderId) {
+        this.messagingGateway.emitConversationUnread?.(member.userId, {
+          conversationId,
+          unreadCount: member.unreadCount,
+          lastMessageId: message.id,
+        });
+      }
+    }
 
     // Dispatch mention notifications (fire-and-forget, never blocks send)
     if (notifiableMentionIds.length > 0) {
@@ -228,6 +252,12 @@ export class MessagesService {
         memberIds,
       );
     }
+    if (newlyReadIds.length > 0) {
+      this.messagingGateway.emitConversationUnread?.(userId, {
+        conversationId,
+        unreadCount: 0,
+      });
+    }
 
     return {
       data: result.data.map((m) => this.mapToDto(m)),
@@ -305,7 +335,29 @@ export class MessagesService {
     }
 
     await this.messagesRepository.deleteForEveryone(messageId);
-    this.messagingGateway.emitMessageDeleted(message.conversationId, messageId);
+    const memberIds: string[] =
+      (message as any).conversation?.members?.map((m: any) => m.userId) ?? [];
+    this.messagingGateway.emitMessageDeleted(
+      message.conversationId,
+      messageId,
+      memberIds,
+    );
+
+    for (const memberId of memberIds) {
+      if (memberId && memberId !== message.senderId) {
+        const unreadCount =
+          await this.messagesRepository.recalculateUnreadCount?.(
+            message.conversationId,
+            memberId,
+          );
+        if (typeof unreadCount === 'number') {
+          this.messagingGateway.emitConversationUnread?.(memberId, {
+            conversationId: message.conversationId,
+            unreadCount,
+          });
+        }
+      }
+    }
     return { success: true };
   }
 
@@ -487,6 +539,10 @@ export class MessagesService {
     }
 
     await this.messagesRepository.markAsRead(messageId, userId);
+    const unreadCount = await this.messagesRepository.recalculateUnreadCount?.(
+      message.conversationId,
+      userId,
+    );
     const payload = {
       messageId,
       conversationId: message.conversationId,
@@ -499,6 +555,12 @@ export class MessagesService {
       payload,
       memberIds,
     );
+    if (typeof unreadCount === 'number') {
+      this.messagingGateway.emitConversationUnread?.(userId, {
+        conversationId: message.conversationId,
+        unreadCount,
+      });
+    }
     return { success: true };
   }
 

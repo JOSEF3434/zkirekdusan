@@ -8,6 +8,7 @@ import 'package:mobile/core/presentation/widgets/offline_status_banner.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:mobile/core/storage/download_service.dart';
+import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/home/presentation/providers/home_refresh_provider.dart';
 import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/notifications/data/notification_lifecycle_manager.dart';
@@ -98,6 +99,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isWideScreen = !ResponsiveLayout.isMobile(context);
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+    final unreadChatsCount = ref.watch(totalUnreadChatCountProvider);
+    final isChatsTab = widget.navigationShell.currentIndex == 3;
+    if (ref.read(isChatsTabActiveProvider) != isChatsTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(isChatsTabActiveProvider.notifier).state = isChatsTab;
+        }
+      });
+    }
 
     // Show connectivity banner on state transition
     if (_previousStatus != null && connectivity.isInitialized) {
@@ -223,8 +233,32 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: tr('nav.create'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.chat_bubble_outline),
-              selectedIcon: const Icon(Icons.chat_bubble),
+              icon: unreadChatsCount > 0
+                  ? Badge(
+                      label: Text(
+                        unreadChatsCount > 99 ? '99+' : '$unreadChatsCount',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: Colors.redAccent,
+                      child: const Icon(Icons.chat_bubble_outline),
+                    )
+                  : const Icon(Icons.chat_bubble_outline),
+              selectedIcon: unreadChatsCount > 0
+                  ? Badge(
+                      label: Text(
+                        unreadChatsCount > 99 ? '99+' : '$unreadChatsCount',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: Colors.redAccent,
+                      child: const Icon(Icons.chat_bubble),
+                    )
+                  : const Icon(Icons.chat_bubble),
               label: tr('nav.chats'),
             ),
             NavigationDestination(

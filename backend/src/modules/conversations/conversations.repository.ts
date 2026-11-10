@@ -107,6 +107,9 @@ export class ConversationsRepository {
           },
         },
         messages: {
+          where: {
+            deletedForEveryoneAt: null,
+          },
           take: 1,
           orderBy: {
             createdAt: 'desc',
@@ -169,6 +172,9 @@ export class ConversationsRepository {
           },
         },
         messages: {
+          where: {
+            deletedForEveryoneAt: null,
+          },
           take: 1,
           orderBy: {
             createdAt: 'desc',
