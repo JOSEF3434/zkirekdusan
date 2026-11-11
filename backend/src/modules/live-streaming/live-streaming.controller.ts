@@ -13,7 +13,12 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Res,
+  NotFoundException,
+  GoneException,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import * as fs from 'fs';
 import {
   ApiTags,
   ApiOperation,
@@ -248,6 +253,131 @@ export class StreamsController {
     @Body() body: { reason?: string },
   ) {
     return this.liveStreamingService.abortStart(userId, streamId, body?.reason);
+  }
+
+  @Public()
+  @Get(':id/dvr/timeline')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get real server-side DVR sliding window metadata (retention, live edge, variants)',
+  })
+  @ApiParam({ name: 'id', description: 'Stream ID' })
+  async getDvrTimeline(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') streamId: string,
+  ) {
+    return this.liveStreamingService.getDvrTimeline(userId, streamId);
+  }
+
+  @Public()
+  @Get(':id/dvr/master.m3u8')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Serve DVR-enabled HLS master playlist' })
+  async getDvrMasterPlaylist(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') streamId: string,
+    @Query('dvrToken') dvrToken: string | undefined,
+    @Res() res: Response,
+  ) {
+    const m3u8 = await this.liveStreamingService.getDvrMasterPlaylist(
+      userId,
+      streamId,
+      dvrToken,
+    );
+    if (!m3u8) {
+      throw new NotFoundException('DVR master playlist not yet ready');
+    }
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.send(m3u8);
+  }
+
+  @Public()
+  @Get(':id/dvr/playlist.m3u8')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Serve primary variant DVR HLS playlist' })
+  async getDvrDefaultVariantPlaylist(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') streamId: string,
+    @Query('dvrToken') dvrToken: string | undefined,
+    @Res() res: Response,
+  ) {
+    return this.getDvrVariantPlaylist(userId, streamId, 0, dvrToken, res);
+  }
+
+  @Public()
+  @Get(':id/dvr/variant/:variantId/playlist.m3u8')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Serve variant DVR HLS sliding playlist' })
+  async getDvrVariantPlaylist(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') streamId: string,
+    @Param('variantId', ParseIntPipe) variantId: number,
+    @Query('dvrToken') dvrToken: string | undefined,
+    @Res() res: Response,
+  ) {
+    const m3u8 = await this.liveStreamingService.getDvrVariantPlaylist(
+      userId,
+      streamId,
+      variantId,
+      dvrToken,
+    );
+    if (!m3u8) {
+      throw new NotFoundException('DVR variant playlist not yet ready');
+    }
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.send(m3u8);
+  }
+
+  @Public()
+  @Get(':id/dvr/variant/:variantId/segments/:filename')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Serve retained DVR HLS media segment (.ts / .m4s)' })
+  async getDvrSegment(
+    @CurrentUser('sub') userId: string | undefined,
+    @Param('id') streamId: string,
+    @Param('variantId', ParseIntPipe) variantId: number,
+    @Param('filename') filename: string,
+    @Query('dvrToken') dvrToken: string | undefined,
+    @Res() res: Response,
+  ) {
+    const result = await this.liveStreamingService.getDvrSegmentFile(
+      userId,
+      streamId,
+      variantId,
+      filename,
+      dvrToken,
+    );
+    if (result.status === 'EXPIRED') {
+      throw new GoneException({
+        code: 'DVR_SEGMENT_EXPIRED',
+        message: 'Requested segment is older than the retained DVR window',
+      });
+    }
+    if (result.status !== 'OK') {
+      throw new NotFoundException('DVR segment not found');
+    }
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    const stream = fs.createReadStream(result.diskPath);
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(HttpStatus.GONE).json({
+          code: 'DVR_SEGMENT_EXPIRED',
+          message: 'Segment is no longer available in DVR buffer',
+        });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
   }
 
   @Get(':id/ingest-status')

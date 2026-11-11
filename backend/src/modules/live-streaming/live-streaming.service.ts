@@ -22,8 +22,9 @@ import { StreamProcessingService } from '../stream-processing/stream-processing.
 import { LiveGateway } from '../live-gateway/live.gateway.js';
 import { CloudinaryStorageProvider } from '../uploads/providers/cloudinary.provider.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
-import { forwardRef, Inject } from '@nestjs/common';
+import { forwardRef, Inject, Optional } from '@nestjs/common';
 import { MediaMtxService } from './mediamtx.service.js';
+import { LiveDvrService } from './live-dvr.service.js';
 
 @Injectable()
 export class LiveStreamingService {
@@ -41,6 +42,7 @@ export class LiveStreamingService {
     private readonly cloudinaryProvider: CloudinaryStorageProvider,
     private readonly notificationsService: NotificationsService,
     private readonly mediaMtx: MediaMtxService,
+    @Optional() private readonly liveDvr?: LiveDvrService,
   ) {}
 
 
@@ -701,6 +703,8 @@ export class LiveStreamingService {
       nextStatus = revertStatus;
     }
 
+    await this.liveDvr?.stopAndPurge(streamId);
+
     this.logger.warn(
       `[LiveStreamingService] Aborted stream start for ${streamId} ` +
         `(previous=${stream.status}, next=${nextStatus}, reason=${reason || 'unspecified'})`,
@@ -768,6 +772,117 @@ export class LiveStreamingService {
         : null,
       mediaMtx: mtxStatus,
     };
+  }
+
+  // ─── Live DVR Playback Access & Manifests ────────────────────────────────
+
+  async getDvrTimeline(userId: string | undefined, streamId: string) {
+    const stream = await this.getStreamById(userId, streamId);
+    if (!this.liveDvr) {
+      return {
+        streamId,
+        dvrEnabled: false,
+        active: false,
+        ended: stream.status === LiveStreamStatus.ENDED,
+        hasSegments: false,
+        dvrWindowSeconds: 1800,
+        retentionMinutes: 30,
+        targetDurationSec: 4,
+        dvrStartOffsetSec: 0,
+        liveEdgeOffsetSec: 0,
+        retainedDurationSec: 0,
+        segmentCount: 0,
+        serverNowIso: new Date().toISOString(),
+        streamStartedAtIso: stream.startedAt?.toISOString() ?? null,
+        masterPlaylistPath: `/api/streams/${streamId}/dvr/master.m3u8`,
+        variants: [],
+      };
+    }
+
+    if (
+      stream.status === LiveStreamStatus.LIVE &&
+      stream.isDvrEnabled &&
+      stream.hlsUrl
+    ) {
+      await this.liveDvr.ensureRecording(
+        streamId,
+        stream.hlsUrl,
+        stream.startedAt ?? new Date(),
+        true,
+      );
+    }
+
+    const playbackToken =
+      stream.visibility !== 'PUBLIC'
+        ? this.liveDvr.createPlaybackToken(streamId)
+        : undefined;
+
+    return this.liveDvr.getTimelineMetadata(streamId, { playbackToken });
+  }
+
+  async assertDvrPlaybackAuthorized(
+    userId: string | undefined,
+    streamId: string,
+    dvrToken?: string,
+  ): Promise<string | undefined> {
+    const stream = await this.repository.getStreamById(streamId);
+    if (!stream || stream.deletedAt) {
+      throw new NotFoundException('Stream not found');
+    }
+    if (stream.visibility === 'PUBLIC') {
+      return undefined;
+    }
+    if (dvrToken && this.liveDvr?.verifyPlaybackToken(streamId, dvrToken)) {
+      return dvrToken;
+    }
+    await this.getStreamById(userId, streamId);
+    return this.liveDvr?.createPlaybackToken(streamId);
+  }
+
+  async getDvrMasterPlaylist(
+    userId: string | undefined,
+    streamId: string,
+    dvrToken?: string,
+  ): Promise<string | null> {
+    const effectiveToken = await this.assertDvrPlaybackAuthorized(
+      userId,
+      streamId,
+      dvrToken,
+    );
+    return (
+      this.liveDvr?.buildMasterPlaylist(streamId, effectiveToken) ?? null
+    );
+  }
+
+  async getDvrVariantPlaylist(
+    userId: string | undefined,
+    streamId: string,
+    variantId: number,
+    dvrToken?: string,
+  ): Promise<string | null> {
+    const effectiveToken = await this.assertDvrPlaybackAuthorized(
+      userId,
+      streamId,
+      dvrToken,
+    );
+    return (
+      this.liveDvr?.buildVariantPlaylist(streamId, variantId, effectiveToken) ??
+      null
+    );
+  }
+
+  async getDvrSegmentFile(
+    userId: string | undefined,
+    streamId: string,
+    variantId: number,
+    filename: string,
+    dvrToken?: string,
+  ) {
+    await this.assertDvrPlaybackAuthorized(userId, streamId, dvrToken);
+    if (!this.liveDvr) {
+      return { status: 'NOT_FOUND' as const };
+    }
+    return this.liveDvr.resolveSegmentFile(streamId, variantId, filename);
   }
 
   async getWhipSession(
@@ -848,6 +963,17 @@ export class LiveStreamingService {
       rtmpIngestUrl,
     );
 
+    // Begin buffering upstream HLS segments for 30-min live DVR rewind without
+    // altering RTMP ingest or blocking the broadcaster.
+    if (updatedStream.isDvrEnabled && updatedStream.hlsUrl) {
+      void this.liveDvr?.ensureRecording(
+        streamId,
+        updatedStream.hlsUrl,
+        updatedStream.startedAt ?? new Date(),
+        true,
+      );
+    }
+
     // Create a stream session for tracking
     await this.repository.createStreamSession(streamId, streamKeyId);
 
@@ -917,6 +1043,7 @@ export class LiveStreamingService {
 
     const updatedStream = await this.repository.endStream(streamId, duration);
     await this.repository.endStreamSession(streamId);
+    this.liveDvr?.markStreamEnded(streamId);
 
     // Cloudinary Live Stream idle
     if (this.cloudinaryProvider?.configured) {

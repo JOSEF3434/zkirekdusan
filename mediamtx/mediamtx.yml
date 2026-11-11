@@ -30,8 +30,16 @@ rtspTransports: [tcp]
 # Disable RTMP server-side ingest (ffmpeg pushes to Cloudinary as RTMP client)
 rtmp: no
 
-# Disable HLS (Cloudinary provides HLS output)
-hls: no
+# Enable HLS with 30-minute sliding DVR buffer on VPS deployments (450 × 4s = 1800s)
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ["*"]
+hlsVariant: fmp4
+hlsSegmentCount: 450
+hlsSegmentDuration: 4s
+hlsPartDuration: 200ms
+hlsDirectory: /tmp/mediamtx-hls
+hlsAlwaysRemux: no
 
 # ─── WebRTC / WHIP ───────────────────────────────────────────────────────────
 webrtc: yes

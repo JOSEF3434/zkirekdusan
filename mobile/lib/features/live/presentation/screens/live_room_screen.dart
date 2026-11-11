@@ -16,11 +16,18 @@ import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
+import 'package:mobile/features/live/data/live_streaming_repository.dart';
+import 'package:mobile/features/live/domain/live_dvr_state.dart';
 import 'package:mobile/features/live/presentation/providers/live_room_provider.dart';
+import 'package:mobile/features/live/presentation/widgets/cast_panel_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/dvr_seek_bar.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_chat_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/live_player_controls_overlay.dart';
 import 'package:mobile/features/live/presentation/widgets/live_stream_progress_bar.dart';
+import 'package:mobile/features/live/presentation/widgets/responsive_video_stage.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/web_hls_controller.dart';
 import 'package:mobile/features/live/presentation/widgets/web_hls_player_shim.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/chat_message_model.dart';
@@ -65,9 +72,28 @@ class LiveRoomScreen extends ConsumerStatefulWidget {
 
 class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  // Player
+  // Player & DVR state
   VideoPlayerController? _playerCtrl;
   String? _webHlsUrl;
+  final WebHlsController _webHlsCtrl = WebHlsController();
+  String? _activePlaybackUrl;
+  DvrTimelineSnapshot? _dvrTimeline;
+  bool _usingDvrOrigin = false;
+  Size? _sourceVideoSize;
+  VideoFitMode _fitMode = VideoFitMode.fit;
+  LivePlaybackState _playbackState = LivePlaybackState.liveEdge;
+  bool _isChatExpanded = true;
+  bool _isScrubbing = false;
+  bool _manualPaused = false;
+  bool _dvrExpired = false;
+  bool _isSwappingController = false;
+  int _selectedQualityIndex = -1;
+  double _mobileVolume = 1.0;
+  bool _mobileMuted = false;
+  DateTime? _lastSeekAt;
+  LivePlaybackState? _transientSeekState;
+  Timer? _dvrSyncTimer;
+
   bool _playerInitialized = false;
   bool _isPlayerInitializing = false;
   bool _playerError = false;
@@ -137,6 +163,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         ref.read(mediaActivityProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable().ignore();
+    _webHlsCtrl.addListener(_onWebHlsChanged);
     _scheduleHideControls();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -165,11 +192,17 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             'for ${widget.streamId} position=${reclaimed.value.position} '
             'playing=${reclaimed.value.isPlaying}',
           );
+          final reclaimedSize = reclaimed.value.size;
           setState(() {
             _playerCtrl = reclaimed;
             _playerInitialized = true;
+            _manualPaused = !reclaimed.value.isPlaying;
+            if (reclaimedSize.width > 0 && reclaimedSize.height > 0) {
+              _sourceVideoSize = reclaimedSize;
+            }
           });
           _attachPlayerListeners(reclaimed);
+          _startDvrTimelineSync();
           ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
         }
       } else if (mini.hasContent && mini.contentId != widget.streamId) {
@@ -197,6 +230,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
     _playerRetryTimer?.cancel();
+    _dvrSyncTimer?.cancel();
+    _webHlsCtrl.removeListener(_onWebHlsChanged);
+    _webHlsCtrl.dispose();
     // Use the cached notifier — never call ref.read here; the element is being
     // disposed and Riverpod will throw "Cannot use ref after disposal".
     // We defer via Future.microtask to avoid modifying providers during widget teardown.
@@ -225,6 +261,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     } else if (state == AppLifecycleState.resumed) {
       final roomState = ref.read(liveRoomProvider(widget.streamId));
       if (roomState.phase == LiveStreamPhase.live &&
+          !_manualPaused &&
           _playerCtrl != null &&
           _playerCtrl!.value.isInitialized) {
         _playerCtrl?.play();
@@ -235,11 +272,192 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   void _attachPlayerListeners(VideoPlayerController ctrl) {
     ctrl.addListener(() {
       if (!mounted) return;
+      if (ctrl != _playerCtrl) return;
       if (ctrl.value.hasError) {
-        debugPrint('[LiveRoom] Player error detected during playback: ${ctrl.value.errorDescription}');
+        debugPrint(
+          '[LiveRoom] Player error detected during playback: ${ctrl.value.errorDescription}',
+        );
         _handlePlaybackError();
+        return;
+      }
+
+      final sz = ctrl.value.size;
+      if (sz.width > 0 && sz.height > 0 && sz != _sourceVideoSize) {
+        setState(() => _sourceVideoSize = sz);
+      } else {
+        _syncPlaybackState();
       }
     });
+  }
+
+  void _onWebHlsChanged() {
+    if (!mounted) return;
+    final snap = _webHlsCtrl.value;
+    if (snap.videoSize != null &&
+        !snap.videoSize!.isEmpty &&
+        snap.videoSize != _sourceVideoSize) {
+      _sourceVideoSize = snap.videoSize;
+    }
+    if (snap.dvrExpired) {
+      _dvrExpired = true;
+    }
+    _syncPlaybackState();
+  }
+
+  DvrWindowMath _currentWindowMath() {
+    if (kIsWeb && _webHlsUrl != null) {
+      final snap = _webHlsCtrl.value;
+      return computeDvrWindowMath(
+        currentPosition: snap.position,
+        reportedDuration: snap.seekableEnd,
+        seekableStart: snap.seekableStart,
+        seekableEnd: snap.seekableEnd,
+        bufferedEnd: snap.bufferedEnd,
+        liveSyncPosition: snap.liveSyncPosition,
+        serverTimeline: _dvrTimeline,
+      );
+    }
+
+    final ctrl = _playerCtrl;
+    final val = ctrl?.value;
+    final bufferedEnd = (val != null && val.buffered.isNotEmpty)
+        ? val.buffered.last.end
+        : null;
+    return computeDvrWindowMath(
+      currentPosition: val?.position ?? Duration.zero,
+      reportedDuration: val?.duration ?? Duration.zero,
+      bufferedEnd: bufferedEnd,
+      serverTimeline: _dvrTimeline,
+    );
+  }
+
+  bool get _isDvrAvailable {
+    if (_usingDvrOrigin) return true;
+    if (_dvrTimeline != null && _dvrTimeline!.hasSegments) return true;
+    if (kIsWeb && _webHlsUrl != null) {
+      final snap = _webHlsCtrl.value;
+      return snap.seekableEnd - snap.seekableStart > const Duration(seconds: 20);
+    }
+    return false;
+  }
+
+  void _syncPlaybackState() {
+    if (!mounted) return;
+    final roomState = ref.read(liveRoomProvider(widget.streamId));
+    LivePlaybackState next;
+
+    if (roomState.phase == LiveStreamPhase.ended) {
+      next = LivePlaybackState.ended;
+    } else if (_dvrExpired) {
+      next = LivePlaybackState.dvrExpired;
+    } else if (roomState.phase == LiveStreamPhase.reconnecting ||
+        roomState.phase == LiveStreamPhase.interrupted) {
+      next = LivePlaybackState.reconnecting;
+    } else if (_playerError) {
+      next = LivePlaybackState.error;
+    } else if (_isSwappingController || _isPlayerInitializing) {
+      next = LivePlaybackState.seeking;
+    } else if (_lastSeekAt != null &&
+        DateTime.now().difference(_lastSeekAt!) <
+            const Duration(milliseconds: 900) &&
+        _transientSeekState != null) {
+      next = _transientSeekState!;
+    } else if (kIsWeb && _webHlsUrl != null) {
+      final snap = _webHlsCtrl.value;
+      if (snap.isSeeking) {
+        next = LivePlaybackState.seeking;
+      } else if (!snap.isPlaying && _manualPaused) {
+        next = LivePlaybackState.paused;
+      } else if (snap.isBuffering) {
+        next = LivePlaybackState.buffering;
+      } else if (!snap.isPlaying) {
+        next = LivePlaybackState.paused;
+      } else {
+        final w = _currentWindowMath();
+        next = w.isAtLiveEdge
+            ? LivePlaybackState.liveEdge
+            : LivePlaybackState.playing;
+      }
+    } else if (_playerCtrl != null && _playerCtrl!.value.isInitialized) {
+      final val = _playerCtrl!.value;
+      if (!val.isPlaying && _manualPaused) {
+        next = LivePlaybackState.paused;
+      } else if (val.isBuffering) {
+        next = LivePlaybackState.buffering;
+      } else if (!val.isPlaying) {
+        next = LivePlaybackState.paused;
+      } else {
+        final w = _currentWindowMath();
+        next = w.isAtLiveEdge
+            ? LivePlaybackState.liveEdge
+            : LivePlaybackState.playing;
+      }
+    } else {
+      next = LivePlaybackState.buffering;
+    }
+
+    if (mounted) {
+      setState(() => _playbackState = next);
+    }
+  }
+
+  void _startDvrTimelineSync() {
+    _dvrSyncTimer?.cancel();
+    _dvrSyncTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _refreshDvrTimeline(),
+    );
+  }
+
+  Future<void> _refreshDvrTimeline() async {
+    if (!mounted) return;
+    final room = ref.read(liveRoomProvider(widget.streamId));
+    if (room.phase == LiveStreamPhase.ended || room.phase.isTerminal) {
+      _dvrSyncTimer?.cancel();
+      return;
+    }
+    final timeline = await ref
+        .read(liveStreamingRepositoryProvider)
+        .getDvrTimeline(widget.streamId);
+    if (!mounted || timeline == null) return;
+
+    setState(() => _dvrTimeline = timeline);
+
+    // Upgrade seamlessly once from short-window CDN HLS to 30-min DVR origin
+    // if user has not manually paused or started seeking yet.
+    if (!_usingDvrOrigin &&
+        timeline.dvrEnabled &&
+        timeline.hasSegments &&
+        timeline.masterPlaylistPath.isNotEmpty &&
+        !_manualPaused &&
+        !_isScrubbing &&
+        _playerInitialized) {
+      final dvrUrl = MediaUrlResolver.resolve(timeline.masterPlaylistPath);
+      if (dvrUrl != null && dvrUrl != _activePlaybackUrl) {
+        _usingDvrOrigin = true;
+        _activePlaybackUrl = dvrUrl;
+        if (kIsWeb) {
+          setState(() => _webHlsUrl = dvrUrl);
+        } else {
+          unawaited(_swapMobileControllerToUrl(dvrUrl));
+        }
+      }
+    }
+
+    // Check whether a paused mobile viewer drifted older than retained window.
+    if (!kIsWeb &&
+        _manualPaused &&
+        _playerCtrl != null &&
+        timeline.hasSegments &&
+        timeline.dvrStartOffsetSec > 10) {
+      final posSec = _playerCtrl!.value.position.inMilliseconds / 1000.0;
+      if (posSec < timeline.dvrStartOffsetSec - 4) {
+        setState(() {
+          _dvrExpired = true;
+          _playbackState = LivePlaybackState.dvrExpired;
+        });
+      }
+    }
   }
 
   void _handlePlaybackError() {
@@ -261,26 +479,53 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     }
   }
 
-  // ── Player ─────────────────────────────────────────────────────────────────
+  // ── Player Initialization & DVR Swap ───────────────────────────────────────
 
-  Future<void> _initPlayer(String hlsUrl, {bool force = false, bool warmupRetry = false}) async {
+  Future<void> _initPlayer(
+    String hlsUrl, {
+    bool force = false,
+    bool warmupRetry = false,
+  }) async {
     final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
     if (currentPhase == LiveStreamPhase.ended || currentPhase.isTerminal) return;
     if ((_playerInitialized && !force) || _isPlayerInitializing) return;
 
-    final resolved = MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
-    if (resolved.isEmpty) return;
+    final fallbackResolved =
+        MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
+    if (fallbackResolved.isEmpty) return;
 
-    // Only cancel the retry timer if we are not being called FROM that timer.
-    // When warmupRetry=true, the periodic timer is still running and handles
-    // the next retry — we must not cancel it here.
     if (!warmupRetry) {
       _playerRetryTimer?.cancel();
     }
 
-    // On Flutter Web, video_player_web assigns `.m3u8` directly to <video src>
-    // without invoking hls.js, failing on Chrome/Edge/Firefox with
-    // MEDIA_ERR_SRC_NOT_SUPPORTED. Hand `.m3u8` streams to WebHlsPlayer (hls.js).
+    // Query backend DVR origin state: use retained 30-min playlist immediately
+    // when available, preserving instant CDN fallback otherwise.
+    DvrTimelineSnapshot? timeline;
+    final streamDto = ref.read(liveRoomProvider(widget.streamId)).stream;
+    if (streamDto?.isDvrEnabled ?? true) {
+      timeline = await ref
+          .read(liveStreamingRepositoryProvider)
+          .getDvrTimeline(widget.streamId);
+    }
+    if (!mounted) return;
+
+    String resolved = fallbackResolved;
+    bool usingDvr = false;
+    if (timeline != null &&
+        timeline.dvrEnabled &&
+        timeline.hasSegments &&
+        timeline.masterPlaylistPath.isNotEmpty) {
+      final dvrResolved = MediaUrlResolver.resolve(timeline.masterPlaylistPath);
+      if (dvrResolved != null && dvrResolved.isNotEmpty) {
+        resolved = dvrResolved;
+        usingDvr = true;
+      }
+    }
+
+    _dvrTimeline = timeline ?? _dvrTimeline;
+    _usingDvrOrigin = usingDvr;
+    _activePlaybackUrl = resolved;
+
     if (kIsWeb && resolved.toLowerCase().contains('.m3u8')) {
       final oldCtrl = _playerCtrl;
       _playerCtrl = null;
@@ -292,9 +537,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           _isPlayerInitializing = false;
           _playerError = false;
           _streamNotYetPublishing = false;
+          _dvrExpired = false;
           _initAttemptCount = 0;
         });
       }
+      _startDvrTimelineSync();
       return;
     }
 
@@ -351,27 +598,35 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             );
           }
 
-          await testCtrl.play();
+          await testCtrl.setVolume(_mobileMuted ? 0.0 : _mobileVolume);
+          if (!_manualPaused) {
+            await testCtrl.play();
+          }
 
           if (!mounted) {
             await testCtrl.dispose();
             return;
           }
 
-          // Successfully initialized
           final oldCtrl = _playerCtrl;
           _playerCtrl = null;
           oldCtrl?.dispose().ignore();
 
+          final detectedSize = testCtrl.value.size;
           setState(() {
             _playerCtrl = testCtrl;
             _playerInitialized = true;
             _playerError = false;
             _isPlayerInitializing = false;
+            _dvrExpired = false;
             _initAttemptCount = 0;
+            if (detectedSize.width > 0 && detectedSize.height > 0) {
+              _sourceVideoSize = detectedSize;
+            }
           });
 
           _attachPlayerListeners(testCtrl);
+          _startDvrTimelineSync();
           ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
           debugPrint('[LiveRoom] Connected to live stream successfully!');
           return;
@@ -472,23 +727,290 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     });
   }
 
+  // ── Seamless Mobile Controller Swap & DVR Transport Actions ───────────────
+
+  Future<void> _swapMobileControllerToUrl(
+    String nextUrl, {
+    Duration? seekAfterInit,
+  }) async {
+    if (kIsWeb || _isSwappingController || nextUrl.isEmpty) return;
+    _isSwappingController = true;
+    _syncPlaybackState();
+
+    VideoPlayerController? nextCtrl;
+    try {
+      nextCtrl = VideoPlayerController.networkUrl(
+        Uri.parse(nextUrl),
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: false,
+          allowBackgroundPlayback: true,
+        ),
+      );
+      await nextCtrl.initialize().timeout(const Duration(seconds: 8));
+      await nextCtrl.setVolume(_mobileMuted ? 0.0 : _mobileVolume);
+
+      if (seekAfterInit != null) {
+        final dur = nextCtrl.value.duration;
+        final clamped = seekAfterInit > dur ? dur : seekAfterInit;
+        if (clamped >= Duration.zero) {
+          await nextCtrl.seekTo(clamped);
+        }
+      }
+      if (!_manualPaused) {
+        await nextCtrl.play();
+      }
+      if (!mounted) {
+        await nextCtrl.dispose();
+        return;
+      }
+
+      final oldCtrl = _playerCtrl;
+      final sz = nextCtrl.value.size;
+      setState(() {
+        _playerCtrl = nextCtrl;
+        _playerInitialized = true;
+        _dvrExpired = false;
+        _isSwappingController = false;
+        if (sz.width > 0 && sz.height > 0) {
+          _sourceVideoSize = sz;
+        }
+      });
+      _attachPlayerListeners(nextCtrl);
+      oldCtrl?.dispose().ignore();
+    } catch (e) {
+      debugPrint('[LiveRoom] Controller swap skipped ($e)');
+      await nextCtrl?.dispose();
+      if (mounted) {
+        setState(() => _isSwappingController = false);
+      }
+    }
+    _syncPlaybackState();
+  }
+
+  Future<void> _togglePlayPause() async {
+    _revealControls();
+    if (kIsWeb && _webHlsUrl != null) {
+      final playing = _webHlsCtrl.value.isPlaying;
+      _manualPaused = playing;
+      if (playing) {
+        _webHlsCtrl.pause();
+      } else {
+        await _webHlsCtrl.play();
+      }
+      _syncPlaybackState();
+      return;
+    }
+
+    final ctrl = _playerCtrl;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+    if (ctrl.value.isPlaying) {
+      _manualPaused = true;
+      await ctrl.pause();
+    } else {
+      _manualPaused = false;
+      await ctrl.play();
+    }
+    _syncPlaybackState();
+  }
+
+  Future<void> _seekTo(
+    Duration target, {
+    LivePlaybackState? transientState,
+  }) async {
+    _revealControls();
+    final window = _currentWindowMath();
+    final clamped = target < window.windowStart
+        ? window.windowStart
+        : (target > window.windowEnd ? window.windowEnd : target);
+
+    _lastSeekAt = DateTime.now();
+    _transientSeekState = transientState ?? LivePlaybackState.seeking;
+    _dvrExpired = false;
+    _syncPlaybackState();
+
+    if (kIsWeb && _webHlsUrl != null) {
+      _webHlsCtrl.seekTo(clamped);
+      return;
+    }
+
+    final ctrl = _playerCtrl;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+
+    // Work around video_player's Dart-side clamp (`position > value.duration`)
+    // when ExoPlayer/AVPlayer was initialized early in a growing live window.
+    if (clamped <= ctrl.value.duration) {
+      await ctrl.seekTo(clamped);
+      if (!_manualPaused && !ctrl.value.isPlaying) {
+        await ctrl.play();
+      }
+    } else if (_activePlaybackUrl != null) {
+      await _swapMobileControllerToUrl(
+        _activePlaybackUrl!,
+        seekAfterInit: clamped,
+      );
+    }
+    _syncPlaybackState();
+  }
+
+  Future<void> _rewind10() async {
+    final w = _currentWindowMath();
+    await _seekTo(
+      w.currentPosition - const Duration(seconds: 10),
+      transientState: LivePlaybackState.rewinding,
+    );
+  }
+
+  Future<void> _forward10() async {
+    final w = _currentWindowMath();
+    await _seekTo(
+      w.currentPosition + const Duration(seconds: 10),
+      transientState: LivePlaybackState.fastForwarding,
+    );
+  }
+
+  Future<void> _goLive() async {
+    _revealControls();
+    _manualPaused = false;
+    _dvrExpired = false;
+    _lastSeekAt = DateTime.now();
+    _transientSeekState = LivePlaybackState.fastForwarding;
+    _syncPlaybackState();
+
+    if (kIsWeb && _webHlsUrl != null) {
+      _webHlsCtrl.seekToLiveEdge();
+      return;
+    }
+
+    final ctrl = _playerCtrl;
+    final w = _currentWindowMath();
+    if (ctrl != null &&
+        ctrl.value.isInitialized &&
+        w.windowEnd <= ctrl.value.duration) {
+      final liveTarget = w.windowEnd > const Duration(seconds: 6)
+          ? w.windowEnd - const Duration(seconds: 6)
+          : Duration.zero;
+      await ctrl.seekTo(liveTarget);
+      await ctrl.play();
+      _syncPlaybackState();
+    } else if (_activePlaybackUrl != null) {
+      await _swapMobileControllerToUrl(_activePlaybackUrl!);
+    }
+  }
+
+  void _toggleFitMode() {
+    _revealControls();
+    final next =
+        _fitMode == VideoFitMode.fit ? VideoFitMode.fill : VideoFitMode.fit;
+    setState(() => _fitMode = next);
+    if (kIsWeb && _webHlsUrl != null) {
+      _webHlsCtrl.setFitMode(next);
+    }
+  }
+
+  void _toggleMute() {
+    _revealControls();
+    if (kIsWeb && _webHlsUrl != null) {
+      final nextMuted = !_webHlsCtrl.value.isMuted;
+      _webHlsCtrl.setMuted(nextMuted);
+      return;
+    }
+    _mobileMuted = !_mobileMuted;
+    _playerCtrl?.setVolume(_mobileMuted ? 0.0 : _mobileVolume);
+    setState(() {});
+  }
+
+  void _setVolume(double vol) {
+    _revealControls();
+    if (kIsWeb && _webHlsUrl != null) {
+      _webHlsCtrl.setVolume(vol);
+      return;
+    }
+    _mobileVolume = vol.clamp(0.0, 1.0);
+    _mobileMuted = _mobileVolume == 0.0;
+    _playerCtrl?.setVolume(_mobileVolume);
+    setState(() {});
+  }
+
+  Future<void> _selectQuality(int levelIndex) async {
+    _revealControls();
+    setState(() => _selectedQualityIndex = levelIndex);
+    if (kIsWeb && _webHlsUrl != null) {
+      _webHlsCtrl.setQualityLevel(levelIndex);
+      return;
+    }
+
+    final timeline = _dvrTimeline;
+    if (timeline == null || !timeline.hasSegments) return;
+    String? nextRelativePath;
+    if (levelIndex == -1) {
+      nextRelativePath = timeline.masterPlaylistPath;
+    } else {
+      final match = timeline.variants.where((v) => v.id == levelIndex);
+      if (match.isNotEmpty) {
+        nextRelativePath = match.first.playlistPath;
+      }
+    }
+    final nextUrl = MediaUrlResolver.resolve(nextRelativePath);
+    if (nextUrl != null && nextUrl.isNotEmpty) {
+      final w = _currentWindowMath();
+      _activePlaybackUrl = nextUrl;
+      await _swapMobileControllerToUrl(
+        nextUrl,
+        seekAfterInit: w.isAtLiveEdge ? null : w.currentPosition,
+      );
+    }
+  }
+
+  void _openCastSheet(LiveRoomState state) {
+    final stream = state.stream;
+    if (stream == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CastPanelWidget(
+        streamId: widget.streamId,
+        hlsUrl: _activePlaybackUrl ?? stream.hlsUrl,
+        streamTitle: stream.title,
+        thumbnailUrl: stream.thumbnailUrl,
+      ),
+    );
+  }
+
   // ── Controls visibility ────────────────────────────────────────────────────
 
   void _scheduleHideControls() {
     _hideControlsTimer?.cancel();
+    if (_manualPaused || _isScrubbing || _playbackState == LivePlaybackState.dvrExpired) {
+      return;
+    }
     _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _controlsVisible = false);
+      if (mounted && !_manualPaused && !_isScrubbing) {
+        setState(() => _controlsVisible = false);
+      }
     });
+  }
+
+  void _revealControls() {
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _scheduleHideControls();
   }
 
   void _onTapPlayer() {
     setState(() => _controlsVisible = !_controlsVisible);
-    if (_controlsVisible) _scheduleHideControls();
+    if (_controlsVisible) {
+      _scheduleHideControls();
+    } else {
+      _hideControlsTimer?.cancel();
+    }
   }
 
   // ── Mini-player minimise ────────────────────────────────────────────────
 
   void _minimizeToMiniPlayer(LiveRoomState roomState) {
+    _dvrSyncTimer?.cancel();
     final stream = roomState.stream;
     final hlsUrl = stream?.hlsUrl ?? '';
 
@@ -555,14 +1077,29 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     setState(() => _isFullscreen = !_isFullscreen);
     if (_isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      final isPortraitSource = _sourceVideoSize != null &&
+          _sourceVideoSize!.height > _sourceVideoSize!.width;
+      if (!kIsWeb) {
+        SystemChrome.setPreferredOrientations(
+          isPortraitSource
+              ? [DeviceOrientation.portraitUp]
+              : [
+                  DeviceOrientation.landscapeLeft,
+                  DeviceOrientation.landscapeRight,
+                ],
+        );
+      }
     } else {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      if (!kIsWeb) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
     }
+    _revealControls();
   }
 
   // ── Reactions ──────────────────────────────────────────────────────────────
@@ -657,20 +1194,44 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    // Large-screen / web: ≥ 900 logical px wide → YouTube desktop side-by-side layout
     final screenW = MediaQuery.sizeOf(context).width;
-    final isWideScreen = kIsWeb || screenW >= 900;
+    // Breakpoint by viewport width (not kIsWeb) so narrow mobile browsers get vertical layout.
+    final isWideScreen = screenW >= 900;
 
-    if (isWideScreen && !_isFullscreen) {
+    if (_isFullscreen) {
+      return _buildFullscreen(roomState, theme);
+    }
+    if (isWideScreen) {
       return _buildWideScreen(roomState, socket, theme);
     }
-    if (isLandscape || _isFullscreen) {
+    if (isLandscape) {
       return _buildLandscape(roomState, socket, theme);
     }
     return _buildPortrait(roomState, socket, theme);
   }
 
-  // ── Portrait layout (YouTube-style) ──────────────────────────────────────
+  // ── Fullscreen layout (Android, iOS, & Web) ─────────────────────────────
+
+  Widget _buildFullscreen(LiveRoomState roomState, ThemeData theme) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _toggleFullscreen();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SizedBox.expand(
+          child: _buildPlayerStage(
+            roomState,
+            isWideScreen: MediaQuery.sizeOf(context).width >= 900,
+            isFullscreen: true,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Portrait layout (Responsive YouTube Mobile style) ────────────────────
 
   Widget _buildPortrait(
     LiveRoomState roomState,
@@ -696,7 +1257,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         },
         onVerticalDragEnd: (details) {
           final velocity = details.primaryVelocity ?? 0.0;
-          if (_dragOffset > _kMiniDragThreshold || (velocity > 250 && _dragOffset > 20)) {
+          if (_dragOffset > _kMiniDragThreshold ||
+              (velocity > 250 && _dragOffset > 20)) {
             _minimizeToMiniPlayer(roomState);
           }
           setState(() {
@@ -713,28 +1275,63 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                   ? _buildLoading()
                   : roomState.error != null
                   ? _buildError(roomState.error!, theme)
-                  : Column(
-                      children: [
-                        // ── 16:9 Player ──────────────────────────────────────
-                        _buildPlayerSection(roomState, socket),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxVideoH = _isChatExpanded
+                            ? constraints.maxHeight * 0.56
+                            : constraints.maxHeight * 0.80;
+                        final frame = computeResponsiveVideoFrame(
+                          maxWidth: constraints.maxWidth,
+                          maxHeight: maxVideoH,
+                          sourceVideoSize: _sourceVideoSize,
+                          isWideScreen: false,
+                          isFullscreen: false,
+                        );
+                        return Column(
+                          children: [
+                            // Adaptive portrait/landscape/square player stage
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              width: frame.stageWidth,
+                              height: frame.stageHeight,
+                              child: _buildPlayerStage(
+                                roomState,
+                                isWideScreen: false,
+                              ),
+                            ),
 
-                        // ── Stream meta ──────────────────────────────────────
-                        _buildStreamMeta(roomState, theme),
+                            // Stream metadata + collapsible chat toggle
+                            _buildStreamMeta(
+                              roomState,
+                              theme,
+                              showChatToggle:
+                                  roomState.stream?.isChatEnabled != false,
+                            ),
 
-                        // ── Chat list ────────────────────────────────────────
-                        Expanded(
-                          child: roomState.stream?.isChatEnabled != false
-                              ? LiveChatWidget(streamId: widget.streamId)
-                              : Center(
-                                  child: Text(
-                                    ref.read(trProvider)('live.chat_disabled'),
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ],
+                            if (_isChatExpanded) ...[
+                              _buildDelayedChatNotice(roomState, theme),
+                              Expanded(
+                                child: roomState.stream?.isChatEnabled != false
+                                    ? LiveChatWidget(streamId: widget.streamId)
+                                    : Center(
+                                        child: Text(
+                                          ref.read(trProvider)(
+                                            'live.chat_disabled',
+                                          ),
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            ] else
+                              const Spacer(),
+                          ],
+                        );
+                      },
                     ),
             ),
           ),
@@ -743,10 +1340,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
-  // ── Landscape layout ───────────────────────────────────────────────────────
-
-  // ── Wide-screen / Web layout (≥ 900 px) ─────────────────────────────────
-  // YouTube desktop style: 16:9 player fills left, chat panel right.
+  // ── Wide-screen / Desktop layout (>= 900 px) ─────────────────────────────
 
   Widget _buildWideScreen(
     LiveRoomState roomState,
@@ -767,101 +1361,82 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                   ? _buildError(roomState.error!, theme)
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        // Player width = remaining width after chat panel (360 px fixed)
-                        const chatPanelW = 360.0;
-                        final playerW =
-                            constraints.maxWidth - chatPanelW;
-                        final playerH = playerW * 9 / 16;
+                        final chatPanelW =
+                            (constraints.maxWidth * 0.28).clamp(320.0, 400.0);
+                        final playerW = constraints.maxWidth - chatPanelW;
+                        final maxStageH =
+                            (constraints.maxHeight - 88.0).clamp(280.0, constraints.maxHeight);
+                        final frame = computeResponsiveVideoFrame(
+                          maxWidth: playerW,
+                          maxHeight: maxStageH,
+                          sourceVideoSize: _sourceVideoSize,
+                          isWideScreen: true,
+                          isFullscreen: false,
+                        );
 
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // ── Left: player + stream meta ───────────────
+                            // ── Left: Adaptive Player Stage + Stream Meta ──
                             SizedBox(
                               width: playerW,
+                              height: constraints.maxHeight,
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // 16:9 player
                                   SizedBox(
-                                    width: playerW,
-                                    height: playerH,
-                                    child: GestureDetector(
-                                      onTap: _onTapPlayer,
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          Container(color: Colors.black),
-                                          _buildPlayerContent(roomState),
-                                          AnimatedOpacity(
-                                            opacity:
-                                                _controlsVisible ? 1.0 : 0.0,
-                                            duration: const Duration(
-                                                milliseconds: 250),
-                                            child:
-                                                _buildControls(roomState),
-                                          ),
-                                          _buildParticleLayer(),
-                                          if (roomState.phase ==
-                                              LiveStreamPhase.live)
-                                            Positioned(
-                                              bottom: 0,
-                                              left: 0,
-                                              right: 0,
-                                              child: LiveStreamProgressBar(
-                                                startedAt: roomState
-                                                    .stream?.startedAt,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
+                                    width: frame.stageWidth,
+                                    height: frame.stageHeight,
+                                    child: _buildPlayerStage(
+                                      roomState,
+                                      isWideScreen: true,
                                     ),
                                   ),
-                                  // Stream title / meta below player
                                   Expanded(
                                     child: SingleChildScrollView(
-                                      padding: const EdgeInsets.all(16),
-                                      child:
-                                          _buildStreamMeta(roomState, theme),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      child: _buildStreamMeta(roomState, theme),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
 
-                            // ── Right: chat panel ────────────────────────
+                            // ── Right: Side Live Chat Panel ─────────────────
                             SizedBox(
                               width: chatPanelW,
+                              height: constraints.maxHeight,
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   border: Border(
                                     left: BorderSide(
-                                      color: theme
-                                          .colorScheme.outlineVariant,
+                                      color: theme.colorScheme.outlineVariant,
                                     ),
                                   ),
                                 ),
                                 child: Column(
                                   children: [
+                                    _buildDelayedChatNotice(roomState, theme),
                                     Expanded(
-                                      child:
-                                          roomState.stream?.isChatEnabled !=
-                                                  false
-                                              ? LiveChatWidget(
-                                                  streamId: widget.streamId,
-                                                )
-                                              : Center(
-                                                  child: Text(
-                                                    'Chat is disabled',
-                                                    style: theme
-                                                        .textTheme.bodyMedium
-                                                        ?.copyWith(
-                                                      color: theme.colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                                  ),
+                                      child: roomState.stream?.isChatEnabled !=
+                                              false
+                                          ? LiveChatWidget(
+                                              streamId: widget.streamId,
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                'Chat is disabled',
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
                                                 ),
+                                              ),
+                                            ),
                                     ),
                                   ],
                                 ),
@@ -875,6 +1450,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       ),
     );
   }
+
+  // ── Mobile Landscape layout ────────────────────────────────────────────────
+
   Widget _buildLandscape(
     LiveRoomState roomState,
     LiveSocketService socket,
@@ -884,7 +1462,6 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          if (_isFullscreen) _toggleFullscreen();
           _minimizeToMiniPlayer(roomState);
         }
       },
@@ -895,12 +1472,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             children: [
               Expanded(
                 flex: 3,
-                child: _buildPlayerSection(roomState, socket, dark: true),
+                child: _buildPlayerStage(roomState, isWideScreen: true),
               ),
               Expanded(
                 flex: 2,
                 child: Column(
                   children: [
+                    _buildDelayedChatNotice(roomState, theme, dark: true),
                     Expanded(
                       child: roomState.stream?.isChatEnabled != false
                           ? LiveChatWidget(streamId: widget.streamId)
@@ -923,73 +1501,215 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     );
   }
 
-  // ── Player section ─────────────────────────────────────────────────────────
-
-  Widget _buildPlayerSection(
+  Widget _buildDelayedChatNotice(
     LiveRoomState state,
-    LiveSocketService socket, {
+    ThemeData theme, {
     bool dark = false,
   }) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _onTapPlayer,
-        onVerticalDragStart: (_) => setState(() {
-          _isDragging = true;
-          _dragOffset = 0;
-        }),
-        onVerticalDragUpdate: (details) {
-          if (!_isDragging) return;
-          final next = _dragOffset + details.delta.dy;
-          setState(() => _dragOffset = next < 0 ? 0 : next);
-        },
-        onVerticalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0.0;
-          if (_dragOffset > _kMiniDragThreshold || (velocity > 250 && _dragOffset > 20)) {
-            _minimizeToMiniPlayer(state);
-          }
-          setState(() {
-            _isDragging = false;
-            _dragOffset = 0;
-          });
-        },
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Black backdrop
-            Container(color: Colors.black),
-
-            // Phase-driven player content
-            _buildPlayerContent(state),
-
-            // Controls overlay (gradient + top bar)
-            AnimatedOpacity(
-              opacity: _controlsVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              child: _buildControls(state),
-            ),
-
-            // Floating reactions
-            _buildParticleLayer(),
-
-            // Reconnect banner
-            if (state.phase == LiveStreamPhase.reconnecting ||
-                state.connectionState == SocketConnectionState.reconnecting)
-              _buildReconnectBanner(state),
-
-            // Persistent live-position progress bar beneath the video player
-            if (state.phase == LiveStreamPhase.live)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: LiveStreamProgressBar(
-                  startedAt: state.stream?.startedAt,
-                ),
+    if (state.phase != LiveStreamPhase.live || !_isDvrAvailable) {
+      return const SizedBox.shrink();
+    }
+    final w = _currentWindowMath();
+    if (w.isAtLiveEdge && _playbackState != LivePlaybackState.paused) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: dark
+          ? Colors.white.withValues(alpha: 0.08)
+          : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+      child: Row(
+        children: [
+          Icon(
+            Icons.schedule_rounded,
+            size: 14,
+            color: dark ? Colors.amberAccent : theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Chat is real-time · Video is ${w.formattedBehindLive}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: dark ? Colors.white70 : theme.colorScheme.onSurfaceVariant,
               ),
-          ],
+            ),
+          ),
+          TextButton(
+            onPressed: _goLive,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Go Live',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Shared Adaptive Player Stage + Controls + DVR Bar ─────────────────────
+
+  List<VideoQualityOption> _availableQualities() {
+    if (kIsWeb && _webHlsUrl != null) {
+      return _webHlsCtrl.value.qualities;
+    }
+    final variants = _dvrTimeline?.variants ?? const [];
+    if (variants.length <= 1) return const [VideoQualityOption.auto];
+    return [
+      VideoQualityOption.auto,
+      ...variants.map(
+        (v) => VideoQualityOption(
+          index: v.id,
+          label: v.label,
+          bitrate: v.bandwidth,
+          width: v.width,
+          height: v.height,
         ),
+      ),
+    ];
+  }
+
+  Widget _buildPlayerStage(
+    LiveRoomState state, {
+    required bool isWideScreen,
+    bool isFullscreen = false,
+  }) {
+    final window = _currentWindowMath();
+    final dvrActive = _isDvrAvailable && state.phase == LiveStreamPhase.live;
+    final qualities = _availableQualities();
+    final activeQualityIdx = kIsWeb && _webHlsUrl != null
+        ? _webHlsCtrl.value.currentQualityIndex
+        : _selectedQualityIndex;
+    final volume = kIsWeb && _webHlsUrl != null
+        ? _webHlsCtrl.value.volume
+        : _mobileVolume;
+    final muted = kIsWeb && _webHlsUrl != null
+        ? _webHlsCtrl.value.isMuted
+        : _mobileMuted;
+
+    final showRichControls =
+        state.phase == LiveStreamPhase.live ||
+        state.phase == LiveStreamPhase.starting ||
+        _playerInitialized;
+
+    return MouseRegion(
+      onHover: (_) => _revealControls(),
+      onEnter: (_) => _revealControls(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onTapPlayer,
+            onDoubleTapDown: dvrActive
+                ? (details) {
+                    final dx = details.localPosition.dx;
+                    if (dx < constraints.maxWidth * 0.38) {
+                      unawaited(_rewind10());
+                    } else if (dx > constraints.maxWidth * 0.62) {
+                      unawaited(_forward10());
+                    } else {
+                      unawaited(_togglePlayPause());
+                    }
+                  }
+                : null,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Adaptive Fit/Fill video stage with ambient backdrop
+                ResponsiveVideoStage(
+                  sourceVideoSize: _sourceVideoSize,
+                  fitMode: _fitMode,
+                  ambientThumbnailUrl: state.stream?.thumbnailUrl,
+                  showAmbientBackdrop: isWideScreen || isFullscreen,
+                  child: _buildPlayerContent(state),
+                ),
+
+                // Professional YouTube-style overlay or lightweight phase header
+                if (showRichControls)
+                  LivePlayerControlsOverlay(
+                    streamTitle: state.stream?.title ?? 'Live Stream',
+                    playbackState: _playbackState,
+                    window: window,
+                    visible: _controlsVisible,
+                    isFullscreen: isFullscreen,
+                    dvrEnabled: dvrActive,
+                    viewerCount: state.viewerCount,
+                    fitMode: _fitMode,
+                    volume: volume,
+                    isMuted: muted,
+                    qualities: qualities,
+                    currentQualityIndex: activeQualityIdx,
+                    showVolumeSlider: isWideScreen || isFullscreen,
+                    onMinimize: () {
+                      if (_isFullscreen) _toggleFullscreen();
+                      _minimizeToMiniPlayer(state);
+                    },
+                    onTogglePlayPause: () => unawaited(_togglePlayPause()),
+                    onRewind10: () => unawaited(_rewind10()),
+                    onForward10: () => unawaited(_forward10()),
+                    onSeek: (target) => unawaited(_seekTo(target)),
+                    onGoLive: () => unawaited(_goLive()),
+                    onToggleFullscreen: _toggleFullscreen,
+                    onToggleFitMode: _toggleFitMode,
+                    onToggleMute: _toggleMute,
+                    onVolumeChanged: _setVolume,
+                    onQualitySelected: (idx) => unawaited(_selectQuality(idx)),
+                    onOpenCast: state.stream?.hlsUrl != null
+                        ? () => _openCastSheet(state)
+                        : null,
+                    onInteraction: () {
+                      _isScrubbing = false;
+                      _scheduleHideControls();
+                    },
+                  )
+                else
+                  AnimatedOpacity(
+                    opacity: _controlsVisible ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 220),
+                    child: _buildControls(state),
+                  ),
+
+                // Floating reactions
+                _buildParticleLayer(),
+
+                // Reconnect banner
+                if (state.phase == LiveStreamPhase.reconnecting ||
+                    state.connectionState == SocketConnectionState.reconnecting)
+                  _buildReconnectBanner(state),
+
+                // Subtle persistent hairline bar while controls are auto-hidden
+                if (state.phase == LiveStreamPhase.live && !_controlsVisible)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: dvrActive
+                          ? DvrSeekBar(
+                              window: window,
+                              enabled: false,
+                              compact: true,
+                              onSeek: (_) {},
+                              onGoLive: () {},
+                            )
+                          : LiveStreamProgressBar(
+                              startedAt: state.stream?.startedAt,
+                            ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -998,13 +1718,21 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     if (kIsWeb && _webHlsUrl != null) {
       return WebHlsPlayer(
         url: _webHlsUrl!,
+        controller: _webHlsCtrl,
+        fitMode: _fitMode,
+        onVideoSizeChanged: (sz) {
+          if (!mounted || sz.isEmpty || sz == _sourceVideoSize) return;
+          setState(() => _sourceVideoSize = sz);
+        },
         onReady: () {
           if (!mounted) return;
           setState(() {
             _playerError = false;
             _streamNotYetPublishing = false;
+            _dvrExpired = false;
           });
           ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
+          _syncPlaybackState();
         },
         onWaitingForStream: () {
           if (!mounted) return;
@@ -1015,6 +1743,14 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             _playerError = false;
           });
           _scheduleWarmupRetry();
+        },
+        onDvrExpired: () {
+          if (!mounted) return;
+          setState(() {
+            _dvrExpired = true;
+            _playbackState = LivePlaybackState.dvrExpired;
+            _controlsVisible = true;
+          });
         },
         onFatalError: (err) {
           debugPrint('[LiveRoom][WebHLS] fatal error: $err');
@@ -1815,7 +2551,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   // ── Stream meta bar ────────────────────────────────────────────────────────
 
-  Widget _buildStreamMeta(LiveRoomState state, ThemeData theme) {
+  Widget _buildStreamMeta(
+    LiveRoomState state,
+    ThemeData theme, {
+    bool showChatToggle = false,
+  }) {
     final stream = state.stream;
     if (stream == null) return const SizedBox.shrink();
     return Padding(
@@ -1848,6 +2588,21 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           ),
           const SizedBox(width: 8),
           ViewerCountWidget(count: state.viewerCount),
+          if (showChatToggle) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: _isChatExpanded ? 'Hide chat (expand video)' : 'Show chat',
+              onPressed: () =>
+                  setState(() => _isChatExpanded = !_isChatExpanded),
+              icon: Icon(
+                _isChatExpanded
+                    ? Icons.chat_bubble_rounded
+                    : Icons.chat_bubble_outline_rounded,
+                size: 20,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/features/home/domain/feed_response.dart';
+import 'package:mobile/features/live/domain/live_dvr_state.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 
 final liveStreamingRepositoryProvider = Provider<LiveStreamingRepository>((
@@ -217,6 +218,18 @@ class LiveStreamingRepository {
       return parseEnvelope(response.data);
     } on DioException catch (e) {
       throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// GET /streams/:id/dvr/timeline
+  /// Returns real server-side DVR buffer boundaries, live-edge offsets, and variants.
+  Future<DvrTimelineSnapshot?> getDvrTimeline(String streamId) async {
+    try {
+      final response = await _dio.get('/streams/$streamId/dvr/timeline');
+      final data = parseEnvelope(response.data);
+      return DvrTimelineSnapshot.fromJson(data);
+    } catch (_) {
+      return null;
     }
   }
 

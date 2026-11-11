@@ -18,10 +18,12 @@ import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
+import 'package:mobile/features/live/domain/live_dvr_state.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/domain/stream_health_model.dart';
 import 'package:mobile/features/live/presentation/providers/broadcaster_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/live_badge_widget.dart';
+import 'package:mobile/features/live/presentation/widgets/responsive_video_stage.dart';
 import 'package:mobile/app/env/env.dart';
 import 'package:mobile/features/live/presentation/widgets/stream_health_indicator.dart';
 import 'package:mobile/features/live/presentation/widgets/viewer_count_widget.dart';
@@ -233,6 +235,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   bool _webRendererInitialized = false;
   WhipState _whipState = WhipState.idle;
   String? _whipError;
+  VideoFitMode _studioPreviewFitMode = VideoFitMode.fit;
+  bool _studioPreviewExpanded = false;
 
   // Camera & Encoder Source selection
   CameraSource _selectedCameraSource = const BuiltInCameraSource();
@@ -3048,13 +3052,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     final tr = ref.read(trProvider);
     return Column(
               children: [
-                // â”€â”€ YouTube Studio Live Monitor Banner / Camera Preview â”€â”€
+                // Adaptive live camera monitor (avoids crushing portrait video into 180px box)
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: MediaQuery.of(context).viewInsets.bottom > 0
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: MediaQuery.viewInsetsOf(context).bottom > 0
                       ? 0
-                      : 180,
-                  child: MediaQuery.of(context).viewInsets.bottom > 0
+                      : () {
+                          final sz = MediaQuery.sizeOf(context);
+                          final isLandscapePhone = sz.width > sz.height;
+                          if (_studioPreviewExpanded) {
+                            return (sz.height * 0.56).clamp(240.0, 520.0);
+                          }
+                          return isLandscapePhone
+                              ? (sz.height * 0.42).clamp(180.0, 320.0)
+                              : (sz.height * 0.36).clamp(220.0, 360.0);
+                        }(),
+                  child: MediaQuery.viewInsetsOf(context).bottom > 0
                       ? const SizedBox.shrink()
                       : _buildLiveMonitor(theme, stream, bState),
                 ),
@@ -4307,39 +4321,42 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             if (!_selectedCameraSource.requiresLocalHardware)
               _buildExternalCameraMonitor(theme, stream, bState, height: height)
             else if (_isCameraReady)
-              SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: kIsWeb
-                        ? (_webVideoRenderer.videoWidth > 0
-                            ? _webVideoRenderer.videoWidth.toDouble()
-                            : 1280)
-                        : 1280,
-                    height: kIsWeb
-                        ? (_webVideoRenderer.videoHeight > 0
-                            ? _webVideoRenderer.videoHeight.toDouble()
-                            : 720)
-                        : 720,
-                    child: kIsWeb
-                        // Web: RTCVideoView shows both standby preview and live stream
-                        // _webVideoRenderer.srcObject is set in _setupCamera (preview)
-                        // and updated in _startRtmpBroadcast (WHIP stream)
-                        ? (_webRendererInitialized &&
-                                _webVideoRenderer.srcObject != null
-                            ? rtc.RTCVideoView(
-                                _webVideoRenderer,
-                                mirror: _isFrontCamera,
-                                objectFit: rtc.RTCVideoViewObjectFit
-                                    .RTCVideoViewObjectFitCover,
-                              )
-                            : const SizedBox.shrink())
-                        : ApiVideoCameraPreview(
-                            controller: _liveStreamController!,
-                          ),
-                  ),
-                ),
-              )
+              kIsWeb
+                  ? ResponsiveVideoStage(
+                      sourceVideoSize: (_webVideoRenderer.videoWidth > 0 &&
+                              _webVideoRenderer.videoHeight > 0)
+                          ? Size(
+                              _webVideoRenderer.videoWidth.toDouble(),
+                              _webVideoRenderer.videoHeight.toDouble(),
+                            )
+                          : const Size(16, 9),
+                      fitMode: _studioPreviewFitMode,
+                      ambientThumbnailUrl: stream.thumbnailUrl,
+                      child: _webRendererInitialized &&
+                              _webVideoRenderer.srcObject != null
+                          ? rtc.RTCVideoView(
+                              _webVideoRenderer,
+                              mirror: _isFrontCamera,
+                              objectFit:
+                                  _studioPreviewFitMode == VideoFitMode.fill
+                                      ? rtc.RTCVideoViewObjectFit
+                                          .RTCVideoViewObjectFitCover
+                                      : rtc.RTCVideoViewObjectFit
+                                          .RTCVideoViewObjectFitContain,
+                            )
+                          : const SizedBox.shrink(),
+                    )
+                  // Mobile camera preview: render ApiVideoCameraPreview directly
+                  // without a hardcoded 1280x720 wrapper so portrait camera feeds
+                  // fill naturally without artificial horizontal black pillars.
+                  : SizedBox.expand(
+                      child: ApiVideoCameraPreview(
+                        controller: _liveStreamController!,
+                        fit: _studioPreviewFitMode == VideoFitMode.fill
+                            ? BoxFit.cover
+                            : BoxFit.contain,
+                      ),
+                    )
             else if (!_isCameraPermissionGranted)
               Center(
                 child: Padding(
@@ -4879,6 +4896,61 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                           ),
                           onPressed: _toggleMic,
                         ),
+                        const SizedBox(width: 6),
+                        // Toggle Fit / Fill studio camera preview
+                        IconButton.filledTonal(
+                          icon: Icon(
+                            _studioPreviewFitMode == VideoFitMode.fill
+                                ? Icons.fit_screen_rounded
+                                : Icons.crop_free_rounded,
+                            size: 17,
+                            color: Colors.white,
+                          ),
+                          tooltip: _studioPreviewFitMode == VideoFitMode.fill
+                              ? 'Fit Full Camera (Uncropped)'
+                              : 'Fill Preview Frame',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 34,
+                            minHeight: 34,
+                          ),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.black54,
+                          ),
+                          onPressed: () => setState(() {
+                            _studioPreviewFitMode =
+                                _studioPreviewFitMode == VideoFitMode.fit
+                                    ? VideoFitMode.fill
+                                    : VideoFitMode.fit;
+                          }),
+                        ),
+                        if (!kIsWeb &&
+                            MediaQuery.sizeOf(context).width < 900) ...[
+                          const SizedBox(width: 6),
+                          IconButton.filledTonal(
+                            icon: Icon(
+                              _studioPreviewExpanded
+                                  ? Icons.compress_rounded
+                                  : Icons.expand_rounded,
+                              size: 17,
+                              color: Colors.white,
+                            ),
+                            tooltip: _studioPreviewExpanded
+                                ? 'Compact Preview'
+                                : 'Expand Preview',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 34,
+                              minHeight: 34,
+                            ),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54,
+                            ),
+                            onPressed: () => setState(() {
+                              _studioPreviewExpanded = !_studioPreviewExpanded;
+                            }),
+                          ),
+                        ],
                       ],
                     ),
                   ),

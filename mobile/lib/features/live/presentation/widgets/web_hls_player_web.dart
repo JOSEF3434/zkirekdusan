@@ -1,8 +1,8 @@
 // lib/features/live/presentation/widgets/web_hls_player_web.dart
 //
 // Flutter Web HLS (.m3u8) player powered by hls.js (loaded in web/index.html)
-// with native HLS fallback for Safari. Fixes video_player_web's inability to
-// decode .m3u8 streams in Chrome, Edge, and Firefox.
+// with native HLS fallback for Safari, live DVR seekable range reporting,
+// quality level switching, Fit/Fill scaling, and dynamic source size detection.
 
 import 'dart:async';
 import 'dart:js_interop';
@@ -10,6 +10,8 @@ import 'dart:js_interop_unsafe';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:mobile/features/live/domain/live_dvr_state.dart';
+import 'package:mobile/features/live/presentation/widgets/web_hls_controller.dart';
 import 'package:web/web.dart' as web;
 
 @JS('Hls')
@@ -18,6 +20,10 @@ extension type _HlsJs._(JSObject _) implements JSObject {
   external static bool isSupported();
   @JS('Events')
   external static _HlsEvents get events;
+  external double? get liveSyncPosition;
+  external int get currentLevel;
+  external set currentLevel(int level);
+  external JSArray<JSObject>? get levels;
   external void loadSource(String url);
   external void attachMedia(web.HTMLVideoElement media);
   external void on(String event, JSFunction handler);
@@ -28,23 +34,33 @@ extension type _HlsJs._(JSObject _) implements JSObject {
 extension type _HlsEvents._(JSObject _) implements JSObject {
   @JS('MANIFEST_PARSED')
   external String get manifestParsed;
+  @JS('LEVEL_SWITCHED')
+  external String get levelSwitched;
   @JS('ERROR')
   external String get error;
 }
 
 class WebHlsPlayer extends StatefulWidget {
   final String url;
+  final WebHlsController? controller;
+  final VideoFitMode fitMode;
   final VoidCallback? onReady;
   final VoidCallback? onWaitingForStream;
+  final VoidCallback? onDvrExpired;
   final void Function(String error)? onFatalError;
+  final void Function(Size size)? onVideoSizeChanged;
   final bool showControls;
 
   const WebHlsPlayer({
     super.key,
     required this.url,
+    this.controller,
+    this.fitMode = VideoFitMode.fit,
     this.onReady,
     this.onWaitingForStream,
+    this.onDvrExpired,
     this.onFatalError,
+    this.onVideoSizeChanged,
     this.showControls = false,
   });
 
@@ -61,8 +77,11 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
   bool _mutedForAutoplay = false;
   bool _mediaErrorRecoveredOnce = false;
   bool _readyNotified = false;
-  StreamSubscription<web.Event>? _canPlaySub;
-  StreamSubscription<web.Event>? _errorSub;
+  bool _isBuffering = false;
+  Size? _lastReportedSize;
+  Timer? _syncTimer;
+
+  final List<StreamSubscription<web.Event>> _videoSubs = [];
 
   @override
   void initState() {
@@ -73,8 +92,8 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     video.style
       ..width = '100%'
       ..height = '100%'
-      ..objectFit = 'contain'
-      ..backgroundColor = '#000000'
+      ..objectFit = widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain'
+      ..backgroundColor = 'transparent'
       ..pointerEvents = widget.showControls ? 'auto' : 'none';
     video.autoplay = true;
     video.playsInline = true;
@@ -86,18 +105,228 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       (int viewId) => video,
     );
 
+    _bindVideoListeners(video);
+    _attachController();
     _attachSource(widget.url);
+
+    _syncTimer = Timer.periodic(
+      const Duration(milliseconds: 250),
+      (_) => _emitSnapshot(),
+    );
   }
 
   @override
   void didUpdateWidget(covariant WebHlsPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
-      _attachSource(widget.url);
-    } else if (oldWidget.showControls != widget.showControls && _video != null) {
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.detach();
+      _attachController();
+    }
+    if (oldWidget.fitMode != widget.fitMode && _video != null) {
+      _video!.style.objectFit =
+          widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain';
+    }
+    if (oldWidget.showControls != widget.showControls && _video != null) {
       _video!.controls = widget.showControls;
       _video!.style.pointerEvents = widget.showControls ? 'auto' : 'none';
     }
+    if (oldWidget.url != widget.url) {
+      _attachSource(widget.url);
+    }
+  }
+
+  void _attachController() {
+    widget.controller?.attach(
+      play: () async {
+        final v = _video;
+        if (v == null) return;
+        await _playWithAutoplayFallback(v);
+        _emitSnapshot();
+      },
+      pause: () {
+        _video?.pause();
+        _emitSnapshot();
+      },
+      seekTo: (target) {
+        final v = _video;
+        if (v == null) return;
+        var targetSec = target.inMilliseconds / 1000.0;
+        final seekable = v.seekable;
+        if (seekable.length > 0) {
+          final start = seekable.start(0);
+          final end = seekable.end(seekable.length - 1);
+          if (targetSec < start) targetSec = start;
+          if (targetSec > end) targetSec = end;
+        }
+        v.currentTime = targetSec;
+        _emitSnapshot();
+      },
+      seekToLiveEdge: () {
+        final v = _video;
+        if (v == null) return;
+        final liveSync = _hls?.liveSyncPosition;
+        if (liveSync != null && liveSync.isFinite && liveSync > 0) {
+          v.currentTime = liveSync;
+        } else if (v.seekable.length > 0) {
+          final end = v.seekable.end(v.seekable.length - 1);
+          v.currentTime = (end - 4.0).clamp(0.0, end);
+        }
+        if (v.paused) {
+          unawaited(_playWithAutoplayFallback(v));
+        }
+        _emitSnapshot();
+      },
+      setVolume: (vol) {
+        final v = _video;
+        if (v == null) return;
+        final clamped = vol.clamp(0.0, 1.0);
+        v.volume = clamped;
+        v.muted = clamped == 0.0;
+        if (clamped > 0 && mounted && _mutedForAutoplay) {
+          setState(() => _mutedForAutoplay = false);
+        }
+        _emitSnapshot();
+      },
+      setMuted: (muted) {
+        final v = _video;
+        if (v == null) return;
+        v.muted = muted;
+        if (!muted && mounted && _mutedForAutoplay) {
+          setState(() => _mutedForAutoplay = false);
+        }
+        _emitSnapshot();
+      },
+      setQuality: (levelIndex) {
+        final h = _hls;
+        if (h == null) return;
+        h.currentLevel = levelIndex;
+        _emitSnapshot();
+      },
+      setFitMode: (mode) {
+        final v = _video;
+        if (v == null) return;
+        v.style.objectFit =
+            mode == VideoFitMode.fill ? 'cover' : 'contain';
+      },
+    );
+  }
+
+  void _bindVideoListeners(web.HTMLVideoElement video) {
+    _videoSubs.addAll([
+      video.onLoadedMetadata.listen((_) => _checkVideoSize(video)),
+      video.onResize.listen((_) => _checkVideoSize(video)),
+      video.onPlaying.listen((_) {
+        _isBuffering = false;
+        _checkVideoSize(video);
+        _emitSnapshot();
+      }),
+      video.onPause.listen((_) => _emitSnapshot()),
+      video.onWaiting.listen((_) {
+        _isBuffering = true;
+        _emitSnapshot();
+      }),
+      video.onCanPlay.listen((_) {
+        _isBuffering = false;
+        _checkVideoSize(video);
+        _emitSnapshot();
+      }),
+      video.onSeeked.listen((_) => _emitSnapshot()),
+      video.onVolumeChange.listen((_) => _emitSnapshot()),
+    ]);
+  }
+
+  void _checkVideoSize(web.HTMLVideoElement video) {
+    final w = video.videoWidth.toDouble();
+    final h = video.videoHeight.toDouble();
+    if (w > 0 && h > 0) {
+      final size = Size(w, h);
+      if (_lastReportedSize != size) {
+        _lastReportedSize = size;
+        widget.onVideoSizeChanged?.call(size);
+      }
+    }
+  }
+
+  List<VideoQualityOption> _readQualities() {
+    final h = _hls;
+    if (h == null) return const [VideoQualityOption.auto];
+    final rawLevels = h.levels?.dartify();
+    if (rawLevels is! List || rawLevels.isEmpty) {
+      return const [VideoQualityOption.auto];
+    }
+
+    final options = <VideoQualityOption>[VideoQualityOption.auto];
+    for (int i = 0; i < rawLevels.length; i++) {
+      final item = rawLevels[i];
+      if (item is Map) {
+        final height = (item['height'] as num?)?.toInt();
+        final width = (item['width'] as num?)?.toInt();
+        final bitrate = (item['bitrate'] as num?)?.toInt();
+        final label = height != null && height > 0
+            ? '${height}p'
+            : (bitrate != null && bitrate > 0
+                ? '${(bitrate / 1000).round()} kbps'
+                : 'Quality ${i + 1}');
+        options.add(
+          VideoQualityOption(
+            index: i,
+            label: label,
+            bitrate: bitrate,
+            width: width,
+            height: height,
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  void _emitSnapshot() {
+    final ctrl = widget.controller;
+    final video = _video;
+    if (!mounted || ctrl == null || video == null) return;
+
+    Duration seekStart = Duration.zero;
+    Duration seekEnd = Duration.zero;
+    final seekable = video.seekable;
+    if (seekable.length > 0) {
+      seekStart = _secToDuration(seekable.start(0));
+      seekEnd = _secToDuration(seekable.end(seekable.length - 1));
+    }
+
+    Duration bufEnd = Duration.zero;
+    final buffered = video.buffered;
+    if (buffered.length > 0) {
+      bufEnd = _secToDuration(buffered.end(buffered.length - 1));
+    }
+
+    final liveSyncSec = _hls?.liveSyncPosition;
+    final liveSync = (liveSyncSec != null && liveSyncSec.isFinite)
+        ? _secToDuration(liveSyncSec)
+        : null;
+
+    ctrl.value = ctrl.value.copyWith(
+      isReady: _readyNotified,
+      isPlaying: !video.paused && !video.ended,
+      isBuffering: _isBuffering,
+      isSeeking: video.seeking,
+      isMuted: video.muted,
+      volume: video.volume.toDouble().clamp(0.0, 1.0),
+      position: _secToDuration(video.currentTime),
+      seekableStart: seekStart,
+      seekableEnd: seekEnd,
+      bufferedEnd: bufEnd,
+      liveSyncPosition: liveSync,
+      videoSize: _lastReportedSize,
+      qualities: _readQualities(),
+      currentQualityIndex: _hls?.currentLevel ?? -1,
+    );
+  }
+
+  Duration _secToDuration(num sec) {
+    final s = sec.toDouble();
+    if (!s.isFinite || s <= 0) return Duration.zero;
+    return Duration(milliseconds: (s * 1000).round());
   }
 
   void _attachSource(String url) {
@@ -107,14 +336,19 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
 
     _mediaErrorRecoveredOnce = false;
     _readyNotified = false;
+    _isBuffering = true;
 
     final hasHlsGlobal = globalContext.hasProperty('Hls'.toJS).toDart;
     if (hasHlsGlobal && _HlsJs.isSupported()) {
       final config = <String, Object?>{
         'enableWorker': true,
-        'lowLatencyMode': true,
+        'lowLatencyMode': false,
         'liveSyncDurationCount': 3,
-        'manifestLoadingMaxRetry': 3,
+        'liveMaxLatencyDurationCount': 99999,
+        'maxBufferLength': 30,
+        'maxMaxBufferLength': 60,
+        'backBufferLength': 90,
+        'manifestLoadingMaxRetry': 4,
         'manifestLoadingRetryDelay': 1500,
       }.jsify() as JSObject;
 
@@ -126,7 +360,18 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
         ((JSAny? event, JSAny? data) {
           if (!mounted) return;
           _notifyReadyOnce();
+          _checkVideoSize(video);
           unawaited(_playWithAutoplayFallback(video));
+          _emitSnapshot();
+        }).toJS,
+      );
+
+      hls.on(
+        _HlsJs.events.levelSwitched,
+        ((JSAny? event, JSAny? data) {
+          if (!mounted) return;
+          _checkVideoSize(video);
+          _emitSnapshot();
         }).toJS,
       );
 
@@ -140,10 +385,29 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
           if (!isFatal) return;
 
           final errType = errMap['type']?.toString() ?? 'unknown';
+          final details = errMap['details']?.toString() ?? errType;
           final resp = errMap['response'];
-          final statusCode = resp is Map ? (resp['code'] as num?)?.toInt() : null;
+          final statusCode =
+              resp is Map ? (resp['code'] as num?)?.toInt() : null;
 
-          if (statusCode == 404 || statusCode == 423 || errType == 'networkError') {
+          // HTTP 410 Gone (or 404 fragment fetch after ready playback) means paused
+          // playhead fell outside the retained server DVR retention window.
+          if (statusCode == 410 ||
+              (_readyNotified &&
+                  statusCode == 404 &&
+                  details.contains('fragLoad'))) {
+            debugPrint(
+              '[WebHlsPlayer] DVR window expired (details=$details, status=$statusCode)',
+            );
+            widget.controller?.value =
+                widget.controller!.value.copyWith(dvrExpired: true);
+            widget.onDvrExpired?.call();
+            return;
+          }
+
+          if (statusCode == 404 ||
+              statusCode == 423 ||
+              errType == 'networkError') {
             debugPrint(
               '[WebHlsPlayer] Stream manifest unavailable (type=$errType, status=$statusCode)',
             );
@@ -159,7 +423,6 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
             return;
           }
 
-          final details = errMap['details']?.toString() ?? errType;
           _teardownHls();
           widget.onFatalError?.call('HLS error ($details)');
         }).toJS,
@@ -172,15 +435,20 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
 
     // Native HLS fallback (e.g. Safari on macOS/iOS)
     if (video.canPlayType('application/vnd.apple.mpegurl').isNotEmpty) {
-      _canPlaySub = video.onCanPlay.listen((_) {
-        if (!mounted) return;
-        _notifyReadyOnce();
-        unawaited(_playWithAutoplayFallback(video));
-      });
-      _errorSub = video.onError.listen((_) {
-        if (!mounted) return;
-        widget.onWaitingForStream?.call();
-      });
+      _videoSubs.add(
+        video.onCanPlay.listen((_) {
+          if (!mounted) return;
+          _notifyReadyOnce();
+          _checkVideoSize(video);
+          unawaited(_playWithAutoplayFallback(video));
+        }),
+      );
+      _videoSubs.add(
+        video.onError.listen((_) {
+          if (!mounted) return;
+          widget.onWaitingForStream?.call();
+        }),
+      );
       video.src = url;
       video.load();
       return;
@@ -201,7 +469,6 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     try {
       await video.play().toDart;
     } catch (_) {
-      // Browsers may block unmuted autoplay until user interaction.
       video.muted = true;
       if (mounted) {
         setState(() => _mutedForAutoplay = true);
@@ -212,6 +479,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
         debugPrint('[WebHlsPlayer] Autoplay fallback failed: $e');
       }
     }
+    _emitSnapshot();
   }
 
   void _unmute() {
@@ -222,13 +490,10 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     if (mounted) {
       setState(() => _mutedForAutoplay = false);
     }
+    _emitSnapshot();
   }
 
   void _teardownHls() {
-    _canPlaySub?.cancel();
-    _canPlaySub = null;
-    _errorSub?.cancel();
-    _errorSub = null;
     try {
       _hls?.destroy();
     } catch (_) {}
@@ -237,6 +502,12 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
 
   @override
   void dispose() {
+    _syncTimer?.cancel();
+    for (final s in _videoSubs) {
+      unawaited(s.cancel());
+    }
+    _videoSubs.clear();
+    widget.controller?.detach();
     _teardownHls();
     final video = _video;
     if (video != null) {
@@ -259,7 +530,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
         if (_mutedForAutoplay)
           Positioned(
             left: 12,
-            bottom: 12,
+            top: 52,
             child: Material(
               color: Colors.black87,
               borderRadius: BorderRadius.circular(20),
@@ -271,7 +542,11 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.volume_off_rounded, color: Colors.white, size: 16),
+                      Icon(
+                        Icons.volume_off_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Tap to unmute',

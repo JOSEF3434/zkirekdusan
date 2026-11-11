@@ -14,6 +14,7 @@ import { UploadsModule } from '../uploads/uploads.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { StreamReminderService } from './stream-reminder.service.js';
 import { MediaMtxService } from './mediamtx.service.js';
+import { LiveDvrService } from './live-dvr.service.js';
 
 @Module({
   imports: [
@@ -26,8 +27,20 @@ import { MediaMtxService } from './mediamtx.service.js';
     NotificationsModule,
   ],
   controllers: [LiveStreamingController, StreamsController],
-  providers: [LiveStreamingService, LiveStreamingRepository, StreamReminderService, MediaMtxService],
-  exports: [LiveStreamingService, LiveStreamingRepository, StreamReminderService, MediaMtxService],
+  providers: [
+    LiveStreamingService,
+    LiveStreamingRepository,
+    StreamReminderService,
+    MediaMtxService,
+    LiveDvrService,
+  ],
+  exports: [
+    LiveStreamingService,
+    LiveStreamingRepository,
+    StreamReminderService,
+    MediaMtxService,
+    LiveDvrService,
+  ],
 })
 export class LiveStreamingModule {}
 
