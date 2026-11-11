@@ -93,6 +93,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   DateTime? _lastSeekAt;
   LivePlaybackState? _transientSeekState;
   Timer? _dvrSyncTimer;
+  bool _isDisposed = false;
+  bool _isRefreshingDvrTimeline = false;
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted || _isDisposed) return;
+    setState(fn);
+  }
 
   bool _playerInitialized = false;
   bool _isPlayerInitializing = false;
@@ -227,6 +234,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   @override
   void dispose() {
+    _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _reactionSub?.cancel();
     _playerRetryTimer?.cancel();
@@ -250,6 +258,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     for (final p in _particles) {
       p.ctrl.dispose();
     }
+    _particles.clear();
     WakelockPlus.disable().ignore();
     super.dispose();
   }
@@ -271,7 +280,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   void _attachPlayerListeners(VideoPlayerController ctrl) {
     ctrl.addListener(() {
-      if (!mounted) return;
+      if (!mounted || _isDisposed) return;
       if (ctrl != _playerCtrl) return;
       if (ctrl.value.hasError) {
         debugPrint(
@@ -283,7 +292,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
       final sz = ctrl.value.size;
       if (sz.width > 0 && sz.height > 0 && sz != _sourceVideoSize) {
-        setState(() => _sourceVideoSize = sz);
+        _safeSetState(() => _sourceVideoSize = sz);
       } else {
         _syncPlaybackState();
       }
@@ -291,15 +300,21 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   void _onWebHlsChanged() {
-    if (!mounted) return;
+    if (!mounted || _isDisposed) return;
     final snap = _webHlsCtrl.value;
+    bool stateDirty = false;
     if (snap.videoSize != null &&
         !snap.videoSize!.isEmpty &&
         snap.videoSize != _sourceVideoSize) {
       _sourceVideoSize = snap.videoSize;
+      stateDirty = true;
     }
-    if (snap.dvrExpired) {
+    if (snap.dvrExpired && !_dvrExpired) {
       _dvrExpired = true;
+      stateDirty = true;
+    }
+    if (stateDirty) {
+      _safeSetState(() {});
     }
     _syncPlaybackState();
   }
@@ -342,7 +357,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   }
 
   void _syncPlaybackState() {
-    if (!mounted) return;
+    if (!mounted || _isDisposed) return;
     final roomState = ref.read(liveRoomProvider(widget.streamId));
     LivePlaybackState next;
 
@@ -396,72 +411,83 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       next = LivePlaybackState.buffering;
     }
 
-    if (mounted) {
-      setState(() => _playbackState = next);
+    // Avoid redundant 4x/sec full-widget rebuilds when state hasn't changed and
+    // no visible time-shift/seekbar UI needs position updates.
+    if (next == _playbackState &&
+        !_controlsVisible &&
+        !_isScrubbing &&
+        next == LivePlaybackState.liveEdge) {
+      return;
     }
+    _safeSetState(() => _playbackState = next);
   }
 
   void _startDvrTimelineSync() {
     _dvrSyncTimer?.cancel();
     _dvrSyncTimer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(seconds: 8),
       (_) => _refreshDvrTimeline(),
     );
   }
 
   Future<void> _refreshDvrTimeline() async {
-    if (!mounted) return;
-    final room = ref.read(liveRoomProvider(widget.streamId));
-    if (room.phase == LiveStreamPhase.ended || room.phase.isTerminal) {
-      _dvrSyncTimer?.cancel();
-      return;
-    }
-    final timeline = await ref
-        .read(liveStreamingRepositoryProvider)
-        .getDvrTimeline(widget.streamId);
-    if (!mounted || timeline == null) return;
+    if (!mounted || _isDisposed || _isRefreshingDvrTimeline) return;
+    _isRefreshingDvrTimeline = true;
+    try {
+      final room = ref.read(liveRoomProvider(widget.streamId));
+      if (room.phase == LiveStreamPhase.ended || room.phase.isTerminal) {
+        _dvrSyncTimer?.cancel();
+        return;
+      }
+      final timeline = await ref
+          .read(liveStreamingRepositoryProvider)
+          .getDvrTimeline(widget.streamId);
+      if (!mounted || _isDisposed || timeline == null) return;
 
-    setState(() => _dvrTimeline = timeline);
+      _safeSetState(() => _dvrTimeline = timeline);
 
-    // Upgrade seamlessly once from short-window CDN HLS to 30-min DVR origin
-    // if user has not manually paused or started seeking yet.
-    if (!_usingDvrOrigin &&
-        timeline.dvrEnabled &&
-        timeline.hasSegments &&
-        timeline.masterPlaylistPath.isNotEmpty &&
-        !_manualPaused &&
-        !_isScrubbing &&
-        _playerInitialized) {
-      final dvrUrl = MediaUrlResolver.resolve(timeline.masterPlaylistPath);
-      if (dvrUrl != null && dvrUrl != _activePlaybackUrl) {
-        _usingDvrOrigin = true;
-        _activePlaybackUrl = dvrUrl;
-        if (kIsWeb) {
-          setState(() => _webHlsUrl = dvrUrl);
-        } else {
-          unawaited(_swapMobileControllerToUrl(dvrUrl));
+      // Upgrade seamlessly once from short-window CDN HLS to 30-min DVR origin
+      // if user has not manually paused or started seeking yet.
+      if (!_usingDvrOrigin &&
+          timeline.dvrEnabled &&
+          timeline.hasSegments &&
+          timeline.masterPlaylistPath.isNotEmpty &&
+          !_manualPaused &&
+          !_isScrubbing &&
+          _playerInitialized) {
+        final dvrUrl = MediaUrlResolver.resolve(timeline.masterPlaylistPath);
+        if (dvrUrl != null && dvrUrl != _activePlaybackUrl) {
+          _usingDvrOrigin = true;
+          _activePlaybackUrl = dvrUrl;
+          if (kIsWeb) {
+            _safeSetState(() => _webHlsUrl = dvrUrl);
+          } else {
+            unawaited(_swapMobileControllerToUrl(dvrUrl));
+          }
         }
       }
-    }
 
-    // Check whether a paused mobile viewer drifted older than retained window.
-    if (!kIsWeb &&
-        _manualPaused &&
-        _playerCtrl != null &&
-        timeline.hasSegments &&
-        timeline.dvrStartOffsetSec > 10) {
-      final posSec = _playerCtrl!.value.position.inMilliseconds / 1000.0;
-      if (posSec < timeline.dvrStartOffsetSec - 4) {
-        setState(() {
-          _dvrExpired = true;
-          _playbackState = LivePlaybackState.dvrExpired;
-        });
+      // Check whether a paused mobile viewer drifted older than retained window.
+      if (!kIsWeb &&
+          _manualPaused &&
+          _playerCtrl != null &&
+          timeline.hasSegments &&
+          timeline.dvrStartOffsetSec > 10) {
+        final posSec = _playerCtrl!.value.position.inMilliseconds / 1000.0;
+        if (posSec < timeline.dvrStartOffsetSec - 4) {
+          _safeSetState(() {
+            _dvrExpired = true;
+            _playbackState = LivePlaybackState.dvrExpired;
+          });
+        }
       }
+    } finally {
+      _isRefreshingDvrTimeline = false;
     }
   }
 
   void _handlePlaybackError() {
-    if (!mounted || _isPlayerInitializing) return;
+    if (!mounted || _isDisposed || _isPlayerInitializing) return;
     final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
     if (currentPhase.isTerminal || currentPhase == LiveStreamPhase.ended) return;
 
@@ -486,6 +512,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     bool force = false,
     bool warmupRetry = false,
   }) async {
+    if (!mounted || _isDisposed) return;
     final currentPhase = ref.read(liveRoomProvider(widget.streamId)).phase;
     if (currentPhase == LiveStreamPhase.ended || currentPhase.isTerminal) return;
     if ((_playerInitialized && !force) || _isPlayerInitializing) return;
@@ -494,6 +521,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         MediaUrlResolver.resolve(hlsUrl.trim()) ?? hlsUrl.trim();
     if (fallbackResolved.isEmpty) return;
 
+    // Acquire initialization lock immediately before awaiting timeline metadata
+    // so concurrent ref.listen updates do not double-fetch or double-init.
+    _isPlayerInitializing = true;
     if (!warmupRetry) {
       _playerRetryTimer?.cancel();
     }
@@ -503,11 +533,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     DvrTimelineSnapshot? timeline;
     final streamDto = ref.read(liveRoomProvider(widget.streamId)).stream;
     if (streamDto?.isDvrEnabled ?? true) {
-      timeline = await ref
-          .read(liveStreamingRepositoryProvider)
-          .getDvrTimeline(widget.streamId);
+      try {
+        timeline = await ref
+            .read(liveStreamingRepositoryProvider)
+            .getDvrTimeline(widget.streamId);
+      } catch (_) {}
     }
-    if (!mounted) return;
+    if (!mounted || _isDisposed) {
+      _isPlayerInitializing = false;
+      return;
+    }
 
     String resolved = fallbackResolved;
     bool usingDvr = false;
@@ -530,22 +565,19 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       final oldCtrl = _playerCtrl;
       _playerCtrl = null;
       oldCtrl?.dispose().ignore();
-      if (mounted) {
-        setState(() {
-          _webHlsUrl = resolved;
-          _playerInitialized = true;
-          _isPlayerInitializing = false;
-          _playerError = false;
-          _streamNotYetPublishing = false;
-          _dvrExpired = false;
-          _initAttemptCount = 0;
-        });
-      }
+      _safeSetState(() {
+        _webHlsUrl = resolved;
+        _playerInitialized = true;
+        _isPlayerInitializing = false;
+        _playerError = false;
+        _streamNotYetPublishing = false;
+        _dvrExpired = false;
+        _initAttemptCount = 0;
+      });
+      _isPlayerInitializing = false;
       _startDvrTimelineSync();
       return;
     }
-
-    _isPlayerInitializing = true;
     if (force) {
       _initAttemptCount = 0;
       if (mounted) {
@@ -1122,9 +1154,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         xPos: 0.1 + _rng.nextDouble() * 0.8,
         ctrl: ctrl,
       );
-      setState(() => _particles.add(particle));
+      _safeSetState(() => _particles.add(particle));
       ctrl.forward().then((_) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() => _particles.remove(particle));
           ctrl.dispose();
         }

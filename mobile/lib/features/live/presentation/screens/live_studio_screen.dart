@@ -237,6 +237,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   String? _whipError;
   VideoFitMode _studioPreviewFitMode = VideoFitMode.fit;
   bool _studioPreviewExpanded = false;
+  bool _isDisposed = false;
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted || _isDisposed) return;
+    setState(fn);
+  }
 
   // Camera & Encoder Source selection
   CameraSource _selectedCameraSource = const BuiltInCameraSource();
@@ -364,9 +370,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         xPos: 0.15 + _rng.nextDouble() * 0.7,
         ctrl: ctrl,
       );
-      setState(() => _particles.add(particle));
+      _safeSetState(() => _particles.add(particle));
       ctrl.forward().then((_) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() => _particles.remove(particle));
           ctrl.dispose();
         }
@@ -376,13 +382,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _intentionalDisconnect = true; // prevent auto-reconnect on dispose
     _reactionSub?.cancel();
     _rtmpReconnectTimer?.cancel();
-    _intentionalDisconnect = true; // prevent auto-reconnect on dispose
     for (final p in _particles) {
       p.ctrl.dispose();
     }
-    // Use pre-cached service references â€” never call ref.read in dispose();
+    _particles.clear();
+    // Use pre-cached service references — never call ref.read in dispose();
     // the ConsumerStatefulElement is already being torn down at this point.
     if (_streamId != null) {
       final sId = _streamId!;
@@ -395,15 +403,30 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       (_cachedSocketService as dynamic).leaveStream(_streamId!);
     }
     // Stop local audio recording (if active) before tearing down the broadcaster.
-    // This is a fire-and-forget best-effort; the recording service also handles
-    // orphan cleanup at next startup via reconcileOrphanedRecordings().
+    // Never call setState or touch UI fields here because the Element is already
+    // marked defunct when dispose() runs.
     if (_isLocalRecording) {
+      _isLocalRecording = false;
+      _activeRecordingId = null;
       _cachedRecordingService.stopRecording().ignore();
     }
-    _stopRtmpBroadcast();
-    _liveStreamController?.stop();
-    _liveStreamController?.dispose();
+    _isStreamingRtmp = false;
+    _streamingError = null;
+    _whipState = WhipState.stopped;
+
+    final liveCtrl = _liveStreamController;
+    _liveStreamController = null;
+    if (liveCtrl != null) {
+      unawaited(
+        liveCtrl
+            .stop()
+            .catchError((_) {})
+            .whenComplete(() => liveCtrl.dispose().catchError((_) {})),
+      );
+    }
+
     _webCameraController?.dispose();
+    _webCameraController = null;
     // Release the standby preview stream tracks
     if (kIsWeb && _webPreviewStream != null) {
       for (final t in _webPreviewStream!.getTracks()) {
@@ -413,8 +436,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       _webPreviewStream = null;
     }
     // Stop WHIP broadcaster and release WebRTC resources
-    _whipBroadcaster?.stop();
+    final whip = _whipBroadcaster;
+    _whipBroadcaster = null;
+    if (whip != null) {
+      unawaited(whip.stop().catchError((_) {}));
+    }
     if (_webRendererInitialized) {
+      _webRendererInitialized = false;
       _webVideoRenderer.dispose();
     }
     _titleCtrl.dispose();
@@ -422,40 +450,34 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     super.dispose();
   }
 
-  // â”€â”€â”€ apivideo_live_stream callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── apivideo_live_stream callbacks ────────────────────────────────────────
   void _onConnectionSuccess() {
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = true;
-        _streamingError = null;
-      });
-    }
+    _safeSetState(() {
+      _isStreamingRtmp = true;
+      _streamingError = null;
+    });
   }
 
   void _onConnectionFailed(String reason) {
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = false;
-        _streamingError = 'RTMP broadcast failed: $reason';
-      });
-    }
+    _safeSetState(() {
+      _isStreamingRtmp = false;
+      _streamingError = 'RTMP broadcast failed: $reason';
+    });
   }
 
   void _onDisconnection() {
-    if (!mounted) return;
+    if (!mounted || _isDisposed) return;
     if (_intentionalDisconnect) {
-      if (mounted) {
-        setState(() {
-          _isStreamingRtmp = false;
-          _streamingError = null;
-        });
-      }
+      _safeSetState(() {
+        _isStreamingRtmp = false;
+        _streamingError = null;
+      });
       return;
     }
 
-    setState(() {
+    _safeSetState(() {
       _isStreamingRtmp = false;
-      _streamingError = 'Disconnected â€” reconnecting...';
+      _streamingError = 'Disconnected — reconnecting...';
     });
 
     final key = _lastStreamKey;
@@ -467,11 +489,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
     _rtmpReconnectTimer?.cancel();
     _rtmpReconnectTimer = Timer(const Duration(seconds: 3), () async {
-      if (!mounted || _isStreamingRtmp || _intentionalDisconnect) return;
-      debugPrint('[LiveStudio] RTMP dropped unexpectedly â€” auto-reconnecting...');
-      if (mounted) {
-        setState(() => _streamingError = 'Reconnecting to live server...');
+      if (!mounted || _isDisposed || _isStreamingRtmp || _intentionalDisconnect) {
+        return;
       }
+      debugPrint('[LiveStudio] RTMP dropped unexpectedly — auto-reconnecting...');
+      _safeSetState(() => _streamingError = 'Reconnecting to live server...');
       try {
         final stream = ref
             .read(broadcasterProvider((streamId, _effectiveChannelId)))
@@ -480,19 +502,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           await _startRtmpBroadcast(stream, key);
         }
       } catch (e) {
-        if (mounted) {
-          setState(() => _streamingError = 'Auto-reconnect failed. Tap Reconnect.');
-        }
+        _safeSetState(
+          () => _streamingError = 'Auto-reconnect failed. Tap Reconnect.',
+        );
       }
     });
   }
 
   void _onError(Exception error) {
-    if (mounted) {
-      setState(() {
-        _streamingError = 'RTMP stream error: $error';
-      });
-    }
+    _safeSetState(() {
+      _streamingError = 'RTMP stream error: $error';
+    });
   }
 
   Future<void> _loadChannels() async {
@@ -3727,12 +3747,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     if (!_isLocalRecording) return;
     try {
       final row = await _cachedRecordingService.stopRecording();
-      if (mounted) {
-        setState(() {
-          _isLocalRecording = false;
-          _activeRecordingId = null;
-        });
-      }
+      _isLocalRecording = false;
+      _activeRecordingId = null;
+      _safeSetState(() {});
       if (row != null) {
         debugPrint(
           '[LiveStudio] Local recording saved: ${row.localFilePath} '
@@ -3741,12 +3758,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       }
     } catch (e) {
       debugPrint('[LiveStudio] _stopLocalRecording error: $e');
-      if (mounted) {
-        setState(() {
-          _isLocalRecording = false;
-          _activeRecordingId = null;
-        });
-      }
+      _isLocalRecording = false;
+      _activeRecordingId = null;
+      _safeSetState(() {});
     }
   }
 
@@ -3846,8 +3860,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             'autoGainControl': true,
           },
           onStateChange: (state) {
-            if (!mounted) return;
-            setState(() {
+            _safeSetState(() {
               _whipState = state;
               if (state == WhipState.connected) {
                 _isStreamingRtmp = true;
@@ -3861,8 +3874,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             });
           },
           onError: (error) {
-            if (!mounted) return;
-            setState(() {
+            _safeSetState(() {
               _whipError = error;
               _streamingError = error;
             });
@@ -3879,9 +3891,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         // to the renderer. If we reused _webPreviewStream it's already wired.
         if (broadcaster.localStream != null &&
             broadcaster.localStream != _webPreviewStream &&
-            mounted) {
+            mounted &&
+            !_isDisposed) {
           _webVideoRenderer.srcObject = broadcaster.localStream;
-          setState(() {});
+          _safeSetState(() {});
         }
 
         if (broadcaster.state == WhipState.failed) {
@@ -3929,15 +3942,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
     // Pre-connection grace period: give Cloudinary's RTMP edge node time to
     // become ready before the very first publish attempt.
-    if (mounted) {
-      setState(() {
-        _streamingError = 'Warming up live server...';
-      });
-    }
+    _safeSetState(() {
+      _streamingError = 'Warming up live server...';
+    });
     await Future<void>.delayed(const Duration(seconds: 5));
-    if (!mounted) return;
+    if (!mounted || _isDisposed || _intentionalDisconnect) return;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      if (!mounted || _isDisposed || _intentionalDisconnect) return;
+      final liveCtrl = _liveStreamController;
+      if (liveCtrl == null) break;
       final attemptNumber = attempt + 1;
       final stopwatch = Stopwatch()..start();
 
@@ -3951,7 +3965,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       debugPrint('[LiveStudio][Diagnostic] connectStream called: attempt=$attemptNumber');
 
       try {
-        await _liveStreamController!
+        await liveCtrl
             .startStreaming(streamKey: key, url: targetUrl)
             .timeout(
               const Duration(seconds: 20),
@@ -3965,12 +3979,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             'attempt=$attemptNumber, elapsedMs=${stopwatch.elapsedMilliseconds}');
 
         // Success
-        if (mounted) {
-          setState(() {
-            _isStreamingRtmp = true;
-            _streamingError = null;
-          });
-        }
+        _safeSetState(() {
+          _isStreamingRtmp = true;
+          _streamingError = null;
+        });
         return;
       } catch (e, st) {
         stopwatch.stop();
@@ -4008,13 +4020,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         debugPrint(
           '[LiveStudio] RTMP connectStream retry $attemptNumber/$maxAttempts â€” waiting ${waitMs}ms',
         );
-        if (mounted) {
-          setState(() {
-            _streamingError =
-                'Connecting to live server... (attempt ${attemptNumber + 1}/$maxAttempts)';
-          });
-        }
+        _safeSetState(() {
+          _streamingError =
+              'Connecting to live server... (attempt ${attemptNumber + 1}/$maxAttempts)';
+        });
         await Future<void>.delayed(Duration(milliseconds: waitMs));
+        if (!mounted || _isDisposed || _intentionalDisconnect) return;
       }
     }
 
@@ -4023,11 +4034,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         .map((d) => 'Attempt ${d['attempt']} (${d['elapsedMs']}ms): [${d['exceptionType']}] ${d['exceptionMessage']}')
         .join('; ');
 
-    if (mounted) {
-      setState(() {
-        _streamingError = 'RTMP broadcast failed: ${lastError ?? "Unknown error"} ($diagnosticSummary)';
-      });
-    }
+    _safeSetState(() {
+      _streamingError = 'RTMP broadcast failed: ${lastError ?? "Unknown error"} ($diagnosticSummary)';
+    });
 
     throw RtmpBroadcastException(
       message: 'RTMP broadcast connection failed after $maxAttempts attempts. $diagnosticSummary',
@@ -4042,13 +4051,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _intentionalDisconnect = true;
     _rtmpReconnectTimer?.cancel();
 
-    if (mounted) {
-      setState(() {
-        _isStreamingRtmp = false;
-        _streamingError = null;
-        _whipState = WhipState.stopped;
-      });
-    }
+    _isStreamingRtmp = false;
+    _streamingError = null;
+    _whipState = WhipState.stopped;
+    _safeSetState(() {});
 
     // Stop local audio recording with safe timeout
     try {
@@ -4057,6 +4063,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         onTimeout: () => debugPrint('[LiveStudio] stopLocalRecording timed out'),
       );
     } catch (_) {}
+    if (_isDisposed) return;
 
     if (kIsWeb) {
       // Web: stop the WHIP broadcaster
@@ -4069,18 +4076,20 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         } catch (_) {}
         _whipBroadcaster = null;
       }
+      if (_isDisposed || !_webRendererInitialized) return;
       if (_webVideoRenderer.srcObject != null) {
         _webVideoRenderer.srcObject = null;
       }
       // Restore standby preview stream if still available
-      if (_webPreviewStream != null && mounted) {
+      if (_webPreviewStream != null && mounted && !_isDisposed) {
         _webVideoRenderer.srcObject = _webPreviewStream;
       }
     } else {
       // Mobile: stop apivideo RTMP stream with safe timeout so it never hangs
-      if (_liveStreamController != null) {
+      final liveCtrl = _liveStreamController;
+      if (liveCtrl != null) {
         try {
-          await _liveStreamController!.stopStreaming().timeout(
+          await liveCtrl.stopStreaming().timeout(
             const Duration(seconds: 2),
             onTimeout: () => debugPrint('[LiveStudio] stopStreaming timed out'),
           );
