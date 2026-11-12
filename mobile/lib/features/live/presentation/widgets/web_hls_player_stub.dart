@@ -11,6 +11,7 @@ class WebHlsPlayer extends StatelessWidget {
   final VoidCallback? onReady;
   final VoidCallback? onWaitingForStream;
   final VoidCallback? onDvrExpired;
+  final VoidCallback? onStreamEnded;
   final void Function(String error)? onFatalError;
   final void Function(Size size)? onVideoSizeChanged;
   final bool showControls;
@@ -23,6 +24,7 @@ class WebHlsPlayer extends StatelessWidget {
     this.onReady,
     this.onWaitingForStream,
     this.onDvrExpired,
+    this.onStreamEnded,
     this.onFatalError,
     this.onVideoSizeChanged,
     this.showControls = false,

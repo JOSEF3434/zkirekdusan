@@ -18,6 +18,7 @@ class WebHlsSnapshot {
   final List<VideoQualityOption> qualities;
   final int currentQualityIndex;
   final bool dvrExpired;
+  final bool isEnded;
 
   const WebHlsSnapshot({
     this.isReady = false,
@@ -35,6 +36,7 @@ class WebHlsSnapshot {
     this.qualities = const [VideoQualityOption.auto],
     this.currentQualityIndex = -1,
     this.dvrExpired = false,
+    this.isEnded = false,
   });
 
   WebHlsSnapshot copyWith({
@@ -53,6 +55,7 @@ class WebHlsSnapshot {
     List<VideoQualityOption>? qualities,
     int? currentQualityIndex,
     bool? dvrExpired,
+    bool? isEnded,
   }) {
     return WebHlsSnapshot(
       isReady: isReady ?? this.isReady,
@@ -70,6 +73,7 @@ class WebHlsSnapshot {
       qualities: qualities ?? this.qualities,
       currentQualityIndex: currentQualityIndex ?? this.currentQualityIndex,
       dvrExpired: dvrExpired ?? this.dvrExpired,
+      isEnded: isEnded ?? this.isEnded,
     );
   }
 }

@@ -480,6 +480,50 @@ class LiveRoomNotifier extends StateNotifier<LiveRoomState> {
     }
   }
 
+  /// Called by LiveRoomScreen when the server timeline, <video>.onEnded, or
+  /// VideoPlayer confirms the broadcast has permanently finished.
+  void markStreamEnded({int? durationSeconds, String? vodUrl}) {
+    if (!mounted || state.phase == LiveStreamPhase.ended) return;
+    _cancelReconnect();
+    state = state.copyWith(
+      phase: LiveStreamPhase.ended,
+      vodUrl: vodUrl ?? state.vodUrl,
+      stream: state.stream?.copyWith(
+        status: LiveStreamStatus.ended,
+        duration: durationSeconds ?? state.stream?.duration,
+      ),
+      clearInterruptedAt: true,
+      clearError: true,
+    );
+  }
+
+  /// Queries REST status to confirm whether an ended/stalled player means the
+  /// broadcaster terminated the live stream (works even if Socket.IO missed
+  /// `stream:ended` or the viewer is unauthenticated).
+  Future<bool> checkStreamStatusForEnd() async {
+    if (!mounted) return false;
+    if (state.phase == LiveStreamPhase.ended) return true;
+    try {
+      final stream = await _repo.getStreamById(_streamId);
+      if (!mounted) return false;
+      if (stream.status == LiveStreamStatus.ended ||
+          stream.status == LiveStreamStatus.cancelled ||
+          stream.status == LiveStreamStatus.failed ||
+          stream.status == LiveStreamStatus.processing ||
+          stream.status == LiveStreamStatus.vodReady) {
+        _cancelReconnect();
+        state = state.copyWith(
+          phase: LiveStreamPhase.ended,
+          stream: stream,
+          clearInterruptedAt: true,
+          clearError: true,
+        );
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   /// Alias for notifyPlayerReady to maintain backwards compatibility.
   void notifyPlayerRestored() => notifyPlayerReady();
 

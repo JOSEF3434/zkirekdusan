@@ -47,6 +47,7 @@ class WebHlsPlayer extends StatefulWidget {
   final VoidCallback? onReady;
   final VoidCallback? onWaitingForStream;
   final VoidCallback? onDvrExpired;
+  final VoidCallback? onStreamEnded;
   final void Function(String error)? onFatalError;
   final void Function(Size size)? onVideoSizeChanged;
   final bool showControls;
@@ -59,6 +60,7 @@ class WebHlsPlayer extends StatefulWidget {
     this.onReady,
     this.onWaitingForStream,
     this.onDvrExpired,
+    this.onStreamEnded,
     this.onFatalError,
     this.onVideoSizeChanged,
     this.showControls = false,
@@ -81,6 +83,12 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
   bool _isBuffering = false;
   Size? _lastReportedSize;
   Timer? _syncTimer;
+  web.HTMLCanvasElement? _sampleCanvas;
+  int _sampleTick = 0;
+  double _pendingPillarboxScale = 1.0;
+  int _pendingPillarboxHits = 0;
+  double _appliedPillarboxScale = 1.0;
+  VideoFitMode _activeFitMode = VideoFitMode.fill;
 
   final List<StreamSubscription<web.Event>> _videoSubs = [];
 
@@ -89,19 +97,27 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     super.initState();
     _viewType = 'zkire-web-hls-${_nextViewId++}';
 
+    _activeFitMode = widget.fitMode;
     final container = web.document.createElement('div') as web.HTMLDivElement;
     container.style
+      ..display = 'block'
+      ..position = 'relative'
       ..width = '100%'
       ..height = '100%'
       ..overflow = 'hidden'
       ..margin = '0'
       ..padding = '0'
       ..backgroundColor = '#000000'
-      ..position = 'relative'
       ..pointerEvents = widget.showControls ? 'auto' : 'none';
 
     final video = web.document.createElement('video') as web.HTMLVideoElement;
+    video.crossOrigin = 'anonymous';
     video.style
+      ..position = 'absolute'
+      ..top = '0'
+      ..left = '0'
+      ..right = '0'
+      ..bottom = '0'
       ..display = 'block'
       ..width = '100%'
       ..height = '100%'
@@ -109,6 +125,8 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       ..maxHeight = 'none'
       ..objectFit = widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain'
       ..objectPosition = 'center center'
+      ..transformOrigin = 'center center'
+      ..transition = 'transform 180ms ease-out'
       ..backgroundColor = 'transparent'
       ..pointerEvents = widget.showControls ? 'auto' : 'none';
     video.autoplay = true;
@@ -141,9 +159,8 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       _attachController();
     }
     if (oldWidget.fitMode != widget.fitMode && _video != null) {
-      _video!.style
-        ..objectFit = widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain'
-        ..objectPosition = 'center center';
+      _activeFitMode = widget.fitMode;
+      _applyVideoFitStyles();
     }
     if (oldWidget.showControls != widget.showControls && _video != null) {
       _video!.controls = widget.showControls;
@@ -224,11 +241,8 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
         _emitSnapshot();
       },
       setFitMode: (mode) {
-        final v = _video;
-        if (v == null) return;
-        v.style
-          ..objectFit = mode == VideoFitMode.fill ? 'cover' : 'contain'
-          ..objectPosition = 'center center';
+        _activeFitMode = mode;
+        _applyVideoFitStyles();
       },
     );
   }
@@ -254,7 +268,108 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       }),
       video.onSeeked.listen((_) => _emitSnapshot()),
       video.onVolumeChange.listen((_) => _emitSnapshot()),
+      video.onEnded.listen((_) {
+        _isBuffering = false;
+        _emitSnapshot();
+        widget.onStreamEnded?.call();
+      }),
     ]);
+  }
+
+  void _applyVideoFitStyles() {
+    final v = _video;
+    if (v == null) return;
+    final isFill = _activeFitMode == VideoFitMode.fill;
+    final scale = isFill ? _appliedPillarboxScale : 1.0;
+    v.style
+      ..objectFit = isFill ? 'cover' : 'contain'
+      ..objectPosition = 'center center'
+      ..transform = scale > 1.02 ? 'scale(${scale.toStringAsFixed(3)})' : 'none';
+  }
+
+  void _probePillarboxCrop(web.HTMLVideoElement video) {
+    if (_activeFitMode != VideoFitMode.fill) {
+      if (_appliedPillarboxScale != 1.0) {
+        _appliedPillarboxScale = 1.0;
+        _applyVideoFitStyles();
+      }
+      return;
+    }
+
+    final vw = video.videoWidth;
+    final vh = video.videoHeight;
+    if (vw <= 0 || vh <= 0 || vw <= vh || video.paused || video.ended) {
+      return;
+    }
+
+    const int sampleW = 64;
+    const int sampleH = 36;
+    try {
+      final canvas = _sampleCanvas ??=
+          (web.document.createElement('canvas') as web.HTMLCanvasElement)
+            ..width = sampleW
+            ..height = sampleH;
+      final ctx = canvas.getContext('2d') as web.CanvasRenderingContext2D?;
+      if (ctx == null) return;
+      ctx.drawImage(video, 0, 0, sampleW, sampleH);
+      final data = ctx.getImageData(0, 0, sampleW, sampleH).data.toDart;
+
+      const sampleRows = [5, 11, 18, 25, 31];
+      int colPeak(int x) {
+        int peak = 0;
+        for (final y in sampleRows) {
+          final idx = (y * sampleW + x) * 4;
+          final r = data[idx];
+          final g = data[idx + 1];
+          final b = data[idx + 2];
+          final m = r > g ? (r > b ? r : b) : (g > b ? g : b);
+          if (m > peak) peak = m;
+        }
+        return peak;
+      }
+
+      int leftBar = 0;
+      while (leftBar < 24 && colPeak(leftBar) <= 14) {
+        leftBar++;
+      }
+      int rightBar = 0;
+      while (rightBar < 24 && colPeak(sampleW - 1 - rightBar) <= 14) {
+        rightBar++;
+      }
+
+      int centerPeak = 0;
+      for (int x = leftBar; x < sampleW - rightBar; x++) {
+        final p = colPeak(x);
+        if (p > centerPeak) centerPeak = p;
+      }
+
+      double candidateScale = 1.0;
+      if (leftBar >= 8 &&
+          rightBar >= 8 &&
+          (leftBar - rightBar).abs() <= 3 &&
+          centerPeak >= 24) {
+        final bar = leftBar < rightBar ? leftBar : rightBar;
+        final activeFrac = (sampleW - bar * 2) / sampleW;
+        if (activeFrac >= 0.26 && activeFrac <= 0.80) {
+          candidateScale = (1.0 / activeFrac).clamp(1.0, 3.25);
+        }
+      }
+
+      if ((candidateScale - _pendingPillarboxScale).abs() <= 0.12) {
+        _pendingPillarboxHits++;
+      } else {
+        _pendingPillarboxScale = candidateScale;
+        _pendingPillarboxHits = 1;
+      }
+
+      if (_pendingPillarboxHits >= 2 &&
+          (_appliedPillarboxScale - candidateScale).abs() > 0.08) {
+        _appliedPillarboxScale = candidateScale;
+        _applyVideoFitStyles();
+      }
+    } catch (_) {
+      // Cross-origin native stream without CORS headers: ignore silently.
+    }
   }
 
   void _checkVideoSize(web.HTMLVideoElement video) {
@@ -308,6 +423,11 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     final video = _video;
     if (!mounted || ctrl == null || video == null) return;
 
+    _sampleTick = (_sampleTick + 1) % 4;
+    if (_sampleTick == 0) {
+      _probePillarboxCrop(video);
+    }
+
     Duration seekStart = Duration.zero;
     Duration seekEnd = Duration.zero;
     final seekable = video.seekable;
@@ -342,6 +462,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       videoSize: _lastReportedSize,
       qualities: _readQualities(),
       currentQualityIndex: _hls?.currentLevel ?? -1,
+      isEnded: video.ended,
     );
   }
 
@@ -359,6 +480,10 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     _mediaErrorRecoveredOnce = false;
     _readyNotified = false;
     _isBuffering = true;
+    _pendingPillarboxScale = 1.0;
+    _pendingPillarboxHits = 0;
+    _appliedPillarboxScale = 1.0;
+    _applyVideoFitStyles();
 
     final hasHlsGlobal = globalContext.hasProperty('Hls'.toJS).toDart;
     if (hasHlsGlobal && _HlsJs.isSupported()) {
@@ -541,6 +666,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       _video = null;
     }
     _container = null;
+    _sampleCanvas = null;
     super.dispose();
   }
 

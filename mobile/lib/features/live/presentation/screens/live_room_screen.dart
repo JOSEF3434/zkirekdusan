@@ -95,6 +95,9 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   Timer? _dvrSyncTimer;
   bool _isDisposed = false;
   bool _isRefreshingDvrTimeline = false;
+  bool _endCheckInFlight = false;
+  final GlobalKey _playerStageKey = GlobalKey(debugLabel: 'live_player_stage');
+  final GlobalKey _webPlayerKey = GlobalKey(debugLabel: 'web_hls_player');
 
   void _safeSetState(VoidCallback fn) {
     if (!mounted || _isDisposed) return;
@@ -387,7 +390,10 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       next = _transientSeekState!;
     } else if (kIsWeb && _webHlsUrl != null) {
       final snap = _webHlsCtrl.value;
-      if (snap.isSeeking) {
+      if (snap.isEnded) {
+        next = LivePlaybackState.ended;
+        _triggerEndVerification();
+      } else if (snap.isSeeking) {
         next = LivePlaybackState.seeking;
       } else if (!snap.isPlaying && _manualPaused) {
         next = LivePlaybackState.paused;
@@ -403,7 +409,16 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       }
     } else if (_playerCtrl != null && _playerCtrl!.value.isInitialized) {
       final val = _playerCtrl!.value;
-      if (!val.isPlaying && _manualPaused) {
+      final atEndOfPlaylist =
+          val.isCompleted ||
+          (!val.isPlaying &&
+              !_manualPaused &&
+              val.duration > Duration.zero &&
+              val.position >= val.duration - const Duration(milliseconds: 500));
+      if (atEndOfPlaylist) {
+        next = LivePlaybackState.ended;
+        _triggerEndVerification();
+      } else if (!val.isPlaying && _manualPaused) {
         next = LivePlaybackState.paused;
       } else if (val.isBuffering) {
         next = LivePlaybackState.buffering;
@@ -430,6 +445,24 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     _safeSetState(() => _playbackState = next);
   }
 
+  void _triggerEndVerification() {
+    if (_endCheckInFlight || _isDisposed || !mounted) return;
+    _endCheckInFlight = true;
+    Future.microtask(() async {
+      try {
+        if (_dvrTimeline?.ended == true) {
+          ref.read(liveRoomProvider(widget.streamId).notifier).markStreamEnded();
+        } else {
+          await ref
+              .read(liveRoomProvider(widget.streamId).notifier)
+              .checkStreamStatusForEnd();
+        }
+      } finally {
+        _endCheckInFlight = false;
+      }
+    });
+  }
+
   void _startDvrTimelineSync() {
     _dvrSyncTimer?.cancel();
     _dvrSyncTimer = Timer.periodic(
@@ -453,6 +486,14 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       if (!mounted || _isDisposed || timeline == null) return;
 
       _safeSetState(() => _dvrTimeline = timeline);
+
+      // Transition watcher UI out of PAUSED/LIVE to Stream Ended when backend
+      // DVR origin confirms broadcast stopped (handles missed Socket.IO events).
+      if (timeline.ended) {
+        _dvrSyncTimer?.cancel();
+        ref.read(liveRoomProvider(widget.streamId).notifier).markStreamEnded();
+        return;
+      }
 
       // Upgrade seamlessly once from short-window CDN HLS to 30-min DVR origin
       // if user has not manually paused or started seeking yet.
@@ -505,12 +546,21 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     _playerInitialized = false;
     oldCtrl?.dispose().ignore();
 
-    ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerInterruption();
+    unawaited(() async {
+      final ended = await ref
+          .read(liveRoomProvider(widget.streamId).notifier)
+          .checkStreamStatusForEnd();
+      if (ended || !mounted || _isDisposed) return;
 
-    final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
-    if (hls != null && hls.isNotEmpty) {
-      _initPlayer(hls);
-    }
+      ref
+          .read(liveRoomProvider(widget.streamId).notifier)
+          .notifyPlayerInterruption();
+
+      final hls = ref.read(liveRoomProvider(widget.streamId)).stream?.hlsUrl;
+      if (hls != null && hls.isNotEmpty) {
+        _initPlayer(hls);
+      }
+    }());
   }
 
   // ── Player Initialization & DVR Swap ───────────────────────────────────────
@@ -1184,11 +1234,17 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       _checkCreatorRedirect(next);
       if (next.phase == LiveStreamPhase.ended) {
         _playerRetryTimer?.cancel();
+        _dvrSyncTimer?.cancel();
         _playerCtrl?.pause();
-        if (_webHlsUrl != null) {
-          setState(() {
+        if (_webHlsUrl != null ||
+            _playerInitialized ||
+            _playbackState != LivePlaybackState.ended) {
+          _safeSetState(() {
             _webHlsUrl = null;
             _playerInitialized = false;
+            _isPlayerInitializing = false;
+            _playbackState = LivePlaybackState.ended;
+            _controlsVisible = false;
           });
         }
       }
@@ -1229,226 +1285,154 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       }
     });
 
-    // Subscribe to incoming reactions
-    final socket = ref.read(liveSocketServiceProvider);
-
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
-    final screenW = MediaQuery.sizeOf(context).width;
+    final media = MediaQuery.of(context);
+    final isLandscape = media.orientation == Orientation.landscape;
+    final screenW = media.size.width;
     // Breakpoint by viewport width (not kIsWeb) so narrow mobile browsers get vertical layout.
     final isWideScreen = screenW >= 900;
+    final isLandscapeMobile = !isWideScreen && isLandscape;
+    final pad = media.padding;
+    final canDragMinimize = !_isFullscreen && !isWideScreen && !isLandscapeMobile;
 
-    if (_isFullscreen) {
-      return _buildFullscreen(roomState, theme);
-    }
-    if (isWideScreen) {
-      return _buildWideScreen(roomState, socket, theme);
-    }
-    if (isLandscape) {
-      return _buildLandscape(roomState, socket, theme);
-    }
-    return _buildPortrait(roomState, socket, theme);
-  }
-
-  // ── Fullscreen layout (Android, iOS, & Web) ─────────────────────────────
-
-  Widget _buildFullscreen(LiveRoomState roomState, ThemeData theme) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _toggleFullscreen();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SizedBox.expand(
-          child: _buildPlayerStage(
-            roomState,
-            isWideScreen: MediaQuery.sizeOf(context).width >= 900,
-            isFullscreen: true,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Portrait layout (Responsive YouTube Mobile style) ────────────────────
-
-  Widget _buildPortrait(
-    LiveRoomState roomState,
-    LiveSocketService socket,
-    ThemeData theme,
-  ) {
-    return PopScope(
-      // Intercept back: minimize instead of leaving.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _minimizeToMiniPlayer(roomState);
-      },
-      child: GestureDetector(
-        // Drag-down on the player area to minimize.
-        onVerticalDragStart: (_) => setState(() {
-          _isDragging = true;
-          _dragOffset = 0;
-        }),
-        onVerticalDragUpdate: (details) {
-          if (!_isDragging) return;
-          final next = _dragOffset + details.delta.dy;
-          setState(() => _dragOffset = next < 0 ? 0 : next);
-        },
-        onVerticalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0.0;
-          if (_dragOffset > _kMiniDragThreshold ||
-              (velocity > 250 && _dragOffset > 20)) {
+        if (!didPop) {
+          if (_isFullscreen) {
+            _toggleFullscreen();
+          } else {
             _minimizeToMiniPlayer(roomState);
           }
-          setState(() {
-            _isDragging = false;
-            _dragOffset = 0;
-          });
-        },
-        child: Transform.translate(
-          offset: Offset(0, _isDragging ? _dragOffset.clamp(0.0, 300.0) : 0),
-          child: Scaffold(
-            backgroundColor: theme.colorScheme.surface,
-            body: SafeArea(
-              child: roomState.isLoading
-                  ? _buildLoading()
-                  : roomState.error != null
-                  ? _buildError(roomState.error!, theme)
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final maxVideoH = _isChatExpanded
-                            ? constraints.maxHeight * 0.56
-                            : constraints.maxHeight * 0.80;
-                        final frame = computeResponsiveVideoFrame(
-                          maxWidth: constraints.maxWidth,
-                          maxHeight: maxVideoH,
-                          sourceVideoSize: _sourceVideoSize,
-                          isWideScreen: false,
-                          isFullscreen: false,
-                        );
-                        return Column(
-                          children: [
-                            // YouTube-style full-width 16:9 controlled-height player stage
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              width: double.infinity,
-                              height: frame.stageHeight,
-                              child: _buildPlayerStage(
-                                roomState,
-                                isWideScreen: false,
-                              ),
-                            ),
-
-                            // Stream metadata + collapsible chat toggle
-                            _buildStreamMeta(
-                              roomState,
-                              theme,
-                              showChatToggle:
-                                  roomState.stream?.isChatEnabled != false,
-                            ),
-
-                            if (_isChatExpanded) ...[
-                              _buildDelayedChatNotice(roomState, theme),
-                              Expanded(
-                                child: roomState.stream?.isChatEnabled != false
-                                    ? LiveChatWidget(streamId: widget.streamId)
-                                    : Center(
-                                        child: Text(
-                                          ref.read(trProvider)(
-                                            'live.chat_disabled',
-                                          ),
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            color: theme
-                                                .colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                            ] else
-                              const Spacer(),
-                          ],
-                        );
-                      },
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Wide-screen / Desktop layout (>= 900 px) ─────────────────────────────
-
-  Widget _buildWideScreen(
-    LiveRoomState roomState,
-    LiveSocketService socket,
-    ThemeData theme,
-  ) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _minimizeToMiniPlayer(roomState);
+        }
       },
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
-        body: SafeArea(
-          child: roomState.isLoading
-              ? _buildLoading()
-              : roomState.error != null
-                  ? _buildError(roomState.error!, theme)
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final chatPanelW =
-                            (constraints.maxWidth * 0.28).clamp(320.0, 400.0);
-                        final playerW = constraints.maxWidth - chatPanelW;
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragStart: canDragMinimize
+            ? (_) => _safeSetState(() {
+                _isDragging = true;
+                _dragOffset = 0;
+              })
+            : null,
+        onVerticalDragUpdate: canDragMinimize
+            ? (details) {
+                if (!_isDragging) return;
+                final next = _dragOffset + details.delta.dy;
+                _safeSetState(() => _dragOffset = next < 0 ? 0 : next);
+              }
+            : null,
+        onVerticalDragEnd: canDragMinimize
+            ? (details) {
+                final velocity = details.primaryVelocity ?? 0.0;
+                if (_dragOffset > _kMiniDragThreshold ||
+                    (velocity > 250 && _dragOffset > 20)) {
+                  _minimizeToMiniPlayer(roomState);
+                }
+                _safeSetState(() {
+                  _isDragging = false;
+                  _dragOffset = 0;
+                });
+              }
+            : null,
+        child: Transform.translate(
+          offset: Offset(
+            0,
+            (canDragMinimize && _isDragging) ? _dragOffset.clamp(0.0, 300.0) : 0,
+          ),
+          child: Scaffold(
+            backgroundColor: (_isFullscreen || isLandscapeMobile)
+                ? Colors.black
+                : theme.colorScheme.surface,
+            body: roomState.isLoading
+                ? SafeArea(child: _buildLoading())
+                : roomState.error != null
+                ? SafeArea(child: _buildError(roomState.error!, theme))
+                : LayoutBuilder(
+                    builder: (context, outer) {
+                      final totalW = outer.maxWidth;
+                      final totalH = outer.maxHeight;
+                      final safeTop = _isFullscreen ? 0.0 : pad.top;
+                      final safeLeft = _isFullscreen ? 0.0 : pad.left;
+                      final safeRight = _isFullscreen ? 0.0 : pad.right;
+                      final safeBottom = _isFullscreen ? 0.0 : pad.bottom;
+                      final usableW =
+                          (totalW - safeLeft - safeRight).clamp(120.0, totalW);
+                      final usableH =
+                          (totalH - safeTop - safeBottom).clamp(120.0, totalH);
+
+                      late final double playerLeft;
+                      late final double playerTop;
+                      late final double playerW;
+                      late final double playerH;
+                      late final double wideChatW;
+
+                      if (_isFullscreen) {
+                        playerLeft = 0;
+                        playerTop = 0;
+                        playerW = totalW;
+                        playerH = totalH;
+                        wideChatW = 0;
+                      } else if (isWideScreen) {
+                        wideChatW = (usableW * 0.28).clamp(320.0, 400.0);
+                        final colW = usableW - wideChatW;
                         final maxStageH =
-                            (constraints.maxHeight - 88.0).clamp(280.0, constraints.maxHeight);
+                            (usableH - 88.0).clamp(260.0, usableH);
                         final frame = computeResponsiveVideoFrame(
-                          maxWidth: playerW,
+                          maxWidth: colW,
                           maxHeight: maxStageH,
                           sourceVideoSize: _sourceVideoSize,
                           isWideScreen: true,
                           isFullscreen: false,
                         );
+                        playerLeft = safeLeft;
+                        playerTop = safeTop;
+                        playerW = colW;
+                        playerH = frame.stageHeight;
+                      } else if (isLandscapeMobile) {
+                        wideChatW = usableW * 0.4;
+                        playerLeft = safeLeft;
+                        playerTop = safeTop;
+                        playerW = usableW - wideChatW;
+                        playerH = usableH;
+                      } else {
+                        wideChatW = 0;
+                        final maxVideoH = _isChatExpanded
+                            ? usableH * 0.56
+                            : usableH * 0.80;
+                        final frame = computeResponsiveVideoFrame(
+                          maxWidth: usableW,
+                          maxHeight: maxVideoH,
+                          sourceVideoSize: _sourceVideoSize,
+                          isWideScreen: false,
+                          isFullscreen: false,
+                        );
+                        playerLeft = safeLeft;
+                        playerTop = safeTop;
+                        playerW = usableW;
+                        playerH = frame.stageHeight;
+                      }
 
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ── Left: Adaptive Player Stage + Stream Meta ──
-                            SizedBox(
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (!_isFullscreen && isWideScreen) ...[
+                            Positioned(
+                              left: safeLeft,
+                              top: safeTop + playerH,
                               width: playerW,
-                              height: constraints.maxHeight,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: frame.stageHeight,
-                                    child: _buildPlayerStage(
-                                      roomState,
-                                      isWideScreen: true,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      child: _buildStreamMeta(roomState, theme),
-                                    ),
-                                  ),
-                                ],
+                              bottom: safeBottom,
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                child: _buildStreamMeta(roomState, theme),
                               ),
                             ),
-
-                            // ── Right: Side Live Chat Panel ─────────────────
-                            SizedBox(
-                              width: chatPanelW,
-                              height: constraints.maxHeight,
+                            Positioned(
+                              left: safeLeft + playerW,
+                              top: safeTop,
+                              width: wideChatW,
+                              bottom: safeBottom,
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   border: Border(
@@ -1482,59 +1466,101 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                                 ),
                               ),
                             ),
-                          ],
-                        );
-                      },
-                    ),
-        ),
-      ),
-    );
-  }
-
-  // ── Mobile Landscape layout ────────────────────────────────────────────────
-
-  Widget _buildLandscape(
-    LiveRoomState roomState,
-    LiveSocketService socket,
-    ThemeData theme,
-  ) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          _minimizeToMiniPlayer(roomState);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildPlayerStage(roomState, isWideScreen: true),
-              ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  children: [
-                    _buildDelayedChatNotice(roomState, theme, dark: true),
-                    Expanded(
-                      child: roomState.stream?.isChatEnabled != false
-                          ? LiveChatWidget(streamId: widget.streamId)
-                          : Center(
-                              child: Text(
-                                ref.read(trProvider)(
-                                  'live.chat_disabled_short',
-                                ),
-                                style: const TextStyle(color: Colors.white54),
+                          ] else if (!_isFullscreen && isLandscapeMobile) ...[
+                            Positioned(
+                              left: safeLeft + playerW,
+                              top: safeTop,
+                              width: wideChatW,
+                              bottom: safeBottom,
+                              child: Column(
+                                children: [
+                                  _buildDelayedChatNotice(
+                                    roomState,
+                                    theme,
+                                    dark: true,
+                                  ),
+                                  Expanded(
+                                    child: roomState.stream?.isChatEnabled !=
+                                            false
+                                        ? LiveChatWidget(
+                                            streamId: widget.streamId,
+                                          )
+                                        : Center(
+                                            child: Text(
+                                              ref.read(trProvider)(
+                                                'live.chat_disabled_short',
+                                              ),
+                                              style: const TextStyle(
+                                                color: Colors.white54,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ],
                               ),
                             ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                          ] else if (!_isFullscreen) ...[
+                            Positioned(
+                              left: safeLeft,
+                              top: safeTop + playerH,
+                              right: safeRight,
+                              bottom: safeBottom,
+                              child: Column(
+                                children: [
+                                  _buildStreamMeta(
+                                    roomState,
+                                    theme,
+                                    showChatToggle:
+                                        roomState.stream?.isChatEnabled !=
+                                            false,
+                                  ),
+                                  if (_isChatExpanded) ...[
+                                    _buildDelayedChatNotice(roomState, theme),
+                                    Expanded(
+                                      child: roomState.stream?.isChatEnabled !=
+                                              false
+                                          ? LiveChatWidget(
+                                              streamId: widget.streamId,
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                ref.read(trProvider)(
+                                                  'live.chat_disabled',
+                                                ),
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  color: theme.colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ] else
+                                    const Spacer(),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          // Single persistent player slot: never unmounts/reloads
+                          // WebHlsPlayer or VideoPlayer across fullscreen/resize.
+                          Positioned(
+                            key: _playerStageKey,
+                            left: playerLeft,
+                            top: playerTop,
+                            width: playerW,
+                            height: playerH,
+                            child: _buildPlayerStage(
+                              roomState,
+                              isWideScreen: isWideScreen || isLandscapeMobile,
+                              isFullscreen: _isFullscreen,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
           ),
         ),
       ),
@@ -1637,9 +1663,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         : _mobileMuted;
 
     final showRichControls =
-        state.phase == LiveStreamPhase.live ||
-        state.phase == LiveStreamPhase.starting ||
-        _playerInitialized;
+        state.phase != LiveStreamPhase.ended &&
+        !state.phase.isTerminal &&
+        (state.phase == LiveStreamPhase.live ||
+            state.phase == LiveStreamPhase.starting ||
+            _playerInitialized);
 
     return MouseRegion(
       onHover: (_) => _revealControls(),
@@ -1713,7 +1741,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                       _scheduleHideControls();
                     },
                   )
-                else
+                else if (state.phase != LiveStreamPhase.ended &&
+                    !state.phase.isTerminal)
                   AnimatedOpacity(
                     opacity: _controlsVisible ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 220),
@@ -1763,6 +1792,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         fitMode: _fitMode,
         showAmbientBackdrop: false,
         child: WebHlsPlayer(
+          key: _webPlayerKey,
           url: _webHlsUrl!,
           controller: _webHlsCtrl,
           fitMode: _fitMode,
@@ -1784,15 +1814,25 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                 .notifyPlayerReady();
             _syncPlaybackState();
           },
+          onStreamEnded: () {
+            if (!mounted || _isDisposed) return;
+            ref.read(liveRoomProvider(widget.streamId).notifier).markStreamEnded();
+          },
           onWaitingForStream: () {
             if (!mounted || _isDisposed) return;
-            _safeSetState(() {
-              _playerInitialized = false;
-              _webHlsUrl = null;
-              _streamNotYetPublishing = true;
-              _playerError = false;
-            });
-            _scheduleWarmupRetry();
+            unawaited(() async {
+              final ended = await ref
+                  .read(liveRoomProvider(widget.streamId).notifier)
+                  .checkStreamStatusForEnd();
+              if (ended || !mounted || _isDisposed) return;
+              _safeSetState(() {
+                _playerInitialized = false;
+                _webHlsUrl = null;
+                _streamNotYetPublishing = true;
+                _playerError = false;
+              });
+              _scheduleWarmupRetry();
+            }());
           },
           onDvrExpired: () {
             if (!mounted || _isDisposed) return;
@@ -1805,26 +1845,32 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           onFatalError: (err) {
             debugPrint('[LiveRoom][WebHLS] fatal error: $err');
             if (!mounted || _isDisposed) return;
-            final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
-            if (phaseNow == LiveStreamPhase.live ||
-                phaseNow == LiveStreamPhase.starting) {
-              _safeSetState(() {
-                _playerInitialized = false;
-                _webHlsUrl = null;
-                _streamNotYetPublishing = true;
-                _playerError = false;
-              });
-              _scheduleWarmupRetry();
-            } else {
-              _safeSetState(() {
-                _playerInitialized = false;
-                _webHlsUrl = null;
-                _playerError = true;
-              });
-              ref
+            unawaited(() async {
+              final ended = await ref
                   .read(liveRoomProvider(widget.streamId).notifier)
-                  .notifyPlayerInterruption();
-            }
+                  .checkStreamStatusForEnd();
+              if (ended || !mounted || _isDisposed) return;
+              final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
+              if (phaseNow == LiveStreamPhase.live ||
+                  phaseNow == LiveStreamPhase.starting) {
+                _safeSetState(() {
+                  _playerInitialized = false;
+                  _webHlsUrl = null;
+                  _streamNotYetPublishing = true;
+                  _playerError = false;
+                });
+                _scheduleWarmupRetry();
+              } else {
+                _safeSetState(() {
+                  _playerInitialized = false;
+                  _webHlsUrl = null;
+                  _playerError = true;
+                });
+                ref
+                    .read(liveRoomProvider(widget.streamId).notifier)
+                    .notifyPlayerInterruption();
+              }
+            }());
           },
         ),
       );
@@ -2518,6 +2564,24 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
 
+                // Ended message
+                const SizedBox(height: 6),
+                const Text(
+                  'This live stream has ended.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Thank you for watching. The broadcaster has finished this live session.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+
                 if (durationFormatted != null) ...[
                   const SizedBox(height: 6),
                   Text(
@@ -2526,7 +2590,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                   ),
                 ],
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
                 // Action buttons
                 Wrap(
@@ -2544,21 +2608,70 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.redAccent,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
+                    FilledButton.icon(
+                      onPressed: () {
+                        _dvrSyncTimer?.cancel();
+                        _playerRetryTimer?.cancel();
+                        if (_isFullscreen) {
+                          SystemChrome.setEnabledSystemUIMode(
+                            SystemUiMode.edgeToEdge,
+                          );
+                          if (!kIsWeb) {
+                            SystemChrome.setPreferredOrientations([
+                              DeviceOrientation.portraitUp,
+                              DeviceOrientation.landscapeLeft,
+                              DeviceOrientation.landscapeRight,
+                            ]);
+                          }
+                        }
+                        WakelockPlus.disable().ignore();
+                        ref.read(miniPlayerProvider.notifier).dismiss();
+                        if (mounted) {
+                          context.go('/home');
+                        }
+                      },
+                      icon: const Icon(Icons.home_rounded, size: 16),
+                      label: const Text('Back to Home'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 9,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                     OutlinedButton.icon(
                       onPressed: () {
                         if (_isFullscreen) _toggleFullscreen();
-                        _minimizeToMiniPlayer(state);
+                        ref.read(miniPlayerProvider.notifier).dismiss();
+                        if (mounted) {
+                          context.go('/live');
+                        }
                       },
-                      icon: const Icon(Icons.arrow_back, size: 14),
-                      label: Text(tr('common.go_back')),
+                      icon: const Icon(Icons.live_tv_rounded, size: 15),
+                      label: const Text('Browse Live'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Colors.white30),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         textStyle: const TextStyle(fontSize: 12),
                       ),
                     ),
