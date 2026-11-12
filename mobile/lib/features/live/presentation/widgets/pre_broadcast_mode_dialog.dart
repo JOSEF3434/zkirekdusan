@@ -1,9 +1,11 @@
 ﻿// lib/features/live/presentation/widgets/pre_broadcast_mode_dialog.dart
 //
 // Modal dialog displayed prior to Go-Live, allowing broadcasters to choose
-// between "Stream Only" vs "Stream & Record Audio Locally (Backup)", and confirming
-// external encoder credentials if streaming from an external hardware device.
+// between "Stream Only" vs "Stream & Record Audio Locally (Backup)", confirming
+// external encoder credentials, and displaying an honest breakdown of all
+// 5 recording target modes.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile/features/live/domain/camera_source.dart';
@@ -18,6 +20,8 @@ class PreBroadcastModeDialog extends StatefulWidget {
   final bool initialRecordLocally;
   final String? rtmpServerUrl;
   final String? streamKey;
+  final bool supportsCameraSdCardTrigger;
+  final bool supportsLocalAvRecording;
 
   const PreBroadcastModeDialog({
     super.key,
@@ -25,6 +29,8 @@ class PreBroadcastModeDialog extends StatefulWidget {
     required this.initialRecordLocally,
     this.rtmpServerUrl,
     this.streamKey,
+    this.supportsCameraSdCardTrigger = false,
+    this.supportsLocalAvRecording = false,
   });
 
   static Future<BroadcastRecordingMode?> show(
@@ -33,6 +39,8 @@ class PreBroadcastModeDialog extends StatefulWidget {
     required bool initialRecordLocally,
     String? rtmpServerUrl,
     String? streamKey,
+    bool supportsCameraSdCardTrigger = false,
+    bool supportsLocalAvRecording = false,
   }) {
     return showDialog<BroadcastRecordingMode>(
       context: context,
@@ -42,6 +50,8 @@ class PreBroadcastModeDialog extends StatefulWidget {
         initialRecordLocally: initialRecordLocally,
         rtmpServerUrl: rtmpServerUrl,
         streamKey: streamKey,
+        supportsCameraSdCardTrigger: supportsCameraSdCardTrigger,
+        supportsLocalAvRecording: supportsLocalAvRecording,
       ),
     );
   }
@@ -133,10 +143,13 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
                 children: [
                   Icon(widget.cameraSource.icon, size: 16, color: theme.colorScheme.primary),
                   const SizedBox(width: 6),
-                  Text(
-                    'Source: ${widget.cameraSource.label}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      'Source: ${widget.cameraSource.label}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -144,7 +157,7 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
             ),
             const SizedBox(height: 14),
 
-            // If external encoder, show quick copy credentials
+            // If external encoder, show quick copy credentials (key masked)
             if (isExternalEncoder && widget.rtmpServerUrl != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -193,10 +206,10 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: Text(
                               'Key: ••••••••••••',
-                              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                              style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
                             ),
                           ),
                           InkWell(
@@ -234,123 +247,134 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
               },
               child: Column(
                 children: [
-                // Option 1: Stream Only
-                InkWell(
-                  onTap: () => setState(() => _mode = BroadcastRecordingMode.streamOnly),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _mode == BroadcastRecordingMode.streamOnly
-                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+                  // Option 1: Stream Only
+                  InkWell(
+                    onTap: () => setState(() => _mode = BroadcastRecordingMode.streamOnly),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
                         color: _mode == BroadcastRecordingMode.streamOnly
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _mode == BroadcastRecordingMode.streamOnly
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Radio<BroadcastRecordingMode>(
+                      child: Row(
+                        children: [
+                          Radio<BroadcastRecordingMode>(
                             value: BroadcastRecordingMode.streamOnly,
                           ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Live Stream Only',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                              Text(
-                                'Broadcast live to viewers. Server-side VOD recording created if enabled on channel.',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Live Stream Only',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  'Broadcast live to viewers. Server-side VOD recording created if enabled on channel.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Option 2: Stream & Record Locally
-                InkWell(
-                  onTap: () => setState(
-                    () => _mode = BroadcastRecordingMode.streamAndRecordLocally,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _mode == BroadcastRecordingMode.streamAndRecordLocally
-                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _mode == BroadcastRecordingMode.streamAndRecordLocally
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Radio<BroadcastRecordingMode>(
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Option 2: Stream & Record Locally (Audio-Only Backup)
+                  InkWell(
+                    onTap: () => setState(
+                      () => _mode = BroadcastRecordingMode.streamAndRecordLocally,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _mode == BroadcastRecordingMode.streamAndRecordLocally
+                            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _mode == BroadcastRecordingMode.streamAndRecordLocally
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Radio<BroadcastRecordingMode>(
                             value: BroadcastRecordingMode.streamAndRecordLocally,
                           ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    'Stream & Record Audio Locally',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'M4A Backup',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue.shade800,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Flexible(
+                                      child: Text(
+                                        'Stream & Record Audio Locally',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                'Saves microphone audio directly to phone storage as an immediate backup alongside the live broadcast.',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'M4A Backup',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  'Saves microphone audio directly to phone storage as an immediate backup alongside the live broadcast.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 ],
               ),
+            ),
+
+            const SizedBox(height: 12),
+            _RecordingTargetsSummary(
+              cameraSource: widget.cameraSource,
+              supportsCameraSdCardTrigger: widget.supportsCameraSdCardTrigger,
+              supportsLocalAvRecording: widget.supportsLocalAvRecording,
+              audioBackupSelected:
+                  _mode == BroadcastRecordingMode.streamAndRecordLocally,
             ),
           ],
         ),
@@ -370,6 +394,122 @@ class _PreBroadcastModeDialogState extends State<PreBroadcastModeDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RecordingTargetsSummary extends StatelessWidget {
+  final CameraSource cameraSource;
+  final bool supportsCameraSdCardTrigger;
+  final bool supportsLocalAvRecording;
+  final bool audioBackupSelected;
+
+  const _RecordingTargetsSummary({
+    required this.cameraSource,
+    required this.supportsCameraSdCardTrigger,
+    required this.supportsLocalAvRecording,
+    required this.audioBackupSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isExternalEncoder =
+        cameraSource.type == CameraSourceType.externalEncoder ||
+        cameraSource.type == CameraSourceType.srtEncoder;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recording Targets Breakdown',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _TargetRow(
+            mode: RecordingTargetMode.serverVodArchive,
+            status: 'Channel setting',
+            active: true,
+          ),
+          _TargetRow(
+            mode: RecordingTargetMode.localAudioBackup,
+            status: kIsWeb
+                ? 'Disabled on Web'
+                : (audioBackupSelected ? 'Enabled (M4A)' : 'Off'),
+            active: !kIsWeb && audioBackupSelected,
+          ),
+          _TargetRow(
+            mode: RecordingTargetMode.localDeviceAv,
+            status: supportsLocalAvRecording
+                ? 'Supported'
+                : 'Not available (RTMP mux only)',
+            active: supportsLocalAvRecording,
+          ),
+          _TargetRow(
+            mode: RecordingTargetMode.cameraSdCard,
+            status: supportsCameraSdCardTrigger
+                ? 'Remote trigger ready'
+                : 'Not exposed by camera',
+            active: supportsCameraSdCardTrigger,
+          ),
+          _TargetRow(
+            mode: RecordingTargetMode.externalEncoder,
+            status: isExternalEncoder ? 'Managed on encoder' : 'N/A',
+            active: isExternalEncoder,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TargetRow extends StatelessWidget {
+  final RecordingTargetMode mode;
+  final String status;
+  final bool active;
+
+  const _TargetRow({
+    required this.mode,
+    required this.status,
+    required this.active,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(
+            active ? Icons.check_circle_outline : Icons.remove_circle_outline,
+            size: 13,
+            color: active ? Colors.green : cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              mode.title,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 10,
+              color: active ? Colors.green.shade700 : cs.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

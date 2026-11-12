@@ -11,12 +11,17 @@
 // Integrates with CastService via castDevicesProvider and CastService methods.
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/features/live/domain/camera_source.dart';
 import 'package:mobile/features/live/domain/cast_device.dart';
+import 'package:mobile/features/live/domain/external_device.dart';
 import 'package:mobile/features/live/presentation/providers/cast_provider.dart';
+import 'package:mobile/features/live/presentation/providers/external_device_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/cast_device_tile.dart';
+import 'package:mobile/features/live/presentation/widgets/external_device_connection_sheet.dart';
 
 class CastPanelWidget extends ConsumerStatefulWidget {
   /// The current live stream ID (used for WebRTC signaling).
@@ -31,12 +36,20 @@ class CastPanelWidget extends ConsumerStatefulWidget {
   /// Thumbnail for TV cast screen.
   final String? thumbnailUrl;
 
+  /// Optional callback when user selects a wired/external video source.
+  final ValueChanged<CameraSource>? onSelectCameraSource;
+
+  /// Current active camera source (optional, used by Device Manager).
+  final CameraSource currentSource;
+
   const CastPanelWidget({
     super.key,
     required this.streamId,
     this.hlsUrl,
     required this.streamTitle,
     this.thumbnailUrl,
+    this.onSelectCameraSource,
+    this.currentSource = const BuiltInCameraSource(),
   });
 
   @override
@@ -140,15 +153,35 @@ class _CastPanelWidgetState extends ConsumerState<CastPanelWidget>
                       color: cs.error, size: 18),
                 ),
                 const SizedBox(width: 8),
+                // Pro Device Manager
+                IconButton(
+                  icon: const Icon(Icons.tune_rounded),
+                  tooltip: 'External Device Manager',
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () async {
+                    final selected = await ExternalDeviceConnectionSheet.show(
+                      context,
+                      streamId: widget.streamId,
+                      currentSource: widget.currentSource,
+                    );
+                    if (selected != null) {
+                      widget.onSelectCameraSource?.call(selected);
+                    }
+                  },
+                ),
                 // Refresh
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded),
                   tooltip: 'Refresh devices',
                   iconSize: 20,
                   visualDensity: VisualDensity.compact,
-                  onPressed: () => ref
-                      .read(castServiceProvider)
-                      .startDiscovery(),
+                  onPressed: () {
+                    ref.read(castServiceProvider).startDiscovery();
+                    ref
+                        .read(externalDeviceManagerProvider.notifier)
+                        .scanAgain();
+                  },
                 ),
               ],
             ),
@@ -199,7 +232,11 @@ class _CastPanelWidgetState extends ConsumerState<CastPanelWidget>
                   isSharing: _isScreenSharing,
                   onToggle: _toggleScreenShare,
                 ),
-                const _WiredTab(),
+                _WiredTab(
+                  streamId: widget.streamId,
+                  currentSource: widget.currentSource,
+                  onSelectCameraSource: widget.onSelectCameraSource,
+                ),
               ],
             ),
           ),
@@ -338,8 +375,12 @@ class _TvCastTab extends ConsumerWidget {
               const SizedBox(height: 12),
 
               // ── AirPlay native picker (iOS/macOS only) ────────────────
-              _AirPlayButton(),
-              const SizedBox(height: 8),
+              if (!kIsWeb &&
+                  (defaultTargetPlatform == TargetPlatform.iOS ||
+                      defaultTargetPlatform == TargetPlatform.macOS)) ...[
+                _AirPlayButton(),
+                const SizedBox(height: 8),
+              ],
 
               if (tvDevices.isEmpty)
                 _EmptyState(
@@ -494,113 +535,209 @@ class _ScreenShareTab extends StatelessWidget {
   }
 }
 
-// ─── Wired / USB Tab ──────────────────────────────────────────────────────────
+// ─── Wired / USB & External Hardware Tab ──────────────────────────────────────
 
-class _WiredTab extends StatelessWidget {
-  const _WiredTab();
+class _WiredTab extends ConsumerStatefulWidget {
+  final String streamId;
+  final CameraSource currentSource;
+  final ValueChanged<CameraSource>? onSelectCameraSource;
+
+  const _WiredTab({
+    required this.streamId,
+    required this.currentSource,
+    this.onSelectCameraSource,
+  });
+
+  @override
+  ConsumerState<_WiredTab> createState() => _WiredTabState();
+}
+
+class _WiredTabState extends ConsumerState<_WiredTab> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) {
+        ref
+            .read(externalDeviceManagerProvider.notifier)
+            .discoverDevices(includeBleScan: false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final state = ref.watch(externalDeviceManagerProvider);
+    final manager = ref.read(externalDeviceManagerProvider.notifier);
+
+    final wiredAndBt = state.devices
+        .where((d) =>
+            d.connectionMethod == ExternalConnectionMethod.usbOtg ||
+            d.connectionMethod == ExternalConnectionMethod.bluetoothBle ||
+            d.kind == ExternalDeviceKind.ipCameraRtsp ||
+            d.kind == ExternalDeviceKind.externalRtmpEncoder ||
+            d.kind == ExternalDeviceKind.externalSrtEncoder)
+        .toList();
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _InfoBanner(
             icon: Icons.usb_rounded,
-            message:
-                'Connect a UVC USB camera or HDMI capture card via a USB-C OTG '
-                'adapter. Your device must support USB host mode.',
+            message: state.capabilities.usbNote ??
+                'Connect a UVC USB camera, HDMI/SDI-to-USB capture card, or Bluetooth controller.',
             color: Colors.brown,
           ),
-          const SizedBox(height: 20),
-
-          // Option cards
-          _WiredOptionCard(
-            icon: Icons.usb_rounded,
-            title: 'USB Camera (UVC)',
-            subtitle:
-                'Plug a UVC-compatible webcam into your device via OTG adapter',
-            color: Colors.brown,
-            onTap: () => _showUvcDialog(context),
-          ),
           const SizedBox(height: 10),
-          _WiredOptionCard(
-            icon: Icons.settings_input_hdmi_rounded,
-            title: 'HDMI Capture Card',
-            subtitle:
-                'Connect an Elgato, AVerMedia or similar capture card for HDMI input',
-            color: Colors.blueGrey,
-            onTap: () => _showHdmiDialog(context),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: state.isScanning
+                      ? null
+                      : () => manager.scanAgain(),
+                  icon: state.isScanning
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.radar_rounded, size: 16),
+                  label: Text(state.isScanning ? 'Scanning…' : 'Scan Hardware'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final selected = await ExternalDeviceConnectionSheet.show(
+                      context,
+                      streamId: widget.streamId,
+                      currentSource: widget.currentSource,
+                    );
+                    if (selected != null) {
+                      widget.onSelectCameraSource?.call(selected);
+                      if (context.mounted) Navigator.pop(context);
+                    }
+                  },
+                  icon: const Icon(Icons.tune_rounded, size: 16),
+                  label: const Text('All Devices'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _WiredOptionCard(
-            icon: Icons.cable_rounded,
-            title: 'NDI® Source',
-            subtitle: 'Receive an NDI video feed from a production switcher on LAN',
-            color: Colors.deepPurple,
-            onTap: () => _showNdiDialog(context),
-          ),
+          const SizedBox(height: 12),
+          if (wiredAndBt.isEmpty)
+            const _EmptyState(
+              icon: Icons.usb_off_rounded,
+              title: 'No USB, capture, or BLE devices detected',
+              subtitle:
+                  'Plug in a UVC webcam or HDMI/SDI capture card, or tap "All Devices" to configure RTSP/SRT/RTMP encoders.',
+            )
+          else
+            ...wiredAndBt.map((dev) {
+              final statusColor = dev.connectionState.color(context);
+              final isErr = dev.connectionState == ExternalConnectionState.error;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isErr
+                        ? cs.error.withValues(alpha: 0.5)
+                        : cs.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(dev.icon, color: statusColor, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dev.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                '${dev.kindLabel} • ${dev.connectionState.label}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (dev.capabilities.hasVideoInput &&
+                            dev.kind != ExternalDeviceKind.nonUvcUsbDevice)
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            onPressed: () async {
+                              final ok = await manager.connectDevice(
+                                dev.id,
+                                streamId: widget.streamId,
+                              );
+                              if (!ok) return;
+                              manager.selectVideoSource(dev.id);
+                              final src = manager.toCameraSource(dev);
+                              if (src != null) {
+                                widget.onSelectCameraSource?.call(src);
+                                if (context.mounted) Navigator.pop(context);
+                              }
+                            },
+                            child: const Text('Use', style: TextStyle(fontSize: 11)),
+                          )
+                        else if (dev.connectionMethod ==
+                            ExternalConnectionMethod.bluetoothBle)
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            onPressed: () => manager.connectDevice(dev.id),
+                            child: Text(
+                              dev.connectionState.isActiveConnection
+                                  ? 'Connected'
+                                  : 'Connect',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (dev.lastError != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        dev.lastError!,
+                        style: TextStyle(fontSize: 11, color: cs.error),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
         ],
-      ),
-    );
-  }
-
-  void _showUvcDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _ConfigDialog(
-        title: 'USB Camera (UVC)',
-        icon: Icons.usb_rounded,
-        color: Colors.brown,
-        content: const Text(
-          'Ensure the camera is connected via a USB-C OTG adapter and your device '
-          'reports USB host mode. The system will enumerate UVC-compatible devices '
-          'automatically on next scan.',
-        ),
-      ),
-    );
-  }
-
-  void _showHdmiDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _ConfigDialog(
-        title: 'HDMI Capture Card',
-        icon: Icons.settings_input_hdmi_rounded,
-        color: Colors.blueGrey,
-        content: const Text(
-          'Connect your capture card via USB-C OTG. Supported cards include '
-          'Elgato Cam Link, AVerMedia Live Gamer Portable and compatible UVC '
-          'HDMI grabbers. The card will appear as a UVC camera device.',
-        ),
-      ),
-    );
-  }
-
-  void _showNdiDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _ConfigDialog(
-        title: 'NDI® Source',
-        icon: Icons.cable_rounded,
-        color: Colors.deepPurple,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'NDI® (Network Device Interface) allows zero-latency video over LAN. '
-              'Ensure the NDI SDK plugin is enabled and both devices are on the same subnet.',
-            ),
-            SizedBox(height: 10),
-            Text(
-              '• Ensure NDI Tools is installed on the source device\n'
-              '• Both devices must share the same Wi-Fi subnet\n'
-              '• Firewall rules must allow UDP 5960-5970',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -715,73 +852,6 @@ class _DiscoveryBadge extends StatelessWidget {
   }
 }
 
-class _WiredOptionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _WiredOptionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AirPlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -836,41 +906,6 @@ class _AirPlayButton extends StatelessWidget {
   }
 }
 
-class _ConfigDialog extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final Widget content;
-
-  const _ConfigDialog({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.content,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 10),
-          Text(title),
-        ],
-      ),
-      content: content,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-}
-
 /// Static method to open the cast panel as a modal bottom sheet.
 Future<void> showCastPanel(
   BuildContext context, {
@@ -878,6 +913,8 @@ Future<void> showCastPanel(
   String? hlsUrl,
   required String streamTitle,
   String? thumbnailUrl,
+  ValueChanged<CameraSource>? onSelectCameraSource,
+  CameraSource currentSource = const BuiltInCameraSource(),
 }) {
   return showModalBottomSheet(
     context: context,
@@ -893,6 +930,8 @@ Future<void> showCastPanel(
         hlsUrl: hlsUrl,
         streamTitle: streamTitle,
         thumbnailUrl: thumbnailUrl,
+        onSelectCameraSource: onSelectCameraSource,
+        currentSource: currentSource,
       ),
     ),
   );

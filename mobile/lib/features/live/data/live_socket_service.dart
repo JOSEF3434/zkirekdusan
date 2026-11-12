@@ -31,6 +31,8 @@ class LiveEvents {
   static const castCameraIce = 'cast:camera-ice';
   static const castSwitchSource = 'cast:switch-source';
   static const castLeave = 'cast:leave';
+  static const castRecordCommand = 'cast:record-command';
+  static const castDeviceStatus = 'cast:device-status';
 
   // Server to Client
   static const streamStarted = 'stream:started';
@@ -57,6 +59,9 @@ class LiveEvents {
   static const castCameraIceIn = 'cast:camera-ice-in';
   static const castDeviceReady = 'cast:device-ready';
   static const castSourceSwitched = 'cast:source-switched';
+  static const castDeviceLeft = 'cast:device-left';
+  static const castRecordCommandIn = 'cast:record-command-in';
+  static const castDeviceStatusIn = 'cast:device-status-in';
 }
 
 class StreamEndedEvent {
@@ -181,6 +186,21 @@ class LiveSocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onCastSourceSwitched =>
       _castSourceSwitchedCtrl.stream;
+
+  final _castDeviceLeftCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastDeviceLeft =>
+      _castDeviceLeftCtrl.stream;
+
+  final _castRecordCommandCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastRecordCommand =>
+      _castRecordCommandCtrl.stream;
+
+  final _castDeviceStatusCtrl =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onCastDeviceStatus =>
+      _castDeviceStatusCtrl.stream;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -325,6 +345,15 @@ class LiveSocketService {
     s.on(LiveEvents.castSourceSwitched, (data) {
       try { _castSourceSwitchedCtrl.add(_toMap(data)); } catch (_) {}
     });
+    s.on(LiveEvents.castDeviceLeft, (data) {
+      try { _castDeviceLeftCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castRecordCommandIn, (data) {
+      try { _castRecordCommandCtrl.add(_toMap(data)); } catch (_) {}
+    });
+    s.on(LiveEvents.castDeviceStatusIn, (data) {
+      try { _castDeviceStatusCtrl.add(_toMap(data)); } catch (_) {}
+    });
   }
 
   // Room operations
@@ -432,8 +461,16 @@ class LiveSocketService {
     });
   }
 
-  void emitCastCameraAnswer({required String peerId, required String sdp}) {
-    _socket?.emit(LiveEvents.castCameraAnswer, {'peerId': peerId, 'sdp': sdp});
+  void emitCastCameraAnswer({
+    String? streamId,
+    required String peerId,
+    required String sdp,
+  }) {
+    _socket?.emit(LiveEvents.castCameraAnswer, {
+      'streamId': ?streamId,
+      'peerId': peerId,
+      'sdp': sdp,
+    });
   }
 
   void emitCastCameraIce({
@@ -452,16 +489,46 @@ class LiveSocketService {
     required String streamId,
     required String sourceId,
     required String sourceType,
+    String? sourceName,
   }) {
     _socket?.emit(LiveEvents.castSwitchSource, {
       'streamId': streamId,
       'sourceId': sourceId,
       'sourceType': sourceType,
+      'sourceName': sourceName ?? sourceType,
     });
   }
 
   void emitCastLeave({required String streamId, required String peerId}) {
     _socket?.emit(LiveEvents.castLeave, {'streamId': streamId, 'peerId': peerId});
+  }
+
+  void emitCastRecordCommand({
+    required String streamId,
+    required String peerId,
+    required String action,
+  }) {
+    _socket?.emit(LiveEvents.castRecordCommand, {
+      'streamId': streamId,
+      'peerId': peerId,
+      'action': action,
+    });
+  }
+
+  void emitCastDeviceStatus({
+    required String streamId,
+    String? peerId,
+    int? batteryLevel,
+    bool? isRecording,
+    bool? supportsLocalRecording,
+  }) {
+    _socket?.emit(LiveEvents.castDeviceStatus, {
+      'streamId': streamId,
+      'peerId': ?peerId,
+      'batteryLevel': ?batteryLevel,
+      'isRecording': ?isRecording,
+      'supportsLocalRecording': ?supportsLocalRecording,
+    });
   }
 
   // Disconnect
@@ -502,6 +569,9 @@ class LiveSocketService {
     _castCameraIceCtrl.close();
     _castDeviceReadyCtrl.close();
     _castSourceSwitchedCtrl.close();
+    _castDeviceLeftCtrl.close();
+    _castRecordCommandCtrl.close();
+    _castDeviceStatusCtrl.close();
   }
 
   Map<String, dynamic> _toMap(dynamic data) {

@@ -361,7 +361,7 @@ class LiveDiscoveryScreen extends ConsumerWidget {
               final id = ctrl.text.trim();
               if (id.isEmpty) return;
               Navigator.pop(ctx);
-              context.push('/live/cast-camera?streamId=');
+              context.push('/live/cast-camera?streamId=${Uri.encodeComponent(id)}');
             },
             icon: const Icon(Icons.videocam_rounded, size: 16),
             label: const Text('Join as Camera'),

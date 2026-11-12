@@ -71,9 +71,20 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>NSCameraUsageDescription</key>
-		<string>Zikre Kidusan needs camera access to scan profile and group QR codes, record stories, and make video calls.</string>
+		<string>Zikre Kidusan needs camera access to scan profile and group QR codes, record stories, and broadcast live streams.</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>Zikre Kidusan needs microphone access to record voice messages and make audio/video calls.</string>
+		<string>Zikre Kidusan needs microphone access to record voice messages, broadcast live streams, and make audio/video calls.</string>
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>Zikre Kidusan uses Bluetooth to discover and monitor compatible external cameras, audio interfaces, and encoders.</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Zikre Kidusan uses the local network to discover AirPlay/DLNA TVs, IP cameras, and wireless streaming devices.</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_airplay._tcp</string>
+			<string>_raop._tcp</string>
+			<string>_googlecast._tcp</string>
+			<string>_rtsp._tcp</string>
+		</array>
 		<key>UIBackgroundModes</key>
 		<array>
 			<string>audio</string>

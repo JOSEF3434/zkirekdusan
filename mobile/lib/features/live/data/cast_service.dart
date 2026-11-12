@@ -1,44 +1,58 @@
 // lib/features/live/data/cast_service.dart
 //
 // CastService — orchestrates device discovery, session management, and
-// live-feed routing for all cast modalities:
+// live-feed routing for cast modalities:
 //
-//   • Smart TV  : Chromecast (google_cast_sdk / platform channel), AirPlay
-//                 (AVRoutePickerView iOS / platform channel), DLNA (UDP SSDP).
-//   • Remote Camera : WebRTC signaling via backend Socket.IO live-gateway.
-//   • Screen Share  : MediaProjection (Android) / ReplayKit (iOS) via
-//                     flutter_webrtc's getDisplayMedia.
-//   • USB Camera    : UVC enumeration via platform channel (future).
-//
-// All discovered devices are emitted as a stream so Riverpod providers
-// can reactively update the UI without polling.
+//   • Smart TV        : DLNA/UPnP (real UDP SSDP M-SEARCH + SOAP AVTransport),
+//                       AirPlay (native AVRoutePickerView on iOS),
+//                       Chromecast (platform channel if SDK registered).
+//   • Remote Camera   : WebRTC P2P signaling via backend Socket.IO /live gateway,
+//                       exposing live remote MediaStreams for Multi-Cam & Studio.
+//   • Screen Share    : getDisplayMedia via flutter_webrtc.
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:mobile/features/live/domain/cast_device.dart';
+import 'package:mobile/features/live/data/lan_network_discovery_service.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
+import 'package:mobile/features/live/data/native_external_device_bridge.dart';
+import 'package:mobile/features/live/domain/cast_device.dart';
 
 // ─── Cast Service ─────────────────────────────────────────────────────────────
 
 class CastService {
   final LiveSocketService _socket;
+  final LanNetworkDiscoveryService _lanDiscovery;
+  final NativeExternalDeviceBridge _bridge;
 
-  CastService(this._socket);
+  CastService(
+    this._socket, {
+    LanNetworkDiscoveryService? lanDiscovery,
+    NativeExternalDeviceBridge? bridge,
+  }) : _lanDiscovery = lanDiscovery ?? LanNetworkDiscoveryService(),
+       _bridge = bridge ?? NativeExternalDeviceBridge();
 
   // ─── Internal state ──────────────────────────────────────────────────────
 
   final _devicesCtrl = StreamController<List<CastDevice>>.broadcast();
   final _devices = <String, CastDevice>{};
 
-  // WebRTC peer connections for remote cameras keyed by device id.
+  // WebRTC peer connections & live media streams for remote cameras keyed by device id.
   final _peerConnections = <String, rtc.RTCPeerConnection>{};
+  final _remoteStreams = <String, rtc.MediaStream>{};
+  final _remoteStreamsCtrl =
+      StreamController<Map<String, rtc.MediaStream>>.broadcast();
 
-  // SSDP socket for DLNA discovery (null on web platform).
+  // DLNA AVTransport control URLs keyed by device UDN.
+  final _dlnaControlUrls = <String, String>{};
+
   Timer? _ssdpDiscoveryTimer;
   Timer? _discoveryRefreshTimer;
+  final List<StreamSubscription<dynamic>> _socketSubs = [];
+  bool _socketBound = false;
+  bool _isDisposed = false;
 
   // ─── Public API ───────────────────────────────────────────────────────────
 
@@ -48,19 +62,31 @@ class CastService {
   /// Current snapshot of devices.
   List<CastDevice> get currentDevices => _devices.values.toList();
 
+  /// Live map of connected remote-camera MediaStreams keyed by device ID.
+  Stream<Map<String, rtc.MediaStream>> get remoteStreamsStream =>
+      _remoteStreamsCtrl.stream;
+
+  /// Current snapshot of remote camera streams.
+  Map<String, rtc.MediaStream> get currentRemoteStreams =>
+      Map.unmodifiable(_remoteStreams);
+
+  rtc.MediaStream? getRemoteStream(String deviceId) => _remoteStreams[deviceId];
+
   // ─── Discovery ────────────────────────────────────────────────────────────
 
   /// Start discovering cast-capable devices.
   /// Call [stopDiscovery] when the studio screen is closed.
   Future<void> startDiscovery() async {
-    _startSsdpDiscovery();
+    if (_isDisposed) return;
     _listenSocketCastEvents();
-    // Periodic refresh to flush stale discovered devices.
+    _startSsdpDiscovery();
+
     _discoveryRefreshTimer?.cancel();
     _discoveryRefreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _pruneStaleDevices(),
     );
+    _emit();
   }
 
   void stopDiscovery() {
@@ -68,85 +94,120 @@ class CastService {
     _discoveryRefreshTimer?.cancel();
     _ssdpDiscoveryTimer = null;
     _discoveryRefreshTimer = null;
+    unawaited(_bridge.releaseMulticastLock());
   }
 
   // ─── DLNA / SSDP Discovery ────────────────────────────────────────────────
 
   void _startSsdpDiscovery() {
-    // On web, SSDP (UDP multicast) is not available. Skip gracefully.
     if (kIsWeb) return;
 
-    // Simulate SSDP M-SEARCH via platform channel (real impl uses a native plugin).
-    // We schedule periodic discovery bursts every 15 s.
     _ssdpDiscoveryTimer?.cancel();
     _ssdpDiscoveryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _sendSsdpSearch();
+      unawaited(_sendSsdpSearch());
     });
-    // Also fire immediately.
-    _sendSsdpSearch();
+    unawaited(_sendSsdpSearch());
   }
 
-  void _sendSsdpSearch() {
-    // Invoke native platform channel that handles UDP multicast 239.255.255.250:1900
-    // and returns discovered UPnP / DLNA renderer URNs.
-    const channel = MethodChannel('com.zkirekdusan/cast_discovery');
-    channel.invokeMethod<List<dynamic>>('discoverDlna').then((results) {
-      if (results == null) return;
-      for (final raw in results) {
-        if (raw is! Map) continue;
+  Future<void> _sendSsdpSearch() async {
+    if (kIsWeb || _isDisposed) return;
+    try {
+      await _bridge.acquireMulticastLock();
+      final renderers = await _lanDiscovery.discoverDlnaRenderers(
+        timeout: const Duration(seconds: 3),
+      );
+      if (_isDisposed) return;
+
+      for (final r in renderers) {
+        if (r.avTransportControlUrl != null) {
+          _dlnaControlUrls[r.udn] = r.avTransportControlUrl!;
+        }
+        final existing = _devices[r.udn];
         final device = CastDevice(
-          id: raw['udn'] as String? ?? 'dlna-${raw['friendlyName']}',
-          name: raw['friendlyName'] as String? ?? 'DLNA Device',
-          model: raw['modelName'] as String?,
+          id: r.udn,
+          name: r.friendlyName,
+          model: r.modelName,
           protocol: CastProtocol.dlna,
           type: CastDeviceType.smartTv,
-          status: CastSessionStatus.discovered,
-          ipAddress: raw['location'] as String?,
+          status: existing?.status ?? CastSessionStatus.discovered,
+          ipAddress: r.hostIp ?? r.locationUrl,
+          isActiveSource: existing?.isActiveSource ?? false,
           discoveredAt: DateTime.now(),
         );
         _upsertDevice(device);
       }
-    }).catchError((_) {
-      // Native channel not yet registered in this build — non-fatal.
-    });
+    } catch (_) {
+      // Non-fatal on networks blocking multicast
+    } finally {
+      await _bridge.releaseMulticastLock();
+    }
   }
 
   // ─── Socket.IO Cast Events ────────────────────────────────────────────────
 
   void _listenSocketCastEvents() {
-    // Remote camera peers announce themselves via the live gateway.
-    _socket.onCastDeviceAnnounce.listen((payload) {
-      final device = CastDevice(
-        id: payload['peerId'] as String,
-        name: payload['deviceName'] as String? ?? 'Remote Camera',
-        model: payload['deviceModel'] as String?,
-        protocol: CastProtocol.remotePeerCamera,
-        type: CastDeviceType.remoteCamera,
-        status: CastSessionStatus.discovered,
-        signalStrength: payload['signalStrength'] as int?,
-        ipAddress: payload['ip'] as String?,
-        discoveredAt: DateTime.now(),
-      );
-      _upsertDevice(device);
-    });
+    if (_socketBound) return;
+    _socketBound = true;
 
-    _socket.onCastCameraOffer.listen((payload) async {
-      final peerId = payload['peerId'] as String;
-      final sdp = payload['sdp'] as String;
-      await _handleIncomingCameraOffer(peerId, sdp);
-    });
+    _socketSubs.add(
+      _socket.onCastDeviceAnnounce.listen((payload) {
+        final peerId = payload['peerId'] as String?;
+        if (peerId == null || peerId.isEmpty) return;
+        final existing = _devices[peerId];
+        final device = CastDevice(
+          id: peerId,
+          name: payload['deviceName'] as String? ?? 'Remote Camera',
+          model: payload['deviceModel'] as String?,
+          protocol: CastProtocol.remotePeerCamera,
+          type: CastDeviceType.remoteCamera,
+          status: existing?.status ?? CastSessionStatus.discovered,
+          signalStrength: payload['signalStrength'] as int?,
+          ipAddress: payload['ip'] as String?,
+          isActiveSource: existing?.isActiveSource ?? false,
+          discoveredAt: DateTime.now(),
+        );
+        _upsertDevice(device);
+      }),
+    );
 
-    _socket.onCastCameraIce.listen((payload) {
-      final peerId = payload['peerId'] as String;
-      final candidate = payload['candidate'];
-      _peerConnections[peerId]?.addCandidate(
-        rtc.RTCIceCandidate(
-          candidate['candidate'] as String,
-          candidate['sdpMid'] as String?,
-          candidate['sdpMLineIndex'] as int?,
-        ),
-      );
-    });
+    // Broadcaster initiated offer -> remote camera replies with answer
+    _socketSubs.add(
+      _socket.onCastCameraAnswer.listen((payload) async {
+        final peerId =
+            (payload['peerId'] ?? payload['fromId']) as String?;
+        final sdp = payload['sdp'] as String?;
+        if (peerId == null || sdp == null) return;
+        await _handleIncomingCameraAnswer(peerId, sdp);
+      }),
+    );
+
+    _socketSubs.add(
+      _socket.onCastCameraIce.listen((payload) async {
+        final peerId =
+            (payload['peerId'] ?? payload['fromId']) as String?;
+        final candidate = payload['candidate'];
+        if (peerId == null || candidate is! Map) return;
+        try {
+          await _peerConnections[peerId]?.addCandidate(
+            rtc.RTCIceCandidate(
+              candidate['candidate'] as String?,
+              candidate['sdpMid'] as String?,
+              (candidate['sdpMLineIndex'] as num?)?.toInt(),
+            ),
+          );
+        } catch (_) {}
+      }),
+    );
+
+    _socketSubs.add(
+      _socket.onCastDeviceLeft.listen((payload) async {
+        final peerId = payload['peerId'] as String?;
+        if (peerId == null) return;
+        await _cleanupPeer(peerId);
+        _devices.remove(peerId);
+        _emit();
+      }),
+    );
   }
 
   // ─── Remote Camera WebRTC ────────────────────────────────────────────────
@@ -156,6 +217,7 @@ class CastService {
     required String streamId,
     required CastDevice device,
   }) async {
+    await _cleanupPeer(device.id);
     _updateDeviceStatus(device.id, CastSessionStatus.pairing);
 
     final config = <String, dynamic>{
@@ -163,17 +225,11 @@ class CastService {
         {'urls': 'stun:stun.l.google.com:19302'},
         {'urls': 'stun:stun1.l.google.com:19302'},
       ],
-    };
-
-    final constraints = <String, dynamic>{
-      'mandatory': {},
-      'optional': [
-        {'DtlsSrtpKeyAgreement': true}
-      ],
+      'sdpSemantics': 'unified-plan',
     };
 
     try {
-      final pc = await rtc.createPeerConnection(config, constraints);
+      final pc = await rtc.createPeerConnection(config);
       _peerConnections[device.id] = pc;
 
       pc.onIceCandidate = (candidate) {
@@ -185,20 +241,45 @@ class CastService {
       };
 
       pc.onTrack = (event) {
-        // Remote camera track received — notify provider.
+        rtc.MediaStream? remoteStream = event.streams.firstOrNull;
+        if (remoteStream != null) {
+          _remoteStreams[device.id] = remoteStream;
+          _emitRemoteStreams();
+        }
         _updateDeviceStatus(device.id, CastSessionStatus.connected);
       };
 
       pc.onConnectionState = (state) {
-        if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+        if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          _updateDeviceStatus(device.id, CastSessionStatus.connected);
+        } else if (state ==
+            rtc.RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
           _updateDeviceStatus(device.id, CastSessionStatus.reconnecting);
-        } else if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-          _updateDeviceStatus(device.id, CastSessionStatus.error);
+        } else if (state ==
+            rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          _updateDeviceStatus(
+            device.id,
+            CastSessionStatus.error,
+            error: 'WebRTC peer connection failed. Check network or TURN.',
+          );
         }
       };
 
-      // Create offer to pull the remote camera track.
-      final offer = await pc.createOffer({'offerToReceiveVideo': true, 'offerToReceiveAudio': true});
+      // Request receive-only video + audio transceivers (Unified Plan)
+      await pc.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: rtc.RTCRtpTransceiverInit(
+          direction: rtc.TransceiverDirection.RecvOnly,
+        ),
+      );
+      await pc.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: rtc.RTCRtpTransceiverInit(
+          direction: rtc.TransceiverDirection.RecvOnly,
+        ),
+      );
+
+      final offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       _socket.emitCastCameraOffer(
@@ -207,36 +288,76 @@ class CastService {
         sdp: offer.sdp!,
       );
     } catch (e) {
-      _updateDeviceStatus(device.id, CastSessionStatus.error);
+      await _cleanupPeer(device.id);
+      _updateDeviceStatus(
+        device.id,
+        CastSessionStatus.error,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
 
-  Future<void> _handleIncomingCameraOffer(String peerId, String sdp) async {
+  Future<void> _handleIncomingCameraAnswer(String peerId, String sdp) async {
     final pc = _peerConnections[peerId];
     if (pc == null) return;
 
-    await pc.setRemoteDescription(
-      rtc.RTCSessionDescription(sdp, 'offer'),
-    );
-    final answer = await pc.createAnswer({});
-    await pc.setLocalDescription(answer);
-
-    _socket.emitCastCameraAnswer(peerId: peerId, sdp: answer.sdp!);
+    try {
+      await pc.setRemoteDescription(
+        rtc.RTCSessionDescription(sdp, 'answer'),
+      );
+    } catch (e) {
+      _updateDeviceStatus(
+        peerId,
+        CastSessionStatus.error,
+        error: 'Failed to apply remote camera answer: $e',
+      );
+    }
   }
 
   /// Disconnect a specific remote camera peer.
   Future<void> disconnectRemoteCamera(String deviceId) async {
-    final pc = _peerConnections.remove(deviceId);
-    await pc?.close();
+    await _cleanupPeer(deviceId);
     _updateDeviceStatus(deviceId, CastSessionStatus.disconnected);
+  }
+
+  /// Request remote phone camera to start/stop its local backup recording.
+  void triggerRemoteCameraRecord({
+    required String streamId,
+    required String deviceId,
+    required String action,
+  }) {
+    _socket.emitCastRecordCommand(
+      streamId: streamId,
+      peerId: deviceId,
+      action: action,
+    );
+  }
+
+  Future<void> _cleanupPeer(String deviceId) async {
+    final pc = _peerConnections.remove(deviceId);
+    if (pc != null) {
+      try {
+        await pc.close();
+      } catch (_) {}
+    }
+    final stream = _remoteStreams.remove(deviceId);
+    if (stream != null) {
+      try {
+        for (final t in stream.getTracks()) {
+          t.stop();
+        }
+        await stream.dispose();
+      } catch (_) {}
+      _emitRemoteStreams();
+    }
   }
 
   // ─── TV Cast ─────────────────────────────────────────────────────────────
 
   /// Cast the HLS/DASH stream URL to a TV device.
   /// On iOS this triggers the native AVRoutePickerView (AirPlay picker).
-  /// On Android this routes through the Google Cast SDK platform channel.
+  /// On DLNA devices this uses real UPnP AVTransport SOAP commands.
   Future<void> castToTv({
     required CastDevice device,
     required String hlsUrl,
@@ -270,7 +391,11 @@ class CastService {
       }
       _updateDeviceStatus(device.id, CastSessionStatus.connected);
     } catch (e) {
-      _updateDeviceStatus(device.id, CastSessionStatus.error);
+      _updateDeviceStatus(
+        device.id,
+        CastSessionStatus.error,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
@@ -282,16 +407,29 @@ class CastService {
     String? thumbnailUrl,
   }) async {
     const channel = MethodChannel('com.zkirekdusan/cast_chromecast');
-    await channel.invokeMethod('startCast', {
-      'deviceId': device.id,
-      'contentUrl': hlsUrl,
-      'title': title,
-      'thumbnailUrl': thumbnailUrl ?? '',
-      'contentType': 'application/x-mpegURL',
-    });
+    try {
+      await channel.invokeMethod('startCast', {
+        'deviceId': device.id,
+        'contentUrl': hlsUrl,
+        'title': title,
+        'thumbnailUrl': thumbnailUrl ?? '',
+        'contentType': 'application/x-mpegURL',
+      });
+    } on MissingPluginException {
+      throw UnsupportedError(
+        'Native Google Cast SDK is not bundled in this build. '
+        'Use DLNA/UPnP or AirPlay instead.',
+      );
+    }
   }
 
   Future<void> _castAirPlay({required String hlsUrl}) async {
+    final isApple = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+    if (!isApple) {
+      throw UnsupportedError('AirPlay is only available on iOS and macOS.');
+    }
     const channel = MethodChannel('com.zkirekdusan/cast_airplay');
     await channel.invokeMethod('presentRoutePickerWithUrl', {'url': hlsUrl});
   }
@@ -301,12 +439,12 @@ class CastService {
     required String hlsUrl,
     required String title,
   }) async {
-    const channel = MethodChannel('com.zkirekdusan/cast_discovery');
-    await channel.invokeMethod('castDlna', {
-      'controlUrl': device.ipAddress ?? '',
-      'contentUrl': hlsUrl,
-      'title': title,
-    });
+    final controlUrl = _dlnaControlUrls[device.id] ?? device.ipAddress ?? '';
+    await _lanDiscovery.castDlnaMedia(
+      controlUrl: controlUrl,
+      mediaUrl: hlsUrl,
+      title: title,
+    );
   }
 
   Future<void> stopTvCast(CastDevice device) async {
@@ -321,8 +459,8 @@ class CastService {
           await channel.invokeMethod('stopCast');
           break;
         case CastProtocol.dlna:
-          const channel = MethodChannel('com.zkirekdusan/cast_discovery');
-          await channel.invokeMethod('stopDlnaCast', {'controlUrl': device.ipAddress ?? ''});
+          final controlUrl = _dlnaControlUrls[device.id] ?? '';
+          await _lanDiscovery.stopDlnaMedia(controlUrl: controlUrl);
           break;
         default:
           break;
@@ -345,8 +483,6 @@ class CastService {
           'audio': true,
         });
       }
-      // Mobile: flutter_webrtc getDisplayMedia (requires MediaProjection on Android,
-      // ReplayKit broadcast extension on iOS).
       return await rtc.navigator.mediaDevices.getDisplayMedia({
         'video': true,
         'audio': false,
@@ -378,8 +514,14 @@ class CastService {
   }
 
   void _emit() {
-    if (!_devicesCtrl.isClosed) {
+    if (!_devicesCtrl.isClosed && !_isDisposed) {
       _devicesCtrl.add(_devices.values.toList());
+    }
+  }
+
+  void _emitRemoteStreams() {
+    if (!_remoteStreamsCtrl.isClosed && !_isDisposed) {
+      _remoteStreamsCtrl.add(Map.unmodifiable(_remoteStreams));
     }
   }
 
@@ -392,11 +534,16 @@ class CastService {
   }
 
   Future<void> dispose() async {
+    _isDisposed = true;
     stopDiscovery();
-    for (final pc in _peerConnections.values) {
-      await pc.close();
+    for (final sub in _socketSubs) {
+      await sub.cancel();
     }
-    _peerConnections.clear();
+    _socketSubs.clear();
+    for (final id in _peerConnections.keys.toList()) {
+      await _cleanupPeer(id);
+    }
+    await _remoteStreamsCtrl.close();
     await _devicesCtrl.close();
   }
 }
@@ -417,3 +564,8 @@ final castDevicesProvider = StreamProvider<List<CastDevice>>((ref) {
   return service.devicesStream;
 });
 
+final castRemoteStreamsProvider =
+    StreamProvider<Map<String, rtc.MediaStream>>((ref) {
+      final service = ref.watch(castServiceProvider);
+      return service.remoteStreamsStream;
+    });

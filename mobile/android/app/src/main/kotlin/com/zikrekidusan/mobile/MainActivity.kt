@@ -26,6 +26,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val ACTION_PIP_PAUSE = "com.zikrekidusan.mobile.PIP_PAUSE"
 
     private var pipChannel: MethodChannel? = null
+    private var externalDeviceBridge: ExternalDeviceBridge? = null
     private var isPipEnabled: Boolean = false
     private var isVideoPlaying: Boolean = false
     private var aspectRatioNumerator: Int = 16
@@ -106,6 +107,11 @@ class MainActivity : FlutterFragmentActivity() {
         }
 
         registerPipReceiver()
+
+        // External Device Connectivity Bridge (USB/UVC, Camera2 external, Audio, BLE, Multicast)
+        externalDeviceBridge = ExternalDeviceBridge(applicationContext).also {
+            it.register(flutterEngine)
+        }
     }
 
     private fun isPipSupported(): Boolean {
@@ -260,6 +266,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        externalDeviceBridge?.dispose()
+        externalDeviceBridge = null
         pipReceiver?.let {
             try {
                 unregisterReceiver(it)

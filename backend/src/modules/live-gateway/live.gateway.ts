@@ -43,6 +43,8 @@ export const LIVE_EVENTS = {
   CAST_CAMERA_ICE: 'cast:camera-ice',
   CAST_SWITCH_SOURCE: 'cast:switch-source',
   CAST_LEAVE: 'cast:leave',
+  CAST_RECORD_COMMAND: 'cast:record-command',
+  CAST_DEVICE_STATUS: 'cast:device-status',
 
   // Cast events � Server ? Client
   CAST_DEVICE_ANNOUNCE: 'cast:device-announce',
@@ -53,6 +55,8 @@ export const LIVE_EVENTS = {
   CAST_SOURCE_SWITCHED: 'cast:source-switched',
   CAST_ICE: 'cast:camera-ice',
   CAST_DEVICE_LEFT: 'cast:device-left',
+  CAST_RECORD_COMMAND_IN: 'cast:record-command-in',
+  CAST_DEVICE_STATUS_IN: 'cast:device-status-in',
   BROADCASTER_HEARTBEAT: 'broadcaster:heartbeat',
 
   // Server → Client
@@ -860,7 +864,8 @@ export class LiveGateway
   ) {
     if (!payload?.peerId) return;
     this.logger.log(`[Cast] SDP offer: ${client.id} -> ${payload.peerId}`);
-    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_OFFER, {
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_OFFER_IN, {
+      peerId: client.id,
       fromId: client.id,
       sdp: payload.sdp,
       streamId: payload.streamId,
@@ -874,11 +879,12 @@ export class LiveGateway
   handleCastCameraAnswer(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    payload: { streamId: string; peerId: string; sdp: string },
+    payload: { streamId?: string; peerId: string; sdp: string },
   ) {
     if (!payload?.peerId) return;
     this.logger.log(`[Cast] SDP answer: ${client.id} -> ${payload.peerId}`);
-    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_ANSWER, {
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_ANSWER_IN, {
+      peerId: client.id,
       fromId: client.id,
       sdp: payload.sdp,
       streamId: payload.streamId,
@@ -886,7 +892,7 @@ export class LiveGateway
   }
 
   /**
-   * cast:ice — Relay ICE candidates between broadcaster and remote camera.
+   * cast:camera-ice — Relay ICE candidates between broadcaster and remote camera.
    */
   @SubscribeMessage(LIVE_EVENTS.CAST_ICE)
   handleCastCameraIce(
@@ -895,7 +901,8 @@ export class LiveGateway
     payload: { streamId: string; peerId: string; candidate: unknown },
   ) {
     if (!payload?.peerId) return;
-    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_ICE, {
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_CAMERA_ICE_IN, {
+      peerId: client.id,
       fromId: client.id,
       candidate: payload.candidate,
       streamId: payload.streamId,
@@ -910,17 +917,72 @@ export class LiveGateway
   handleCastSwitchSource(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    payload: { streamId: string; sourceId: string; sourceName: string },
+    payload: {
+      streamId: string;
+      sourceId: string;
+      sourceName?: string;
+      sourceType?: string;
+    },
   ) {
     if (!payload?.streamId) return;
+    const resolvedName =
+      payload.sourceName ?? payload.sourceType ?? 'CAMERA';
     this.logger.log(
-      `[Cast] Source switch: ${payload.sourceName} (${payload.sourceId}) on ${payload.streamId}`,
+      `[Cast] Source switch: ${resolvedName} (${payload.sourceId}) on ${payload.streamId}`,
     );
     this.server.to(`stream:${payload.streamId}`).emit(LIVE_EVENTS.CAST_SOURCE_SWITCHED, {
       sourceId: payload.sourceId,
-      sourceName: payload.sourceName,
+      sourceName: resolvedName,
+      sourceType: payload.sourceType ?? resolvedName,
       switchedAt: new Date().toISOString(),
     });
+  }
+
+  /**
+   * cast:record-command — Broadcaster triggers or queries recording on a remote camera peer.
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_RECORD_COMMAND)
+  handleCastRecordCommand(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: { streamId: string; peerId: string; action: 'start' | 'stop' | 'status' },
+  ) {
+    if (!payload?.peerId || !payload?.streamId) return;
+    this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_RECORD_COMMAND_IN, {
+      fromId: client.id,
+      streamId: payload.streamId,
+      action: payload.action,
+    });
+  }
+
+  /**
+   * cast:device-status — Remote camera peer reports telemetry (battery, recording state).
+   */
+  @SubscribeMessage(LIVE_EVENTS.CAST_DEVICE_STATUS)
+  handleCastDeviceStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      streamId: string;
+      peerId?: string;
+      batteryLevel?: number;
+      isRecording?: boolean;
+      supportsLocalRecording?: boolean;
+    },
+  ) {
+    if (!payload?.streamId) return;
+    const eventPayload = {
+      peerId: client.id,
+      streamId: payload.streamId,
+      batteryLevel: payload.batteryLevel ?? null,
+      isRecording: payload.isRecording ?? false,
+      supportsLocalRecording: payload.supportsLocalRecording ?? false,
+    };
+    if (payload.peerId) {
+      this.server.to(payload.peerId).emit(LIVE_EVENTS.CAST_DEVICE_STATUS_IN, eventPayload);
+    } else {
+      this.server.to(`stream:${payload.streamId}`).emit(LIVE_EVENTS.CAST_DEVICE_STATUS_IN, eventPayload);
+    }
   }
 
   /**

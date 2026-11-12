@@ -12,11 +12,13 @@
 //   5. The broadcaster can "Go Live" this source at any time.
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
+import 'package:mobile/features/live/data/live_recording_service.dart';
 import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
@@ -52,6 +54,13 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
   StreamSubscription? _offerSub;
   StreamSubscription? _iceSub;
   StreamSubscription? _sourceSwitchedSub;
+  StreamSubscription? _recordCmdSub;
+  Timer? _announceTimer;
+  late String _activeStreamId;
+  String? _broadcasterPeerId;
+  bool _isRemoteRecording = false;
+  late final LiveSocketService _cachedSocket;
+  final _manualStreamIdCtrl = TextEditingController();
 
   // Stream info
   LiveStreamDto? _streamInfo;
@@ -59,10 +68,15 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
   @override
   void initState() {
     super.initState();
+    _activeStreamId = widget.streamId.trim();
+    _manualStreamIdCtrl.text = _activeStreamId;
+    _cachedSocket = ref.read(liveSocketServiceProvider);
     WidgetsBinding.instance.addObserver(this);
     _initRenderer();
-    _loadStreamInfo();
-    _connectSocket();
+    if (_activeStreamId.isNotEmpty) {
+      _loadStreamInfo();
+      _connectSocket();
+    }
   }
 
   Future<void> _initRenderer() async {
@@ -71,38 +85,44 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
   }
 
   Future<void> _loadStreamInfo() async {
+    if (_activeStreamId.isEmpty) return;
     try {
       final repo = ref.read(liveStreamingRepositoryProvider);
-      final info = await repo.getStreamById(widget.streamId);
+      final info = await repo.getStreamById(_activeStreamId);
       if (mounted) setState(() => _streamInfo = info);
     } catch (_) {}
   }
 
   Future<void> _connectSocket() async {
+    if (_activeStreamId.isEmpty) return;
     final token = await ref.read(storageServiceProvider).getToken();
-    if (token == null) return;
-    final socket = ref.read(liveSocketServiceProvider);
+    if (token == null || !mounted) return;
+    final socket = _cachedSocket;
     await socket.connect(token);
-    socket.joinStream(widget.streamId);
+    socket.joinStream(_activeStreamId);
     _announceCamera(socket);
     _listenForOffer(socket);
   }
 
   void _announceCamera(LiveSocketService socket) {
-    if (!mounted) return;
+    if (!mounted || _activeStreamId.isEmpty) return;
     final deviceName = _getDeviceName();
     setState(() => _isAnnouncing = true);
     socket.emitCastAnnounce(
-      streamId: widget.streamId,
+      streamId: _activeStreamId,
       deviceName: deviceName,
       deviceModel: _getPlatformModel(),
     );
-    // Re-announce every 10 s so the broadcaster's panel stays fresh.
-    Timer.periodic(const Duration(seconds: 10), (t) {
-      if (!mounted) { t.cancel(); return; }
+    _announceTimer?.cancel();
+    _announceTimer = Timer.periodic(const Duration(seconds: 10), (t) {
+      if (!mounted || _activeStreamId.isEmpty) {
+        t.cancel();
+        return;
+      }
       socket.emitCastAnnounce(
-        streamId: widget.streamId,
+        streamId: _activeStreamId,
         deviceName: deviceName,
+        deviceModel: _getPlatformModel(),
       );
     });
   }
@@ -110,10 +130,12 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
   void _listenForOffer(LiveSocketService socket) {
     _offerSub?.cancel();
     _offerSub = socket.onCastCameraOffer.listen((payload) async {
-      final peerId = payload['peerId'] as String?;
-      if (peerId == null) return;
+      final peerId = (payload['fromId'] ?? payload['peerId']) as String?;
+      final sdp = payload['sdp'] as String?;
+      if (peerId == null || sdp == null) return;
+      _broadcasterPeerId = peerId;
       await _handleOffer(
-        sdp: payload['sdp'] as String,
+        sdp: sdp,
         peerId: peerId,
         socket: socket,
       );
@@ -122,11 +144,11 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
     _iceSub?.cancel();
     _iceSub = socket.onCastCameraIce.listen((payload) {
       final candidate = payload['candidate'];
-      if (candidate == null) return;
+      if (candidate is! Map) return;
       _pc?.addCandidate(rtc.RTCIceCandidate(
-        candidate['candidate'] as String,
+        candidate['candidate'] as String?,
         candidate['sdpMid'] as String?,
-        candidate['sdpMLineIndex'] as int?,
+        (candidate['sdpMLineIndex'] as num?)?.toInt(),
       ));
     });
 
@@ -134,7 +156,31 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
     _sourceSwitchedSub = socket.onCastSourceSwitched.listen((payload) {
       final sourceId = payload['sourceId'] as String?;
       if (!mounted) return;
-      setState(() => _isOnAir = sourceId != null);
+      setState(() => _isOnAir = sourceId != null && sourceId != '__builtin__');
+    });
+
+    _recordCmdSub?.cancel();
+    _recordCmdSub = socket.onCastRecordCommand.listen((payload) async {
+      final action = payload['action'] as String?;
+      final fromId = payload['fromId'] as String?;
+      if (action == null) return;
+      final recService = ref.read(liveRecordingServiceProvider);
+      if (action == 'start' && !kIsWeb) {
+        final id = await recService.startRecording(
+          streamId: _activeStreamId,
+          streamTitle: _streamInfo?.title ?? 'Remote Camera Backup',
+        );
+        if (mounted) setState(() => _isRemoteRecording = id != null);
+      } else if (action == 'stop' && !kIsWeb) {
+        await recService.stopRecording();
+        if (mounted) setState(() => _isRemoteRecording = false);
+      }
+      socket.emitCastDeviceStatus(
+        streamId: _activeStreamId,
+        peerId: fromId,
+        isRecording: _isRemoteRecording,
+        supportsLocalRecording: !kIsWeb,
+      );
     });
   }
 
@@ -163,7 +209,7 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
 
       _pc!.onIceCandidate = (c) {
         socket.emitCastCameraIce(
-          streamId: widget.streamId,
+          streamId: _activeStreamId,
           peerId: peerId,
           candidate: c.toMap(),
         );
@@ -183,7 +229,11 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
       final answer = await _pc!.createAnswer({});
       await _pc!.setLocalDescription(answer);
 
-      socket.emitCastCameraAnswer(peerId: peerId, sdp: answer.sdp!);
+      socket.emitCastCameraAnswer(
+        streamId: _activeStreamId,
+        peerId: peerId,
+        sdp: answer.sdp!,
+      );
     } catch (e) {
       if (mounted) setState(() => _errorMsg = e.toString());
     }
@@ -235,20 +285,30 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
   }
 
   String _getDeviceName() {
-    // In a real app use device_info_plus; static for now.
-    return 'Remote Camera';
+    if (kIsWeb) return 'Web Remote Camera';
+    return '${defaultTargetPlatform.name.toUpperCase()} Remote Camera';
   }
 
   String? _getPlatformModel() {
-    return null; // Populated via device_info_plus in production.
+    return kIsWeb ? 'Browser WebRTC' : defaultTargetPlatform.name;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _announceTimer?.cancel();
     _offerSub?.cancel();
     _iceSub?.cancel();
     _sourceSwitchedSub?.cancel();
+    _recordCmdSub?.cancel();
+    if (_activeStreamId.isNotEmpty) {
+      _cachedSocket.emitCastLeave(
+        streamId: _activeStreamId,
+        peerId: _broadcasterPeerId ?? '',
+      );
+      _cachedSocket.leaveStream(_activeStreamId);
+    }
+    _manualStreamIdCtrl.dispose();
     _localStream?.getTracks().forEach((t) => t.stop());
     _localStream?.dispose();
     _pc?.close();
@@ -409,8 +469,61 @@ class _CastCameraScreenState extends ConsumerState<CastCameraScreen>
               ),
             ),
 
-          // ── Info panel (when not yet connected) ───────────────────────
-          if (!_isConnected)
+          // ── Info panel (when not yet connected or Stream ID missing) ──
+          if (_activeStreamId.isEmpty)
+            Center(
+              child: Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.tag_rounded, color: Colors.white70, size: 32),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Enter Live Stream ID',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _manualStreamIdCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: 'Stream ID from broadcaster',
+                        hintStyle: TextStyle(color: Colors.white38),
+                        border: OutlineInputBorder(),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () {
+                        final id = _manualStreamIdCtrl.text.trim();
+                        if (id.isEmpty) return;
+                        setState(() => _activeStreamId = id);
+                        _loadStreamInfo();
+                        _connectSocket();
+                      },
+                      icon: const Icon(Icons.sensors_rounded),
+                      label: const Text('Connect as Camera'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (!_isConnected)
             Center(
               child: Container(
                 margin: const EdgeInsets.all(24),

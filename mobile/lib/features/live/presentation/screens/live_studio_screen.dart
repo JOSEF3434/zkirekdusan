@@ -3,7 +3,8 @@
 
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,8 +48,11 @@ import 'package:mobile/features/live/presentation/widgets/pre_broadcast_mode_dia
 import 'package:mobile/features/live/presentation/widgets/live_network_diagnostics_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/cast_panel_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/multi_camera_switcher_widget.dart';
+import 'package:mobile/features/live/data/cast_service.dart';
 import 'package:mobile/features/live/domain/cast_device.dart';
 import 'package:mobile/features/live/presentation/providers/cast_provider.dart';
+import 'package:mobile/features/live/presentation/providers/external_device_provider.dart';
+import 'package:mobile/features/live/presentation/widgets/external_device_connection_sheet.dart';
 
 // â”€â”€â”€ Studio Floating Particle (Live Reactions) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -248,14 +252,24 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   CameraSource _selectedCameraSource = const BuiltInCameraSource();
   CameraSource get selectedCameraSource => _selectedCameraSource;
 
+  bool get _usesWebRtcCapture =>
+      kIsWeb ||
+      (defaultTargetPlatform != TargetPlatform.android &&
+          defaultTargetPlatform != TargetPlatform.iOS);
+
+  // External feed renderer (remote WebRTC camera or screen share on-air)
+  final rtc.RTCVideoRenderer _externalFeedRenderer = rtc.RTCVideoRenderer();
+  bool _externalFeedRendererInit = false;
+  Timer? _ingestStatusPollTimer;
+  String? _externalIngestStage;
+  int _externalIngestBytes = 0;
+
   bool get _isCameraReady {
     if (!_selectedCameraSource.requiresLocalHardware) {
-      // External encoders (OBS/ATEM) or RTSP network cameras do not use phone hardware
+      // External encoders (OBS/ATEM), RTSP, SRT, remote cameras, screen share
       return true;
     }
-    if (kIsWeb) {
-      // On Web, camera readiness is confirmed once flutter_webrtc has acquired
-      // a local MediaStream â€” either from the standby preview or WHIP broadcaster.
+    if (_usesWebRtcCapture) {
       if (_whipBroadcaster?.localStream != null) return true;
       return _webPreviewStream != null && _isCameraInitialized;
     }
@@ -266,12 +280,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
 
   bool get _isBroadcastTransportReady {
     if (!_selectedCameraSource.requiresLocalHardware) {
-      // External encoders push directly to ingest server
       return true;
     }
-    if (kIsWeb) {
-      // WebRTC WHIP transport is available via flutter_webrtc + MediaMTX.
-      // Transport is considered ready when WHIP is connected.
+    if (_usesWebRtcCapture) {
       return _whipBroadcaster?.isConnected ?? false;
     }
     return _liveStreamController != null && _isCameraInitialized;
@@ -324,7 +335,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     if (widget.channelId == null && widget.streamId == null) {
       _loadChannels();
     }
-    _setupCamera(front: true);
+    if (_selectedCameraSource.requiresLocalHardware) {
+      _setupCamera(front: true);
+    }
     // Reconcile any recordings orphaned by a previous crash.
     _cachedRecordingService.reconcileOrphanedRecordings();
   }
@@ -386,6 +399,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _intentionalDisconnect = true; // prevent auto-reconnect on dispose
     _reactionSub?.cancel();
     _rtmpReconnectTimer?.cancel();
+    _ingestStatusPollTimer?.cancel();
+    if (_externalFeedRendererInit) {
+      _externalFeedRendererInit = false;
+      _externalFeedRenderer.srcObject = null;
+      _externalFeedRenderer.dispose();
+    }
     for (final p in _particles) {
       p.ctrl.dispose();
     }
@@ -428,7 +447,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _webCameraController?.dispose();
     _webCameraController = null;
     // Release the standby preview stream tracks
-    if (kIsWeb && _webPreviewStream != null) {
+    if (_usesWebRtcCapture && _webPreviewStream != null) {
       for (final t in _webPreviewStream!.getTracks()) {
         t.stop();
       }
@@ -879,29 +898,139 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     final newSource = await CameraSourcePickerSheet.show(
       context,
       initialSource: _selectedCameraSource,
+      streamId: _streamId,
     );
     if (newSource != null && mounted) {
-      setState(() => _selectedCameraSource = newSource);
-      if (newSource.requiresLocalHardware) {
-        if (!_isCameraInitialized && !_isInitializingCamera) {
-          _setupCamera();
-        }
-      } else {
-        // Stop local camera controller if it was running to free resources
-        if (_liveStreamController != null) {
-          try {
-            await _liveStreamController!.stop();
-            await _liveStreamController!.dispose();
-          } catch (_) {}
-          _liveStreamController = null;
-          if (mounted) {
-            setState(() {
-              _isCameraInitialized = false;
-            });
-          }
-        }
+      await _applyCameraSource(newSource);
+    }
+  }
+
+  Future<void> _openExternalDeviceManager() async {
+    final newSource = await ExternalDeviceConnectionSheet.show(
+      context,
+      streamId: _streamId,
+      currentSource: _selectedCameraSource,
+    );
+    if (newSource != null && mounted) {
+      await _applyCameraSource(newSource);
+    }
+  }
+
+  Future<void> _applyCameraSource(CameraSource newSource) async {
+    if (!mounted || _isDisposed) return;
+    setState(() {
+      _selectedCameraSource = newSource;
+      _cameraErrorMessage = null;
+    });
+
+    if (newSource is BuiltInCameraSource) {
+      setState(() => _isFrontCamera = newSource.isFront);
+      await _setupCamera(front: newSource.isFront);
+      return;
+    }
+
+    if (newSource is WiredCaptureCameraSource) {
+      await _setupCamera(front: false);
+      return;
+    }
+
+    // Non-local hardware sources: release built-in camera/mic so we never hold
+    // hardware unnecessarily.
+    await _releaseLocalCameraResources();
+
+    if (newSource is ScreenShareCameraSource) {
+      final stream = await ref.read(castServiceProvider).startScreenShare();
+      if (stream != null && mounted) {
+        ref.read(screenShareStreamProvider.notifier).state = stream;
+        await _bindExternalFeedStream(stream);
+      }
+      return;
+    }
+
+    if (newSource is WirelessCameraSource && newSource.peerDeviceId.isNotEmpty) {
+      ref.read(activeCastSourceIdProvider.notifier).state =
+          newSource.peerDeviceId;
+      final remoteStream = ref
+          .read(castServiceProvider)
+          .getRemoteStream(newSource.peerDeviceId);
+      if (remoteStream != null) {
+        await _bindExternalFeedStream(remoteStream);
+      }
+      return;
+    }
+
+    // External RTMP/SRT/RTSP source: start ingest status polling if stream exists
+    _startIngestStatusPollingIfNeeded();
+  }
+
+  Future<void> _releaseLocalCameraResources() async {
+    if (_liveStreamController != null) {
+      try {
+        await _liveStreamController!.stop();
+        await _liveStreamController!.dispose();
+      } catch (_) {}
+      _liveStreamController = null;
+    }
+    if (_webPreviewStream != null) {
+      for (final t in _webPreviewStream!.getTracks()) {
+        t.stop();
+      }
+      try {
+        await _webPreviewStream!.dispose();
+      } catch (_) {}
+      _webPreviewStream = null;
+      if (_webRendererInitialized) {
+        _webVideoRenderer.srcObject = null;
       }
     }
+    if (mounted) {
+      setState(() => _isCameraInitialized = false);
+    }
+  }
+
+  Future<void> _bindExternalFeedStream(rtc.MediaStream? stream) async {
+    if (stream == null) {
+      if (_externalFeedRendererInit) {
+        _externalFeedRenderer.srcObject = null;
+      }
+      return;
+    }
+    if (!_externalFeedRendererInit) {
+      await _externalFeedRenderer.initialize();
+      _externalFeedRendererInit = true;
+    }
+    if (!mounted || _isDisposed) return;
+    _externalFeedRenderer.srcObject = stream;
+    setState(() {});
+  }
+
+  void _startIngestStatusPollingIfNeeded() {
+    _ingestStatusPollTimer?.cancel();
+    final sid = _streamId;
+    if (sid == null || sid.isEmpty || _selectedCameraSource.requiresLocalHardware) {
+      return;
+    }
+    Future<void> poll() async {
+      if (!mounted || _isDisposed) return;
+      try {
+        final status =
+            await ref.read(liveStreamingRepositoryProvider).getIngestStatus(sid);
+        final mtx = (status['mediaMtx'] as Map?)?.cast<String, dynamic>();
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _externalIngestStage = status['stage']?.toString();
+            _externalIngestBytes =
+                (mtx?['bytesReceived'] as num?)?.toInt() ?? 0;
+          });
+        }
+      } catch (_) {}
+    }
+
+    unawaited(poll());
+    _ingestStatusPollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(poll()),
+    );
   }
 
   Widget _buildCameraSourceCard(ThemeData theme) {
@@ -936,14 +1065,18 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               children: [
                 Row(
                   children: [
-                    Text(
-                      _selectedCameraSource.label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        _selectedCameraSource.label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    if (!_selectedCameraSource.requiresLocalHardware)
+                    if (!_selectedCameraSource.requiresLocalHardware ||
+                        _selectedCameraSource is WiredCaptureCameraSource)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -974,6 +1107,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'External Device Manager',
+            onPressed: _openExternalDeviceManager,
+            icon: const Icon(Icons.usb_rounded, size: 18),
+          ),
           OutlinedButton(
             onPressed: _openCameraSourcePicker,
             style: OutlinedButton.styleFrom(
@@ -995,6 +1133,63 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     double? height,
   }) {
     final isLive = stream.status == LiveStreamStatus.live;
+    final activeCastId = ref.watch(activeCastSourceIdProvider);
+    final screenStream = ref.watch(screenShareStreamProvider);
+    final remoteStreams =
+        ref.watch(castRemoteStreamsProvider).valueOrNull ??
+        ref.read(castServiceProvider).currentRemoteStreams;
+
+    final rtc.MediaStream? activeExternalStream =
+        activeCastId == '__screen__' ||
+                _selectedCameraSource is ScreenShareCameraSource
+            ? screenStream
+            : (activeCastId != null ? remoteStreams[activeCastId] : null);
+
+    if (activeExternalStream != null &&
+        _externalFeedRenderer.srcObject != activeExternalStream) {
+      unawaited(_bindExternalFeedStream(activeExternalStream));
+    }
+
+    if (activeExternalStream != null && _externalFeedRendererInit) {
+      return SizedBox(
+        width: double.infinity,
+        height: height,
+        child: rtc.RTCVideoView(
+          _externalFeedRenderer,
+          objectFit: _studioPreviewFitMode == VideoFitMode.fill
+              ? rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover
+              : rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+        ),
+      );
+    }
+
+    final src = _selectedCameraSource;
+    final ingestActive = _externalIngestStage == 'mediamtx_ingesting' ||
+        _externalIngestStage == 'cloudinary_active_live';
+    final statusHeadline = switch (src) {
+      NetworkCameraSource() => 'RTSP IP CAMERA CONFIGURED',
+      SrtEncoderSource() =>
+        ingestActive ? 'SRT INGEST ACTIVE' : 'WAITING FOR SRT STREAM',
+      WirelessCameraSource() => 'WAITING FOR WIRELESS CAMERA FEED',
+      ScreenShareCameraSource() => 'SCREEN SHARE STANDBY',
+      _ => ingestActive
+          ? 'ENCODER INGEST ACTIVE'
+          : (isLive ? 'WAITING FOR ENCODER STREAM' : 'READY FOR EXTERNAL SOURCE'),
+    };
+    final detailLine = switch (src) {
+      NetworkCameraSource s =>
+        'RTSP (${s.transport.name.toUpperCase()} :${s.port}): ${s.redactedUrl}',
+      SrtEncoderSource s =>
+        'SRT ${s.mode.name.toUpperCase()} • ${s.host.isEmpty ? "Host unset" : "${s.host}:${s.port}"} • ${s.latencyMs}ms',
+      ExternalEncoderSource s =>
+        '${s.encoderName} • Push H.264/AAC RTMP (${s.recommendedBitrateKbps} kbps)',
+      WirelessCameraSource s =>
+        'Pair in Cast & Connect or Device Manager (${s.transportLabel}).',
+      ScreenShareCameraSource() =>
+        'Tap "Change Source / Devices" to start or switch screen capture.',
+      _ => 'Configure source in External Device Manager.',
+    };
+
     return Container(
       width: double.infinity,
       height: height,
@@ -1016,17 +1211,22 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _selectedCameraSource.icon,
-                color: isLive ? Colors.greenAccent : Colors.orangeAccent,
+                src.icon,
+                color: ingestActive || isLive
+                    ? Colors.greenAccent
+                    : Colors.orangeAccent,
                 size: 28,
               ),
               const SizedBox(width: 10),
-              Text(
-                _selectedCameraSource.label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              Flexible(
+                child: Text(
+                  src.label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -1035,12 +1235,12 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isLive
+              color: ingestActive
                   ? Colors.green.withValues(alpha: 0.2)
                   : Colors.amber.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isLive ? Colors.green : Colors.amber,
+                color: ingestActive ? Colors.green : Colors.amber,
                 width: 1,
               ),
             ),
@@ -1051,15 +1251,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: isLive ? Colors.green : Colors.amber,
+                    color: ingestActive ? Colors.green : Colors.amber,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isLive ? 'BROADCAST INGEST ACTIVE' : 'WAITING FOR ENCODER STREAM',
+                  statusHeadline,
                   style: TextStyle(
-                    color: isLive ? Colors.green : Colors.amber,
+                    color: ingestActive ? Colors.green : Colors.amber,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                     letterSpacing: 0.5,
@@ -1068,22 +1268,42 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
-            isLive
-                ? 'Direct video feed received by live media server.'
-                : 'Transmit RTMP stream from your external encoder to go live.',
+            detailLine,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, fontSize: 12),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: _openCameraSourcePicker,
-            icon: const Icon(Icons.tune_rounded, size: 14, color: Colors.white70),
-            label: const Text(
-              'Change Source / Settings',
-              style: TextStyle(fontSize: 12, color: Colors.white70),
+          if (_externalIngestBytes > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              'MediaMTX Ingest: ${(_externalIngestBytes / 1024).toStringAsFixed(1)} KB received',
+              style: const TextStyle(color: Colors.greenAccent, fontSize: 11),
             ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: _openCameraSourcePicker,
+                icon: const Icon(Icons.tune_rounded, size: 14, color: Colors.white70),
+                label: const Text(
+                  'Source Settings',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _openExternalDeviceManager,
+                icon: const Icon(Icons.usb_rounded, size: 14, color: Colors.white70),
+                label: const Text(
+                  'Devices & Test',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2813,6 +3033,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
               streamTitle: stream?.title ?? '',
               thumbnailUrl: stream?.thumbnailUrl,
               hlsUrl: stream?.hlsUrl,
+              currentSource: _selectedCameraSource,
+              onSelectCameraSource: _applyCameraSource,
             ),
           ),
         ],
@@ -3386,11 +3608,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     try {
       final isFront = front ?? _isFrontCamera;
 
-      if (kIsWeb) {
-        // â”€â”€ Web: use flutter_webrtc getUserMedia directly â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Do NOT use camera_web / CameraController on Web â€” it conflicts with
-        // flutter_webrtc's internal getUserMedia and causes cameraNotReadable.
-        debugPrint('[WEB CAMERA] Acquiring preview stream via flutter_webrtc getUserMedia');
+      if (_usesWebRtcCapture) {
+        debugPrint('[WEBRTC CAMERA] Acquiring preview stream via flutter_webrtc getUserMedia');
 
         // Release any old preview stream
         if (_webPreviewStream != null) {
@@ -3407,49 +3626,78 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
           _webRendererInitialized = true;
         }
 
-        // â”€â”€ 3-tier getUserMedia fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Tier 1: ideal facingMode + resolution hints (best for phones/laptops)
-        // Tier 2: video:true (any device, no constraints) + audio â€” for desktop
-        //         webcams that don't declare facingMode and reject exact matches
-        // Tier 3: video:true only (mics blocked by site policy)
+        final src = _selectedCameraSource;
+        final targetW = src is WiredCaptureCameraSource
+            ? src.resolutionWidth
+            : (src is BuiltInCameraSource ? src.resolutionWidth : 1280);
+        final targetH = src is WiredCaptureCameraSource
+            ? src.resolutionHeight
+            : (src is BuiltInCameraSource ? src.resolutionHeight : 720);
+        final targetFps = src is WiredCaptureCameraSource
+            ? src.targetFps
+            : (src is BuiltInCameraSource ? src.targetFps : 30);
+        final preferredVideoDeviceId = src is WiredCaptureCameraSource &&
+                src.deviceId.isNotEmpty
+            ? src.deviceId
+            : (src is BuiltInCameraSource ? src.deviceId : null);
+        final preferredAudioDeviceId = src.audioDeviceId;
+
         rtc.MediaStream? stream;
 
-        final tier1 = <String, dynamic>{
-          'video': {
-            'width': {'ideal': 1280},
-            'height': {'ideal': 720},
-            'frameRate': {'ideal': 30},
-            // Use 'ideal' not a bare string â€” makes facingMode advisory, not required.
-            // Desktop webcams have no declared facingMode and reject required constraints.
+        final videoConstraint = <String, dynamic>{
+          'width': {'ideal': targetW},
+          'height': {'ideal': targetH},
+          'frameRate': {'ideal': targetFps},
+          if (preferredVideoDeviceId != null && preferredVideoDeviceId.isNotEmpty)
+            'deviceId': {'exact': preferredVideoDeviceId}
+          else
             'facingMode': {'ideal': isFront ? 'user' : 'environment'},
-          },
-          'audio': {
-            'echoCancellation': true,
-            'noiseSuppression': true,
-            'autoGainControl': true,
-          },
+        };
+
+        final audioConstraint = preferredAudioDeviceId != null &&
+                preferredAudioDeviceId.isNotEmpty
+            ? <String, dynamic>{
+                'deviceId': {'exact': preferredAudioDeviceId},
+                'echoCancellation': true,
+                'noiseSuppression': true,
+                'autoGainControl': true,
+              }
+            : <String, dynamic>{
+                'echoCancellation': true,
+                'noiseSuppression': true,
+                'autoGainControl': true,
+              };
+
+        final tier1 = <String, dynamic>{
+          'video': videoConstraint,
+          'audio': audioConstraint,
         };
 
         try {
           stream = await rtc.navigator.mediaDevices.getUserMedia(tier1);
-          debugPrint('[WEB CAMERA] Tier-1 constraints succeeded');
+          debugPrint('[WEBRTC CAMERA] Tier-1 constraints succeeded');
         } catch (e1) {
-          debugPrint('[WEB CAMERA] Tier-1 failed ($e1) â€” retrying with bare constraints');
+          debugPrint('[WEBRTC CAMERA] Tier-1 failed ($e1) - retrying with bare constraints');
           try {
             stream = await rtc.navigator.mediaDevices.getUserMedia({
-              'video': true,
+              'video': preferredVideoDeviceId != null &&
+                      preferredVideoDeviceId.isNotEmpty
+                  ? {'deviceId': {'exact': preferredVideoDeviceId}}
+                  : true,
               'audio': true,
             });
-            debugPrint('[WEB CAMERA] Tier-2 (video:true, audio:true) succeeded');
+            debugPrint('[WEBRTC CAMERA] Tier-2 succeeded');
           } catch (e2) {
-            debugPrint('[WEB CAMERA] Tier-2 failed ($e2) â€” retrying video-only');
+            debugPrint('[WEBRTC CAMERA] Tier-2 failed ($e2) - retrying video-only');
             try {
               stream = await rtc.navigator.mediaDevices.getUserMedia({
-                'video': true,
+                'video': preferredVideoDeviceId != null &&
+                        preferredVideoDeviceId.isNotEmpty
+                    ? {'deviceId': {'exact': preferredVideoDeviceId}}
+                    : true,
                 'audio': false,
               });
-              debugPrint('[WEB CAMERA] Tier-3 (video only) succeeded');
-              // Attempt to optionally attach audio if microphone is available
+              debugPrint('[WEBRTC CAMERA] Tier-3 (video only) succeeded');
               try {
                 final audioStream = await rtc.navigator.mediaDevices.getUserMedia({
                   'video': false,
@@ -3458,17 +3706,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                 for (final aTrack in audioStream.getAudioTracks()) {
                   stream.addTrack(aTrack);
                 }
-                debugPrint('[WEB CAMERA] Separate audio track attached');
-              } catch (audioErr) {
-                debugPrint('[WEB CAMERA] Audio track attach failed ($audioErr) â€” continuing video-only');
-              }
+              } catch (_) {}
             } catch (e3) {
               throw Exception(
-                'Unable to access your camera.\n'
-                'Please check:\n'
-                'â€¢ Camera is connected and not in use by another app\n'
-                'â€¢ Browser has camera permission for this site\n'
-                'â€¢ No other tab/app is using the camera\n'
+                'Unable to access camera or capture device.\n'
+                'Please verify device connection and permissions.\n'
                 'Detail: $e3',
               );
             }
@@ -3530,8 +3772,15 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       final controller = ApiVideoLiveStreamController(
         initialAudioConfig: AudioConfig(),
         initialVideoConfig: VideoConfig.withDefaultBitrate(
-          resolution: Resolution.RESOLUTION_720,
-          fps: 30,
+          resolution: _selectedCameraSource is BuiltInCameraSource &&
+                  (_selectedCameraSource as BuiltInCameraSource)
+                          .resolutionHeight ==
+                      1080
+              ? Resolution.RESOLUTION_1080
+              : Resolution.RESOLUTION_720,
+          fps: _selectedCameraSource is BuiltInCameraSource
+              ? (_selectedCameraSource as BuiltInCameraSource).targetFps
+              : 30,
         ),
         initialCameraPosition: isFront
             ? CameraPosition.front
@@ -3641,6 +3890,14 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   void _handleOnAirSourceSwitched(String sourceId) {
     debugPrint('[LiveStudio] Switched on-air source: $sourceId');
     _routeAudioMixForSource(sourceId);
+    if (sourceId == '__builtin__') {
+      unawaited(_bindExternalFeedStream(null));
+    } else if (sourceId == '__screen__') {
+      unawaited(_bindExternalFeedStream(ref.read(screenShareStreamProvider)));
+    } else {
+      final stream = ref.read(castServiceProvider).getRemoteStream(sourceId);
+      unawaited(_bindExternalFeedStream(stream));
+    }
   }
 
   void _routeAudioMixForSource(String sourceId) {
@@ -3817,8 +4074,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }) async {
     final targetUrl = _resolveAuthoritativeRtmpUrl(stream.rtmpIngestUrl);
 
-    if (kIsWeb) {
-      debugPrint('[WEB BROADCAST] Starting WebRTC WHIP ingest...');
+    if (_usesWebRtcCapture) {
+      debugPrint('[WEBRTC BROADCAST] Starting WebRTC WHIP ingest...');
 
       try {
         // Reuse pre-resolved WHIP session when available so Go Live only queries
@@ -4058,6 +4315,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     _whipState = WhipState.stopped;
     _safeSetState(() {});
 
+    _ingestStatusPollTimer?.cancel();
+    _ingestStatusPollTimer = null;
+    if (!_isDisposed) {
+      final devId = ref.read(externalDeviceManagerProvider).selectedVideoDeviceId;
+      ref.read(externalDeviceManagerProvider.notifier).markStreaming(devId, false);
+    }
+
     // Stop local audio recording with safe timeout
     try {
       await _stopLocalRecording().timeout(
@@ -4067,8 +4331,8 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     } catch (_) {}
     if (_isDisposed) return;
 
-    if (kIsWeb) {
-      // Web: stop the WHIP broadcaster
+    if (_usesWebRtcCapture) {
+      // Web / Desktop: stop the WHIP broadcaster
       if (_whipBroadcaster != null) {
         try {
           await _whipBroadcaster!.stop().timeout(
@@ -4142,7 +4406,9 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       setState(() => _isRecordingEnabled = shouldRecordLocally);
 
       // On Mobile: require camera to be initialized before preparing ingest.
-      if (!kIsWeb && !_isCameraReady) {
+      if (!_usesWebRtcCapture &&
+          _selectedCameraSource.requiresLocalHardware &&
+          !_isCameraReady) {
         debugPrint('[LiveStudio] Camera not ready — attempting re-init');
         await _setupCamera(front: _isFrontCamera);
         if (!_isCameraReady) {
@@ -4159,13 +4425,13 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       LiveStreamDto? currentStream;
 
       if (_selectedCameraSource.requiresLocalHardware) {
-        // Connect media transport (RTMP on mobile / WHIP on Web) BEFORE marking
+        // Connect media transport (RTMP on mobile / WHIP on Web & Desktop) BEFORE marking
         // the stream LIVE in PostgreSQL, preventing ghost LIVE streams if connect fails.
         ({String whipUrl, String streamKey, String rtmpUrl})? webWhipSession;
         LiveStreamDto? preparedStream = bState.stream;
 
-        if (kIsWeb) {
-          debugPrint('[LiveStudio] Preparing single Web WHIP session...');
+        if (_usesWebRtcCapture) {
+          debugPrint('[LiveStudio] Preparing single WebRTC WHIP session...');
           webWhipSession = await repo.getWhipSession(streamId);
           if (webWhipSession.whipUrl.isEmpty) {
             throw Exception(
@@ -4222,7 +4488,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         await notifier.goLive();
         final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
         if (updatedState.error != null && updatedState.error!.isNotEmpty) {
-          if (kIsWeb) {
+          if (_usesWebRtcCapture) {
             unawaited(_whipBroadcaster?.stop());
           } else {
             unawaited(_liveStreamController?.stopStreaming());
@@ -4232,7 +4498,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
         }
         currentStream = updatedState.stream;
       } else {
-        // External encoders (OBS/ATEM/vMix) or network RTSP cameras need the stream LIVE
+        // External encoders (OBS/ATEM/vMix/SRT) or network RTSP cameras need the stream LIVE
         // first so the operator sees active ingest credentials immediately.
         await notifier.goLive();
         final updatedState = ref.read(broadcasterProvider((streamId, channelId)));
@@ -4265,10 +4531,16 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             _streamingError = null;
           });
         }
+        _startIngestStatusPollingIfNeeded();
         debugPrint(
           '[LiveStudio] External camera/encoder (${_selectedCameraSource.label}) '
           'active for stream $streamId. Ingest: ${currentStream?.rtmpIngestUrl}',
         );
+      }
+
+      if (mounted && !_isDisposed) {
+        final devId = ref.read(externalDeviceManagerProvider).selectedVideoDeviceId;
+        ref.read(externalDeviceManagerProvider.notifier).markStreaming(devId, true);
       }
 
       // Safe diagnostic metadata logging (never print raw stream key)
@@ -4320,6 +4592,10 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   }) {
     final isLive = stream.status == LiveStreamStatus.live;
 
+    final activeCastId = ref.watch(activeCastSourceIdProvider);
+    final showExternalFeed =
+        !_selectedCameraSource.requiresLocalHardware || activeCastId != null;
+
     return Container(
       width: double.infinity,
       height: height,
@@ -4327,12 +4603,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // â”€â”€ Video Preview or Audio Waveform â”€â”€
           if (_isVideoStream)
-            if (!_selectedCameraSource.requiresLocalHardware)
+            if (showExternalFeed)
               _buildExternalCameraMonitor(theme, stream, bState, height: height)
             else if (_isCameraReady)
-              kIsWeb
+              _usesWebRtcCapture
                   ? ResponsiveVideoStage(
                       sourceVideoSize: (_webVideoRenderer.videoWidth > 0 &&
                               _webVideoRenderer.videoHeight > 0)
@@ -5680,12 +5955,16 @@ class _CastAppBarButton extends ConsumerWidget {
   final String streamTitle;
   final String? thumbnailUrl;
   final String? hlsUrl;
+  final CameraSource currentSource;
+  final ValueChanged<CameraSource>? onSelectCameraSource;
 
   const _CastAppBarButton({
     required this.streamId,
     required this.streamTitle,
     this.thumbnailUrl,
     this.hlsUrl,
+    this.currentSource = const BuiltInCameraSource(),
+    this.onSelectCameraSource,
   });
 
   @override
@@ -5711,6 +5990,8 @@ class _CastAppBarButton extends ConsumerWidget {
             hlsUrl: hlsUrl,
             streamTitle: streamTitle,
             thumbnailUrl: thumbnailUrl,
+            currentSource: currentSource,
+            onSelectCameraSource: onSelectCameraSource,
           ),
         ),
         if (connectedCount > 0)
@@ -5730,7 +6011,7 @@ class _CastAppBarButton extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  '',
+                  '$connectedCount',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 8,

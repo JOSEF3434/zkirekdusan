@@ -2,25 +2,16 @@
 //
 // Director-mode multi-camera grid overlay for the Live Studio.
 //
-// Shows all connected camera sources (built-in + remote phones) as
-// live preview thumbnails in a responsive grid.  The broadcaster taps
-// one to switch the active on-air feed — identical to a professional
-// production switcher (ATEM style).
-//
-// Layout:
-//   • ≤ 2 cameras  → 1×2 split
-//   • 3-4 cameras  → 2×2 grid
-//   • 5+ cameras   → 3-column wrap grid
-//
-// "Program" (currently on-air) is always highlighted with a red border.
+// Shows connected camera sources (built-in, screen share, remote WebRTC
+// cameras) with real RTCVideoView live thumbnails where streams exist.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:mobile/features/live/data/cast_service.dart';
+import 'package:mobile/features/live/data/live_socket_service.dart';
 import 'package:mobile/features/live/domain/cast_device.dart';
 import 'package:mobile/features/live/presentation/providers/cast_provider.dart';
-import 'package:mobile/features/live/data/live_socket_service.dart';
-
-// ─── Camera source entry for the switcher ────────────────────────────────────
 
 class _SwitcherSource {
   final String id;
@@ -28,6 +19,7 @@ class _SwitcherSource {
   final CastDevice? castDevice;
   final bool isBuiltIn;
   final bool isScreenShare;
+  final rtc.MediaStream? mediaStream;
 
   const _SwitcherSource({
     required this.id,
@@ -35,16 +27,12 @@ class _SwitcherSource {
     this.castDevice,
     this.isBuiltIn = false,
     this.isScreenShare = false,
+    this.mediaStream,
   });
 }
 
-// ─── Main Widget ──────────────────────────────────────────────────────────────
-
 class MultiCameraSwitcherWidget extends ConsumerWidget {
-  /// Called when the broadcaster taps a source to go live.
   final ValueChanged<String> onSourceSelected;
-
-  /// The stream ID (used to emit cast:switch-source via socket).
   final String streamId;
 
   const MultiCameraSwitcherWidget({
@@ -56,9 +44,11 @@ class MultiCameraSwitcherWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final devicesAsync = ref.watch(castDevicesProvider);
+    final remoteStreams =
+        ref.watch(castRemoteStreamsProvider).valueOrNull ??
+        ref.read(castServiceProvider).currentRemoteStreams;
     final activeId = ref.watch(activeCastSourceIdProvider);
-    final isScreenSharing =
-        ref.watch(screenShareStreamProvider) != null;
+    final screenStream = ref.watch(screenShareStreamProvider);
 
     return devicesAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -70,24 +60,25 @@ class MultiCameraSwitcherWidget extends ConsumerWidget {
                 d.status == CastSessionStatus.connected)
             .toList();
 
-        // Build source list
         final sources = <_SwitcherSource>[
           const _SwitcherSource(
             id: '__builtin__',
             label: 'Built-in Camera',
             isBuiltIn: true,
           ),
-          if (isScreenSharing)
-            const _SwitcherSource(
+          if (screenStream != null)
+            _SwitcherSource(
               id: '__screen__',
               label: 'Screen Share',
               isScreenShare: true,
+              mediaStream: screenStream,
             ),
           ...connectedCameras.map(
             (d) => _SwitcherSource(
               id: d.id,
               label: d.name,
               castDevice: d,
+              mediaStream: remoteStreams[d.id],
             ),
           ),
         ];
@@ -97,19 +88,20 @@ class MultiCameraSwitcherWidget extends ConsumerWidget {
         return _SwitcherGrid(
           sources: sources,
           activeId: activeId ?? '__builtin__',
-          onSourceSelected: (id) {
+          onSourceSelected: (src) {
             ref.read(activeCastSourceIdProvider.notifier).state =
-                id == '__builtin__' ? null : id;
+                src.id == '__builtin__' ? null : src.id;
             ref.read(liveSocketServiceProvider).emitCastSwitchSource(
                   streamId: streamId,
-                  sourceId: id,
-                  sourceType: id == '__builtin__'
+                  sourceId: src.id,
+                  sourceName: src.label,
+                  sourceType: src.id == '__builtin__'
                       ? 'BUILTIN'
-                      : id == '__screen__'
+                      : src.id == '__screen__'
                           ? 'SCREEN'
                           : 'REMOTE_CAMERA',
                 );
-            onSourceSelected(id);
+            onSourceSelected(src.id);
           },
         );
       },
@@ -117,12 +109,10 @@ class MultiCameraSwitcherWidget extends ConsumerWidget {
   }
 }
 
-// ─── Switcher Grid ────────────────────────────────────────────────────────────
-
 class _SwitcherGrid extends StatelessWidget {
   final List<_SwitcherSource> sources;
   final String activeId;
-  final ValueChanged<String> onSourceSelected;
+  final ValueChanged<_SwitcherSource> onSourceSelected;
 
   const _SwitcherGrid({
     required this.sources,
@@ -153,7 +143,6 @@ class _SwitcherGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -179,8 +168,6 @@ class _SwitcherGrid extends StatelessWidget {
               ],
             ),
           ),
-
-          // Grid
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -197,7 +184,7 @@ class _SwitcherGrid extends StatelessWidget {
               return _SourcePreview(
                 source: src,
                 isActive: isActive,
-                onTap: () => onSourceSelected(src.id),
+                onTap: () => onSourceSelected(src),
               );
             },
           ),
@@ -207,9 +194,7 @@ class _SwitcherGrid extends StatelessWidget {
   }
 }
 
-// ─── Individual Source Preview ────────────────────────────────────────────────
-
-class _SourcePreview extends StatelessWidget {
+class _SourcePreview extends StatefulWidget {
   final _SwitcherSource source;
   final bool isActive;
   final VoidCallback onTap;
@@ -221,36 +206,84 @@ class _SourcePreview extends StatelessWidget {
   });
 
   @override
+  State<_SourcePreview> createState() => _SourcePreviewState();
+}
+
+class _SourcePreviewState extends State<_SourcePreview> {
+  rtc.RTCVideoRenderer? _renderer;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncRenderer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SourcePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source.mediaStream != widget.source.mediaStream) {
+      _syncRenderer();
+    }
+  }
+
+  Future<void> _syncRenderer() async {
+    final stream = widget.source.mediaStream;
+    if (stream == null) {
+      if (_renderer != null) {
+        _renderer!.srcObject = null;
+      }
+      return;
+    }
+    _renderer ??= rtc.RTCVideoRenderer();
+    if (!_initialized) {
+      await _renderer!.initialize();
+      _initialized = true;
+    }
+    if (!mounted) return;
+    _renderer!.srcObject = stream;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _renderer?.srcObject = null;
+    _renderer?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isActive ? Colors.red : Colors.white.withValues(alpha: 0.15),
-            width: isActive ? 2.5 : 1,
+            color: widget.isActive
+                ? Colors.red
+                : Colors.white.withValues(alpha: 0.15),
+            width: widget.isActive ? 2.5 : 1,
           ),
-          boxShadow: isActive
+          boxShadow: widget.isActive
               ? [
                   BoxShadow(
                     color: Colors.red.withValues(alpha: 0.4),
                     blurRadius: 8,
                     spreadRadius: 1,
-                  )
+                  ),
                 ]
               : [],
         ),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Preview placeholder (actual camera preview would use RTCVideoRenderer
-            // or CameraPreview; using icon+gradient for non-active sources)
-            _buildPreviewContent(),
-
-            // Bottom label
+            ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: _buildPreviewContent(),
+            ),
             Positioned(
               bottom: 0,
               left: 0,
@@ -272,7 +305,7 @@ class _SourcePreview extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    if (isActive)
+                    if (widget.isActive)
                       Container(
                         width: 6,
                         height: 6,
@@ -284,7 +317,7 @@ class _SourcePreview extends StatelessWidget {
                       ),
                     Expanded(
                       child: Text(
-                        source.label,
+                        widget.source.label,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
@@ -293,7 +326,7 @@ class _SourcePreview extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (isActive)
+                    if (widget.isActive)
                       const Text(
                         'PGM',
                         style: TextStyle(
@@ -314,7 +347,15 @@ class _SourcePreview extends StatelessWidget {
   }
 
   Widget _buildPreviewContent() {
-    if (source.isBuiltIn) {
+    if (_initialized &&
+        _renderer != null &&
+        widget.source.mediaStream != null) {
+      return rtc.RTCVideoView(
+        _renderer!,
+        objectFit: rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+      );
+    }
+    if (widget.source.isBuiltIn) {
       return Container(
         color: const Color(0xFF1A1A2E),
         child: const Center(
@@ -326,7 +367,7 @@ class _SourcePreview extends StatelessWidget {
         ),
       );
     }
-    if (source.isScreenShare) {
+    if (widget.source.isScreenShare) {
       return Container(
         color: const Color(0xFF1E0A3C),
         child: const Center(
@@ -338,7 +379,6 @@ class _SourcePreview extends StatelessWidget {
         ),
       );
     }
-    // Remote camera — show device icon
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -358,7 +398,7 @@ class _SourcePreview extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              source.castDevice?.protocolLabel ?? '',
+              widget.source.castDevice?.protocolLabel ?? 'Waiting for video…',
               style: const TextStyle(
                 color: Colors.white24,
                 fontSize: 8,
@@ -370,4 +410,3 @@ class _SourcePreview extends StatelessWidget {
     );
   }
 }
-
