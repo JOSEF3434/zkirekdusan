@@ -235,7 +235,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
   bool _webRendererInitialized = false;
   WhipState _whipState = WhipState.idle;
   String? _whipError;
-  VideoFitMode _studioPreviewFitMode = VideoFitMode.fit;
+  VideoFitMode _studioPreviewFitMode = VideoFitMode.fill;
   bool _studioPreviewExpanded = false;
   bool _isDisposed = false;
 
@@ -3072,21 +3072,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     final tr = ref.read(trProvider);
     return Column(
               children: [
-                // Adaptive live camera monitor (avoids crushing portrait video into 180px box)
+                // Full-width YouTube-style 16:9 controlled-height camera monitor
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
+                  width: double.infinity,
                   height: MediaQuery.viewInsetsOf(context).bottom > 0
                       ? 0
                       : () {
                           final sz = MediaQuery.sizeOf(context);
                           final isLandscapePhone = sz.width > sz.height;
                           if (_studioPreviewExpanded) {
-                            return (sz.height * 0.56).clamp(240.0, 520.0);
+                            return (sz.height * 0.52).clamp(220.0, 480.0);
                           }
+                          final target16x9 = sz.width * 9.0 / 16.0;
                           return isLandscapePhone
                               ? (sz.height * 0.42).clamp(180.0, 320.0)
-                              : (sz.height * 0.36).clamp(220.0, 360.0);
+                              : target16x9.clamp(180.0, sz.height * 0.42);
                         }(),
                   child: MediaQuery.viewInsetsOf(context).bottom > 0
                       ? const SizedBox.shrink()
@@ -4340,7 +4342,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                             )
                           : const Size(16, 9),
                       fitMode: _studioPreviewFitMode,
-                      ambientThumbnailUrl: stream.thumbnailUrl,
+                      showAmbientBackdrop: false,
                       child: _webRendererInitialized &&
                               _webVideoRenderer.srcObject != null
                           ? rtc.RTCVideoView(
@@ -4355,15 +4357,17 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
                             )
                           : const SizedBox.shrink(),
                     )
-                  // Mobile camera preview: render ApiVideoCameraPreview directly
-                  // without a hardcoded 1280x720 wrapper so portrait camera feeds
-                  // fill naturally without artificial horizontal black pillars.
-                  : SizedBox.expand(
-                      child: ApiVideoCameraPreview(
-                        controller: _liveStreamController!,
-                        fit: _studioPreviewFitMode == VideoFitMode.fill
-                            ? BoxFit.cover
-                            : BoxFit.contain,
+                  // Mobile camera preview: fill 100% width with ClipRect + BoxFit.cover
+                  // by default so portrait camera feeds have zero horizontal black gaps.
+                  : ClipRect(
+                      clipBehavior: Clip.hardEdge,
+                      child: SizedBox.expand(
+                        child: ApiVideoCameraPreview(
+                          controller: _liveStreamController!,
+                          fit: _studioPreviewFitMode == VideoFitMode.fill
+                              ? BoxFit.cover
+                              : BoxFit.contain,
+                        ),
                       ),
                     )
             else if (!_isCameraPermissionGranted)

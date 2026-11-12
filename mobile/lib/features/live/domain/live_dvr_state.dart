@@ -283,8 +283,9 @@ class ResponsiveVideoFrame {
   });
 }
 
-/// Computes stage bounds without hardcoding 16:9 across portrait/square/wide
-/// sources, mobile/tablet/desktop viewports, and fullscreen states.
+/// Computes YouTube-style full-width responsive player stage dimensions with a
+/// controlled 16:9 landscape aspect ratio across mobile, tablet, and desktop
+/// viewports so portrait camera feeds fill 100% of player width cleanly.
 ResponsiveVideoFrame computeResponsiveVideoFrame({
   required double maxWidth,
   required double maxHeight,
@@ -312,27 +313,15 @@ ResponsiveVideoFrame computeResponsiveVideoFrame({
     );
   }
 
-  if (isWideScreen) {
-    // On wide desktop/tablet, give the stage generous vertical height so portrait
-    // 9:16 streams stand tall cleanly without crushing height to a narrow strip.
-    final idealH = isPortrait
-        ? safeH
-        : math.min(safeH, math.max(300.0, safeW / aspect));
-    return ResponsiveVideoFrame(
-      stageWidth: safeW,
-      stageHeight: idealH,
-      videoAspectRatio: aspect,
-      isPortraitVideo: isPortrait,
-    );
-  }
+  // Always enforce a responsive 16:9 landscape stage occupying 100% width;
+  // video content scales via cover/crop-to-fill rather than tall portrait pillars.
+  final ideal16x9H = safeW * 9.0 / 16.0;
+  final minStageH = isWideScreen ? math.min(260.0, safeH) : math.min(180.0, safeH);
+  final boundedH = ideal16x9H.clamp(minStageH, safeH);
 
-  // Mobile vertical layout: adapt container height to natural video aspect
-  // while leaving comfortable room for metadata & chat when needed.
-  final naturalHeight = safeW / aspect;
-  final cappedHeight = naturalHeight.clamp(180.0, safeH);
   return ResponsiveVideoFrame(
     stageWidth: safeW,
-    stageHeight: cappedHeight,
+    stageHeight: boundedH,
     videoAspectRatio: aspect,
     isPortraitVideo: isPortrait,
   );

@@ -55,7 +55,7 @@ class WebHlsPlayer extends StatefulWidget {
     super.key,
     required this.url,
     this.controller,
-    this.fitMode = VideoFitMode.fit,
+    this.fitMode = VideoFitMode.fill,
     this.onReady,
     this.onWaitingForStream,
     this.onDvrExpired,
@@ -72,6 +72,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
   static int _nextViewId = 0;
 
   late final String _viewType;
+  web.HTMLDivElement? _container;
   web.HTMLVideoElement? _video;
   _HlsJs? _hls;
   bool _mutedForAutoplay = false;
@@ -88,21 +89,38 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
     super.initState();
     _viewType = 'zkire-web-hls-${_nextViewId++}';
 
-    final video = web.document.createElement('video') as web.HTMLVideoElement;
-    video.style
+    final container = web.document.createElement('div') as web.HTMLDivElement;
+    container.style
       ..width = '100%'
       ..height = '100%'
+      ..overflow = 'hidden'
+      ..margin = '0'
+      ..padding = '0'
+      ..backgroundColor = '#000000'
+      ..position = 'relative'
+      ..pointerEvents = widget.showControls ? 'auto' : 'none';
+
+    final video = web.document.createElement('video') as web.HTMLVideoElement;
+    video.style
+      ..display = 'block'
+      ..width = '100%'
+      ..height = '100%'
+      ..maxWidth = 'none'
+      ..maxHeight = 'none'
       ..objectFit = widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain'
+      ..objectPosition = 'center center'
       ..backgroundColor = 'transparent'
       ..pointerEvents = widget.showControls ? 'auto' : 'none';
     video.autoplay = true;
     video.playsInline = true;
     video.controls = widget.showControls;
+    container.appendChild(video);
+    _container = container;
     _video = video;
 
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
-      (int viewId) => video,
+      (int viewId) => container,
     );
 
     _bindVideoListeners(video);
@@ -123,12 +141,15 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       _attachController();
     }
     if (oldWidget.fitMode != widget.fitMode && _video != null) {
-      _video!.style.objectFit =
-          widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain';
+      _video!.style
+        ..objectFit = widget.fitMode == VideoFitMode.fill ? 'cover' : 'contain'
+        ..objectPosition = 'center center';
     }
     if (oldWidget.showControls != widget.showControls && _video != null) {
       _video!.controls = widget.showControls;
-      _video!.style.pointerEvents = widget.showControls ? 'auto' : 'none';
+      final ptr = widget.showControls ? 'auto' : 'none';
+      _video!.style.pointerEvents = ptr;
+      _container?.style.pointerEvents = ptr;
     }
     if (oldWidget.url != widget.url) {
       _attachSource(widget.url);
@@ -205,8 +226,9 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       setFitMode: (mode) {
         final v = _video;
         if (v == null) return;
-        v.style.objectFit =
-            mode == VideoFitMode.fill ? 'cover' : 'contain';
+        v.style
+          ..objectFit = mode == VideoFitMode.fill ? 'cover' : 'contain'
+          ..objectPosition = 'center center';
       },
     );
   }
@@ -518,6 +540,7 @@ class _WebHlsPlayerState extends State<WebHlsPlayer> {
       } catch (_) {}
       _video = null;
     }
+    _container = null;
     super.dispose();
   }
 

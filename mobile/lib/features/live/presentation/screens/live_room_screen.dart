@@ -80,7 +80,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
   DvrTimelineSnapshot? _dvrTimeline;
   bool _usingDvrOrigin = false;
   Size? _sourceVideoSize;
-  VideoFitMode _fitMode = VideoFitMode.fit;
+  VideoFitMode _fitMode = VideoFitMode.fill;
   LivePlaybackState _playbackState = LivePlaybackState.liveEdge;
   bool _isChatExpanded = true;
   bool _isScrubbing = false;
@@ -199,12 +199,12 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             'for ${widget.streamId} position=${reclaimed.value.position} '
             'playing=${reclaimed.value.isPlaying}',
           );
-          final reclaimedSize = reclaimed.value.size;
+          final reclaimedSize = _orientedVideoSize(reclaimed.value);
           setState(() {
             _playerCtrl = reclaimed;
             _playerInitialized = true;
             _manualPaused = !reclaimed.value.isPlaying;
-            if (reclaimedSize.width > 0 && reclaimedSize.height > 0) {
+            if (reclaimedSize != null) {
               _sourceVideoSize = reclaimedSize;
             }
           });
@@ -278,6 +278,14 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     }
   }
 
+  Size? _orientedVideoSize(VideoPlayerValue val) {
+    final sz = val.size;
+    if (sz.width <= 0 || sz.height <= 0) return null;
+    return val.rotationCorrection % 180 != 0
+        ? Size(sz.height, sz.width)
+        : sz;
+  }
+
   void _attachPlayerListeners(VideoPlayerController ctrl) {
     ctrl.addListener(() {
       if (!mounted || _isDisposed) return;
@@ -290,8 +298,8 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
         return;
       }
 
-      final sz = ctrl.value.size;
-      if (sz.width > 0 && sz.height > 0 && sz != _sourceVideoSize) {
+      final sz = _orientedVideoSize(ctrl.value);
+      if (sz != null && sz != _sourceVideoSize) {
         _safeSetState(() => _sourceVideoSize = sz);
       } else {
         _syncPlaybackState();
@@ -644,7 +652,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
           _playerCtrl = null;
           oldCtrl?.dispose().ignore();
 
-          final detectedSize = testCtrl.value.size;
+          final detectedSize = _orientedVideoSize(testCtrl.value);
           setState(() {
             _playerCtrl = testCtrl;
             _playerInitialized = true;
@@ -652,7 +660,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             _isPlayerInitializing = false;
             _dvrExpired = false;
             _initAttemptCount = 0;
-            if (detectedSize.width > 0 && detectedSize.height > 0) {
+            if (detectedSize != null) {
               _sourceVideoSize = detectedSize;
             }
           });
@@ -797,13 +805,13 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       }
 
       final oldCtrl = _playerCtrl;
-      final sz = nextCtrl.value.size;
+      final sz = _orientedVideoSize(nextCtrl.value);
       setState(() {
         _playerCtrl = nextCtrl;
         _playerInitialized = true;
         _dvrExpired = false;
         _isSwappingController = false;
-        if (sz.width > 0 && sz.height > 0) {
+        if (sz != null) {
           _sourceVideoSize = sz;
         }
       });
@@ -1321,11 +1329,11 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                         );
                         return Column(
                           children: [
-                            // Adaptive portrait/landscape/square player stage
+                            // YouTube-style full-width 16:9 controlled-height player stage
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
                               curve: Curves.easeOutCubic,
-                              width: frame.stageWidth,
+                              width: double.infinity,
                               height: frame.stageHeight,
                               child: _buildPlayerStage(
                                 roomState,
@@ -1417,7 +1425,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
-                                    width: frame.stageWidth,
+                                    width: double.infinity,
                                     height: frame.stageHeight,
                                     child: _buildPlayerStage(
                                       roomState,
@@ -1656,13 +1664,15 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Adaptive Fit/Fill video stage with ambient backdrop
-                ResponsiveVideoStage(
-                  sourceVideoSize: _sourceVideoSize,
-                  fitMode: _fitMode,
-                  ambientThumbnailUrl: state.stream?.thumbnailUrl,
-                  showAmbientBackdrop: isWideScreen || isFullscreen,
-                  child: _buildPlayerContent(state),
+                // Full-width black video stage (crop-to-fill wraps active video only)
+                ColoredBox(
+                  color: Colors.black,
+                  child: ClipRect(
+                    clipBehavior: Clip.hardEdge,
+                    child: SizedBox.expand(
+                      child: _buildPlayerContent(state),
+                    ),
+                  ),
                 ),
 
                 // Professional YouTube-style overlay or lightweight phase header
@@ -1748,70 +1758,84 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
 
   Widget _buildActiveVideoSurface() {
     if (kIsWeb && _webHlsUrl != null) {
-      return WebHlsPlayer(
-        url: _webHlsUrl!,
-        controller: _webHlsCtrl,
+      return ResponsiveVideoStage(
+        sourceVideoSize: _sourceVideoSize,
         fitMode: _fitMode,
-        onVideoSizeChanged: (sz) {
-          if (!mounted || sz.isEmpty || sz == _sourceVideoSize) return;
-          setState(() => _sourceVideoSize = sz);
-        },
-        onReady: () {
-          if (!mounted) return;
-          setState(() {
-            _playerError = false;
-            _streamNotYetPublishing = false;
-            _dvrExpired = false;
-          });
-          ref.read(liveRoomProvider(widget.streamId).notifier).notifyPlayerReady();
-          _syncPlaybackState();
-        },
-        onWaitingForStream: () {
-          if (!mounted) return;
-          setState(() {
-            _playerInitialized = false;
-            _webHlsUrl = null;
-            _streamNotYetPublishing = true;
-            _playerError = false;
-          });
-          _scheduleWarmupRetry();
-        },
-        onDvrExpired: () {
-          if (!mounted) return;
-          setState(() {
-            _dvrExpired = true;
-            _playbackState = LivePlaybackState.dvrExpired;
-            _controlsVisible = true;
-          });
-        },
-        onFatalError: (err) {
-          debugPrint('[LiveRoom][WebHLS] fatal error: $err');
-          if (!mounted) return;
-          final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
-          if (phaseNow == LiveStreamPhase.live ||
-              phaseNow == LiveStreamPhase.starting) {
-            setState(() {
+        showAmbientBackdrop: false,
+        child: WebHlsPlayer(
+          url: _webHlsUrl!,
+          controller: _webHlsCtrl,
+          fitMode: _fitMode,
+          onVideoSizeChanged: (sz) {
+            if (!mounted || _isDisposed || sz.isEmpty || sz == _sourceVideoSize) {
+              return;
+            }
+            _safeSetState(() => _sourceVideoSize = sz);
+          },
+          onReady: () {
+            if (!mounted || _isDisposed) return;
+            _safeSetState(() {
+              _playerError = false;
+              _streamNotYetPublishing = false;
+              _dvrExpired = false;
+            });
+            ref
+                .read(liveRoomProvider(widget.streamId).notifier)
+                .notifyPlayerReady();
+            _syncPlaybackState();
+          },
+          onWaitingForStream: () {
+            if (!mounted || _isDisposed) return;
+            _safeSetState(() {
               _playerInitialized = false;
               _webHlsUrl = null;
               _streamNotYetPublishing = true;
               _playerError = false;
             });
             _scheduleWarmupRetry();
-          } else {
-            setState(() {
-              _playerInitialized = false;
-              _webHlsUrl = null;
-              _playerError = true;
+          },
+          onDvrExpired: () {
+            if (!mounted || _isDisposed) return;
+            _safeSetState(() {
+              _dvrExpired = true;
+              _playbackState = LivePlaybackState.dvrExpired;
+              _controlsVisible = true;
             });
-            ref
-                .read(liveRoomProvider(widget.streamId).notifier)
-                .notifyPlayerInterruption();
-          }
-        },
+          },
+          onFatalError: (err) {
+            debugPrint('[LiveRoom][WebHLS] fatal error: $err');
+            if (!mounted || _isDisposed) return;
+            final phaseNow = ref.read(liveRoomProvider(widget.streamId)).phase;
+            if (phaseNow == LiveStreamPhase.live ||
+                phaseNow == LiveStreamPhase.starting) {
+              _safeSetState(() {
+                _playerInitialized = false;
+                _webHlsUrl = null;
+                _streamNotYetPublishing = true;
+                _playerError = false;
+              });
+              _scheduleWarmupRetry();
+            } else {
+              _safeSetState(() {
+                _playerInitialized = false;
+                _webHlsUrl = null;
+                _playerError = true;
+              });
+              ref
+                  .read(liveRoomProvider(widget.streamId).notifier)
+                  .notifyPlayerInterruption();
+            }
+          },
+        ),
       );
     }
     if (_playerCtrl != null) {
-      return VideoPlayer(_playerCtrl!);
+      return ResponsiveVideoStage(
+        sourceVideoSize: _sourceVideoSize ?? _orientedVideoSize(_playerCtrl!.value),
+        fitMode: _fitMode,
+        showAmbientBackdrop: false,
+        child: VideoPlayer(_playerCtrl!),
+      );
     }
     return const SizedBox.shrink();
   }

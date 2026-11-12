@@ -19,7 +19,7 @@ class WebHlsPlayer extends StatelessWidget {
     super.key,
     required this.url,
     this.controller,
-    this.fitMode = VideoFitMode.fit,
+    this.fitMode = VideoFitMode.fill,
     this.onReady,
     this.onWaitingForStream,
     this.onDvrExpired,

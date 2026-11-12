@@ -7,8 +7,8 @@ import 'package:mobile/features/live/presentation/widgets/responsive_video_stage
 
 void main() {
   group('Responsive aspect-ratio & viewport sizing calculations', () {
-    test('adapts to portrait 9:16, landscape 16:9, and square 1:1 on mobile & wide desktop', () {
-      // Portrait 9:16 video on portrait mobile viewport (390x520 max player budget)
+    test('uses full-width 16:9 controlled height across portrait 9:16, landscape 16:9, and square 1:1 on mobile & wide desktop', () {
+      // Portrait 9:16 video on portrait mobile viewport uses full width with 16:9 controlled height (not tall 9:16 height)
       final mobilePortraitVideo = computeResponsiveVideoFrame(
         maxWidth: 390,
         maxHeight: 520,
@@ -18,9 +18,10 @@ void main() {
       );
       expect(mobilePortraitVideo.isPortraitVideo, isTrue);
       expect(mobilePortraitVideo.videoAspectRatio, closeTo(9 / 16, 0.01));
-      expect(mobilePortraitVideo.stageHeight, 520);
+      expect(mobilePortraitVideo.stageWidth, 390);
+      expect(mobilePortraitVideo.stageHeight, closeTo(390 * 9 / 16, 0.5));
 
-      // Landscape 16:9 video on mobile stays natural 16:9 instead of stretched tall
+      // Landscape 16:9 video on mobile occupies 100% width with 16:9 height
       final mobileLandscapeVideo = computeResponsiveVideoFrame(
         maxWidth: 390,
         maxHeight: 520,
@@ -29,9 +30,10 @@ void main() {
         isFullscreen: false,
       );
       expect(mobileLandscapeVideo.isPortraitVideo, isFalse);
+      expect(mobileLandscapeVideo.stageWidth, 390);
       expect(mobileLandscapeVideo.stageHeight, closeTo(390 * 9 / 16, 0.5));
 
-      // Portrait 9:16 video on desktop wide stage uses full available height instead of squishing into 16:9 box
+      // Portrait 9:16 video on desktop wide stage occupies 100% playerW with controlled 16:9 height (bounded by maxHeight)
       final desktopPortraitVideo = computeResponsiveVideoFrame(
         maxWidth: 920,
         maxHeight: 720,
@@ -40,9 +42,21 @@ void main() {
         isFullscreen: false,
       );
       expect(desktopPortraitVideo.isPortraitVideo, isTrue);
-      expect(desktopPortraitVideo.stageHeight, 720);
+      expect(desktopPortraitVideo.stageWidth, 920);
+      expect(desktopPortraitVideo.stageHeight, closeTo(920 * 9 / 16, 0.5));
 
-      // Square 1:1 video keeps 1:1 ratio cleanly
+      // Short desktop window bounds 16:9 height cleanly without overflow
+      final boundedDesktop = computeResponsiveVideoFrame(
+        maxWidth: 920,
+        maxHeight: 400,
+        sourceVideoSize: const Size(1080, 1920),
+        isWideScreen: true,
+        isFullscreen: false,
+      );
+      expect(boundedDesktop.stageWidth, 920);
+      expect(boundedDesktop.stageHeight, 400);
+
+      // Square 1:1 video keeps stage at 16:9 full width while preserving 1:1 metadata for cover crop
       final squareVideo = computeResponsiveVideoFrame(
         maxWidth: 360,
         maxHeight: 600,
@@ -51,7 +65,8 @@ void main() {
         isFullscreen: false,
       );
       expect(squareVideo.videoAspectRatio, closeTo(1.0, 0.01));
-      expect(squareVideo.stageHeight, closeTo(360.0, 0.5));
+      expect(squareVideo.stageWidth, 360);
+      expect(squareVideo.stageHeight, closeTo(360 * 9 / 16, 0.5));
     });
   });
 
@@ -111,18 +126,37 @@ void main() {
   });
 
   group('ResponsiveVideoStage, DvrSeekBar, and LivePlayerControlsOverlay UI', () {
-    testWidgets('Fit mode keeps AspectRatio uncropped; Fill mode expands coverage',
+    testWidgets('Defaults to ClipRect + FittedBox(BoxFit.cover) with no blurred backdrop; Fill & opt-in Fit behave cleanly',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: SizedBox(
               width: 800,
-              height: 500,
+              height: 450,
+              child: ResponsiveVideoStage(
+                sourceVideoSize: Size(720, 1280),
+                child: SizedBox(key: Key('video_child')),
+              ),
+            ),
+          ),
+        ),
+      );
+      final fittedBox = tester.widget<FittedBox>(find.byType(FittedBox));
+      expect(fittedBox.fit, BoxFit.cover);
+      expect(find.byType(ClipRect), findsOneWidget);
+      expect(find.byType(ImageFiltered), findsNothing);
+
+      // Opt-in Fit mode keeps AspectRatio uncropped when explicitly requested
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 450,
               child: ResponsiveVideoStage(
                 sourceVideoSize: Size(720, 1280),
                 fitMode: VideoFitMode.fit,
-                showAmbientBackdrop: false,
                 child: SizedBox(key: Key('video_child')),
               ),
             ),
@@ -131,23 +165,6 @@ void main() {
       );
       final aspectWidget = tester.widget<AspectRatio>(find.byType(AspectRatio));
       expect(aspectWidget.aspectRatio, closeTo(9 / 16, 0.01));
-
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 800,
-              height: 500,
-              child: ResponsiveVideoStage(
-                sourceVideoSize: Size(720, 1280),
-                fitMode: VideoFitMode.fill,
-                child: SizedBox(key: Key('video_child')),
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(find.byType(FittedBox), findsOneWidget);
     });
 
     testWidgets(

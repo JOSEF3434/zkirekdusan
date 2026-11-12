@@ -1,15 +1,12 @@
 // lib/features/live/presentation/widgets/responsive_video_stage.dart
 //
-// Adapts any live video surface (VideoPlayer, WebHlsPlayer, CameraPreview) to
-// the source stream's real aspect ratio (9:16 portrait, 1:1 square, 16:9 wide)
-// with uncropped Fit (default) or controlled Fill scaling and a subtle
-// ambient blurred backdrop on desktop/wide stages when aspect ratios differ.
-
-import 'dart:ui' show ImageFilter;
+// YouTube-style full-width live video surface: occupies 100% of available
+// player width and fills the controlled landscape container cleanly via
+// crop-to-fill (BoxFit.cover / CSS object-fit: cover) by default without
+// stretching, black sidebars, or blurred backdrops.
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/features/live/domain/live_dvr_state.dart';
 
 class ResponsiveVideoStage extends StatelessWidget {
@@ -23,9 +20,9 @@ class ResponsiveVideoStage extends StatelessWidget {
     super.key,
     required this.child,
     this.sourceVideoSize,
-    this.fitMode = VideoFitMode.fit,
+    this.fitMode = VideoFitMode.fill,
     this.ambientThumbnailUrl,
-    this.showAmbientBackdrop = true,
+    this.showAmbientBackdrop = false,
   });
 
   @override
@@ -40,78 +37,36 @@ class ResponsiveVideoStage extends StatelessWidget {
 
     return ColoredBox(
       color: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (showAmbientBackdrop && fitMode == VideoFitMode.fit)
-            _AmbientBackdrop(thumbnailUrl: ambientThumbnailUrl),
-          if (fitMode == VideoFitMode.fit)
-            // AspectRatio + Center avoids CSS transform scaling on Web HtmlElementView
-            // while preserving exact uncropped natural video bounds across platforms.
-            Center(
-              child: AspectRatio(
-                aspectRatio: aspect,
-                child: child,
-              ),
-            )
-          else if (kIsWeb)
-            // WebHtmlVideo uses CSS object-fit: cover directly without transform artifacts.
-            SizedBox.expand(child: child)
-          else
-            ClipRect(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                clipBehavior: Clip.hardEdge,
-                child: SizedBox(
-                  width: w,
-                  height: h,
-                  child: child,
+      child: SizedBox(
+        width: double.infinity,
+        height: double.infinity,
+        child: ClipRect(
+          clipBehavior: Clip.hardEdge,
+          child: fitMode == VideoFitMode.fill
+              ? (kIsWeb
+                    // WebHtmlVideo uses CSS width:100%; height:100%; object-fit:cover.
+                    ? SizedBox.expand(child: child)
+                    : SizedBox.expand(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: w,
+                            height: h,
+                            child: child,
+                          ),
+                        ),
+                      ))
+              // Optional user-toggled uncropped mode.
+              : Center(
+                  child: AspectRatio(
+                    aspectRatio: aspect,
+                    child: child,
+                  ),
                 ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AmbientBackdrop extends StatelessWidget {
-  final String? thumbnailUrl;
-  const _AmbientBackdrop({this.thumbnailUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.15,
-              colors: [
-                Color(0xFF1F232B),
-                Color(0xFF0A0C10),
-              ],
-            ),
-          ),
         ),
-        if (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
-          Opacity(
-            opacity: 0.28,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: AppNetworkImage(
-                imageUrl: thumbnailUrl!,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-        ColoredBox(color: Colors.black.withValues(alpha: 0.42)),
-      ],
+      ),
     );
   }
 }
