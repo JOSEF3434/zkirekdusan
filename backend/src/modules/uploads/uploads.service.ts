@@ -389,6 +389,102 @@ export class UploadsService {
     };
   }
 
+  async deleteUserAvatar(userId: string) {
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      include: { avatar: true },
+    });
+
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { avatarFileId: null },
+    });
+
+    if (profile?.avatar?.storageKey) {
+      await this.safeDeleteAsset(profile.avatar.storageKey, profile.avatar.id);
+    }
+
+    return { success: true, message: 'User avatar deleted successfully' };
+  }
+
+  async deleteUserCover(userId: string) {
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      include: { cover: true },
+    });
+
+    await this.prisma.profile.update({
+      where: { userId },
+      data: { coverFileId: null },
+    });
+
+    if (profile?.cover?.storageKey) {
+      await this.safeDeleteAsset(profile.cover.storageKey, profile.cover.id);
+    }
+
+    return { success: true, message: 'User cover deleted successfully' };
+  }
+
+  async deleteGroupAvatar(groupId: string) {
+    await this.prisma.group.update({
+      where: { id: groupId },
+      data: { avatarUrl: null },
+    });
+    return { success: true, message: 'Group avatar deleted successfully' };
+  }
+
+  async deleteGroupCover(groupId: string) {
+    await this.prisma.group.update({
+      where: { id: groupId },
+      data: { coverUrl: null },
+    });
+    return { success: true, message: 'Group cover deleted successfully' };
+  }
+
+  async deleteChannelAvatar(channelId: string) {
+    const channel = await this.prisma.videoChannel.findUnique({
+      where: { id: channelId },
+      include: { avatarFile: true },
+    });
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.prisma.videoChannel.update({
+      where: { id: channelId },
+      data: { avatarFileId: null },
+    });
+
+    if (channel.avatarFile?.storageKey) {
+      await this.safeDeleteAsset(
+        channel.avatarFile.storageKey,
+        channel.avatarFile.id,
+      );
+    }
+
+    return { success: true, message: 'Channel avatar deleted successfully' };
+  }
+
+  async deleteChannelBanner(channelId: string) {
+    const channel = await this.prisma.videoChannel.findUnique({
+      where: { id: channelId },
+      include: { bannerFile: true },
+    });
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.prisma.videoChannel.update({
+      where: { id: channelId },
+      data: { bannerFileId: null },
+    });
+
+    if (channel.bannerFile?.storageKey) {
+      await this.safeDeleteAsset(
+        channel.bannerFile.storageKey,
+        channel.bannerFile.id,
+      );
+    }
+
+    return { success: true, message: 'Channel banner deleted successfully' };
+  }
+
   async deleteFile(fileId: string, userId: string) {
     const file = await this.uploadsRepository.findById(fileId);
     if (!file) {

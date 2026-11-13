@@ -1,5 +1,6 @@
 // lib/features/groups/data/group_repository.dart
 
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/error/exceptions.dart';
@@ -305,6 +306,122 @@ class GroupRepository {
   Future<void> repairGroup(String groupId) async {
     try {
       await _dio.post('/groups/$groupId/repair');
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  // ── Group Avatar & Cover ──────────────────────────────────────────────────
+
+  Future<String> uploadGroupAvatar(
+    String groupId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        '/groups/$groupId/avatar',
+        data: formData,
+      );
+      final envelope = parseEnvelope(response.data);
+      return (envelope['avatarUrl'] as String?) ?? '';
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<void> deleteGroupAvatar(String groupId) async {
+    try {
+      await _dio.delete('/groups/$groupId/avatar');
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<String> uploadGroupCover(
+    String groupId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        '/groups/$groupId/cover',
+        data: formData,
+      );
+      final envelope = parseEnvelope(response.data);
+      return (envelope['coverUrl'] as String?) ?? '';
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<void> deleteGroupCover(String groupId) async {
+    try {
+      await _dio.delete('/groups/$groupId/cover');
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  // ── Channel Avatar & Banner ───────────────────────────────────────────────
+
+  Future<String> uploadChannelAvatar(
+    String channelId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        '/video-channels/$channelId/avatar',
+        data: formData,
+      );
+      final envelope = parseEnvelope(response.data);
+      return (envelope['avatarUrl'] as String?) ?? '';
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<void> deleteChannelAvatar(String channelId) async {
+    try {
+      await _dio.delete('/video-channels/$channelId/avatar');
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<String> uploadChannelBanner(
+    String channelId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        '/video-channels/$channelId/banner',
+        data: formData,
+      );
+      final envelope = parseEnvelope(response.data);
+      return (envelope['bannerUrl'] as String?) ?? '';
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
+  Future<void> deleteChannelBanner(String channelId) async {
+    try {
+      await _dio.delete('/video-channels/$channelId/banner');
     } on DioException catch (e) {
       throw Failure.fromException(e);
     }

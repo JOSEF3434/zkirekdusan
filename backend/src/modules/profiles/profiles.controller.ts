@@ -4,6 +4,7 @@ import {
   Body,
   Controller,
   DefaultValuePipe,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -76,6 +77,15 @@ export class ProfilesController {
     return this.profilesService.uploadAvatar(userId, file);
   }
 
+  @Delete('me/avatar')
+  @ApiOperation({ summary: 'Delete avatar for current user profile' })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  async deleteAvatar(
+    @CurrentUser('sub') userId: string,
+  ): Promise<ProfileResponseDto> {
+    return this.profilesService.deleteAvatar(userId);
+  }
+
   @Post('me/cover')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -92,6 +102,15 @@ export class ProfilesController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<ProfileResponseDto> {
     return this.profilesService.uploadCover(userId, file);
+  }
+
+  @Delete('me/cover')
+  @ApiOperation({ summary: 'Delete cover for current user profile' })
+  @ApiResponse({ status: 200, type: ProfileResponseDto })
+  async deleteCover(
+    @CurrentUser('sub') userId: string,
+  ): Promise<ProfileResponseDto> {
+    return this.profilesService.deleteCover(userId);
   }
 
   @Public()

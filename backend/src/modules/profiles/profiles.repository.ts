@@ -11,7 +11,7 @@ export class ProfilesRepository {
     let profile = await this.prisma.profile.findUnique({
       where: { userId },
       include: {
-        user: { select: { id: true, username: true, email: true } },
+        user: { select: { id: true, username: true, email: true, phoneNumber: true } },
         avatar: { select: { url: true } },
         cover: { select: { url: true } },
       },
@@ -33,7 +33,7 @@ export class ProfilesRepository {
         profile = await this.prisma.profile.findUnique({
           where: { userId },
           include: {
-            user: { select: { id: true, username: true, email: true } },
+            user: { select: { id: true, username: true, email: true, phoneNumber: true } },
             avatar: { select: { url: true } },
             cover: { select: { url: true } },
           },
@@ -99,21 +99,21 @@ export class ProfilesRepository {
       where: { userId },
       data,
       include: {
-        user: { select: { id: true, username: true, email: true } },
+        user: { select: { id: true, username: true, email: true, phoneNumber: true } },
         avatar: { select: { url: true } },
         cover: { select: { url: true } },
       },
     });
   }
 
-  async updateAvatar(userId: string, fileId: string) {
+  async updateAvatar(userId: string, fileId: string | null) {
     return this.prisma.profile.update({
       where: { userId },
       data: { avatarFileId: fileId },
     });
   }
 
-  async updateCover(userId: string, fileId: string) {
+  async updateCover(userId: string, fileId: string | null) {
     return this.prisma.profile.update({
       where: { userId },
       data: { coverFileId: fileId },

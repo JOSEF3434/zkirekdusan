@@ -31,6 +31,12 @@ export class ProfileResponseDto {
   @ApiProperty({ example: 'johndoe' })
   username!: string | null;
 
+  @ApiPropertyOptional({ example: 'john@example.com' })
+  email?: string | null;
+
+  @ApiPropertyOptional({ example: '+1234567890' })
+  phoneNumber?: string | null;
+
   @ApiPropertyOptional({ example: 'John' })
   firstName?: string | null;
 

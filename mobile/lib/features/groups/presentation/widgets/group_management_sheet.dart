@@ -143,6 +143,7 @@ class _GroupManagementSheetState extends ConsumerState<GroupManagementSheet> {
       initialName: widget.group.name,
       initialDescription: widget.group.description,
       initialVisibility: widget.group.visibility.name.toUpperCase(),
+      initialAvatarUrl: widget.group.avatarUrl,
     );
   }
 

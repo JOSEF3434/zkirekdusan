@@ -1,4 +1,5 @@
 // test/features/stories/responsive_home_stories_test.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -167,6 +168,18 @@ class _MockProfileNotifier extends StateNotifier<ProfileState>
     String? website,
     String? country,
   }) async => true;
+
+  @override
+  Future<bool> uploadAvatar(Uint8List bytes, String filename) async => true;
+
+  @override
+  Future<bool> deleteAvatar() async => true;
+
+  @override
+  Future<bool> uploadCover(Uint8List bytes, String filename) async => true;
+
+  @override
+  Future<bool> deleteCover() async => true;
 }
 
 class _MockAuthNotifier extends StateNotifier<AuthState>

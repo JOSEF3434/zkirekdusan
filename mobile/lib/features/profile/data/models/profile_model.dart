@@ -43,6 +43,8 @@ class ProfileModel {
   final String id;
   final String userId;
   final String? username;
+  final String? email;
+  final String? phoneNumber;
   final String? firstName;
   final String? lastName;
   final String? displayName;
@@ -60,6 +62,8 @@ class ProfileModel {
     required this.id,
     required this.userId,
     this.username,
+    this.email,
+    this.phoneNumber,
     this.firstName,
     this.lastName,
     this.displayName,
@@ -79,6 +83,8 @@ class ProfileModel {
       id: json['id'] as String,
       userId: json['userId'] as String,
       username: json['username'] as String?,
+      email: json['email'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       displayName: json['displayName'] as String?,
@@ -102,6 +108,8 @@ class ProfileModel {
     'id': id,
     'userId': userId,
     'username': username,
+    'email': email,
+    'phoneNumber': phoneNumber,
     'firstName': firstName,
     'lastName': lastName,
     'displayName': displayName,

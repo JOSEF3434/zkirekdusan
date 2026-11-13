@@ -65,7 +65,11 @@ class _LiveSideRailState extends State<LiveSideRail> {
                           isActive: widget.activeItem == LiveRailItem.live,
                           activeColor: Colors.redAccent,
                           isExpanded: isExpanded,
-                          onTap: () => NavigationService.instance.goTo('/live/discover'),
+                          onTap: () {
+                            if (widget.activeItem != LiveRailItem.live) {
+                              NavigationService.instance.navigateTo('/live/discover');
+                            }
+                          },
                         ),
                         _RailCircleItem(
                           icon: Icons.videocam_rounded,

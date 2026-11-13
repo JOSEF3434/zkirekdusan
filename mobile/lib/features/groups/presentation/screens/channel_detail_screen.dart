@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
@@ -14,8 +15,10 @@ import 'package:mobile/core/rich_text/mention_text_controller.dart';
 import 'package:mobile/core/rich_text/rich_text_composer.dart';
 import 'package:mobile/core/rich_text/rich_text_renderer.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
+import 'package:mobile/features/groups/data/group_repository.dart';
 import 'package:mobile/features/groups/presentation/providers/channel_subscribe_provider.dart';
 import 'package:mobile/features/groups/presentation/providers/channel_videos_provider.dart';
 import 'package:mobile/features/groups/presentation/providers/channel_playlists_provider.dart';
@@ -193,6 +196,321 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
 
   static const int _tabCount = 6;
 
+  bool _isBannerLoading = false;
+  bool _isAvatarLoading = false;
+
+  Future<void> _pickAndUploadBanner(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      setState(() => _isBannerLoading = true);
+      final bytes = await picked.readAsBytes();
+      final filename = picked.name.isNotEmpty
+          ? picked.name
+          : 'banner_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.uploadChannelBanner(widget.channelId, bytes, filename);
+
+      ref.invalidate(channelDetailProvider(widget.channelId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Channel banner updated successfully'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload banner: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBannerLoading = false);
+    }
+  }
+
+  Future<void> _deleteBanner() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Channel Banner'),
+        content: const Text('Are you sure you want to remove the channel banner?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      setState(() => _isBannerLoading = true);
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.deleteChannelBanner(widget.channelId);
+
+      ref.invalidate(channelDetailProvider(widget.channelId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Channel banner removed'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove banner: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBannerLoading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      setState(() => _isAvatarLoading = true);
+      final bytes = await picked.readAsBytes();
+      final filename = picked.name.isNotEmpty
+          ? picked.name
+          : 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.uploadChannelAvatar(widget.channelId, bytes, filename);
+
+      ref.invalidate(channelDetailProvider(widget.channelId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Channel picture updated successfully'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload picture: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarLoading = false);
+    }
+  }
+
+  Future<void> _deleteAvatar() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Channel Picture'),
+        content: const Text('Are you sure you want to remove the channel profile picture?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      setState(() => _isAvatarLoading = true);
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.deleteChannelAvatar(widget.channelId);
+
+      ref.invalidate(channelDetailProvider(widget.channelId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Channel picture removed'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove picture: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarLoading = false);
+    }
+  }
+
+  void _showBannerOptionsSheet(bool hasBanner) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Channel Banner Image (Optional)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFF00C6FF)),
+                title: const Text('Take banner photo with camera'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadBanner(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF10B981)),
+                title: const Text('Choose banner from gallery'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadBanner(ImageSource.gallery);
+                },
+              ),
+              if (hasBanner)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text(
+                    'Remove banner image',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _deleteBanner();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAvatarOptionsSheet(bool hasAvatar) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Channel Profile Picture (Optional)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFF00C6FF)),
+                title: const Text('Take photo with camera'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadAvatar(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF10B981)),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadAvatar(ImageSource.gallery);
+                },
+              ),
+              if (hasAvatar)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text(
+                    'Remove profile picture',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _deleteAvatar();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -349,19 +667,122 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
               SliverToBoxAdapter(
                 child: Column(
                   children: [
-                    // Banner Image if available
-                    if (channel.bannerUrl != null && channel.bannerUrl!.isNotEmpty)
-                      Container(
-                        height: 140,
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: CachedNetworkImageProvider(channel.bannerUrl!),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
+                    // ── YouTube-Style Panoramic Banner Header ─────────────────────
+                    Builder(
+                      builder: (context) {
+                        final hasBanner = channel.bannerUrl != null &&
+                            channel.bannerUrl!.isNotEmpty;
+                        return Stack(
+                          children: [
+                            Container(
+                              height: 150,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF1E2638)
+                                    : const Color(0xFFE2E8F0),
+                                gradient: !hasBanner
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: isDark
+                                            ? [
+                                                const Color(0xFF1E2638),
+                                                const Color(0xFF0F172A),
+                                              ]
+                                            : [
+                                                const Color(0xFFE2E8F0),
+                                                const Color(0xFFCBD5E1),
+                                              ],
+                                      )
+                                    : null,
+                                image: hasBanner
+                                    ? DecorationImage(
+                                        image: CachedNetworkImageProvider(
+                                          MediaUrlResolver.resolve(
+                                                channel.bannerUrl!,
+                                              ) ??
+                                              channel.bannerUrl!,
+                                        ),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                              ),
+                              child: _isBannerLoading
+                                  ? const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : (!hasBanner && isOwner
+                                      ? Center(
+                                          child: TextButton.icon(
+                                            onPressed: () =>
+                                                _showBannerOptionsSheet(false),
+                                            icon: const Icon(
+                                              Icons.add_photo_alternate_outlined,
+                                              color: Colors.white70,
+                                            ),
+                                            label: const Text(
+                                              'Add Channel Banner (Optional)',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : null),
+                            ),
+                            if (isOwner)
+                              Positioned(
+                                top: 10,
+                                right: 10,
+                                child: InkWell(
+                                  onTap: _isBannerLoading
+                                      ? null
+                                      : () => _showBannerOptionsSheet(hasBanner),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.white24,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          hasBanner
+                                              ? Icons.edit_rounded
+                                              : Icons.camera_alt_rounded,
+                                          size: 15,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          hasBanner ? 'Edit Banner' : 'Add Banner',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
 
                     // Approval Status Banners
                     if (channel.status == 'PENDING')
@@ -484,47 +905,118 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen>
                         ),
                       ),
 
-                    const SizedBox(height: 8),
-
-                    // ── Avatar ──────────────────────────────────────────────
-                    Container(
-                      width: 104,
-                      height: 104,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFFF0055).withValues(alpha: 0.15),
-                        border: Border.all(
-                          color: const Color(0xFFFF0055).withValues(alpha: 0.6),
-                          width: 2.5,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(3),
-                      child: CircleAvatar(
-                        radius: 48,
-                        backgroundColor: const Color(0xFFFF0055).withValues(alpha: 0.8),
-                        backgroundImage: channel.avatarUrl != null &&
-                                channel.avatarUrl!.isNotEmpty
-                            ? CachedNetworkImageProvider(channel.avatarUrl!)
-                            : null,
-                        child: channel.avatarUrl == null ||
-                                channel.avatarUrl!.isEmpty
-                            ? Text(
-                                channel.name.isNotEmpty
-                                    ? channel.name
-                                        .substring(
-                                          0,
-                                          channel.name.length > 2 ? 2 : 1,
-                                        )
-                                        .toUpperCase()
-                                    : 'CH',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                    // ── Channel Avatar (YouTube Style Overlapping Banner) ─────────
+                    Builder(
+                      builder: (context) {
+                        final hasAvatar = channel.avatarUrl != null &&
+                            channel.avatarUrl!.isNotEmpty;
+                        return Transform.translate(
+                          offset: const Offset(0, -28),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              GestureDetector(
+                                onTap: isOwner
+                                    ? () => _showAvatarOptionsSheet(hasAvatar)
+                                    : null,
+                                child: Container(
+                                  width: 96,
+                                  height: 96,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFFFF0055).withValues(alpha: 0.15),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF0E1621)
+                                          : Colors.grey[100]!,
+                                      width: 3.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  padding: const EdgeInsets.all(2),
+                                  child: CircleAvatar(
+                                    radius: 44,
+                                    backgroundColor:
+                                        const Color(0xFFFF0055).withValues(alpha: 0.8),
+                                    backgroundImage: hasAvatar
+                                        ? CachedNetworkImageProvider(
+                                            MediaUrlResolver.resolve(
+                                                  channel.avatarUrl!,
+                                                ) ??
+                                                channel.avatarUrl!,
+                                          )
+                                        : null,
+                                    child: _isAvatarLoading
+                                        ? const SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : (!hasAvatar
+                                            ? Text(
+                                                channel.name.isNotEmpty
+                                                    ? channel.name
+                                                        .substring(
+                                                          0,
+                                                          channel.name.length > 2
+                                                              ? 2
+                                                              : 1,
+                                                        )
+                                                        .toUpperCase()
+                                                    : 'CH',
+                                                style: const TextStyle(
+                                                  fontSize: 26,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : null),
+                                  ),
                                 ),
-                              )
-                            : null,
-                      ),
+                              ),
+                              if (isOwner)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onTap: _isAvatarLoading
+                                        ? null
+                                        : () => _showAvatarOptionsSheet(hasAvatar),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00C6FF),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isDark
+                                              ? const Color(0xFF0E1621)
+                                              : Colors.grey[100]!,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        hasAvatar
+                                            ? Icons.edit_rounded
+                                            : Icons.camera_alt_rounded,
+                                        size: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
 

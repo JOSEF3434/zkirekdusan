@@ -1,6 +1,7 @@
 // lib/features/profile/presentation/providers/profile_providers.dart
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/error/exceptions.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
@@ -108,6 +109,90 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         website: website,
         country: country,
       );
+      state = state.copyWith(profile: updated, isSaving: false);
+      await _storage.saveToken(
+        jsonEncode(updated.toJson()),
+        key: _kCachedMyProfileKey,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        error: e is AppException
+            ? e.message
+            : e.toString().replaceFirst('AppException: ', ''),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> uploadAvatar(Uint8List bytes, String filename) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _datasource.uploadAvatar(bytes, filename);
+      state = state.copyWith(profile: updated, isSaving: false);
+      await _storage.saveToken(
+        jsonEncode(updated.toJson()),
+        key: _kCachedMyProfileKey,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        error: e is AppException
+            ? e.message
+            : e.toString().replaceFirst('AppException: ', ''),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteAvatar() async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _datasource.deleteAvatar();
+      state = state.copyWith(profile: updated, isSaving: false);
+      await _storage.saveToken(
+        jsonEncode(updated.toJson()),
+        key: _kCachedMyProfileKey,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        error: e is AppException
+            ? e.message
+            : e.toString().replaceFirst('AppException: ', ''),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> uploadCover(Uint8List bytes, String filename) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _datasource.uploadCover(bytes, filename);
+      state = state.copyWith(profile: updated, isSaving: false);
+      await _storage.saveToken(
+        jsonEncode(updated.toJson()),
+        key: _kCachedMyProfileKey,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        error: e is AppException
+            ? e.message
+            : e.toString().replaceFirst('AppException: ', ''),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteCover() async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      final updated = await _datasource.deleteCover();
       state = state.copyWith(profile: updated, isSaving: false);
       await _storage.saveToken(
         jsonEncode(updated.toJson()),

@@ -312,6 +312,17 @@ export class GroupsController {
     return this.groupsService.uploadAvatar(groupId, userId, file);
   }
 
+  @Delete(':groupId/avatar')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.GROUP_ADMIN)
+  @ApiOperation({ summary: 'Delete avatar for group' })
+  async deleteAvatar(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.groupsService.deleteAvatar(groupId, userId);
+  }
+
   @Post(':groupId/cover')
   @UseGuards(GroupMembershipGuard)
   @GroupRoles(GroupRole.GROUP_ADMIN)
@@ -330,6 +341,17 @@ export class GroupsController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.groupsService.uploadCover(groupId, userId, file);
+  }
+
+  @Delete(':groupId/cover')
+  @UseGuards(GroupMembershipGuard)
+  @GroupRoles(GroupRole.GROUP_ADMIN)
+  @ApiOperation({ summary: 'Delete cover banner for group' })
+  async deleteCover(
+    @Param('groupId') groupId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.groupsService.deleteCover(groupId, userId);
   }
 
   // ─── Telegram-Style Advanced Community Endpoints ─────────────────────────

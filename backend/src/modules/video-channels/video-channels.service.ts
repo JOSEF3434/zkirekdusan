@@ -315,6 +315,14 @@ export class VideoChannelsService {
     return this.uploadsService.uploadChannelAvatar(channelId, userId, file);
   }
 
+  async deleteAvatar(channelId: string, userId: string) {
+    const channel = await this.repo.findById(channelId);
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.verifyChannelManagement(channel, userId, GroupRole.GROUP_ADMIN);
+    return this.uploadsService.deleteChannelAvatar(channelId);
+  }
+
   async uploadBanner(
     channelId: string,
     userId: string,
@@ -325,6 +333,14 @@ export class VideoChannelsService {
 
     await this.verifyChannelManagement(channel, userId, GroupRole.GROUP_ADMIN);
     return this.uploadsService.uploadChannelBanner(channelId, userId, file);
+  }
+
+  async deleteBanner(channelId: string, userId: string) {
+    const channel = await this.repo.findById(channelId);
+    if (!channel) throw new NotFoundException('Video channel not found');
+
+    await this.verifyChannelManagement(channel, userId, GroupRole.GROUP_ADMIN);
+    return this.uploadsService.deleteChannelBanner(channelId);
   }
 
   async findUserOwnedChannels(userId: string) {

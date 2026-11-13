@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
@@ -39,6 +41,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isAvatarActionLoading = false;
 
   @override
   void initState() {
@@ -51,6 +54,229 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (pickedFile == null) return;
+
+      setState(() => _isAvatarActionLoading = true);
+      final bytes = await pickedFile.readAsBytes();
+      final filename = pickedFile.name.isNotEmpty
+          ? pickedFile.name
+          : 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final success = await ref
+          .read(profileProvider.notifier)
+          .uploadAvatar(bytes, filename);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture updated successfully'),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+        } else {
+          final err = ref.read(profileProvider).error ?? 'Failed to upload photo';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting photo: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarActionLoading = false);
+    }
+  }
+
+  Future<void> _deleteAvatar() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Profile Picture'),
+        content: const Text('Are you sure you want to remove your profile picture?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isAvatarActionLoading = true);
+    final success = await ref.read(profileProvider.notifier).deleteAvatar();
+    if (mounted) {
+      setState(() => _isAvatarActionLoading = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture removed'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showFullscreenAvatar(String avatarUrl, String displayName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: CachedNetworkImage(
+                imageUrl: MediaUrlResolver.resolve(avatarUrl) ?? avatarUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator(color: Colors.white)),
+                ),
+                errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white, size: 48),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAvatarOptionsSheet(
+    ProfileModel profile,
+    bool hasActiveStories,
+    StoryFeedGroupModel? myStoriesGroup,
+  ) {
+    final avatarUrl = profile.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Profile Picture',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              if (hasActiveStories && myStoriesGroup != null)
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline, color: Color(0xFF00C6FF)),
+                  title: const Text('View Active Story'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    context.push(
+                      '/story-viewer',
+                      extra: StoryViewerArgs(
+                        groups: [myStoriesGroup],
+                        initialGroupIndex: 0,
+                      ),
+                    );
+                  },
+                ),
+              if (hasAvatar)
+                ListTile(
+                  leading: const Icon(Icons.fullscreen, color: Color(0xFF10B981)),
+                  title: const Text('View Profile Picture'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _showFullscreenAvatar(
+                      avatarUrl,
+                      profile.displayName ?? profile.username ?? 'Profile',
+                    );
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFF00C6FF)),
+                title: const Text('Take photo with camera'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadAvatar(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF10B981)),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadAvatar(ImageSource.gallery);
+                },
+              ),
+              if (hasAvatar)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text(
+                    'Remove profile picture',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _deleteAvatar();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -191,51 +417,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    GestureDetector(
-                      onTap: hasActiveStories
-                          ? () {
-                              context.push(
-                                '/story-viewer',
-                                extra: StoryViewerArgs(
-                                  groups: [myStoriesGroup],
-                                  initialGroupIndex: 0,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showAvatarOptionsSheet(
+                            profile,
+                            hasActiveStories,
+                            myStoriesGroup,
+                          ),
+                          child: Container(
+                            padding: EdgeInsets.all(hasActiveStories ? 3.0 : 0.0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: hasActiveStories
+                                  ? LinearGradient(
+                                      colors: [cs.primary, cs.tertiary],
+                                    )
+                                  : null,
+                            ),
+                            child: CircleAvatar(
+                              radius: 36,
+                              backgroundImage: profile.avatarUrl != null &&
+                                      profile.avatarUrl!.isNotEmpty
+                                  ? CachedNetworkImageProvider(
+                                      MediaUrlResolver.resolve(
+                                            profile.avatarUrl!,
+                                          ) ??
+                                          profile.avatarUrl!,
+                                    )
+                                  : null,
+                              backgroundColor: cs.primaryContainer,
+                              child: _isAvatarActionLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : (profile.avatarUrl == null ||
+                                          profile.avatarUrl!.isEmpty
+                                      ? Text(
+                                          _initials(profile),
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                            color: cs.onPrimaryContainer,
+                                          ),
+                                        )
+                                      : null),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: GestureDetector(
+                            onTap: () => _showAvatarOptionsSheet(
+                              profile,
+                              hasActiveStories,
+                              myStoriesGroup,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: cs.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Theme.of(context).scaffoldBackgroundColor,
+                                  width: 2,
                                 ),
-                              );
-                            }
-                          : null,
-                      child: Container(
-                        padding: EdgeInsets.all(hasActiveStories ? 3.0 : 0.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: hasActiveStories
-                              ? LinearGradient(
-                                  colors: [cs.primary, cs.tertiary],
-                                )
-                              : null,
+                              ),
+                              child: Icon(
+                                profile.avatarUrl != null &&
+                                        profile.avatarUrl!.isNotEmpty
+                                    ? Icons.edit_rounded
+                                    : Icons.camera_alt_rounded,
+                                size: 13,
+                                color: cs.onPrimary,
+                              ),
+                            ),
+                          ),
                         ),
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundImage: profile.avatarUrl != null
-                              ? NetworkImage(
-                                  MediaUrlResolver.resolve(
-                                        profile.avatarUrl!,
-                                      ) ??
-                                      profile.avatarUrl!,
-                                )
-                              : null,
-                          backgroundColor: cs.primaryContainer,
-                          child: profile.avatarUrl == null
-                              ? Text(
-                                  _initials(profile),
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: cs.onPrimaryContainer,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ),
+                      ],
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -1253,6 +1518,13 @@ class _ProfileAboutTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+    final email = authState.user?.email ?? profile.email;
+    final phone = profile.phoneNumber ?? authState.user?.phoneNumber;
+    final hasEmail = email != null && email.isNotEmpty;
+    final hasPhone = phone != null && phone.isNotEmpty;
+    final hasWebsite = profile.website != null && profile.website!.isNotEmpty;
+    final hasCountry = profile.country != null && profile.country!.isNotEmpty;
+    final hasBio = profile.bio != null && profile.bio!.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1264,20 +1536,35 @@ class _ProfileAboutTab extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.email_outlined),
-          title: Text(tr('profile.email_label')),
-          subtitle: Text(authState.user?.email ?? '—'),
-        ),
-        if (profile.website != null)
+        if (hasBio)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.info_outline_rounded),
+            title: Text(tr('profile.bio_label')),
+            subtitle: Text(profile.bio!),
+          ),
+        if (hasEmail)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.email_outlined),
+            title: Text(tr('profile.email_label')),
+            subtitle: Text(email),
+          ),
+        if (hasPhone)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.phone_outlined),
+            title: const Text('Phone'),
+            subtitle: Text(phone),
+          ),
+        if (hasWebsite)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.link),
             title: Text(tr('profile.website_label')),
             subtitle: Text(profile.website!),
           ),
-        if (profile.country != null)
+        if (hasCountry)
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.location_on_outlined),

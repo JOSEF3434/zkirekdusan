@@ -4,11 +4,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/error/exceptions.dart';
+import 'package:mobile/features/groups/data/group_repository.dart';
 import 'package:mobile/features/chats/presentation/providers/conversations_provider.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_call_dialog.dart';
 import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dart';
@@ -40,6 +43,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   late TabController _tabController;
   bool _isMuted = false;
   bool _isOpeningChat = false;
+  bool _isAvatarActionLoading = false;
 
   @override
   void initState() {
@@ -51,6 +55,163 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadGroupAvatar(ImageSource source, String groupId) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      setState(() => _isAvatarActionLoading = true);
+      final bytes = await picked.readAsBytes();
+      final filename = picked.name.isNotEmpty
+          ? picked.name
+          : 'group_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.uploadGroupAvatar(groupId, bytes, filename);
+
+      ref.invalidate(groupDetailProvider(groupId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group picture updated successfully'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload picture: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarActionLoading = false);
+    }
+  }
+
+  Future<void> _deleteGroupAvatar(String groupId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Group Picture'),
+        content: const Text('Are you sure you want to remove the group profile picture?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      setState(() => _isAvatarActionLoading = true);
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.deleteGroupAvatar(groupId);
+
+      ref.invalidate(groupDetailProvider(groupId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group picture removed'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove picture: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarActionLoading = false);
+    }
+  }
+
+  void _showGroupAvatarOptions(BuildContext context, GroupContextDto groupContext) {
+    final hasPic = groupContext.avatarUrl != null && groupContext.avatarUrl!.isNotEmpty;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Group Profile Picture (Optional)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFF00C6FF)),
+                title: const Text('Take photo with camera'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadGroupAvatar(ImageSource.camera, groupContext.id);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF10B981)),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  _pickAndUploadGroupAvatar(ImageSource.gallery, groupContext.id);
+                },
+              ),
+              if (hasPic)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text(
+                    'Remove group picture',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    _deleteGroupAvatar(groupContext.id);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -128,6 +289,7 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                       groupContext.visibility.name.toUpperCase(),
                   initialWebsite: groupContext.website,
                   initialCountry: groupContext.country,
+                  initialAvatarUrl: groupContext.avatarUrl,
                 );
               },
             ),
@@ -238,41 +400,91 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
                 children: [
                   const SizedBox(height: 8),
 
-                  // 1. Large Circular Group Avatar (Screenshot 2: "ኑሮ")
-                  Container(
-                    width: 104,
-                    height: 104,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-                      border: Border.all(
-                        color: const Color(0xFF00C6FF).withValues(alpha: 0.5),
-                        width: 2.5,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(3),
-                    child: CircleAvatar(
-                      radius: 48,
-                      backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.8),
-                      backgroundImage: groupContext.avatarUrl != null &&
-                              groupContext.avatarUrl!.isNotEmpty
-                          ? CachedNetworkImageProvider(groupContext.avatarUrl!)
-                          : null,
-                      child: groupContext.avatarUrl == null ||
-                              groupContext.avatarUrl!.isEmpty
-                          ? Text(
-                              groupContext.name.isNotEmpty
-                                  ? (groupContext.name.length > 2
-                                      ? groupContext.name.substring(0, 2)
-                                      : groupContext.name)
-                                  : 'G',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                  // 1. Large Circular Group Avatar (Interactive for managers)
+                  GestureDetector(
+                    onTap: canManage
+                        ? () => _showGroupAvatarOptions(context, groupContext)
+                        : null,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 104,
+                          height: 104,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF00C6FF).withValues(alpha: 0.2),
+                            border: Border.all(
+                              color: const Color(0xFF00C6FF).withValues(alpha: 0.5),
+                              width: 2.5,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: CircleAvatar(
+                            radius: 48,
+                            backgroundColor:
+                                const Color(0xFF00C6FF).withValues(alpha: 0.8),
+                            backgroundImage: groupContext.avatarUrl != null &&
+                                    groupContext.avatarUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider(
+                                    MediaUrlResolver.resolve(
+                                          groupContext.avatarUrl!,
+                                        ) ??
+                                        groupContext.avatarUrl!,
+                                  )
+                                : null,
+                            child: _isAvatarActionLoading
+                                ? const SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : (groupContext.avatarUrl == null ||
+                                        groupContext.avatarUrl!.isEmpty
+                                    ? Text(
+                                        groupContext.name.isNotEmpty
+                                            ? (groupContext.name.length > 2
+                                                ? groupContext.name.substring(0, 2)
+                                                : groupContext.name)
+                                            : 'G',
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : null),
+                          ),
+                        ),
+                        if (canManage)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00C6FF),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(0xFF0E1621)
+                                      : Colors.grey[100]!,
+                                  width: 2,
+                                ),
                               ),
-                            )
-                          : null,
+                              child: Icon(
+                                groupContext.avatarUrl != null &&
+                                        groupContext.avatarUrl!.isNotEmpty
+                                    ? Icons.edit_rounded
+                                    : Icons.camera_alt_rounded,
+                                size: 16,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -806,65 +1018,62 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   }
 
   Widget _buildFilesList(bool isDark) {
-    final sampleFiles = [
-      {'name': 'Group_Guidelines.pdf', 'size': '1.2 MB', 'date': 'Jan 19'},
-      {'name': 'Project_Milestones.docx', 'size': '540 KB', 'date': 'Jan 12'},
-      {'name': 'Resources_Links.pdf', 'size': '2.8 MB', 'date': 'Dec 28'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: sampleFiles.length,
-      itemBuilder: (context, index) {
-        final f = sampleFiles[index];
-        return ListTile(
-          leading: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.folder_open_rounded,
+              size: 48,
+              color: isDark ? Colors.grey[600] : Colors.grey[400],
             ),
-            child: const Icon(
-              Icons.insert_drive_file_rounded,
-              color: Color(0xFF00C6FF),
+            const SizedBox(height: 12),
+            Text(
+              'No files shared in this group yet',
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 14,
+              ),
             ),
-          ),
-          title: Text(
-            f['name']!,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          subtitle: Text(
-            '${f["size"]} • ${f["date"]}',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.download_rounded),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Downloading ${f["name"]}...')),
-              );
-            },
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildLinksList(String? website, bool isDark) {
     final links = [
-      if (website != null && website.isNotEmpty)
-        {'title': 'Official Community', 'url': website},
-      {'title': 'Telegram Channel', 'url': 'https://t.me/nuro_ye'},
-      {'title': 'Discussion Forum', 'url': 'https://streamhub.app/g/${widget.groupId}'},
+      if (website != null && website.trim().isNotEmpty)
+        {'title': 'Official Website', 'url': website.trim()},
     ];
+
+    if (links.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.link_off_rounded,
+                size: 48,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No links shared',
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -911,55 +1120,28 @@ class _GroupChannelScreenState extends ConsumerState<GroupChannelScreen>
   }
 
   Widget _buildMusicList(bool isDark) {
-    final musicFiles = [
-      {'title': 'Voice Note - Team Update', 'duration': '02:45', 'date': 'Today'},
-      {'title': 'Meeting Audio Record', 'duration': '14:20', 'date': 'Yesterday'},
-      {'title': 'Community Intro Podcast.mp3', 'duration': '08:12', 'date': 'Jan 15'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: musicFiles.length,
-      itemBuilder: (context, index) {
-        final m = musicFiles[index];
-        return ListTile(
-          leading: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFB300).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.music_off_rounded,
+              size: 48,
+              color: isDark ? Colors.grey[600] : Colors.grey[400],
             ),
-            child: const Icon(
-              Icons.audiotrack_rounded,
-              color: Color(0xFFFFB300),
+            const SizedBox(height: 12),
+            Text(
+              'No audio files shared yet',
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 14,
+              ),
             ),
-          ),
-          title: Text(
-            m['title']!,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          subtitle: Text(
-            '${m["duration"]} • ${m["date"]}',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.play_arrow_rounded),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Playing ${m["title"]}...')),
-              );
-            },
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 

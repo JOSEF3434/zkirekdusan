@@ -26,42 +26,62 @@ class LiveDiscoveryScreen extends ConsumerWidget {
     final tr = ref.watch(trProvider);
     final theme = Theme.of(context);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back',
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/home');
+                }
+              },
+            ),
+            automaticallyImplyLeading: false,
+            title: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
+                const SizedBox(width: 8),
+                Text(
+                  tr('live.title'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.folder_special_outlined),
+                tooltip: 'Local Recordings',
+                onPressed: () => context.push('/live/recordings'),
               ),
-              const SizedBox(width: 8),
-              Text(
-                tr('live.title'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Go Live / Schedule',
+                onPressed: () => _showLiveActionsSheet(context),
               ),
             ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.folder_special_outlined),
-              tooltip: 'Local Recordings',
-              onPressed: () => context.push('/live/recordings'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              tooltip: 'Go Live / Schedule',
-              onPressed: () => _showLiveActionsSheet(context),
-            ),
-          ],
-          leading: null,
-          automaticallyImplyLeading: false,
-          bottom: TabBar(
+            bottom: TabBar(
             isScrollable: false,
             indicatorWeight: 3,
             labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -118,8 +138,9 @@ class LiveDiscoveryScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showLiveActionsSheet(BuildContext context) {
     showModalBottomSheet(

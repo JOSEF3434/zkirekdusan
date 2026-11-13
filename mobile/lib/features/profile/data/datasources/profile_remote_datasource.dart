@@ -1,6 +1,7 @@
 // lib/features/profile/data/datasources/profile_remote_datasource.dart
 // Calls real backend profile endpoints from profiles.controller.ts
 
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/error/exceptions.dart';
@@ -54,6 +55,56 @@ class ProfileRemoteDatasource {
       if (visibility != null) body['visibility'] = visibility;
 
       final response = await _dio.patch('/profiles/me', data: body);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// POST /profiles/me/avatar
+  Future<ProfileModel> uploadAvatar(Uint8List bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post('/profiles/me/avatar', data: formData);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// DELETE /profiles/me/avatar
+  Future<ProfileModel> deleteAvatar() async {
+    try {
+      final response = await _dio.delete('/profiles/me/avatar');
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// POST /profiles/me/cover
+  Future<ProfileModel> uploadCover(Uint8List bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post('/profiles/me/cover', data: formData);
+      final data = parseEnvelope(response.data);
+      return ProfileModel.fromJson(data);
+    } on DioException catch (e) {
+      throw AppException(_parseDioError(e));
+    }
+  }
+
+  /// DELETE /profiles/me/cover
+  Future<ProfileModel> deleteCover() async {
+    try {
+      final response = await _dio.delete('/profiles/me/cover');
       final data = parseEnvelope(response.data);
       return ProfileModel.fromJson(data);
     } on DioException catch (e) {

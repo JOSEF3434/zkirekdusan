@@ -959,6 +959,21 @@ export class GroupsService {
     return this.uploadsService.uploadGroupAvatar(groupId, userId, file);
   }
 
+  async deleteAvatar(groupId: string, userId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (
+      member?.role !== GroupRole.GROUP_ADMIN &&
+      group.createdById !== userId
+    ) {
+      throw new ForbiddenException('Only group admins can delete group avatar');
+    }
+
+    return this.uploadsService.deleteGroupAvatar(groupId);
+  }
+
   async uploadCover(
     groupId: string,
     userId: string,
@@ -976,6 +991,21 @@ export class GroupsService {
     }
 
     return this.uploadsService.uploadGroupCover(groupId, userId, file);
+  }
+
+  async deleteCover(groupId: string, userId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) throw new NotFoundException('Group not found');
+
+    const member = await this.groupsRepository.getMember(groupId, userId);
+    if (
+      member?.role !== GroupRole.GROUP_ADMIN &&
+      group.createdById !== userId
+    ) {
+      throw new ForbiddenException('Only group admins can delete group cover');
+    }
+
+    return this.uploadsService.deleteGroupCover(groupId);
   }
 
   // ─── Telegram-Style Advanced Community Features ─────────────────────────

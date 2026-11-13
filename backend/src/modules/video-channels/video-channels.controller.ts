@@ -188,6 +188,15 @@ export class VideoChannelsController {
     return this.service.uploadAvatar(channelId, userId, file);
   }
 
+  @Delete(':channelId/avatar')
+  @ApiOperation({ summary: 'Delete video channel avatar' })
+  async deleteAvatar(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.deleteAvatar(channelId, userId);
+  }
+
   @Post(':channelId/banner')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -204,6 +213,15 @@ export class VideoChannelsController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.service.uploadBanner(channelId, userId, file);
+  }
+
+  @Delete(':channelId/banner')
+  @ApiOperation({ summary: 'Delete video channel banner' })
+  async deleteBanner(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.deleteBanner(channelId, userId);
   }
 }
 
@@ -389,6 +407,15 @@ export class VideoChannelsPublicController {
     return this.service.uploadAvatar(channelId, userId, file);
   }
 
+  @Delete(':channelId/avatar')
+  @ApiOperation({ summary: 'Delete channel avatar' })
+  async deleteAvatar(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.deleteAvatar(channelId, userId);
+  }
+
   @Post(':channelId/banner')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload channel banner' })
@@ -398,5 +425,14 @@ export class VideoChannelsPublicController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.service.uploadBanner(channelId, userId, file);
+  }
+
+  @Delete(':channelId/banner')
+  @ApiOperation({ summary: 'Delete channel banner' })
+  async deleteBanner(
+    @Param('channelId') channelId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.service.deleteBanner(channelId, userId);
   }
 }

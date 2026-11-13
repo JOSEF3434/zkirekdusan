@@ -3,10 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/live/domain/camera_source.dart';
+import 'package:mobile/features/live/presentation/providers/live_discovery_provider.dart';
+import 'package:mobile/features/live/presentation/screens/live_discovery_screen.dart';
 import 'package:mobile/features/live/presentation/screens/local_recordings_screen.dart';
 import 'package:mobile/features/live/presentation/widgets/live_network_diagnostics_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/live_side_rail.dart';
+
+class FakeLiveDiscoveryNotifier extends StateNotifier<LiveDiscoveryState>
+    implements LiveStreamsNotifier, ScheduledStreamsNotifier, MyScheduledStreamsNotifier {
+  FakeLiveDiscoveryNotifier() : super(const LiveDiscoveryState());
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class MockConnectivityNotifier extends StateNotifier<ConnectivityState>
     implements ConnectivityNotifier {
@@ -149,6 +160,32 @@ void main() {
       expect(find.text('Audio Recording (microphone only)'), findsOneWidget);
       expect(find.text('02:40'), findsOneWidget);
       expect(find.text('2.4 MB'), findsOneWidget);
+    });
+
+    testWidgets('LiveDiscoveryScreen has back arrow icon with tooltip Back in AppBar', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trProvider.overrideWithValue((key, [args]) => key),
+            liveStreamsProvider.overrideWith((ref) => FakeLiveDiscoveryNotifier()),
+            scheduledStreamsProvider.overrideWith((ref) => FakeLiveDiscoveryNotifier()),
+            myScheduledStreamsProvider.overrideWith((ref) => FakeLiveDiscoveryNotifier()),
+          ],
+          child: const MaterialApp(
+            home: LiveDiscoveryScreen(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      // Verify back arrow icon is present in leading position of AppBar
+      final backButton = find.widgetWithIcon(IconButton, Icons.arrow_back);
+      expect(backButton, findsOneWidget);
+
+      final iconButtonWidget = tester.widget<IconButton>(backButton);
+      expect(iconButtonWidget.tooltip, 'Back');
     });
   });
 }

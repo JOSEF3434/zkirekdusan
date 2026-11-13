@@ -41,6 +41,8 @@ export class ProfilesService {
       id: profile.id,
       userId: profile.userId,
       username: profile.user.username,
+      email: profile.user.email ?? null,
+      phoneNumber: (profile.user as any).phoneNumber ?? null,
       firstName: profile.firstName,
       lastName: profile.lastName,
       displayName: profile.displayName ?? profile.user.username,
@@ -68,6 +70,8 @@ export class ProfilesService {
       id: profile.id,
       userId: profile.userId,
       username: profile.user.username,
+      email: profile.user.email ?? null,
+      phoneNumber: (profile.user as any).phoneNumber ?? null,
       firstName: profile.firstName,
       lastName: profile.lastName,
       displayName: profile.displayName ?? profile.user.username,
@@ -99,11 +103,21 @@ export class ProfilesService {
     return this.getMyProfile(userId);
   }
 
+  async deleteAvatar(userId: string): Promise<ProfileResponseDto> {
+    await this.uploadsService.deleteUserAvatar(userId);
+    return this.getMyProfile(userId);
+  }
+
   async uploadCover(
     userId: string,
     file: Express.Multer.File,
   ): Promise<ProfileResponseDto> {
     await this.uploadsService.uploadUserCover(userId, file);
+    return this.getMyProfile(userId);
+  }
+
+  async deleteCover(userId: string): Promise<ProfileResponseDto> {
+    await this.uploadsService.deleteUserCover(userId);
     return this.getMyProfile(userId);
   }
 }

@@ -42,7 +42,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -522,58 +522,84 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Phone / Mobile Row
-                        _buildInfoTile(
-                          title: '+251 940346902',
-                          subtitle: tr('settings.data_usage.mobile'),
-                          isDark: isDark,
-                          onTap: () {
-                            Clipboard.setData(
-                              const ClipboardData(text: '+251940346902'),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(tr('profile.phone_copied')),
-                                backgroundColor: const Color(0xFF10B981),
-                              ),
-                            );
-                          },
-                        ),
-                        Divider(
-                          height: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : Colors.black.withValues(alpha: 0.06),
-                        ),
+                        // Phone / Mobile Row (Only if user filled phone number)
+                        if (profile.phoneNumber != null &&
+                            profile.phoneNumber!.trim().isNotEmpty) ...[
+                          _buildInfoTile(
+                            title: profile.phoneNumber!,
+                            subtitle: tr('settings.data_usage.mobile'),
+                            isDark: isDark,
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: profile.phoneNumber!),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(tr('profile.phone_copied')),
+                                  backgroundColor: const Color(0xFF10B981),
+                                ),
+                              );
+                            },
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.black.withValues(alpha: 0.06),
+                          ),
+                        ],
 
-                        // Bio Row (Screenshot 1: "Manage your entire business from ONE screen!")
-                        _buildInfoTile(
-                          title: profile.bio != null && profile.bio!.isNotEmpty
-                              ? profile.bio!
-                              : 'Manage your entire business from ONE screen!',
-                          subtitle: tr('profile.bio_label'),
-                          isDark: isDark,
-                          onTap: () {
-                            if (profile.bio != null) {
+                        // Bio Row (Only if user filled a bio)
+                        if (profile.bio != null &&
+                            profile.bio!.trim().isNotEmpty) ...[
+                          _buildInfoTile(
+                            title: profile.bio!,
+                            subtitle: tr('profile.bio_label'),
+                            isDark: isDark,
+                            onTap: () {
                               Clipboard.setData(ClipboardData(text: profile.bio!));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text(tr('profile.bio_copied'))),
                               );
-                            }
-                          },
-                        ),
-                        Divider(
-                          height: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : Colors.black.withValues(alpha: 0.06),
-                        ),
+                            },
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.black.withValues(alpha: 0.06),
+                          ),
+                        ],
 
-                        // Username Row with QR Code Icon (Screenshot 1: "@CNET_CS_manager")
+                        // Website Row (Only if user filled website)
+                        if (profile.website != null &&
+                            profile.website!.trim().isNotEmpty) ...[
+                          _buildInfoTile(
+                            title: profile.website!,
+                            subtitle: tr('profile.website_label'),
+                            isDark: isDark,
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: profile.website!));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(tr('profile.link_copied_clipboard'))),
+                              );
+                            },
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.black.withValues(alpha: 0.06),
+                          ),
+                        ],
+
+                        // Username Row with QR Code Icon
                         _buildInfoTile(
                           title: '@${profile.username ?? "user"}',
                           subtitle: tr('auth.username_label'),
@@ -621,7 +647,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
             ),
           ),
 
-          // 5. Telegram Tab Bar Header (Screenshot 1: Posts, Media, Files, Links, Groups)
+          // 5. Profile Tab Bar Header
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverTabHeaderDelegate(
@@ -637,8 +663,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
+                    isScrollable: false,
                     physics: const BouncingScrollPhysics(),
                     indicator: BoxDecoration(
                       color: isDark
@@ -657,11 +682,8 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                     ),
                     tabs: const [
                       Tab(text: 'Posts'),
-                      Tab(text: 'Media'),
-                      Tab(text: 'Files'),
-                      Tab(text: 'Links'),
                       Tab(text: 'Followers'),
-                      Tab(text: 'Groups'),
+                      Tab(text: 'About'),
                     ],
                   ),
                 ),
@@ -673,23 +695,14 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Tab 1: Posts (2-column media grid)
+          // Tab 1: Posts
           _buildPostsMediaGrid(profile.userId, isDark),
 
-          // Tab 2: Media (Photos & Videos)
-          _buildMediaGrid(profile.userId, isDark),
-
-          // Tab 3: Files
-          _buildFilesList(isDark),
-
-          // Tab 4: Links
-          _buildLinksList(profile.website, isDark),
-
-          // Tab 5: Followers
+          // Tab 2: Followers
           _buildFollowersList(profile.userId, isDark),
 
-          // Tab 6: Groups
-          _buildGroupsList(isDark),
+          // Tab 3: About (Exact user-filled data)
+          _buildAboutTab(profile, isDark),
         ],
       ),
     ),
@@ -1223,157 +1236,110 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
     );
   }
 
-  Widget _buildMediaGrid(String userId, bool isDark) {
-    return _buildPostsMediaGrid(userId, isDark);
-  }
+  Widget _buildAboutTab(ProfileModel profile, bool isDark) {
+    final tr = ref.watch(trProvider);
+    final cardBg = isDark ? const Color(0xFF17212B) : Colors.white;
 
-  Widget _buildFilesList(bool isDark) {
-    final sampleFiles = [
-      {'name': 'Company_Overview_2026.pdf', 'size': '2.4 MB', 'date': 'Today'},
-      {'name': 'CNET_OneScreen_Catalog.docx', 'size': '1.1 MB', 'date': 'Yesterday'},
-      {'name': 'Presentation_Slide_Deck.pptx', 'size': '8.6 MB', 'date': 'Aug 24'},
-    ];
+    final hasBio = profile.bio != null && profile.bio!.trim().isNotEmpty;
+    final hasPhone = profile.phoneNumber != null && profile.phoneNumber!.trim().isNotEmpty;
+    final hasWebsite = profile.website != null && profile.website!.trim().isNotEmpty;
+    final hasCountry = profile.country != null && profile.country!.trim().isNotEmpty;
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: sampleFiles.length,
-      itemBuilder: (context, index) {
-        final f = sampleFiles[index];
-        return ListTile(
-          leading: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.insert_drive_file_rounded,
-              color: Color(0xFF00C6FF),
-            ),
-          ),
-          title: Text(
-            f['name']!,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          subtitle: Text(
-            '${f["size"]} • ${f["date"]}',
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-          trailing: IconButton(
-            icon: const Icon(Icons.download_rounded),
-            onPressed: () {
-              final tr = ref.read(trProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(tr('video.downloading_file', {'name': f["name"]}))),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLinksList(String? website, bool isDark) {
-    final links = [
-      if (website != null && website.isNotEmpty)
-        {'title': 'Official Website', 'url': website},
-      {'title': 'CNET Cloud Platform', 'url': 'https://cnet.et/products/onescreen'},
-      {'title': 'StreamHub Channel', 'url': 'https://streamhub.app/@${widget.username}'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: links.length,
-      itemBuilder: (context, index) {
-        final l = links[index];
-        return ListTile(
-          leading: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.link_rounded,
-              color: Color(0xFF10B981),
-            ),
-          ),
-          title: Text(
-            l['title']!,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          subtitle: Text(
-            l['url']!,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF00C6FF),
-            ),
-          ),
-          onTap: () {
-            final tr = ref.read(trProvider);
-            Clipboard.setData(ClipboardData(text: l['url']!));
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(tr('profile.link_copied_clipboard'))),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildGroupsList(bool isDark) {
-    final groups = [
-      {'name': 'CNET Support Community', 'members': '1,420 members'},
-      {'name': 'OneScreen Beta Testers', 'members': '890 members'},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: groups.length,
-      itemBuilder: (context, index) {
-        final g = groups[index];
-        return ListTile(
-          leading: CircleAvatar(
-            radius: 20,
-            backgroundColor: const Color(0xFF00C6FF).withValues(alpha: 0.2),
-            child: Text(
-              g['name']![0],
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF00C6FF),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          title: Text(
-            g['name']!,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('profile.about_label'),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (hasBio) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.info_outline_rounded, color: Color(0xFF00C6FF)),
+                  title: Text(tr('profile.bio_label')),
+                  subtitle: Text(
+                    profile.bio!,
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  ),
+                ),
+                const Divider(),
+              ],
+              if (hasPhone) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.phone_outlined, color: Color(0xFF10B981)),
+                  title: Text(tr('settings.data_usage.mobile')),
+                  subtitle: Text(
+                    profile.phoneNumber!,
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  ),
+                ),
+                const Divider(),
+              ],
+              if (hasWebsite) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.link_rounded, color: Color(0xFF00C6FF)),
+                  title: Text(tr('profile.website_label')),
+                  subtitle: Text(
+                    profile.website!,
+                    style: const TextStyle(color: Color(0xFF00C6FF)),
+                  ),
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: profile.website!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(tr('profile.link_copied_clipboard'))),
+                    );
+                  },
+                ),
+                const Divider(),
+              ],
+              if (hasCountry) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.location_on_outlined, color: Colors.orangeAccent),
+                  title: Text(tr('profile.country_label')),
+                  subtitle: Text(
+                    profile.country!,
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  ),
+                ),
+                const Divider(),
+              ],
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today_outlined, color: Colors.grey),
+                title: Text(tr('profile.joined_label')),
+                subtitle: Text(
+                  profile.createdAt.toString().split(' ')[0],
+                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                ),
+              ),
+            ],
           ),
-          subtitle: Text(
-            g['members']!,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
