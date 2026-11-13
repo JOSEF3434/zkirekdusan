@@ -15,6 +15,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/home/domain/feed_response.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
+import 'package:mobile/features/live/domain/live_stream_model.dart';
 
 final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
   final dio = ref.watch(apiClientProvider);
@@ -64,7 +65,39 @@ class PlayerRepository {
 
         return dto;
       } catch (e) {
-        debugPrint('[PlayerRepo] Remote getVideo failed: $e, checking local cache');
+        debugPrint('[PlayerRepo] Remote getVideo failed: $e, checking stream fallback');
+        try {
+          final streamRes = await _dio.get('/streams/$videoId');
+          final streamData = parseEnvelope(streamRes.data);
+          final streamDto = LiveStreamDto.fromJson(streamData);
+          final streamVideoDto = VideoResponseDto(
+            id: streamDto.id,
+            title: streamDto.title,
+            description: streamDto.description,
+            status: VideoStatus.ready,
+            visibility: streamDto.visibility.name.toUpperCase(),
+            duration: streamDto.duration ?? 0,
+            thumbnailUrl: streamDto.thumbnailUrl,
+            hlsUrl: streamDto.hlsUrl,
+            sourceFileUrl: streamDto.hlsUrl,
+            dashUrl: streamDto.dashUrl,
+            viewsCount: streamDto.totalViewerCount,
+            likesCount: streamDto.likesCount,
+            commentsCount: streamDto.totalChatMessages,
+            author: PostAuthorDto(
+              id: streamDto.createdById,
+              username: streamDto.createdBy?.username ?? '',
+              displayName: streamDto.createdBy?.username,
+              avatarUrl: streamDto.createdBy?.avatarUrl,
+            ),
+            channelId: streamDto.videoChannelId,
+            channelName: streamDto.videoChannel?.name,
+            createdAt: DateTime.tryParse(streamDto.createdAt) ?? DateTime.now(),
+            updatedAt: DateTime.tryParse(streamDto.updatedAt) ?? DateTime.now(),
+          );
+          return streamVideoDto;
+        } catch (_) {}
+
         final local = await _db.videosDao.getVideoById(videoId);
         if (local != null) {
           return _mapLocalToDto(local);

@@ -190,10 +190,18 @@ class VideoResponseDto {
       isDownloadable: isDownloadable,
       isStream: isStream,
       duration: (json['duration'] as num?)?.toInt() ?? 0,
-      thumbnailUrl: json['thumbnailUrl'] as String?,
-      hlsUrl: hlsUrl,
+      thumbnailUrl: json['thumbnailUrl'] as String? ??
+          json['posterUrl'] as String? ??
+          json['coverUrl'] as String? ??
+          json['thumbnail'] as String?,
+      hlsUrl: hlsUrl ??
+          json['videoUrl'] as String? ??
+          json['url'] as String?,
       sourceFileUrl: json['sourceFileUrl'] as String? ??
-          (json['sourceFile'] as Map<String, dynamic>?)?['url'] as String?,
+          (json['sourceFile'] as Map<String, dynamic>?)?['url'] as String? ??
+          json['videoUrl'] as String? ??
+          json['url'] as String? ??
+          json['fileUrl'] as String?,
       dashUrl: json['dashUrl'] as String?,
       viewsCount: parsedViews,
       likesCount: (json['likesCount'] as num?)?.toInt() ?? 0,

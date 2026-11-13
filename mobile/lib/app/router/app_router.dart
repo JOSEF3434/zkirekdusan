@@ -150,6 +150,8 @@ class RouterNotifier extends ChangeNotifier {
         location.startsWith('/join/group/') ||
         location.startsWith('/video/') ||
         location.startsWith('/posts/') ||
+        location.startsWith('/live/') ||
+        location.startsWith('/stream-details/') ||
         location.startsWith('/share/')) {
       return true;
     }
@@ -299,6 +301,20 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: notifier.redirect,
     errorBuilder: (context, state) {
       final pathSegments = state.uri.pathSegments;
+      // Fallback for live stream details deep link or hot-reload
+      if (pathSegments.length >= 3 &&
+          pathSegments[0] == 'live' &&
+          pathSegments[1] == 'details') {
+        return StreamDetailsScreen(streamId: pathSegments[2]);
+      }
+      if (pathSegments.length >= 2 && pathSegments[0] == 'stream-details') {
+        return StreamDetailsScreen(streamId: pathSegments[1]);
+      }
+      if (pathSegments.length >= 3 &&
+          pathSegments[0] == 'live' &&
+          pathSegments[2] == 'details') {
+        return StreamDetailsScreen(streamId: pathSegments[1]);
+      }
       if (pathSegments.length == 1) {
         final identifier = AppLinkService.cleanIdentifier(pathSegments.first);
         if (identifier != null &&
@@ -415,6 +431,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/live/details/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return StreamDetailsScreen(streamId: id);
+        },
+      ),
+      GoRoute(
+        path: '/live/:id/details',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return StreamDetailsScreen(streamId: id);
+        },
+      ),
+      GoRoute(
+        path: '/stream-details/:id',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final id = state.pathParameters['id']!;

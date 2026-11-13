@@ -319,47 +319,35 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       if (raw == null || raw.trim().isEmpty) return;
       final resolved = MediaUrlResolver.resolve(raw);
       if (resolved != null &&
-          resolved.isNotEmpty &&
+          resolved.trim().isNotEmpty &&
           !candidates.contains(resolved)) {
         candidates.add(resolved);
       }
     }
 
-    // ── 1. Direct raw file / sourceFileUrl (Instant playback from Cloudinary CDN) ──
-    if (video.sourceFileUrl != null && video.sourceFileUrl!.isNotEmpty) {
-      final resolved = MediaUrlResolver.resolve(video.sourceFileUrl!);
-      if (resolved != null) {
-        if (MediaUrlResolver.isCloudinary(resolved)) {
-          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
-          addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
-        }
-        addCandidate(resolved);
-      }
-    }
-
-    // ── 2. Primary HLS or Video URL from backend ──────────────────────────────
+    // ── 1. Primary HLS or direct stream/video URL from backend ────────────────
     if (video.hlsUrl != null && video.hlsUrl!.isNotEmpty) {
       final resolved = MediaUrlResolver.resolve(video.hlsUrl!);
       if (resolved != null) {
+        addCandidate(resolved);
         if (MediaUrlResolver.isCloudinary(resolved)) {
-          // Direct raw MP4 loads in < 1 second and never fails on standard Cloudinary accounts
-          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
           addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
-          // Avoid sp_hd HLS URLs that return 404 on Cloudinary accounts without adaptive streaming
-          if (!resolved.contains('sp_hd')) {
-            addCandidate(resolved);
-          }
-        } else {
-          // If local or custom server
-          if (resolved.endsWith('.mp4')) {
-            addCandidate(resolved);
-          } else if (resolved.endsWith('.m3u8')) {
-            final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
-            addCandidate(resolved);
-            addCandidate(mp4Fallback);
-          } else {
-            addCandidate(resolved);
-          }
+          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
+        } else if (resolved.endsWith('.m3u8')) {
+          final mp4Fallback = resolved.replaceAll(RegExp(r'\.m3u8$'), '.mp4');
+          addCandidate(mp4Fallback);
+        }
+      }
+    }
+
+    // ── 2. Direct raw file / sourceFileUrl ────────────────────────────────────
+    if (video.sourceFileUrl != null && video.sourceFileUrl!.isNotEmpty) {
+      final resolved = MediaUrlResolver.resolve(video.sourceFileUrl!);
+      if (resolved != null) {
+        addCandidate(resolved);
+        if (MediaUrlResolver.isCloudinary(resolved)) {
+          addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
+          addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
         }
       }
     }
@@ -369,10 +357,11 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
       if (rendition.url.isNotEmpty) {
         final resolved = MediaUrlResolver.resolve(rendition.url);
         if (resolved != null) {
+          addCandidate(resolved);
           if (MediaUrlResolver.isCloudinary(resolved)) {
+            addCandidate(MediaUrlResolver.toCloudinaryMp4(resolved));
             addCandidate(MediaUrlResolver.toCloudinaryRaw(resolved));
           }
-          addCandidate(resolved);
         }
       }
     }
@@ -620,7 +609,7 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
           }
 
           await ctrl.initialize().timeout(
-            const Duration(seconds: 5),
+            const Duration(seconds: 15),
             onTimeout: () {
               ctrl.dispose();
               throw TimeoutException('Timed out initializing: $url');

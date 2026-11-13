@@ -293,7 +293,7 @@ class _ProfileLiveStreamsTabState extends ConsumerState<ProfileLiveStreamsTab> {
                       maxCrossAxisExtent: 320,
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 14,
-                      childAspectRatio: 0.94,
+                      childAspectRatio: 0.72,
                     ),
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final stream = displayedStreams[index];
@@ -544,111 +544,89 @@ class _StreamCard extends ConsumerWidget {
           ),
 
           // ── Metadata & Details ───────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        stream.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    // Management Menu (Three Dots)
-                    _buildManagementMenu(context, ref),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Info tags: Group/Channel, Date, Likes
-                Row(
-                  children: [
-                    if (stream.videoChannel != null) ...[
-                      Icon(
-                        Icons.tv_rounded,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          stream.videoChannel!.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              stream.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                height: 1.25,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 2),
+                          // Management Menu (Three Dots)
+                          _buildManagementMenu(context, ref),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                    ],
-                    Icon(
-                      Icons.schedule_rounded,
-                      size: 12,
-                      color: theme.colorScheme.outline,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      _formatStreamTimestamp(stream),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (stream.likesCount > 0) ...[
-                      Icon(
-                        Icons.favorite_rounded,
-                        size: 12,
-                        color: Colors.pinkAccent.withValues(alpha: 0.8),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${stream.likesCount}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    if (stream.totalChatMessages > 0) ...[
-                      Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${stream.totalChatMessages}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                      const SizedBox(height: 4),
 
-                const SizedBox(height: 8),
+                      // Info tags: Group/Channel, Date
+                      Row(
+                        children: [
+                          if (stream.videoChannel != null) ...[
+                            Icon(
+                              Icons.tv_rounded,
+                              size: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                stream.videoChannel!.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 12,
+                            color: theme.colorScheme.outline,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              _formatStreamTimestamp(stream),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
 
-                // ── Quick Action Bar ───────────────────────────────────────
-                _buildQuickActionBar(context, ref),
-              ],
+                  // ── Quick Action Bar ───────────────────────────────────────
+                  _buildQuickActionBar(context, ref),
+                ],
+              ),
             ),
           ),
         ],

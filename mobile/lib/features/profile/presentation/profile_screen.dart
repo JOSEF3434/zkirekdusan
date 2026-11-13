@@ -345,6 +345,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: tr('common.back'),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
+              ),
               title: Text(
                 profile.username ??
                     authState.user?.displayIdentifier ??
