@@ -356,11 +356,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   }
                 },
               ),
-              title: Text(
-                profile.username ??
-                    authState.user?.displayIdentifier ??
-                    tr('profile.my_profile'),
-              ),
+              title: null,
               pinned: true,
               floating: true,
               actions: [
@@ -385,35 +381,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       onPressed: () => context.push('/admin'),
                     );
                   },
-                ),
-                IconButton(
-                  tooltip: tr('profile.qr_and_share'),
-                  icon: const Icon(
-                    Icons.qr_code_2_rounded,
-                    color: Color(0xFF00C6FF),
-                  ),
-                  onPressed: () {
-                    final canonicalUrl = AppLinkService.userLink(
-                      username: profile.username,
-                      userId: profile.userId,
-                    );
-                    TelegramQrSheet.show(
-                      context,
-                      title: profile.displayName ?? profile.username ?? 'My Profile',
-                      subtitle: AppLinkService.userDisplay(
-                        username: profile.username,
-                        userId: profile.userId,
-                      ),
-                      avatarUrl: profile.avatarUrl,
-                      qrData: canonicalUrl,
-                      entityType: AppLinkEntityType.user,
-                    );
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Local Recordings',
-                  icon: const Icon(Icons.folder_special_outlined),
-                  onPressed: () => context.push('/live/recordings'),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings),
@@ -569,6 +536,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: tr('profile.qr_and_share'),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                      icon: const Icon(
+                        Icons.qr_code_2_rounded,
+                        color: Color(0xFF00C6FF),
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        final canonicalUrl = AppLinkService.userLink(
+                          username: profile.username,
+                          userId: profile.userId,
+                        );
+                        TelegramQrSheet.show(
+                          context,
+                          title: profile.displayName ??
+                              profile.username ??
+                              'My Profile',
+                          subtitle: AppLinkService.userDisplay(
+                            username: profile.username,
+                            userId: profile.userId,
+                          ),
+                          avatarUrl: profile.avatarUrl,
+                          qrData: canonicalUrl,
+                          entityType: AppLinkEntityType.user,
+                        );
+                      },
                     ),
                   ],
                 ),
