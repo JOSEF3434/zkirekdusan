@@ -37,97 +37,126 @@ class _LiveSideRailState extends State<LiveSideRail> {
         border: Border(right: BorderSide(color: divColor, width: 0.8)),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 12),
 
-            // ── Primary nav items ────────────────────────────────────────────
-            _RailCircleItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
-              isActive: widget.activeItem == LiveRailItem.home,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.goTo('/home'),
-            ),
-            _RailCircleItem(
-              icon: Icons.sensors_rounded,
-              label: 'Live',
-              isActive: widget.activeItem == LiveRailItem.live,
-              activeColor: Colors.redAccent,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.goTo('/live/discover'),
-            ),
-            _RailCircleItem(
-              icon: Icons.videocam_rounded,
-              label: 'Studio',
-              isActive: widget.activeItem == LiveRailItem.studio,
-              isExpanded: isExpanded,
-              onTap: () =>
-                  NavigationService.instance.navigateTo('/live/studio'),
-            ),
-            _RailCircleItem(
-              icon: Icons.event_available_rounded,
-              label: 'Schedule',
-              isActive: widget.activeItem == LiveRailItem.schedule,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.navigateTo(
-                '/live/studio?schedule=true',
+                        // ── Primary nav items ────────────────────────────────────
+                        _RailCircleItem(
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          isActive: widget.activeItem == LiveRailItem.home,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.goTo('/home'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.sensors_rounded,
+                          label: 'Live',
+                          isActive: widget.activeItem == LiveRailItem.live,
+                          activeColor: Colors.redAccent,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.goTo('/live/discover'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.videocam_rounded,
+                          label: 'Studio',
+                          isActive: widget.activeItem == LiveRailItem.studio,
+                          isExpanded: isExpanded,
+                          onTap: () =>
+                              NavigationService.instance.navigateTo('/live/studio'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.event_available_rounded,
+                          label: 'Schedule',
+                          isActive: widget.activeItem == LiveRailItem.schedule,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.navigateTo(
+                            '/live/studio?schedule=true',
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          indent: 12,
+                          endIndent: 12,
+                          color: divColor,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // ── Secondary items ───────────────────────────────────────
+                        _RailCircleItem(
+                          icon: Icons.explore_outlined,
+                          label: 'Explore',
+                          isActive: false,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.goTo('/home'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.video_library_outlined,
+                          label: 'Library',
+                          isActive: widget.activeItem == LiveRailItem.library,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.navigateTo('/library'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.analytics_outlined,
+                          label: 'Creator',
+                          isActive: widget.activeItem == LiveRailItem.creator,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.navigateTo('/creator'),
+                        ),
+                        _RailCircleItem(
+                          icon: Icons.folder_special_outlined,
+                          label: 'Recordings',
+                          isActive: widget.activeItem == LiveRailItem.recordings,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.navigateTo(
+                            '/live/recordings',
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          indent: 12,
+                          endIndent: 12,
+                          color: divColor,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // ── Bottom settings ───────────────────────────────────────
+                        _RailCircleItem(
+                          icon: Icons.settings_outlined,
+                          label: 'Settings',
+                          isActive: false,
+                          isExpanded: isExpanded,
+                          onTap: () => NavigationService.instance.navigateTo('/settings'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-
-            const SizedBox(height: 8),
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              indent: 12,
-              endIndent: 12,
-              color: divColor,
-            ),
-            const SizedBox(height: 8),
-
-            // ── Secondary items ───────────────────────────────────────────────
-            _RailCircleItem(
-              icon: Icons.explore_outlined,
-              label: 'Explore',
-              isActive: false,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.goTo('/home'),
-            ),
-            _RailCircleItem(
-              icon: Icons.video_library_outlined,
-              label: 'Library',
-              isActive: widget.activeItem == LiveRailItem.library,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.navigateTo('/library'),
-            ),
-            _RailCircleItem(
-              icon: Icons.analytics_outlined,
-              label: 'Creator',
-              isActive: widget.activeItem == LiveRailItem.creator,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.navigateTo('/creator'),
-            ),
-
-            const Spacer(),
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              indent: 12,
-              endIndent: 12,
-              color: divColor,
-            ),
-            const SizedBox(height: 8),
-
-            // ── Bottom settings ───────────────────────────────────────────────
-            _RailCircleItem(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              isActive: false,
-              isExpanded: isExpanded,
-              onTap: () => NavigationService.instance.navigateTo('/settings'),
-            ),
-            const SizedBox(height: 16),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -135,7 +164,7 @@ class _LiveSideRailState extends State<LiveSideRail> {
 }
 
 /// Items that can be "active" in the live rail.
-enum LiveRailItem { home, live, studio, schedule, library, creator }
+enum LiveRailItem { home, live, studio, schedule, library, creator, recordings }
 
 // ─── Single circular icon button ─────────────────────────────────────────────
 

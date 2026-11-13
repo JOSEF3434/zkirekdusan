@@ -49,6 +49,11 @@ class LiveDiscoveryScreen extends ConsumerWidget {
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.folder_special_outlined),
+              tooltip: 'Local Recordings',
+              onPressed: () => context.push('/live/recordings'),
+            ),
+            IconButton(
               icon: const Icon(Icons.add_circle_outline),
               tooltip: 'Go Live / Schedule',
               onPressed: () => _showLiveActionsSheet(context),

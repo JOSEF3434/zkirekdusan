@@ -192,6 +192,15 @@ class _MainNavigationRailState extends ConsumerState<MainNavigationRail> {
                           isSelected: path.startsWith('/library/downloads'),
                           onTap: () => context.push('/library/downloads'),
                         ),
+                        // 2b. Local Recordings
+                        _RailActionItem(
+                          icon: Icons.folder_special_outlined,
+                          selectedIcon: Icons.folder_special,
+                          label: 'Local Recordings',
+                          isExtended: isDesktop,
+                          isSelected: path.startsWith('/live/recordings'),
+                          onTap: () => context.push('/live/recordings'),
+                        ),
                         // 3. Watch History
                         _RailActionItem(
                           icon: Icons.history_rounded,

@@ -79,16 +79,21 @@ class LiveNetworkDiagnosticsWidget extends ConsumerWidget {
           children: [
             Icon(statusIcon, size: 16, color: statusColor),
             const SizedBox(width: 8),
-            Text(
-              isWifi ? 'Wi-Fi Network Active (Optimal)' : 'Connection Ready',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
+            Expanded(
+              child: Text(
+                isWifi ? 'Wi-Fi Network Active (Optimal)' : 'Connection Ready',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Text(
               'Latency: Low',
+              maxLines: 1,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

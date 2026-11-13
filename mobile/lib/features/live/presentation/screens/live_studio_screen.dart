@@ -1318,144 +1318,148 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     return Drawer(
       width: 280,
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.sensors_rounded,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Live Studio',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'Manage your broadcasts',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-
-            // Navigation items
-            _drawerItem(
-              context,
-              icon: Icons.live_tv_outlined,
-              label: tr('live.title'),
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/live/discover');
-              },
-            ),
-            _drawerItem(
-              context,
-              icon: Icons.video_library_outlined,
-              label: 'Library',
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/library');
-              },
-            ),
-            _drawerItem(
-              context,
-              icon: Icons.analytics_outlined,
-              label: 'Creator Studio',
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/creator');
-              },
-            ),
-            _drawerItem(
-              context,
-              icon: Icons.folder_special_outlined,
-              label: 'Local Recordings',
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/live/recordings');
-              },
-            ),
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            const SizedBox(height: 8),
-            _drawerItem(
-              context,
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/settings');
-              },
-            ),
-            const Spacer(),
-            // Tips card
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.secondaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.tips_and_updates_outlined,
-                        size: 16,
-                        color: theme.colorScheme.onPrimaryContainer,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Broadcast Tips',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                      child: Icon(
+                        Icons.sensors_rounded,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Live Studio',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Manage your broadcasts',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+
+              // Navigation items
+              _drawerItem(
+                context,
+                icon: Icons.live_tv_outlined,
+                label: tr('live.title'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/live/discover');
+                },
+              ),
+              _drawerItem(
+                context,
+                icon: Icons.video_library_outlined,
+                label: 'Library',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/library');
+                },
+              ),
+              _drawerItem(
+                context,
+                icon: Icons.analytics_outlined,
+                label: 'Creator Studio',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/creator');
+                },
+              ),
+              _drawerItem(
+                context,
+                icon: Icons.folder_special_outlined,
+                label: 'Local Recordings',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/live/recordings');
+                },
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              const SizedBox(height: 8),
+              _drawerItem(
+                context,
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push('/settings');
+                },
+              ),
+              const SizedBox(height: 16),
+              // Tips card
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primaryContainer,
+                      theme.colorScheme.secondaryContainer,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.tips_and_updates_outlined,
+                          size: 16,
                           color: theme.colorScheme.onPrimaryContainer,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Use a stable Wi-Fi connection for the best stream quality and minimal drops.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Broadcast Tips',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Use a stable Wi-Fi connection for the best stream quality and minimal drops.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

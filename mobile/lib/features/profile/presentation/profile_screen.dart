@@ -174,6 +174,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   },
                 ),
                 IconButton(
+                  tooltip: 'Local Recordings',
+                  icon: const Icon(Icons.folder_special_outlined),
+                  onPressed: () => context.push('/live/recordings'),
+                ),
+                IconButton(
                   icon: const Icon(Icons.settings),
                   onPressed: () => context.push('/settings'),
                 ),
@@ -827,6 +832,30 @@ class _ProfileVideosTab extends ConsumerWidget {
                         ),
                         trailing: const Icon(Icons.chevron_right, size: 20),
                         onTap: () => context.push('/library/bookmarks'),
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.folder_special_outlined,
+                            color: Colors.teal,
+                          ),
+                        ),
+                        title: const Text(
+                          'Local Recordings',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: const Text(
+                          'Offline broadcast audio',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, size: 20),
+                        onTap: () => context.push('/live/recordings'),
                       ),
                       const Divider(height: 24),
                     ],
