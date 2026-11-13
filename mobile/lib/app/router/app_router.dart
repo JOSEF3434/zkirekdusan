@@ -59,6 +59,7 @@ import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/live/presentation/screens/live_discovery_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_room_screen.dart';
 import 'package:mobile/features/live/presentation/screens/live_studio_screen.dart';
+import 'package:mobile/features/live/presentation/screens/stream_details_screen.dart';
 import 'package:mobile/features/live/presentation/screens/local_recordings_screen.dart';
 import 'package:mobile/features/live/presentation/screens/cast_camera_screen.dart';
 import 'package:mobile/core/presentation/app_shell.dart';
@@ -410,6 +411,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final streamId = state.uri.queryParameters['streamId'] ?? '';
           return CastCameraScreen(streamId: streamId);
+        },
+      ),
+      GoRoute(
+        path: '/live/details/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return StreamDetailsScreen(streamId: id);
         },
       ),
       GoRoute(

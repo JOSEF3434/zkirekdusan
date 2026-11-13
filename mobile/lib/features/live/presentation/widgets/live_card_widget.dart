@@ -35,7 +35,11 @@ class LiveCardWidget extends ConsumerWidget {
           (stream.createdBy?.username != null &&
            stream.createdBy!.username == authUser.username)
         );
-        if (isCreator && effectiveStatus != LiveStreamStatus.ended) {
+        if (effectiveStatus == LiveStreamStatus.ended ||
+            effectiveStatus == LiveStreamStatus.vodReady ||
+            effectiveStatus == LiveStreamStatus.processing) {
+          context.push('/live/details/${stream.id}');
+        } else if (isCreator) {
           context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
         } else {
           context.push('/live/${stream.id}');

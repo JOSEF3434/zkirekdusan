@@ -1015,11 +1015,16 @@ class _StreamCard extends ConsumerWidget {
                 ),
               ),
               onPressed: () => _handleCardTap(context),
-              icon: const Icon(Icons.play_circle_outline_rounded, size: 16),
+              icon: Icon(
+                stream.status == LiveStreamStatus.vodReady
+                    ? Icons.play_circle_outline_rounded
+                    : Icons.info_outline_rounded,
+                size: 16,
+              ),
               label: Text(
                 stream.status == LiveStreamStatus.vodReady
                     ? 'Watch Recording'
-                    : 'View Archive',
+                    : 'Stream Details',
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
@@ -1176,12 +1181,13 @@ class _StreamCard extends ConsumerWidget {
   void _handleCardTap(BuildContext context) {
     if (isOwner && stream.status == LiveStreamStatus.live) {
       context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
-    } else if (stream.status == LiveStreamStatus.live ||
-        stream.status == LiveStreamStatus.vodReady ||
-        stream.status == LiveStreamStatus.ended) {
+    } else if (stream.status == LiveStreamStatus.live) {
       context.push('/live/${stream.id}');
-    } else if (isOwner) {
+    } else if (stream.status == LiveStreamStatus.draft && isOwner) {
       context.push('/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}');
+    } else {
+      // Ended, VOD ready, processing, scheduled, cancelled, failed -> Stream Details Screen
+      context.push('/live/details/${stream.id}');
     }
   }
 

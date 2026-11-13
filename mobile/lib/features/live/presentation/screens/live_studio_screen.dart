@@ -2045,7 +2045,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
-                context.pop(); // return to live discovery
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/live/discover');
+                }
               },
               child: const Text('Go to Scheduled Streams'),
             ),
@@ -5500,7 +5504,11 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     } else {
       await _stopRtmpBroadcast();
       if (context.mounted) {
-        context.pop();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/profile');
+        }
       }
     }
   }

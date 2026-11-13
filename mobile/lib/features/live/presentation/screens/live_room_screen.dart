@@ -18,6 +18,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:mobile/core/presentation/providers/mini_player_provider.dart';
 import 'package:mobile/features/live/data/live_streaming_repository.dart';
 import 'package:mobile/features/live/domain/live_dvr_state.dart';
+import 'package:mobile/features/live/domain/live_stream_model.dart';
 import 'package:mobile/features/live/presentation/providers/live_room_provider.dart';
 import 'package:mobile/features/live/presentation/widgets/cast_panel_widget.dart';
 import 'package:mobile/features/live/presentation/widgets/dvr_seek_bar.dart';
@@ -141,7 +142,14 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
     if (!mounted) return;
     if (_redirectedToStudio) return;
     final stream = roomState.stream;
-    if (stream == null || roomState.phase == LiveStreamPhase.ended) return;
+    if (stream == null ||
+        roomState.phase == LiveStreamPhase.ended ||
+        stream.status == LiveStreamStatus.ended ||
+        stream.status == LiveStreamStatus.vodReady ||
+        stream.status == LiveStreamStatus.cancelled ||
+        stream.status == LiveStreamStatus.failed) {
+      return;
+    }
 
     final authUser = ref.read(authProvider).user;
     if (authUser == null) return;
@@ -156,7 +164,7 @@ class _LiveRoomScreenState extends ConsumerState<LiveRoomScreen>
       _playerCtrl?.pause();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.go(
+          context.pushReplacement(
             '/live/studio?streamId=${stream.id}&channelId=${stream.videoChannelId}',
           );
         }
