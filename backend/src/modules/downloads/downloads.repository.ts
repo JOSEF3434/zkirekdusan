@@ -11,24 +11,34 @@ export class DownloadsRepository {
     userId: string;
     videoId?: string;
     fileId?: string;
+    postId?: string;
+    publisherId?: string;
     resolution?: VideoResolution;
     signedUrl: string;
     expiresAt: Date;
     ipAddress?: string;
     userAgent?: string;
     fileSize?: bigint;
+    isWatermarked?: boolean;
+    watermarkText?: string;
+    attributionJson?: any;
   }) {
     return this.prisma.downloadRecord.create({
       data: {
         userId: data.userId,
         videoId: data.videoId,
         fileId: data.fileId,
+        postId: data.postId,
+        publisherId: data.publisherId,
         resolution: data.resolution,
         signedUrl: data.signedUrl,
         expiresAt: data.expiresAt,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
         fileSize: data.fileSize,
+        isWatermarked: data.isWatermarked ?? false,
+        watermarkText: data.watermarkText,
+        attributionJson: data.attributionJson,
         status: DownloadStatus.PENDING,
       },
     });
@@ -58,6 +68,36 @@ export class DownloadsRepository {
         include: {
           video: {
             select: { id: true, title: true, slug: true, thumbnailUrl: true },
+          },
+          post: {
+            select: {
+              id: true,
+              content: true,
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  profile: {
+                    select: {
+                      displayName: true,
+                      avatar: { select: { url: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          publisher: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatar: { select: { url: true } },
+                },
+              },
+            },
           },
           file: {
             select: {

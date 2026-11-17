@@ -12,11 +12,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/storage/storage_directory_resolver.dart';
+import 'package:mobile/core/storage/watermark_service.dart';
+import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/core/database/app_database.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
 import 'package:mobile/core/providers/database_provider.dart';
 import 'package:mobile/core/storage/download_settings.dart';
 export 'package:mobile/core/storage/download_settings.dart';
+export 'package:mobile/core/storage/storage_directory_resolver.dart';
+export 'package:mobile/core/storage/watermark_service.dart';
 import 'package:mobile/core/storage/secure_storage.dart';
 import 'package:mobile/core/storage/video_source_resolver.dart';
 import 'package:mobile/core/storage/cache_manager.dart';
@@ -45,6 +53,20 @@ class DownloadMetadata {
   final String? duration;
   final DateTime? downloadedAt;
 
+  // Trusted publisher attribution fields
+  final String? publisherId;
+  final String? publisherUsername;
+  final String? publisherDisplayName;
+  final String? publisherAvatarUrl;
+  final String? sourceType; // 'POST' | 'VIDEO' | 'FILE' | 'CHANNEL' | 'GROUP'
+  final String? sourceId;
+  final String? canonicalUrl;
+  final String? watermarkText;
+  final String? brandName;
+  final String? groupName;
+  final String? mediaType; // 'VIDEO' | 'IMAGE' | 'AUDIO' | 'DOCUMENT'
+  final bool isWatermarked;
+
   DownloadMetadata({
     required this.videoId,
     required this.title,
@@ -56,6 +78,18 @@ class DownloadMetadata {
     this.channelName,
     this.duration,
     this.downloadedAt,
+    this.publisherId,
+    this.publisherUsername,
+    this.publisherDisplayName,
+    this.publisherAvatarUrl,
+    this.sourceType,
+    this.sourceId,
+    this.canonicalUrl,
+    this.watermarkText,
+    this.brandName,
+    this.groupName,
+    this.mediaType,
+    this.isWatermarked = false,
   });
 
   DownloadMetadata copyWith({
@@ -69,6 +103,18 @@ class DownloadMetadata {
     String? channelName,
     String? duration,
     DateTime? downloadedAt,
+    String? publisherId,
+    String? publisherUsername,
+    String? publisherDisplayName,
+    String? publisherAvatarUrl,
+    String? sourceType,
+    String? sourceId,
+    String? canonicalUrl,
+    String? watermarkText,
+    String? brandName,
+    String? groupName,
+    String? mediaType,
+    bool? isWatermarked,
   }) {
     return DownloadMetadata(
       videoId: videoId ?? this.videoId,
@@ -81,6 +127,18 @@ class DownloadMetadata {
       channelName: channelName ?? this.channelName,
       duration: duration ?? this.duration,
       downloadedAt: downloadedAt ?? this.downloadedAt,
+      publisherId: publisherId ?? this.publisherId,
+      publisherUsername: publisherUsername ?? this.publisherUsername,
+      publisherDisplayName: publisherDisplayName ?? this.publisherDisplayName,
+      publisherAvatarUrl: publisherAvatarUrl ?? this.publisherAvatarUrl,
+      sourceType: sourceType ?? this.sourceType,
+      sourceId: sourceId ?? this.sourceId,
+      canonicalUrl: canonicalUrl ?? this.canonicalUrl,
+      watermarkText: watermarkText ?? this.watermarkText,
+      brandName: brandName ?? this.brandName,
+      groupName: groupName ?? this.groupName,
+      mediaType: mediaType ?? this.mediaType,
+      isWatermarked: isWatermarked ?? this.isWatermarked,
     );
   }
 
@@ -95,12 +153,24 @@ class DownloadMetadata {
         if (channelName != null) 'channelName': channelName,
         if (duration != null) 'duration': duration,
         if (downloadedAt != null) 'downloadedAt': downloadedAt!.toIso8601String(),
+        if (publisherId != null) 'publisherId': publisherId,
+        if (publisherUsername != null) 'publisherUsername': publisherUsername,
+        if (publisherDisplayName != null) 'publisherDisplayName': publisherDisplayName,
+        if (publisherAvatarUrl != null) 'publisherAvatarUrl': publisherAvatarUrl,
+        if (sourceType != null) 'sourceType': sourceType,
+        if (sourceId != null) 'sourceId': sourceId,
+        if (canonicalUrl != null) 'canonicalUrl': canonicalUrl,
+        if (watermarkText != null) 'watermarkText': watermarkText,
+        if (brandName != null) 'brandName': brandName,
+        if (groupName != null) 'groupName': groupName,
+        if (mediaType != null) 'mediaType': mediaType,
+        'isWatermarked': isWatermarked,
       };
 
   factory DownloadMetadata.fromJson(Map<String, dynamic> json) =>
       DownloadMetadata(
         videoId: json['videoId'] ?? '',
-        title: json['title'] ?? 'Video',
+        title: json['title'] ?? 'Media',
         localPath: json['localPath'] ?? '',
         thumbnailUrl: json['thumbnailUrl'],
         sizeBytes: json['sizeBytes'] ?? 0,
@@ -114,6 +184,18 @@ class DownloadMetadata {
           (s) => s.name == json['status'],
           orElse: () => VideoDownloadStatus.completed,
         ),
+        publisherId: json['publisherId'],
+        publisherUsername: json['publisherUsername'],
+        publisherDisplayName: json['publisherDisplayName'],
+        publisherAvatarUrl: json['publisherAvatarUrl'],
+        sourceType: json['sourceType'],
+        sourceId: json['sourceId'],
+        canonicalUrl: json['canonicalUrl'],
+        watermarkText: json['watermarkText'],
+        brandName: json['brandName'],
+        groupName: json['groupName'],
+        mediaType: json['mediaType'],
+        isWatermarked: json['isWatermarked'] == true,
       );
 }
 
@@ -370,13 +452,69 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     }
 
     try {
+      // 0. Enforce Backend Permission & Retrieve Trusted Publisher Attribution
+      String effectiveDownloadUrl = url;
+      String? backendPublisherId;
+      String? backendPublisherUsername = channelName;
+      String? backendPublisherDisplayName;
+      String? backendPublisherAvatarUrl;
+      String? backendCanonicalUrl;
+      String? backendWatermarkText = channelName != null ? '@$channelName' : null;
+      String backendBrandName = 'Zikire Kdusan';
+      bool isWatermarked = false;
+
+      try {
+        final authRes = await _dio.post(
+          '/downloads/video',
+          data: {
+            'videoId': videoId,
+            'resolution': quality.toLowerCase() == '1080p' ? 'R_1080P' : 'R_720P',
+          },
+        );
+        if (authRes.data != null && authRes.data is Map) {
+          final data = authRes.data as Map<String, dynamic>;
+          final remoteWatermarkedUrl = data['watermarkedMediaUrl'] as String?;
+          final signedUrl = data['downloadUrl'] as String?;
+          if (remoteWatermarkedUrl != null && remoteWatermarkedUrl.isNotEmpty) {
+            effectiveDownloadUrl = remoteWatermarkedUrl;
+            isWatermarked = true;
+          } else if (signedUrl != null && signedUrl.isNotEmpty) {
+            effectiveDownloadUrl = signedUrl;
+          }
+
+          final attr = data['attribution'] as Map<String, dynamic>?;
+          if (attr != null) {
+            backendPublisherId = attr['publisherId'] as String?;
+            backendPublisherUsername = attr['publisherUsername'] as String? ?? backendPublisherUsername;
+            backendPublisherDisplayName = attr['publisherDisplayName'] as String?;
+            backendPublisherAvatarUrl = attr['publisherAvatarUrl'] as String?;
+            backendCanonicalUrl = attr['canonicalUrl'] as String?;
+            backendWatermarkText = attr['watermarkText'] as String? ?? backendWatermarkText;
+            backendBrandName = attr['brandName'] as String? ?? backendBrandName;
+            channelName = attr['channelName'] as String? ?? channelName;
+          }
+        }
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 403) {
+          final msg = (e.response?.data is Map && e.response?.data['message'] != null)
+              ? e.response!.data['message'].toString()
+              : 'The publisher has disabled downloads.';
+          state = state.copyWith(
+            errors: {...state.errors, videoId: msg},
+          );
+          return;
+        }
+        debugPrint('[VideoDownloadManager] Backend auth warning (proceeding with fallback): $e');
+      } catch (e) {
+        debugPrint('[VideoDownloadManager] Backend auth note: $e');
+      }
+
       // 1. Resolve to downloadable Cloudinary MP4 rendition or direct MP4 URL
-      final resolvedUrl = MediaUrlResolver.resolve(url);
-      if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
+      final resolvedUrl = MediaUrlResolver.resolve(effectiveDownloadUrl) ?? effectiveDownloadUrl;
+      if (resolvedUrl.trim().isEmpty) {
         throw Exception('Invalid download URL: $url');
       }
 
-      final String effectiveDownloadUrl;
       if (MediaUrlResolver.isCloudinary(resolvedUrl)) {
         effectiveDownloadUrl = MediaUrlResolver.toCloudinaryRaw(resolvedUrl);
       } else if (resolvedUrl.endsWith('.m3u8')) {
@@ -416,6 +554,17 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         quality: quality,
         status: VideoDownloadStatus.downloading,
         channelName: channelName,
+        publisherId: backendPublisherId,
+        publisherUsername: backendPublisherUsername,
+        publisherDisplayName: backendPublisherDisplayName,
+        publisherAvatarUrl: backendPublisherAvatarUrl,
+        sourceType: 'VIDEO',
+        sourceId: videoId,
+        canonicalUrl: backendCanonicalUrl,
+        watermarkText: backendWatermarkText,
+        brandName: backendBrandName,
+        mediaType: 'VIDEO',
+        isWatermarked: isWatermarked,
       );
 
       state = state.copyWith(
@@ -486,6 +635,25 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         }
         await downloadedFile.rename(finalFilePath);
 
+        // Also save/copy to device shared internal storage (Internal storage/Zikire Kdusan/Videos)
+        String sharedStoragePath = finalFilePath;
+        try {
+          final safeTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+          final sharedFile = await StorageDirectoryResolver.finalizeDownload(
+            tempFile: File(finalFilePath),
+            targetFileName: '${safeTitle}_$quality.mp4',
+            category: MediaCategory.videos,
+            overwrite: false,
+          );
+          sharedStoragePath = sharedFile.path;
+          // Re-copy to internal path for video player if moved
+          if (!await File(finalFilePath).exists()) {
+            await sharedFile.copy(finalFilePath);
+          }
+        } catch (e) {
+          debugPrint('[DownloadService] Shared storage copy note: $e');
+        }
+
         // Download thumbnail locally alongside the video file for reliable offline access
         String? finalThumbnailUrl = thumbnailUrl;
         if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
@@ -514,12 +682,23 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
         final metadata = DownloadMetadata(
           videoId: videoId,
           title: title,
-          localPath: finalFilePath,
+          localPath: sharedStoragePath,
           thumbnailUrl: finalThumbnailUrl,
           sizeBytes: length,
           quality: quality,
           status: VideoDownloadStatus.completed,
           channelName: channelName,
+          publisherId: backendPublisherId,
+          publisherUsername: backendPublisherUsername,
+          publisherDisplayName: backendPublisherDisplayName,
+          publisherAvatarUrl: backendPublisherAvatarUrl,
+          sourceType: 'VIDEO',
+          sourceId: videoId,
+          canonicalUrl: backendCanonicalUrl ?? 'https://zikrekidusan.org/video/$videoId',
+          watermarkText: backendWatermarkText ?? '@${backendPublisherUsername ?? "zikre_kdusan"}',
+          brandName: backendBrandName,
+          mediaType: 'VIDEO',
+          isWatermarked: isWatermarked,
           downloadedAt: DateTime.now(),
         );
         await metadataFile.writeAsString(jsonEncode(metadata.toJson()));
@@ -1009,6 +1188,223 @@ class VideoDownloadManager extends StateNotifier<DownloadState> {
     }
   }
 
+  /// TikTok-style permission-aware download for social post media.
+  /// Validates backend download permissions, retrieves trusted publisher attribution,
+  /// downloads to a temporary location, applies the official Zikire Kdusan logo and publisher
+  /// username watermark, moves output to device storage (Internal storage/Zikire Kdusan/Images or Videos),
+  /// and stores source attribution details.
+  Future<bool> downloadPostMedia({
+    required PostResponseDto post,
+    String? mediaId,
+    BuildContext? context,
+  }) async {
+    final videoId = 'post_${post.id}';
+    if (state.downloading.contains(videoId)) return false;
+
+    if (!_connectivity.state.isOnline) {
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection available.')),
+        );
+      }
+      return false;
+    }
+
+    // 1. Validate publisher permission via Backend
+    Map<String, dynamic> data;
+    try {
+      final res = await _dio.post(
+        '/downloads/post',
+        data: {
+          'postId': post.id,
+          'mediaFileId': ?mediaId,
+        },
+      );
+      data = res.data is Map ? res.data as Map<String, dynamic> : {};
+    } on DioException catch (e) {
+      final message = (e.response?.data is Map && e.response?.data['message'] != null)
+          ? e.response!.data['message'].toString()
+          : 'The publisher has disabled downloads.';
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+      }
+      return false;
+    } catch (e) {
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+      return false;
+    }
+
+    final rawDownloadUrl = data['downloadUrl'] as String? ?? '';
+    final watermarkedMediaUrl = data['watermarkedMediaUrl'] as String?;
+    final attr = data['attribution'] as Map<String, dynamic>?;
+    final fileType = (data['fileType'] as String? ?? 'IMAGE').toUpperCase();
+    final filename = data['filename'] as String? ?? 'post_${post.id}.jpg';
+    final isVideo = fileType == 'VIDEO';
+
+    final publisherUsername = attr?['publisherUsername'] as String? ??
+        post.author.username ??
+        'zikre_kdusan';
+    final publisherDisplayName = attr?['publisherDisplayName'] as String? ??
+        post.author.displayName ??
+        publisherUsername;
+    final publisherAvatarUrl = attr?['publisherAvatarUrl'] as String? ??
+        post.author.avatarUrl;
+    final canonicalUrl = attr?['canonicalUrl'] as String? ??
+        'https://zikrekidusan.org/post/${post.id}';
+    final watermarkText = attr?['watermarkText'] as String? ?? '@$publisherUsername';
+    final brandName = attr?['brandName'] as String? ?? 'ዝክረ ቅዱሳን';
+
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text('Downloading & applying watermark...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    File? tempDownloadFile;
+    File? watermarkedFile;
+
+    try {
+      final effectiveDownloadUrl = watermarkedMediaUrl ?? rawDownloadUrl;
+      final resolvedUrl = MediaUrlResolver.resolve(effectiveDownloadUrl) ?? effectiveDownloadUrl;
+
+      state = state.copyWith(
+        downloading: {...state.downloading, videoId},
+        progress: {...state.progress, videoId: 0.2},
+      );
+
+      final ext = isVideo ? 'mp4' : (filename.toLowerCase().endsWith('.png') ? 'png' : 'jpg');
+      tempDownloadFile = await StorageDirectoryResolver.createTempProcessingFile(ext);
+
+      await _dio.download(
+        resolvedUrl,
+        tempDownloadFile.path,
+        onReceiveProgress: (rec, total) {
+          if (total > 0) {
+            state = state.copyWith(
+              progress: {...state.progress, videoId: (rec / total).clamp(0.2, 0.8)},
+            );
+          }
+        },
+      );
+
+      if (!await tempDownloadFile.exists() || await tempDownloadFile.length() == 0) {
+        throw Exception('Downloaded file is empty (0 bytes)');
+      }
+
+      File finalProcessedFile = tempDownloadFile;
+
+      // 2. If image and not pre-watermarked by server, embed TikTok-style watermark directly into pixels
+      if (!isVideo && watermarkedMediaUrl == null) {
+        final watermarkedTemp = await StorageDirectoryResolver.createTempProcessingFile(ext);
+        await WatermarkService.applyImageWatermark(
+          sourceImageFile: tempDownloadFile,
+          destinationFile: watermarkedTemp,
+          publisherUsername: publisherUsername,
+          publisherDisplayName: publisherDisplayName,
+          brandName: brandName,
+        );
+        finalProcessedFile = watermarkedTemp;
+        watermarkedFile = watermarkedTemp;
+      }
+
+      state = state.copyWith(
+        progress: {...state.progress, videoId: 0.9},
+      );
+
+      // 3. Move finalized file to Internal storage/Zikire Kdusan/<Category>
+      final category = isVideo ? MediaCategory.videos : MediaCategory.images;
+      final savedFile = await StorageDirectoryResolver.finalizeDownload(
+        tempFile: finalProcessedFile,
+        targetFileName: filename,
+        category: category,
+      );
+
+      final length = await savedFile.length();
+      final metadata = DownloadMetadata(
+        videoId: videoId,
+        title: post.content?.isNotEmpty == true
+            ? (post.content!.length > 40 ? '${post.content!.substring(0, 40)}...' : post.content!)
+            : 'Post Media',
+        localPath: savedFile.path,
+        thumbnailUrl: publisherAvatarUrl,
+        sizeBytes: length,
+        publisherId: post.author.id,
+        publisherUsername: publisherUsername,
+        publisherDisplayName: publisherDisplayName,
+        publisherAvatarUrl: publisherAvatarUrl,
+        sourceType: 'POST',
+        sourceId: post.id,
+        canonicalUrl: canonicalUrl,
+        watermarkText: watermarkText,
+        brandName: brandName,
+        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+        isWatermarked: true,
+        downloadedAt: DateTime.now(),
+      );
+
+      state = state.copyWith(
+        downloading: {...state.downloading}..remove(videoId),
+        progress: {...state.progress, videoId: 1.0},
+        downloads: {...state.downloads, videoId: metadata},
+      );
+
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to ${category.folderName} with @$publisherUsername attribution'),
+            action: SnackBarAction(
+              label: 'Open Source',
+              textColor: Colors.amber,
+              onPressed: () {
+                context.push('/post/${post.id}');
+              },
+            ),
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[DownloadService] Post media download error: $e');
+      state = state.copyWith(
+        downloading: {...state.downloading}..remove(videoId),
+        errors: {...state.errors, videoId: e.toString()},
+      );
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+      return false;
+    } finally {
+      await StorageDirectoryResolver.cleanupTemp(tempDownloadFile);
+      if (watermarkedFile != null && watermarkedFile != tempDownloadFile) {
+        await StorageDirectoryResolver.cleanupTemp(watermarkedFile);
+      }
+    }
+  }
+
   /// Deletes all completed downloads from storage and updates state.
   Future<void> deleteAllDownloads() async {
     final ids = state.downloads.keys.toList();
@@ -1024,12 +1420,7 @@ final downloadServiceProvider =
   final db = ref.watch(appDatabaseProvider);
   final legacyStorage = ref.watch(storageServiceProvider);
   final connectivity = ref.watch(connectivityProvider.notifier);
-  final dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 10),
-    ),
-  );
+  final dio = ref.watch(apiClientProvider);
   return VideoDownloadManager(db, legacyStorage, connectivity, dio);
 });
 

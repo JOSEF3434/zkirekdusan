@@ -67,12 +67,24 @@ class DownloadSettings {
   /// Maximum simultaneous downloads (1–5).
   final int maxConcurrent;
 
+  /// Publisher permission preference: whether others are allowed to download my media by default.
+  final bool allowDownloadsByDefault;
+
+  /// Default storage directory description.
+  final String defaultDownloadLocation;
+
+  /// Default download quality (e.g. '720p', '1080p', '480p').
+  final String preferredQuality;
+
   const DownloadSettings({
     this.storageMode = DownloadStorageMode.inAppOnly,
     this.sortOrder = DownloadSortOrder.newestFirst,
     this.viewMode = DownloadViewMode.grid,
     this.autoDownloadOnWifi = false,
     this.maxConcurrent = 1,
+    this.allowDownloadsByDefault = true,
+    this.defaultDownloadLocation = 'Internal storage/Zikire Kdusan/',
+    this.preferredQuality = '720p',
   });
 
   DownloadSettings copyWith({
@@ -81,6 +93,9 @@ class DownloadSettings {
     DownloadViewMode? viewMode,
     bool? autoDownloadOnWifi,
     int? maxConcurrent,
+    bool? allowDownloadsByDefault,
+    String? defaultDownloadLocation,
+    String? preferredQuality,
   }) {
     return DownloadSettings(
       storageMode: storageMode ?? this.storageMode,
@@ -88,6 +103,11 @@ class DownloadSettings {
       viewMode: viewMode ?? this.viewMode,
       autoDownloadOnWifi: autoDownloadOnWifi ?? this.autoDownloadOnWifi,
       maxConcurrent: maxConcurrent ?? this.maxConcurrent,
+      allowDownloadsByDefault:
+          allowDownloadsByDefault ?? this.allowDownloadsByDefault,
+      defaultDownloadLocation:
+          defaultDownloadLocation ?? this.defaultDownloadLocation,
+      preferredQuality: preferredQuality ?? this.preferredQuality,
     );
   }
 
@@ -97,6 +117,9 @@ class DownloadSettings {
         'viewMode': viewMode.name,
         'autoDownloadOnWifi': autoDownloadOnWifi,
         'maxConcurrent': maxConcurrent,
+        'allowDownloadsByDefault': allowDownloadsByDefault,
+        'defaultDownloadLocation': defaultDownloadLocation,
+        'preferredQuality': preferredQuality,
       };
 
   factory DownloadSettings.fromJson(Map<String, dynamic> json) {
@@ -114,7 +137,12 @@ class DownloadSettings {
         orElse: () => DownloadViewMode.grid,
       ),
       autoDownloadOnWifi: json['autoDownloadOnWifi'] as bool? ?? false,
-      maxConcurrent: json['maxConcurrent'] as int? ?? 1,
+      maxConcurrent: (json['maxConcurrent'] as num?)?.toInt() ?? 1,
+      allowDownloadsByDefault:
+          json['allowDownloadsByDefault'] as bool? ?? true,
+      defaultDownloadLocation: json['defaultDownloadLocation'] as String? ??
+          'Internal storage/Zikire Kdusan/',
+      preferredQuality: json['preferredQuality'] as String? ?? '720p',
     );
   }
 }
@@ -173,6 +201,21 @@ class DownloadSettingsNotifier extends StateNotifier<DownloadSettings> {
 
   Future<void> setMaxConcurrent(int value) async {
     state = state.copyWith(maxConcurrent: value.clamp(1, 5));
+    await _persist();
+  }
+
+  Future<void> setAllowDownloadsByDefault(bool value) async {
+    state = state.copyWith(allowDownloadsByDefault: value);
+    await _persist();
+  }
+
+  Future<void> setDefaultDownloadLocation(String path) async {
+    state = state.copyWith(defaultDownloadLocation: path);
+    await _persist();
+  }
+
+  Future<void> setPreferredQuality(String quality) async {
+    state = state.copyWith(preferredQuality: quality);
     await _persist();
   }
 }

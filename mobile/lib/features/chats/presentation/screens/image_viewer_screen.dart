@@ -1,5 +1,6 @@
 // lib/features/chats/presentation/screens/image_viewer_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +9,9 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:mobile/core/storage/storage_directory_resolver.dart';
+import 'package:mobile/core/storage/watermark_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/chats/data/models/message_model.dart';
 
@@ -124,22 +126,36 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       );
     }
 
+    File? tempWatermarked;
     try {
-      final dir = await getApplicationDocumentsDirectory();
+      final cachedFile = await DefaultCacheManager().getSingleFile(image.url);
       final sanitizedName = image.originalName.replaceAll(
         RegExp(r'[^\w\.-]'),
         '_',
       );
-      final savePath =
-          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
-      final file = await DefaultCacheManager().getSingleFile(image.url);
-      final savedFile = await file.copy(savePath);
+
+      final ext = sanitizedName.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+      tempWatermarked = await StorageDirectoryResolver.createTempProcessingFile(ext);
+
+      // Apply TikTok-style watermark with official Zikire Kdusan branding
+      await WatermarkService.applyImageWatermark(
+        sourceImageFile: cachedFile,
+        destinationFile: tempWatermarked,
+        publisherUsername: 'zikre_kdusan',
+        brandName: WatermarkService.defaultBrandAmharic,
+      );
+
+      final savedFile = await StorageDirectoryResolver.finalizeDownload(
+        tempFile: tempWatermarked,
+        targetFileName: sanitizedName,
+        category: MediaCategory.images,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Saved: ${image.originalName}'),
+          content: Text('Saved to Zikire Kdusan/Images: ${image.originalName}'),
           action: SnackBarAction(
             label: 'Open',
             textColor: Colors.amberAccent,
@@ -155,6 +171,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
     } finally {
+      await StorageDirectoryResolver.cleanupTemp(tempWatermarked);
       if (mounted) {
         setState(() => _isDownloading = false);
       }

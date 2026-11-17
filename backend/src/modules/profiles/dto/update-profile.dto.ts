@@ -1,6 +1,7 @@
 // src/modules/profiles/dto/update-profile.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -57,4 +58,9 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEnum(ProfileVisibility)
   visibility?: ProfileVisibility;
+
+  @ApiPropertyOptional({ example: true, description: 'Default download permission for published media' })
+  @IsOptional()
+  @IsBoolean()
+  allowDownloadsByDefault?: boolean;
 }

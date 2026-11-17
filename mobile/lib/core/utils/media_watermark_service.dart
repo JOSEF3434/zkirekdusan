@@ -87,7 +87,7 @@ class MediaWatermarkService {
   }
 
   /// Applies the 'Logo + ዝክረ ቅዱሳን' TikTok-style watermark onto image [imageBytes].
-  Future<Uint8List> applyWatermark(Uint8List imageBytes) async {
+  Future<Uint8List> applyWatermark(Uint8List imageBytes, {String? publisherUsername}) async {
     // 1. Decode original image
     final codec = await ui.instantiateImageCodec(imageBytes);
     final frame = await codec.getNextFrame();
@@ -108,136 +108,122 @@ class MediaWatermarkService {
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, imgWidth, imgHeight));
 
     // 4. Draw original image
-    canvas.drawImage(originalImage, Offset.zero, Paint());
+    canvas.drawImage(originalImage, Offset.zero, Paint()..filterQuality = ui.FilterQuality.high);
 
     // 5. Calculate responsive scale based on image dimensions
     final minDim = math.min(imgWidth, imgHeight);
-    final scale = (minDim / 800.0).clamp(0.7, 2.8);
+    final scale = (minDim / 750.0).clamp(0.6, 2.5);
 
-    const watermarkText = 'ዝክረ ቅዱሳን';
+    const brandName = 'ዝክረ ቅዱሳን';
     final fontSize = 16.0 * scale;
-    final logoSize = 30.0 * scale;
-    final paddingHorizontal = 12.0 * scale;
-    final paddingVertical = 7.0 * scale;
-    final spacing = 8.0 * scale;
-    final cornerRadius = 14.0 * scale;
-    final margin = 20.0 * scale;
+    final logoSize = 38.0 * scale;
+    final margin = 26.0 * scale;
+
+    final textShadows = [
+      ui.Shadow(
+        color: const Color(0xE6000000),
+        offset: Offset(1.5 * scale, 1.5 * scale),
+        blurRadius: 4.5 * scale,
+      ),
+      ui.Shadow(
+        color: const Color(0x99000000),
+        offset: Offset(-0.8 * scale, -0.8 * scale),
+        blurRadius: 3.0 * scale,
+      ),
+    ];
 
     // 6. Measure text layout
-    final paragraphBuilder =
-        ui.ParagraphBuilder(
-            ui.ParagraphStyle(
-              textAlign: TextAlign.start,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              maxLines: 1,
-            ),
-          )
-          ..pushStyle(
-            ui.TextStyle(
-              color: const Color(0xFFFFFFFF),
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              shadows: [
-                ui.Shadow(
-                  color: const Color(0x99000000),
-                  offset: Offset(scale, scale),
-                  blurRadius: 3.0 * scale,
-                ),
-              ],
-            ),
-          )
-          ..addText(watermarkText);
+    final paragraphBuilder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textAlign: TextAlign.start,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w800,
+        maxLines: 1,
+      ),
+    )
+      ..pushStyle(
+        ui.TextStyle(
+          color: const Color(0xFFFFFFFF),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
+          shadows: textShadows,
+        ),
+      )
+      ..addText(brandName);
 
     final paragraph = paragraphBuilder.build()
-      ..layout(ui.ParagraphConstraints(width: imgWidth * 0.5));
+      ..layout(ui.ParagraphConstraints(width: imgWidth * 0.6));
 
-    final textWidth = paragraph.maxIntrinsicWidth;
     final textHeight = paragraph.height;
 
-    // Badge container dimensions
-    final badgeWidth =
-        paddingHorizontal * 2 +
-        (logoImage != null ? logoSize + spacing : 0) +
-        textWidth;
-    final badgeHeight = math.max(logoSize, textHeight) + (paddingVertical * 2);
+    // Optional username paragraph
+    ui.Paragraph? userParagraph;
+    if (publisherUsername != null && publisherUsername.isNotEmpty) {
+      final cleanUser = publisherUsername.startsWith('@') ? publisherUsername : '@$publisherUsername';
+      final userBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.start,
+          fontSize: fontSize * 0.85,
+          fontWeight: FontWeight.w600,
+          maxLines: 1,
+        ),
+      )
+        ..pushStyle(
+          ui.TextStyle(
+            color: const Color(0xFFFFFFFF),
+            fontSize: fontSize * 0.85,
+            fontWeight: FontWeight.w600,
+            shadows: textShadows,
+          ),
+        )
+        ..addText(cleanUser);
 
-    // Position at bottom-right (TikTok style)
-    final badgeLeft = imgWidth - badgeWidth - margin;
-    final badgeTop = imgHeight - badgeHeight - margin;
-    final badgeRect = Rect.fromLTWH(
-      badgeLeft,
-      badgeTop,
-      badgeWidth,
-      badgeHeight,
-    );
-
-    // 7. Draw frosted pill background with subtle shadow
-    final pillRRect = RRect.fromRectAndRadius(
-      badgeRect,
-      Radius.circular(cornerRadius),
-    );
-
-    // Shadow
-    final shadowPaint = Paint()
-      ..color = const Color(0x66000000)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6.0 * scale);
-    canvas.drawRRect(pillRRect.shift(Offset(0, 2.0 * scale)), shadowPaint);
-
-    // Semi-transparent dark pill background
-    final backgroundPaint = Paint()
-      ..color =
-          const Color(0xB8121214) // ~72% dark
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(pillRRect, backgroundPaint);
-
-    // Thin elegant border
-    final borderPaint = Paint()
-      ..color = const Color(0x40FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0 * scale;
-    canvas.drawRRect(pillRRect, borderPaint);
-
-    // 8. Draw circular/rounded logo if available
-    double currentX = badgeLeft + paddingHorizontal;
-    if (logoImage != null) {
-      final logoRect = Rect.fromLTWH(
-        currentX,
-        badgeTop + (badgeHeight - logoSize) / 2,
-        logoSize,
-        logoSize,
-      );
-
-      // Clip logo as circular badge
-      canvas.save();
-      final clipRRect = RRect.fromRectAndRadius(
-        logoRect,
-        Radius.circular(logoSize / 2),
-      );
-      canvas.clipRRect(clipRRect);
-
-      final srcRect = Rect.fromLTWH(
-        0,
-        0,
-        logoImage.width.toDouble(),
-        logoImage.height.toDouble(),
-      );
-      canvas.drawImageRect(logoImage, srcRect, logoRect, Paint());
-      canvas.restore();
-
-      // Thin border around logo
-      final logoBorderPaint = Paint()
-        ..color = const Color(0x55FFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8 * scale;
-      canvas.drawRRect(clipRRect, logoBorderPaint);
-
-      currentX += logoSize + spacing;
+      userParagraph = userBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: imgWidth * 0.6));
     }
 
-    // 9. Draw text
-    final textY = badgeTop + (badgeHeight - textHeight) / 2;
-    canvas.drawParagraph(paragraph, Offset(currentX, textY));
+    final totalHeight = logoSize +
+        (4.0 * scale) +
+        textHeight +
+        (userParagraph != null ? (2.0 * scale) + userParagraph.height : 0);
+
+    // Position at bottom-left (TikTok style)
+    final badgeLeft = margin;
+    final badgeTop = imgHeight - totalHeight - margin;
+
+    // 7. Draw circular logo with shadow and white ring (no dark box, exactly like TikTok)
+    if (logoImage != null) {
+      final logoCenter = Offset(badgeLeft + (logoSize / 2), badgeTop + (logoSize / 2));
+      final shadowPaint = Paint()
+        ..color = const Color(0x99000000)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5.0 * scale);
+      canvas.drawCircle(logoCenter, (logoSize / 2) + (1.5 * scale), shadowPaint);
+
+      canvas.save();
+      final clipPath = Path()..addOval(Rect.fromLTWH(badgeLeft, badgeTop, logoSize, logoSize));
+      canvas.clipPath(clipPath);
+
+      final srcRect = Rect.fromLTWH(0, 0, logoImage.width.toDouble(), logoImage.height.toDouble());
+      final dstRect = Rect.fromLTWH(badgeLeft, badgeTop, logoSize, logoSize);
+      canvas.drawImageRect(logoImage, srcRect, dstRect, Paint()..filterQuality = FilterQuality.high);
+      canvas.restore();
+
+      final ringPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4 * scale;
+      canvas.drawCircle(logoCenter, logoSize / 2, ringPaint);
+    }
+
+    // 8. Draw brand name directly below the logo
+    final brandY = badgeTop + logoSize + (4.0 * scale);
+    canvas.drawParagraph(paragraph, Offset(badgeLeft, brandY));
+
+    // 9. Draw username if available
+    if (userParagraph != null) {
+      final userY = brandY + textHeight + (2.0 * scale);
+      canvas.drawParagraph(userParagraph, Offset(badgeLeft, userY));
+    }
 
     // 10. Finish rendering to image
     final picture = recorder.endRecording();

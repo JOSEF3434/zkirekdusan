@@ -377,6 +377,7 @@ model User {
   videoReports       VideoReport[]       @relation("VideoReporter")
   videoPlaylists     VideoPlaylist[]     @relation("PlaylistOwner")
   downloadRecords    DownloadRecord[]    @relation("UserDownloads")
+  publishedDownloads DownloadRecord[]    @relation("PublisherDownloads")
 
   // Phase 5 Live Streaming Relations
   createdStreams             LiveStream[]         @relation("StreamCreator")
@@ -474,6 +475,9 @@ model Profile {
   birthDate   DateTime?
 
   visibility ProfileVisibility @default(PUBLIC)
+
+  /// Publisher download permission preference default
+  allowDownloadsByDefault Boolean @default(true)
 
   isVerified        Boolean   @default(false)
   verifiedAt        DateTime?
@@ -803,11 +807,17 @@ model Post {
   commentsCount Int @default(0)
   sharesCount   Int @default(0)
   viewsCount    Int @default(0)
+  downloadsCount Int @default(0)
 
-  media    PostMedia[]
-  likes    PostLike[]
-  comments Comment[]
-  savedBy  SavedPost[]
+  /// Publisher download permissions
+  allowDownloads     Boolean            @default(true)
+  downloadPermission DownloadPermission @default(PUBLIC)
+
+  media           PostMedia[]
+  likes           PostLike[]
+  comments        Comment[]
+  savedBy         SavedPost[]
+  downloadRecords DownloadRecord[]
 
   publishedAt DateTime?
   deletedAt   DateTime?
@@ -1050,10 +1060,14 @@ model Reel {
 
   duration Float // in seconds
 
-  likesCount    Int @default(0)
-  commentsCount Int @default(0)
-  viewsCount    Int @default(0)
-  sharesCount   Int @default(0)
+  likesCount     Int @default(0)
+  commentsCount  Int @default(0)
+  viewsCount     Int @default(0)
+  sharesCount    Int @default(0)
+  downloadsCount Int @default(0)
+
+  /// Publisher download permissions
+  allowDownloads Boolean @default(true)
 
   visibility PostVisibility @default(PUBLIC)
   status     PostStatus     @default(PUBLISHED)
@@ -1980,6 +1994,12 @@ model DownloadRecord {
   /// Generic file download (for non-video files)
   fileId String?
 
+  /// Post media download
+  postId String?
+
+  /// Original publisher identity
+  publisherId String?
+
   resolution VideoResolution?
   status     DownloadStatus   @default(PENDING)
 
@@ -1993,16 +2013,25 @@ model DownloadRecord {
   fileSize    BigInt?
   bytesServed BigInt? @default(0)
 
+  /// TikTok-style Attribution & Watermark metadata
+  isWatermarked   Boolean @default(false)
+  watermarkText   String?
+  attributionJson Json?
+
   completedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  user  User   @relation("UserDownloads", fields: [userId], references: [id], onDelete: Cascade)
-  video Video? @relation(fields: [videoId], references: [id], onDelete: SetNull)
-  file  File?  @relation("FileDownloads", fields: [fileId], references: [id], onDelete: SetNull)
+  user      User   @relation("UserDownloads", fields: [userId], references: [id], onDelete: Cascade)
+  publisher User?  @relation("PublisherDownloads", fields: [publisherId], references: [id], onDelete: SetNull)
+  video     Video? @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  file      File?  @relation("FileDownloads", fields: [fileId], references: [id], onDelete: SetNull)
+  post      Post?  @relation(fields: [postId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([publisherId])
   @@index([videoId])
   @@index([fileId])
+  @@index([postId])
   @@index([status])
   @@index([createdAt])
   @@map("download_records")

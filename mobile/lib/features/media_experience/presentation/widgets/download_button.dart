@@ -40,6 +40,18 @@ class DownloadButton extends ConsumerWidget {
       return;
     }
 
+    // Check publisher download permission
+    final isPermitted = video.isDownloadable && video.downloadPermission != 'NONE';
+    if (!isPermitted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The publisher has disabled downloads.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     // Start download
     final downloadUrl = video.sourceFileUrl ?? video.hlsUrl;
     if (downloadUrl == null || downloadUrl.isEmpty) {
@@ -179,6 +191,8 @@ class DownloadButton extends ConsumerWidget {
     String label;
     Color activeColor = themeColor;
 
+    final isPermitted = video.isDownloadable && video.downloadPermission != 'NONE';
+
     if (isCompleted) {
       activeColor = const Color(0xFF00C6FF);
       iconWidget = Icon(
@@ -199,6 +213,14 @@ class DownloadButton extends ConsumerWidget {
         ),
       );
       label = progress > 0 ? '${(progress * 100).toInt()}%' : 'Saving...';
+    } else if (!isPermitted) {
+      activeColor = themeColor.withValues(alpha: 0.4);
+      iconWidget = Icon(
+        Icons.download_for_offline_outlined,
+        color: activeColor,
+        size: iconSize,
+      );
+      label = tr('video.download');
     } else {
       iconWidget = Icon(
         Icons.download_for_offline_outlined,
@@ -208,23 +230,26 @@ class DownloadButton extends ConsumerWidget {
       label = tr('video.download');
     }
 
-    return GestureDetector(
-      onTap: () => _handleTap(context, ref, downloadState),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          iconWidget,
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: activeColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    return Tooltip(
+      message: isPermitted ? 'Download with attribution watermark' : 'The publisher has disabled downloads.',
+      child: GestureDetector(
+        onTap: () => _handleTap(context, ref, downloadState),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            iconWidget,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: activeColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

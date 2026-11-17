@@ -106,12 +106,18 @@ class DownloadStatusTile extends ConsumerWidget {
                 color: Color(0xFF00C6FF),
               ),
               const SizedBox(width: 4),
-              Text(
-                '${tr('downloads.status.completed')} • ${tr('downloads.storage').replaceAll('{0}', (metadata!.sizeBytes / (1024 * 1024)).toStringAsFixed(1))}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurfaceVariant,
+              Expanded(
+                child: Text(
+                  metadata?.publisherUsername != null
+                      ? '@${metadata!.publisherUsername} • ${(metadata!.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB'
+                      : '${tr('downloads.status.completed')} • ${(metadata!.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -121,15 +127,24 @@ class DownloadStatusTile extends ConsumerWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (isCompleted)
+            IconButton(
+              icon: const Icon(Icons.open_in_new_rounded, size: 20),
+              tooltip: 'Open Original Source',
+              onPressed: () {
+                final sourceId = metadata?.sourceId ?? (videoId.startsWith('post_') ? videoId.replaceFirst('post_', '') : videoId);
+                if (metadata?.sourceType == 'POST' || videoId.startsWith('post_')) {
+                  context.push('/post/$sourceId');
+                } else {
+                  context.push('/video/$sourceId');
+                }
+              },
+            ),
           if (error != null)
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: tr('downloads.retry'),
               onPressed: () {
-                // To retry, we need the original URL which we don't store in metadata.
-                // Normally we'd fetch the video again or store the URL.
-                // For F10, we'll just clear the error to let the user re-initiate from the video page,
-                // or we can remove it entirely from downloads state.
                 ref
                     .read(downloadServiceProvider.notifier)
                     .deleteDownload(videoId);
@@ -148,7 +163,12 @@ class DownloadStatusTile extends ConsumerWidget {
       ),
       onTap: isCompleted
           ? () {
-              context.push('/video/$videoId');
+              final sourceId = metadata?.sourceId ?? (videoId.startsWith('post_') ? videoId.replaceFirst('post_', '') : videoId);
+              if (metadata?.sourceType == 'POST' || videoId.startsWith('post_')) {
+                context.push('/post/$sourceId');
+              } else {
+                context.push('/video/$sourceId');
+              }
             }
           : null,
     );

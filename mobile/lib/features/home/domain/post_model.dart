@@ -84,6 +84,9 @@ class PostResponseDto {
   final String? channelName;
   final int duration;
   final List<Map<String, dynamic>> renditions;
+  final bool allowDownloads;
+  final String downloadPermission;
+  final int downloadsCount;
 
   const PostResponseDto({
     required this.id,
@@ -109,6 +112,9 @@ class PostResponseDto {
     this.channelName,
     this.duration = 0,
     this.renditions = const [],
+    this.allowDownloads = true,
+    this.downloadPermission = 'PUBLIC',
+    this.downloadsCount = 0,
   });
 
   factory PostResponseDto.fromJson(Map<String, dynamic> json) {
@@ -191,6 +197,9 @@ class PostResponseDto {
       likesCount: (json['likesCount'] as num?)?.toInt() ?? 0,
       commentsCount: (json['commentsCount'] as num?)?.toInt() ?? 0,
       viewsCount: (json['viewsCount'] as num?)?.toInt() ?? 0,
+      downloadsCount: (json['downloadsCount'] as num?)?.toInt() ?? 0,
+      allowDownloads: json['allowDownloads'] as bool? ?? true,
+      downloadPermission: json['downloadPermission'] as String? ?? 'PUBLIC',
       author: author,
       groupId: json['groupId'] as String?,
       media: media,

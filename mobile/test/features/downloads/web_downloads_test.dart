@@ -6,6 +6,7 @@ import 'package:mobile/core/presentation/widgets/video_thumbnail_widget.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/storage/web_download_helper.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/home/domain/post_model.dart';
 import 'package:mobile/features/library/presentation/widgets/web_download_card.dart';
 import 'package:mobile/features/library/presentation/widgets/web_downloads_view.dart';
 
@@ -672,4 +673,11 @@ class _FakeDownloadManager extends StateNotifier<DownloadState>
 
   @override
   Future<void> deleteAllDownloads() async {}
+
+  @override
+  Future<bool> downloadPostMedia({
+    required PostResponseDto post,
+    String? mediaId,
+    BuildContext? context,
+  }) async => true;
 }

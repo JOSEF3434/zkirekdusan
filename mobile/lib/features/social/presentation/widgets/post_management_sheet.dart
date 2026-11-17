@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/rich_text/mention_text_controller.dart';
 import 'package:mobile/core/rich_text/rich_text_composer.dart';
+import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
@@ -146,6 +147,52 @@ class PostManagementSheet extends ConsumerWidget {
                 },
               ),
               ListTile(
+                leading: Icon(
+                  post.allowDownloads ? Icons.cloud_download_outlined : Icons.cloud_off_outlined,
+                  color: post.allowDownloads ? Colors.green : Colors.grey,
+                ),
+                title: Text(
+                  post.allowDownloads
+                      ? 'Media Downloads: Allowed'
+                      : 'Media Downloads: Disabled',
+                ),
+                subtitle: Text(
+                  post.allowDownloads
+                      ? 'Others can download media with your attribution'
+                      : 'Others cannot download media from this post',
+                ),
+                trailing: Switch(
+                  value: post.allowDownloads,
+                  onChanged: (val) async {
+                    Navigator.pop(context);
+                    try {
+                      final dio = ref.read(apiClientProvider);
+                      await dio.patch(
+                        '/posts/${post.id}',
+                        data: {'allowDownloads': val},
+                      );
+                      ref.invalidate(profilePostsProvider(post.author.id));
+                      onPostUpdated?.call();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(val
+                                ? 'Downloads enabled for this post'
+                                : 'Downloads disabled for this post'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to update download setting: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+              ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: Text(
                   tr('social.delete_post'),
@@ -161,6 +208,37 @@ class PostManagementSheet extends ConsumerWidget {
             ],
 
             // ── General Options ─────────────────────────────────────────────
+            if (post.media.isNotEmpty)
+              ListTile(
+                leading: Icon(
+                  Icons.download_rounded,
+                  color: post.allowDownloads ? theme.colorScheme.primary : Colors.grey,
+                ),
+                title: Text(
+                  post.allowDownloads
+                      ? 'Download Media (with Watermark)'
+                      : 'Download Disabled',
+                ),
+                subtitle: Text(
+                  post.allowDownloads
+                      ? 'Save with Zikire Kdusan logo & @${post.author.username ?? "user"}'
+                      : 'The publisher has disabled downloads.',
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  if (!post.allowDownloads) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('The publisher has disabled downloads.'),
+                      ),
+                    );
+                    return;
+                  }
+                  await ref
+                      .read(downloadServiceProvider.notifier)
+                      .downloadPostMedia(post: post, context: context);
+                },
+              ),
             ListTile(
               leading: Icon(
                 isSaved ? Icons.bookmark : Icons.bookmark_border,
@@ -244,55 +322,81 @@ class PostManagementSheet extends ConsumerWidget {
   void _showEditPostDialog(BuildContext context, WidgetRef ref) {
     final tr = ref.read(trProvider);
     final textController = MentionTextController(text: post.content ?? '');
+    bool allowDownloads = post.allowDownloads;
+
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(tr('social.edit_post')),
-        content: RichTextComposer(
-          controller: textController,
-          child: TextField(
-            controller: textController,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: tr('social.edit_post_hint'),
-              border: const OutlineInputBorder(),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(tr('social.edit_post')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RichTextComposer(
+                  controller: textController,
+                  child: TextField(
+                    controller: textController,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: tr('social.edit_post_hint'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Allow Downloads', style: TextStyle(fontSize: 14)),
+                  subtitle: const Text('Others can download media with your attribution', style: TextStyle(fontSize: 12)),
+                  value: allowDownloads,
+                  onChanged: (val) {
+                    setDialogState(() {
+                      allowDownloads = val;
+                    });
+                  },
+                ),
+              ],
             ),
-            autofocus: true,
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(tr('common.cancel')),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final newContent = textController.text.trim();
+                Navigator.pop(dialogCtx);
+                try {
+                  final dio = ref.read(apiClientProvider);
+                  await dio.patch(
+                    '/posts/${post.id}',
+                    data: {
+                      'content': newContent,
+                      'allowDownloads': allowDownloads,
+                    },
+                  );
+                  ref.invalidate(profilePostsProvider(post.author.id));
+                  onPostUpdated?.call();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(tr('social.post_updated'))),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(tr('social.post_update_failed'))),
+                    );
+                  }
+                }
+              },
+              child: Text(tr('common.save')),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(tr('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final newContent = textController.text.trim();
-              Navigator.pop(dialogCtx);
-              try {
-                final dio = ref.read(apiClientProvider);
-                await dio.patch(
-                  '/posts/${post.id}',
-                  data: {'content': newContent},
-                );
-                ref.invalidate(profilePostsProvider(post.author.id));
-                onPostUpdated?.call();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(tr('social.post_updated'))),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(tr('social.post_update_failed'))),
-                  );
-                }
-              }
-            },
-            child: Text(tr('common.save')),
-          ),
-        ],
       ),
     );
   }

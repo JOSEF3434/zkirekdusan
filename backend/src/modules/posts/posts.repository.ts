@@ -10,6 +10,13 @@ export class PostsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async createPost(authorId: string, dto: CreatePostDto) {
+    // Check if author has default download preference in profile
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId: authorId },
+      select: { allowDownloadsByDefault: true },
+    });
+    const defaultAllow = profile?.allowDownloadsByDefault ?? true;
+
     return this.prisma.$transaction(async (tx) => {
       const post = await tx.post.create({
         data: {
@@ -20,6 +27,8 @@ export class PostsRepository {
           hashtags: dto.hashtags ?? [],
           mentions: dto.mentions ?? [],
           groupId: dto.groupId,
+          allowDownloads: dto.allowDownloads ?? defaultAllow,
+          downloadPermission: dto.downloadPermission ?? 'PUBLIC',
           publishedAt: new Date(),
         },
       });
@@ -81,6 +90,13 @@ export class PostsRepository {
     return this.prisma.post.update({
       where: { id },
       data: { viewsCount: { increment: 1 } },
+    });
+  }
+
+  async incrementDownloads(id: string) {
+    return this.prisma.post.update({
+      where: { id },
+      data: { downloadsCount: { increment: 1 } },
     });
   }
 

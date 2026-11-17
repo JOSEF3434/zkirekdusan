@@ -22,6 +22,7 @@ import { DownloadsService } from './downloads.service.js';
 import {
   RequestVideoDownloadDto,
   RequestFileDownloadDto,
+  RequestPostDownloadDto,
   DownloadTokenResponseDto,
 } from './dto/request-download.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -37,9 +38,9 @@ export class DownloadsController {
   @Post('video')
   @ApiOperation({
     summary:
-      'Authorize and request video download (Quality selection: 240p to 4K)',
+      'Authorize and request video download with TikTok-style publisher watermark',
     description:
-      'Validates user authorization against Global & Group RBAC. Generates signed download URL and logs audit record.',
+      'Validates user authorization against publisher settings and RBAC. Generates signed download URL and logs audit record with publisher attribution.',
   })
   @ApiResponse({ status: 201, type: DownloadTokenResponseDto })
   async requestVideoDownload(
@@ -48,6 +49,27 @@ export class DownloadsController {
     @Req() req: Request,
   ): Promise<DownloadTokenResponseDto> {
     return this.service.authorizeVideoDownload(
+      userId,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Post('post')
+  @ApiOperation({
+    summary:
+      'Authorize and request social post media download with publisher watermark',
+    description:
+      'Validates post publisher permission and group membership. Generates watermarked download response with publisher identity.',
+  })
+  @ApiResponse({ status: 201, type: DownloadTokenResponseDto })
+  async requestPostDownload(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: RequestPostDownloadDto,
+    @Req() req: Request,
+  ): Promise<DownloadTokenResponseDto> {
+    return this.service.authorizePostDownload(
       userId,
       dto,
       req.ip,
@@ -65,13 +87,27 @@ export class DownloadsController {
     @CurrentUser('sub') userId: string,
     @Body() dto: RequestFileDownloadDto,
     @Req() req: Request,
-  ) {
+  ): Promise<DownloadTokenResponseDto> {
     return this.service.authorizeFileDownload(
       userId,
       dto,
       req.ip,
       req.headers['user-agent'],
     );
+  }
+
+  @Get('check-permission')
+  @ApiOperation({
+    summary: 'Check if user has permission to download video, post, or media',
+  })
+  @ApiQuery({ name: 'type', enum: ['video', 'post', 'file'] })
+  @ApiQuery({ name: 'id', description: 'Content ID' })
+  async checkPermission(
+    @CurrentUser('sub') userId: string,
+    @Query('type') type: 'video' | 'post' | 'file',
+    @Query('id') id: string,
+  ) {
+    return this.service.checkDownloadPermission(userId, type, id);
   }
 
   @Get('history')

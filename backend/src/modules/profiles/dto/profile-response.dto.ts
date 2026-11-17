@@ -58,6 +58,9 @@ export class ProfileResponseDto {
   @ApiPropertyOptional({ example: 'PUBLIC' })
   visibility!: string;
 
+  @ApiPropertyOptional({ example: true })
+  allowDownloadsByDefault?: boolean;
+
   @ApiProperty({ example: false })
   isVerified!: boolean;
 

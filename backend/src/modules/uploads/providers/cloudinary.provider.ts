@@ -25,7 +25,7 @@ export function calculateCloudinaryMaxRuntimeSec(
 export class CloudinaryStorageProvider implements IStorageProvider {
   readonly providerType = 'CLOUDINARY';
   private readonly logger = new Logger(CloudinaryStorageProvider.name);
-  private readonly isConfigured: boolean;
+  public readonly isConfigured: boolean;
   private readonly cloudName: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
@@ -410,6 +410,38 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       return `https://res.cloudinary.com/demo/raw/upload/${publicId}`;
     }
     return `https://res.cloudinary.com/${this.cloudName}/raw/upload/${publicId}`;
+  }
+
+  /**
+   * Returns a watermarked MP4 download URL with TikTok-style branding and publisher username.
+   */
+  getVideoWatermarkedDownloadUrl(
+    publicId: string,
+    watermarkText: string,
+    brandName = 'Zikire Kdusan',
+    filename?: string,
+  ): string {
+    const cloud = !this.isConfigured || !this.cloudName ? 'demo' : this.cloudName;
+    const cleanPublicId = publicId.replace(/\.[^/.]+$/, '');
+    const safeWatermark = encodeURIComponent(watermarkText);
+    const safeBrand = encodeURIComponent(brandName);
+    const attachment = filename ? `fl_attachment:${filename.replace(/[^a-zA-Z0-9_-]/g, '_')}/` : '';
+    return `https://res.cloudinary.com/${cloud}/video/upload/${attachment}l_text:Arial_26_bold:${safeBrand},co_white,g_south_west,x_35,y_75/l_text:Arial_30_bold:${safeWatermark},co_white,g_south_west,x_35,y_35/q_auto,vc_auto,f_mp4/${cleanPublicId}.mp4`;
+  }
+
+  /**
+   * Returns an image download URL with embedded TikTok-style branding and publisher username.
+   */
+  getImageWatermarkedDownloadUrl(
+    publicId: string,
+    watermarkText: string,
+    brandName = 'Zikire Kdusan',
+  ): string {
+    const cloud = !this.isConfigured || !this.cloudName ? 'demo' : this.cloudName;
+    const cleanPublicId = publicId.replace(/\.[^/.]+$/, '');
+    const safeWatermark = encodeURIComponent(watermarkText);
+    const safeBrand = encodeURIComponent(brandName);
+    return `https://res.cloudinary.com/${cloud}/image/upload/l_text:Arial_24_bold:${safeBrand},co_white,g_south_west,x_30,y_65/l_text:Arial_28_bold:${safeWatermark},co_white,g_south_west,x_30,y_30/q_auto,f_jpg/${cleanPublicId}.jpg`;
   }
 
   async getSignedUrl(storageKey: string, expiresIn = 3600): Promise<string> {

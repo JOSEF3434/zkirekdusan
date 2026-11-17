@@ -343,6 +343,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   String _visibility = 'PUBLIC';
+  bool _allowDownloads = true;
   String? _playlistId;
   Uint8List? _thumbnailBytes;
 
@@ -641,6 +642,20 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                 },
               ),
 
+              const SizedBox(height: 12),
+
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: Icon(
+                  _allowDownloads ? Icons.cloud_download_outlined : Icons.cloud_off_outlined,
+                  color: _allowDownloads ? Theme.of(context).colorScheme.primary : Colors.grey,
+                ),
+                title: const Text('Allow Downloads'),
+                subtitle: const Text('Allow viewers to download this media with your attribution watermark'),
+                value: _allowDownloads,
+                onChanged: (val) => setState(() => _allowDownloads = val),
+              ),
+
               const SizedBox(height: 16),
 
               ref
@@ -691,6 +706,8 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                         description: _descriptionController.text.trim(),
                         visibility: _visibility,
                         playlistId: _playlistId,
+                        isDownloadable: _allowDownloads,
+                        downloadPermission: _allowDownloads ? 'PUBLIC' : 'NONE',
                       );
                       ref.read(uploadProvider.notifier).submitDetails(data);
                     }

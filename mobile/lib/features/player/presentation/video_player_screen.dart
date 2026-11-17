@@ -774,6 +774,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     },
                   ),
 
+                // TikTok-style periodic moving watermark overlay
+                TikTokWatermarkOverlay(
+                  publisherUsername: video.channelName ??
+                      video.author.username ??
+                      'zikre_kdusan',
+                  isVisible: !state.showControls,
+                ),
+
                 if (state.isBuffering)
                   const Center(
                     child: CircularProgressIndicator(color: Colors.white),
@@ -1170,6 +1178,9 @@ class _VideoMetaSection extends StatelessWidget {
                 }
 
                 final t = ref.read(trProvider);
+                final isPublisherPermitted =
+                    video.isDownloadable && video.downloadPermission != 'NONE';
+
                 String? candidateDownloadUrl;
                 for (final r in video.renditions) {
                   if (r.url.trim().isNotEmpty) {
@@ -1183,32 +1194,47 @@ class _VideoMetaSection extends StatelessWidget {
                     candidateDownloadUrl.trim().isNotEmpty;
 
                 return _ActionButton(
-                  icon: Icons.download_outlined,
+                  icon: isPublisherPermitted
+                      ? Icons.download_outlined
+                      : Icons.file_download_off_outlined,
+                  iconColor: isPublisherPermitted ? null : Colors.grey,
                   label: t('video.download'),
-                  onTap: canDownload
+                  onTap: !isPublisherPermitted
                       ? () {
-                          ref
-                              .read(downloadServiceProvider.notifier)
-                              .startDownload(
-                                videoId: video.id,
-                                url: candidateDownloadUrl!,
-                                title: video.title,
-                                thumbnailUrl: video.thumbnailUrl,
-                              );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(t('video.added_to_downloads')),
-                              duration: const Duration(seconds: 2),
+                            const SnackBar(
+                              content: Text('The publisher has disabled downloads.'),
+                              duration: Duration(seconds: 3),
                             ),
                           );
                         }
-                      : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(t('video.download_unavailable')),
-                            ),
-                          );
-                        },
+                      : canDownload
+                          ? () {
+                              ref
+                                  .read(downloadServiceProvider.notifier)
+                                  .startDownload(
+                                    videoId: video.id,
+                                    url: candidateDownloadUrl!,
+                                    title: video.title,
+                                    thumbnailUrl: video.thumbnailUrl,
+                                    channelName: video.channelName ??
+                                        video.author.displayName ??
+                                        video.author.username,
+                                  );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(t('video.added_to_downloads')),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(t('video.download_unavailable')),
+                                ),
+                              );
+                            },
                 );
               },
             ),

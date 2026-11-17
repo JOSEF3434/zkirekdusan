@@ -1,6 +1,6 @@
 // src/modules/posts/dto/post-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PostType, PostVisibility } from '@prisma/client';
+import { PostType, PostVisibility, DownloadPermission } from '@prisma/client';
 
 export class PostAuthorDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -57,6 +57,15 @@ export class PostResponseDto {
 
   @ApiProperty({ example: 10 })
   viewsCount!: number;
+
+  @ApiProperty({ example: 0 })
+  downloadsCount!: number;
+
+  @ApiProperty({ example: true })
+  allowDownloads!: boolean;
+
+  @ApiProperty({ enum: DownloadPermission, example: DownloadPermission.PUBLIC })
+  downloadPermission!: DownloadPermission;
 
   @ApiProperty({ type: PostAuthorDto })
   author!: PostAuthorDto;

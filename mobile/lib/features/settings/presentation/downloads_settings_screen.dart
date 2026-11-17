@@ -1,6 +1,7 @@
 // lib/features/settings/presentation/downloads_settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/storage/download_settings.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
@@ -20,6 +21,8 @@ class DownloadsSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
+    final dlSettings = ref.watch(downloadSettingsProvider);
+    final dlNotifier = ref.read(downloadSettingsProvider.notifier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
@@ -34,6 +37,27 @@ class DownloadsSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Publisher Download Permissions ───────────────────────────────
+          SettingsGroup(
+            label: 'Publisher Privacy & Permissions',
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.lock_open_rounded,
+                iconColor: const Color(0xFF6C63FF),
+                title: 'Allow Others to Download My Media',
+                subtitle: dlSettings.allowDownloadsByDefault
+                    ? 'Other users can download your permitted posts and videos with your official attribution watermark.'
+                    : 'Downloads are disabled by default for your content. Backend security rejects unauthorized download requests.',
+                value: dlSettings.allowDownloadsByDefault,
+                onChanged: (val) {
+                  dlNotifier.setAllowDownloadsByDefault(val);
+                },
+                isLast: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
           // ── Storage Summary Card ───────────────────────────────────────────
           _StorageSummaryCard(isDark: isDark, theme: theme, tr: tr),
           const SizedBox(height: 16),
@@ -111,7 +135,9 @@ class DownloadsSettingsScreen extends ConsumerWidget {
                 icon: Icons.folder_outlined,
                 iconColor: const Color(0xFFFF6584),
                 title: tr('settings.downloads.save_location'),
-                subtitle: s.storageLocation,
+                subtitle: dlSettings.defaultDownloadLocation.isNotEmpty
+                    ? dlSettings.defaultDownloadLocation
+                    : 'Internal storage/Zikire Kdusan/',
                 onTap: () {},
                 isLast: true,
               ),

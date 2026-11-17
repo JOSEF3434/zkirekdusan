@@ -166,6 +166,9 @@ export class PostsService {
       likesCount: post.likesCount ?? 0,
       commentsCount: post.commentsCount ?? 0,
       viewsCount: post.viewsCount ?? 0,
+      downloadsCount: post.downloadsCount ?? 0,
+      allowDownloads: post.allowDownloads ?? true,
+      downloadPermission: post.downloadPermission ?? 'PUBLIC',
       groupId: post.groupId,
       author: {
         id: post.author.id,

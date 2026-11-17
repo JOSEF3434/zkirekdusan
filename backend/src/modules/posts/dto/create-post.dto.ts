@@ -1,7 +1,7 @@
 // src/modules/posts/dto/create-post.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { PostType, PostVisibility } from '@prisma/client';
+import { IsArray, IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { PostType, PostVisibility, DownloadPermission } from '@prisma/client';
 
 export class CreatePostDto {
   @ApiProperty({ enum: PostType, example: PostType.TEXT })
@@ -52,4 +52,22 @@ export class CreatePostDto {
   @IsArray()
   @IsString({ each: true })
   mediaFileIds?: string[];
+
+  @ApiPropertyOptional({
+    example: true,
+    default: true,
+    description: 'Whether users can download media from this post',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowDownloads?: boolean;
+
+  @ApiPropertyOptional({
+    enum: DownloadPermission,
+    default: DownloadPermission.PUBLIC,
+    description: 'Download permission level for this post',
+  })
+  @IsOptional()
+  @IsEnum(DownloadPermission)
+  downloadPermission?: DownloadPermission;
 }
