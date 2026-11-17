@@ -750,23 +750,23 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             // â”€â”€ Stream Thumbnail (Optional) â”€â”€
             _buildThumbnailSection(theme, tr),
 
-            // â”€â”€ Broadcast Timing: Go Live Now vs Schedule for Later â”€â”€
+            // ── Broadcast Timing: Go Live Now vs Schedule for Later ──
             Text(
-              'Broadcast Timing',
+              tr('live.broadcast_timing'),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
             const SizedBox(height: 8),
             SegmentedButton<bool>(
-              segments: const [
+              segments: [
                 ButtonSegment<bool>(
                   value: false,
-                  icon: Icon(Icons.sensors_rounded),
-                  label: Text('Go Live Now'),
+                  icon: const Icon(Icons.sensors_rounded),
+                  label: Text(tr('shell.go_live')),
                 ),
                 ButtonSegment<bool>(
                   value: true,
-                  icon: Icon(Icons.calendar_month_outlined),
-                  label: Text('Schedule for Later'),
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: Text(tr('live.schedule_for_later')),
                 ),
               ],
               selected: {_isScheduled},
@@ -5463,6 +5463,7 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
     BroadcasterState bState,
   ) async {
     if (stream?.status == LiveStreamStatus.live) {
+      final tr = ref.read(trProvider);
       final shouldEnd = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -5472,19 +5473,19 @@ class _LiveStudioScreenState extends ConsumerState<LiveStudioScreen>
             color: Colors.red,
             size: 38,
           ),
-          title: const Text('Do you want to end the live stream?'),
+          title: Text(tr('live.end_broadcast_title')),
           content: const Text(
             'Ending the live stream will terminate the broadcast for all viewers and finish the session.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('End Stream'),
+              child: Text(tr('live.end_stream_btn')),
             ),
           ],
         ),

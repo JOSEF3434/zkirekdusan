@@ -17,7 +17,8 @@ VideoStatus _parseStatus(String status) {
     case 'FAILED':
       return VideoStatus.failed;
     default:
-      return VideoStatus.failed;
+      // Default to processing for transitional, unknown, or empty states during transcoding
+      return VideoStatus.processing;
   }
 }
 

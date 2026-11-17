@@ -1,4 +1,5 @@
 // lib/features/upload/data/upload_repository.dart
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,16 +49,27 @@ class UploadRepository {
     required CancelToken cancelToken,
     void Function(int sent, int total)? onProgress,
   }) async {
-    final bytes = await file.readAsBytes();
     final ext = file.name.split('.').last.toLowerCase();
     final mimeType = _resolveVideoMimeType(ext);
 
-    final formData = FormData.fromMap({
-      'file': MultipartFile.fromBytes(
+    final MultipartFile multipartFile;
+    if (kIsWeb) {
+      final bytes = await file.readAsBytes();
+      multipartFile = MultipartFile.fromBytes(
         bytes,
         filename: file.name.isNotEmpty ? file.name : 'video.mp4',
         contentType: DioMediaType.parse(mimeType),
-      ),
+      );
+    } else {
+      multipartFile = await MultipartFile.fromFile(
+        file.path,
+        filename: file.name.isNotEmpty ? file.name : 'video.mp4',
+        contentType: DioMediaType.parse(mimeType),
+      );
+    }
+
+    final formData = FormData.fromMap({
+      'file': multipartFile,
     });
 
     await _dio.post(
@@ -65,8 +77,8 @@ class UploadRepository {
       data: formData,
       cancelToken: cancelToken,
       options: Options(
-        sendTimeout: const Duration(minutes: 15),
-        receiveTimeout: const Duration(minutes: 15),
+        sendTimeout: const Duration(minutes: 30),
+        receiveTimeout: const Duration(minutes: 30),
       ),
       onSendProgress: onProgress,
     );

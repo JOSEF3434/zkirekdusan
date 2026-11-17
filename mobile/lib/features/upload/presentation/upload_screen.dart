@@ -102,7 +102,7 @@ class UploadScreen extends ConsumerWidget {
               FilledButton(
                 onPressed: () =>
                     ref.read(uploadChannelsProvider(null).notifier).refresh(),
-                child: const Text('Retry'),
+                child: Text(tr('common.retry')),
               ),
             ],
           ),
@@ -152,6 +152,7 @@ class UploadScreen extends ConsumerWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
+              ref.read(uploadProvider.notifier).cancelUpload();
               Navigator.of(ctx).pop();
               context.pop();
             },
@@ -816,12 +817,13 @@ class _UploadProgressWidget extends ConsumerWidget {
 // STEP 5: SERVER PROCESSING
 // ─────────────────────────────────────────────
 
-class _ProcessingStatusWidget extends StatelessWidget {
+class _ProcessingStatusWidget extends ConsumerWidget {
   const _ProcessingStatusWidget();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
 
     return Center(
       child: ConstrainedBox(
@@ -838,16 +840,16 @@ class _ProcessingStatusWidget extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                'Processing Video...',
+                tr('upload.processing'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'We\'re transcoding resolutions (1080p, 720p, 480p) and generating HLS streams for smooth playback.',
+              Text(
+                tr('upload.transcoding_desc'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, height: 1.4),
+                style: const TextStyle(color: Colors.grey, height: 1.4),
               ),
               const SizedBox(height: 28),
               Container(
@@ -861,14 +863,14 @@ class _ProcessingStatusWidget extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bolt_rounded, color: Colors.amber, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.bolt_rounded, color: Colors.amber, size: 20),
+                    const SizedBox(width: 8),
                     Text(
-                      'Optimizing for mobile playback',
-                      style: TextStyle(fontSize: 13),
+                      tr('upload.optimizing_mobile'),
+                      style: const TextStyle(fontSize: 13),
                     ),
                   ],
                 ),
@@ -919,7 +921,7 @@ class _UploadCompletedWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                tr('upload.uploading'),
+                tr('upload.completed'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -1153,7 +1155,7 @@ class _ChannelPickerSheet extends ConsumerWidget {
                           onPressed: () => ref
                               .read(uploadChannelsProvider(null).notifier)
                               .refresh(),
-                          child: const Text('Retry'),
+                          child: Text(tr('common.retry')),
                         ),
                       ],
                     ),
@@ -1252,20 +1254,22 @@ class _ChannelPickerSheet extends ConsumerWidget {
                                 color: theme.colorScheme.error
                                     .withValues(alpha: 0.6),
                               ),
-                              tooltip: 'Delete Channel',
+                              tooltip: tr('live.delete_channel_title'),
                               onPressed: () async {
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    title: const Text('Delete Channel'),
+                                    title: Text(tr('live.delete_channel_title')),
                                     content: Text(
-                                      'Are you sure you want to delete "${item.displayName}"?',
+                                      tr('live.delete_channel_msg', {
+                                        'name': item.displayName,
+                                      }),
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(ctx, false),
-                                        child: const Text('Cancel'),
+                                        child: Text(tr('common.cancel')),
                                       ),
                                       FilledButton(
                                         style: FilledButton.styleFrom(
@@ -1273,7 +1277,7 @@ class _ChannelPickerSheet extends ConsumerWidget {
                                         ),
                                         onPressed: () =>
                                             Navigator.pop(ctx, true),
-                                        child: const Text('Delete'),
+                                        child: Text(tr('common.delete')),
                                       ),
                                     ],
                                   ),

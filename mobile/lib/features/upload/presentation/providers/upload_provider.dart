@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:mobile/features/home/domain/video_model.dart';
 import 'package:mobile/features/upload/data/upload_repository.dart';
 import 'package:mobile/features/home/domain/post_model.dart';
@@ -85,7 +87,8 @@ final uploadProvider =
       );
     });
 
-class UploadNotifier extends StateNotifier<UploadState> {
+class UploadNotifier extends StateNotifier<UploadState>
+    with WidgetsBindingObserver {
   final UploadRepository _repository;
   final PlaylistRepository _playlistRepository;
   final Ref _ref;
@@ -93,13 +96,67 @@ class UploadNotifier extends StateNotifier<UploadState> {
   Timer? _pollingTimer;
 
   UploadNotifier(this._repository, this._playlistRepository, this._ref)
-    : super(const UploadState());
+    : super(const UploadState()) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cancelToken?.cancel();
     _pollingTimer?.cancel();
+    WakelockPlus.disable();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkServerStatusAndRecover();
+    }
+  }
+
+  Future<void> _checkServerStatusAndRecover() async {
+    final videoId = state.video?.id;
+    final channelId = state.selectedChannel?.id;
+    if (videoId == null) return;
+
+    if (state.step != UploadStep.uploading &&
+        state.step != UploadStep.processing &&
+        state.step != UploadStep.failed) {
+      return;
+    }
+
+    try {
+      final video = await _repository.getStatus(
+        videoId,
+        channelId: channelId,
+      );
+      state = state.copyWith(video: video);
+
+      if (video.status == VideoStatus.ready) {
+        _pollingTimer?.cancel();
+        if (state.formData?.playlistId != null) {
+          try {
+            await _playlistRepository.addVideoToPlaylist(
+              state.formData!.playlistId!,
+              video.id,
+            );
+          } catch (_) {}
+        }
+        _ref.invalidate(videoFeedProvider);
+        state = state.copyWith(step: UploadStep.completed, clearError: true);
+        await WakelockPlus.disable();
+      } else if (video.status == VideoStatus.processing ||
+          video.status == VideoStatus.queued) {
+        state = state.copyWith(step: UploadStep.processing, clearError: true);
+        if (_pollingTimer == null || !_pollingTimer!.isActive) {
+          _startPolling();
+        }
+      }
+    } catch (_) {
+      // Still unreachable or transient error; will recheck on next lifecycle event or poll
+    }
   }
 
   void selectVideo(XFile file) {
@@ -149,6 +206,9 @@ class UploadNotifier extends StateNotifier<UploadState> {
   void cancelUpload() {
     _cancelToken?.cancel();
     _pollingTimer?.cancel();
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     state = const UploadState();
   }
 
@@ -171,6 +231,10 @@ class UploadNotifier extends StateNotifier<UploadState> {
       );
       return;
     }
+
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
 
     state = state.copyWith(
       step: UploadStep.uploading,
@@ -237,36 +301,61 @@ class UploadNotifier extends StateNotifier<UploadState> {
         );
       } catch (uploadErr) {
         if (uploadErr is DioException && uploadErr.type == DioExceptionType.cancel) {
+          try {
+            await WakelockPlus.disable();
+          } catch (_) {}
           return;
         }
-        // If upload threw a timeout or network glitch, verify if server actually received and saved the video
-        try {
-          final currentStatus = await _repository.getStatus(
-            initRes.videoId,
-            channelId: state.selectedChannel?.id,
-          );
-          if (currentStatus.status == VideoStatus.ready) {
-            state = state.copyWith(
-              video: currentStatus,
-              step: UploadStep.completed,
-              clearError: true,
+
+        // The device might have gone to background or connection interrupted.
+        // Check if server actually received and saved the video with retries before failing
+        bool recovered = false;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          try {
+            await Future.delayed(Duration(seconds: 1 + attempt));
+            final currentStatus = await _repository.getStatus(
+              initRes.videoId,
+              channelId: state.selectedChannel?.id,
             );
-            _ref.invalidate(videoFeedProvider);
-            return;
-          } else if (currentStatus.status == VideoStatus.processing ||
-              currentStatus.status == VideoStatus.queued) {
-            state = state.copyWith(
-              video: currentStatus,
-              step: UploadStep.processing,
-              clearError: true,
-            );
-            _startPolling();
-            return;
+            if (currentStatus.status == VideoStatus.ready) {
+              state = state.copyWith(
+                video: currentStatus,
+                step: UploadStep.completed,
+                clearError: true,
+              );
+              _ref.invalidate(videoFeedProvider);
+              try {
+                await WakelockPlus.disable();
+              } catch (_) {}
+              recovered = true;
+              return;
+            } else if (currentStatus.status == VideoStatus.processing ||
+                currentStatus.status == VideoStatus.queued) {
+              state = state.copyWith(
+                video: currentStatus,
+                step: UploadStep.processing,
+                clearError: true,
+              );
+              _startPolling();
+              recovered = true;
+              return;
+            }
+          } catch (_) {
+            // Retry
           }
-        } catch (_) {
-          // If status check also fails, fall through to default error handler below
         }
-        rethrow;
+
+        if (!recovered) {
+          // Keep the video in state so that when user returns to app, lifecycle observer can recover!
+          try {
+            await WakelockPlus.disable();
+          } catch (_) {}
+          state = state.copyWith(
+            step: UploadStep.failed,
+            error: _mapErrorToMessage(uploadErr),
+          );
+          return;
+        }
       }
 
       // 4. Start Polling Status
@@ -274,8 +363,14 @@ class UploadNotifier extends StateNotifier<UploadState> {
       _startPolling();
     } catch (e) {
       if (e is DioException && e.type == DioExceptionType.cancel) {
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
         return;
       }
+      try {
+        await WakelockPlus.disable();
+      } catch (_) {}
       state = state.copyWith(
         step: UploadStep.failed,
         error: _mapErrorToMessage(e),
@@ -294,11 +389,17 @@ class UploadNotifier extends StateNotifier<UploadState> {
         // Timeout — treat as completed so user isn't stuck forever
         _ref.invalidate(videoFeedProvider);
         state = state.copyWith(step: UploadStep.completed);
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
         return;
       }
 
       if (state.video == null || state.selectedChannel == null) {
         timer.cancel();
+        try {
+          await WakelockPlus.disable();
+        } catch (_) {}
         return;
       }
 
@@ -326,6 +427,9 @@ class UploadNotifier extends StateNotifier<UploadState> {
           _ref.invalidate(videoFeedProvider);
 
           state = state.copyWith(step: UploadStep.completed);
+          try {
+            await WakelockPlus.disable();
+          } catch (_) {}
         } else if (video.status == VideoStatus.failed) {
           timer.cancel();
           state = state.copyWith(
@@ -333,9 +437,12 @@ class UploadNotifier extends StateNotifier<UploadState> {
             error:
                 'Video processing failed on server. Please try a different video format or smaller file.',
           );
+          try {
+            await WakelockPlus.disable();
+          } catch (_) {}
         }
       } catch (e) {
-        // Keep polling on transient errors
+        // Keep polling on transient errors (e.g. background suspension or brief connectivity drops)
       }
     });
   }
