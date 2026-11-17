@@ -135,11 +135,24 @@ class EthiopianCalendarNotificationService {
     }
   }
 
+  /// Returns the Android status bar small icon name for the given Ethiopian date
+  /// (e.g. 'ic_cal_03_08' for Hidar 8). Renders the 2-digit day on top and the
+  /// first 2 letters of the Ethiopian month below.
+  static String getSmallIconName(int month, int day) {
+    if (month >= 1 && month <= 13 && day >= 1 && day <= 30) {
+      final mStr = month.toString().padLeft(2, '0');
+      final dStr = day.toString().padLeft(2, '0');
+      return 'ic_cal_${mStr}_$dStr';
+    }
+    return 'ic_stat_calendar';
+  }
+
   /// Calculates the current Ethiopian date in Africa/Addis_Ababa timezone.
   static ({
     String title,
     String body,
     String expandedBody,
+    String smallIcon,
     int etDay,
     int etMonth,
     int etYear,
@@ -182,10 +195,13 @@ class EthiopianCalendarNotificationService {
     final expandedBody =
         '$weekdayName፣ $monthName $day ቀን $year ዓ.ም\n($geezDay $monthName $geezYear)';
 
+    final smallIcon = getSmallIconName(etDate.month, day);
+
     return (
       title: title,
       body: body,
       expandedBody: expandedBody,
+      smallIcon: smallIcon,
       etDay: day,
       etMonth: etDate.month,
       etYear: year,
@@ -235,7 +251,7 @@ class EthiopianCalendarNotificationService {
         autoCancel: false,
         showWhen: false,
         visibility: NotificationVisibility.public, // Visible on lockscreen
-        icon: '@drawable/ic_stat_calendar',
+        icon: info.smallIcon,
         largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         color: const Color(0xFF1B5E20),
         category: AndroidNotificationCategory.status,
@@ -330,6 +346,7 @@ class EthiopianCalendarNotificationService {
       final tomorrowBody = '$monthName $day';
       final tomorrowExpanded =
           '$weekdayName፣ $monthName $day ቀን ${tomorrowEt.year} ዓ.ም\n($geezDay $monthName $geezYear)';
+      final tomorrowSmallIcon = getSmallIconName(tomorrowEt.month, day);
 
       final bigTextStyle = BigTextStyleInformation(
         tomorrowExpanded,
@@ -347,7 +364,7 @@ class EthiopianCalendarNotificationService {
         autoCancel: false,
         showWhen: false,
         visibility: NotificationVisibility.public,
-        icon: '@drawable/ic_stat_calendar',
+        icon: tomorrowSmallIcon,
         largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         color: const Color(0xFF1B5E20),
         category: AndroidNotificationCategory.status,
@@ -411,7 +428,7 @@ class EthiopianCalendarNotificationService {
         autoCancel: false,
         showWhen: false,
         visibility: NotificationVisibility.public,
-        icon: '@drawable/ic_stat_calendar',
+        icon: info.smallIcon,
         largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         color: const Color(0xFF1B5E20),
         category: AndroidNotificationCategory.status,

@@ -29,6 +29,28 @@ void main() {
       // Expanded body should contain the Ethiopian year and Ge'ez notation
       expect(info.expandedBody, contains('ዓ.ም'));
       expect(info.expandedBody, contains(monthName));
+
+      // Small icon should be formatted with 2-digit month and day (e.g. 'ic_cal_03_08')
+      expect(info.smallIcon, matches(RegExp(r'^ic_cal_\d{2}_\d{2}$')));
+    });
+
+    test('getSmallIconName formats 2-digit month and day correctly', () {
+      expect(
+        EthiopianCalendarNotificationService.getSmallIconName(3, 8),
+        'ic_cal_03_08',
+      );
+      expect(
+        EthiopianCalendarNotificationService.getSmallIconName(1, 1),
+        'ic_cal_01_01',
+      );
+      expect(
+        EthiopianCalendarNotificationService.getSmallIconName(13, 6),
+        'ic_cal_13_06',
+      );
+      expect(
+        EthiopianCalendarNotificationService.getSmallIconName(0, 0),
+        'ic_stat_calendar',
+      );
     });
 
     test('EthiopianCalendarUtil converts specific dates accurately', () {
