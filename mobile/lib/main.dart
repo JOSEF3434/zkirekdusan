@@ -17,6 +17,7 @@ import 'package:mobile/features/notifications/data/fcm_service.dart';
 import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_connectivity_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_notifications_service.dart';
+import 'package:mobile/features/calendar/data/ethiopian_calendar_notification_service.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
 import 'package:mobile/core/services/app_lifecycle_observer.dart';
 import 'package:mobile/core/services/pip_service.dart';
@@ -134,6 +135,9 @@ void main() async {
         // Initialize Calendar Reminder System
         final calendarNotifications = CalendarNotificationsService();
         await calendarNotifications.initialize();
+
+        // Initialize and display Persistent Ethiopian Calendar Notification (Shade & Lockscreen)
+        await EthiopianCalendarNotificationService.initializeAndShow();
 
         await CalendarReminderManager.initialize();
         await CalendarReminderManager.registerPeriodicReminderCheck();

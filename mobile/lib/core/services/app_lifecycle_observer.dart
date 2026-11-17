@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
+import 'package:mobile/features/calendar/data/ethiopian_calendar_notification_service.dart';
 
 class AppLifecycleObserver extends WidgetsBindingObserver {
   final ProviderContainer _container;
@@ -24,6 +25,8 @@ class AppLifecycleObserver extends WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         // Check if inactivity exceeded the configured timeout
         _container.read(appLockProvider.notifier).onResumed();
+        // Refresh persistent Ethiopian calendar notification if day changed
+        EthiopianCalendarNotificationService.updateIfDateChanged();
         break;
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:

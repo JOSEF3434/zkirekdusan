@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:mobile/features/calendar/data/calendar_background_sync.dart';
 import 'package:mobile/features/calendar/data/calendar_reminder_worker.dart';
+import 'package:mobile/features/calendar/data/ethiopian_calendar_notification_service.dart';
 
 const String backgroundSyncTaskName = 'com.zikrekidusan.sync_task';
 
@@ -18,7 +19,16 @@ void callbackDispatcher() {
         name: 'BackgroundSync',
       );
 
-      if (task == CalendarReminderTasks.checkReminders ||
+      // Keep persistent Ethiopian calendar date up to date on any background trigger
+      try {
+        await EthiopianCalendarNotificationService.updateFromBackground();
+      } catch (e) {
+        developer.log('⚠️ Background calendar notification update error: $e', name: 'BackgroundSync');
+      }
+
+      if (task == EthiopianCalendarNotificationService.taskName) {
+        return true;
+      } else if (task == CalendarReminderTasks.checkReminders ||
           task == '${CalendarReminderTasks.checkReminders}_oneoff') {
         return await executeCalendarReminderTask();
       } else if (task == CalendarSyncTasks.periodicSync ||
@@ -57,8 +67,7 @@ class BackgroundSyncService {
       await Workmanager().initialize(callbackDispatcher);
       _initialized = true;
 
-      // Register periodic task every 15 minutes (minimum allowed by Android OS)
-      // Only executes when device has active network connection
+      // 1. Register periodic task every 15 minutes for data sync
       await Workmanager().registerPeriodicTask(
         'zikre_periodic_sync',
         backgroundSyncTaskName,
@@ -66,6 +75,19 @@ class BackgroundSyncService {
         constraints: Constraints(
           networkType: NetworkType.connected,
           requiresBatteryNotLow: true,
+        ),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      );
+
+      // 2. Register periodic Ethiopian calendar notification update (works 100% offline)
+      await Workmanager().registerPeriodicTask(
+        'ethiopian_calendar_periodic_update',
+        EthiopianCalendarNotificationService.taskName,
+        frequency: const Duration(hours: 6),
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+          requiresBatteryNotLow: false,
+          requiresCharging: false,
         ),
         existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       );

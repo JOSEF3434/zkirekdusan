@@ -415,18 +415,23 @@ class CalendarNotificationsService {
     return await _notifications.pendingNotificationRequests();
   }
 
-  /// Handle notification tap — navigate to the note detail screen.
+  /// Handle notification tap — navigate to the note detail screen or calendar.
   static void _onNotificationTapped(NotificationResponse response) {
-    final noteId = response.payload;
+    final payload = response.payload;
     developer.log(
-      '📱 Notification tapped: payload=$noteId',
+      '📱 Notification tapped: payload=$payload, id=${response.id}',
       name: 'CalendarNotifications',
     );
 
-    if (noteId != null && noteId.isNotEmpty) {
+    if (payload == 'calendar' || response.id == 7701) {
+      NavigationService.instance.goTo('/calendar');
+      return;
+    }
+
+    if (payload != null && payload.isNotEmpty) {
       // Navigate to the calendar note detail screen via GoRouter deep link.
       // NavigationService holds a reference to the GoRouter set during app init.
-      NavigationService.instance.navigateToCalendarNote(noteId);
+      NavigationService.instance.navigateToCalendarNote(payload);
     }
   }
 }

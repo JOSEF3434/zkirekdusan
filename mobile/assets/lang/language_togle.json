@@ -1406,7 +1406,16 @@
     "upload.transcoding_desc": "We're transcoding resolutions (1080p, 720p, 480p) and generating HLS streams for smooth playback.",
     "upload.optimizing_mobile": "Optimizing for mobile playback",
     "common.try_again": "Try Again",
-    "common.go_back": "Go Back"
+    "common.go_back": "Go Back",
+    "calendar.notification.group_title": "Ethiopian Calendar",
+    "calendar.notification.setting_title": "Ethiopian Calendar Notification (የኢትዮጵያ ቀን ማሳወቂያ)",
+    "calendar.notification.setting_desc": "Display today's Ethiopian calendar date in the notification shade and lock screen.",
+    "calendar.notification.today_title": "የዛሬ ቀን",
+    "calendar.notification.open_settings": "Open Settings",
+    "calendar.notification.permission_required": "Please enable notification permission in system settings to show the daily Ethiopian calendar date.",
+    "calendar.notification.permission_title": "Notification Permission Required",
+    "calendar.notification.day_label": "Day",
+    "calendar.notification.year_label": "Year"
   },
   "am": {
     "app.name": "ዝክረ ክዱሳን",
@@ -2387,7 +2396,16 @@
     "live.title": "የቀጥታ ስርጭት",
     "live.video_stream": "የቪዲዮ ስርጭት",
     "live.broadcast_timing": "የስርጭት ሰዓት",
-    "live.schedule_for_later": "ለሌላ ጊዜ መርሐግብር ያዝ"
+    "live.schedule_for_later": "ለሌላ ጊዜ መርሐግብር ያዝ",
+    "calendar.notification.group_title": "የኢትዮጵያ ቀን መቁጠሪያ",
+    "calendar.notification.setting_title": "የኢትዮጵያ ቀን ማሳወቂያ (Ethiopian Calendar Notification)",
+    "calendar.notification.setting_desc": "የዛሬውን የኢትዮጵያ ቀን በማሳወቂያ ቦታና በመቆለፊያ ገጽ ላይ አሳይ።",
+    "calendar.notification.today_title": "የዛሬ ቀን",
+    "calendar.notification.open_settings": "ቅንብሮችን ክፈት",
+    "calendar.notification.permission_required": "የዕለቱን የኢትዮጵያ ቀን ለማሳየት እባክዎ በስልክዎ ቅንብሮች ውስጥ የማሳወቂያ ፈቃድ ይስጡ።",
+    "calendar.notification.permission_title": "የማሳወቂያ ፈቃድ ያስፈልጋል",
+    "calendar.notification.day_label": "ቀን",
+    "calendar.notification.year_label": "ዓ.ም"
   },
   "gez": {
     "app.name": "Zekre Kedusan",
@@ -3796,6 +3814,15 @@
     "upload.transcoding_desc": "ንሠርዕ ቪዲዮ በተፈላለየ ጥራት ወይትዳሎ ለዕይታ፡",
     "upload.optimizing_mobile": "ይትዳሎ ለተንቀሳቃሢ መሣሪያ",
     "common.try_again": "ዳግመ ፈትን",
-    "common.go_back": "ተመየጥ ድኅሬከ"
+    "common.go_back": "ተመየጥ ድኅሬከ",
+    "calendar.notification.group_title": "ዘኢትዮጵያ ባሕረ ሐሳብ",
+    "calendar.notification.setting_title": "ዘኢትዮጵያ ዕለት ማዕረግ",
+    "calendar.notification.setting_desc": "ዘዮም ዕለተ ኢትዮጵያ በማእከለ ማዕረግ ወመዕቀፊ ገጽ አርኢ።",
+    "calendar.notification.today_title": "ዕለተ ዮም",
+    "calendar.notification.open_settings": "ስርዐታተ ክሥት",
+    "calendar.notification.permission_required": "ዘዮም ዕለተ ኢትዮጵያ ለአርእዮ በስርዐተ መሣሪያ ፈቃደ ማዕረግ ሀብ።",
+    "calendar.notification.permission_title": "ፈቃደ ማዕረግ ይትፈቀድ",
+    "calendar.notification.day_label": "ዕለት",
+    "calendar.notification.year_label": "ዓ.ም"
   }
 }

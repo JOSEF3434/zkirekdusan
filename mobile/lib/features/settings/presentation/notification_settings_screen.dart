@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/settings/presentation/providers/social_settings_provider.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
+import 'package:mobile/features/calendar/presentation/providers/ethiopian_calendar_notification_provider.dart';
+import 'package:mobile/features/calendar/data/ethiopian_calendar_notification_service.dart';
 
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
@@ -13,6 +15,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final tr = ref.watch(trProvider);
     final s = ref.watch(socialSettingsProvider);
     final n = ref.read(socialSettingsProvider.notifier);
+    final calendarNotificationEnabled =
+        ref.watch(ethiopianCalendarNotificationEnabledProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -25,6 +29,51 @@ class NotificationSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Ethiopian Calendar Date (Persistent Shade & Lockscreen) ─────
+          SettingsGroup(
+            label: tr('calendar.notification.group_title'),
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.calendar_month_rounded,
+                iconColor: const Color(0xFFE67E22),
+                title: tr('calendar.notification.setting_title'),
+                subtitle: tr('calendar.notification.setting_desc'),
+                value: calendarNotificationEnabled,
+                onChanged: (val) async {
+                  final success = await ref
+                      .read(ethiopianCalendarNotificationEnabledProvider.notifier)
+                      .setEnabled(val);
+                  if (val && !success && context.mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(tr('calendar.notification.permission_title')),
+                        content: Text(
+                          tr('calendar.notification.permission_required'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(tr('common.cancel')),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              EthiopianCalendarNotificationService.openSystemSettings();
+                            },
+                            child: Text(tr('calendar.notification.open_settings')),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+                isLast: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
           // ── Master Toggle ──────────────────────────────────────────────────
           SettingsGroup(
             label: tr('settings.notifications.master_control'),
