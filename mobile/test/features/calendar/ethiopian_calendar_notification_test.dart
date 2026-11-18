@@ -48,6 +48,10 @@ void main() {
         'ic_cal_13_06',
       );
       expect(
+        EthiopianCalendarNotificationService.getSmallIconName(13, 7),
+        'ic_cal_13_07',
+      );
+      expect(
         EthiopianCalendarNotificationService.getSmallIconName(0, 0),
         'ic_stat_calendar',
       );
