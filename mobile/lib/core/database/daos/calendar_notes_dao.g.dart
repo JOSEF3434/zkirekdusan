@@ -8,6 +8,8 @@ mixin _$CalendarNotesDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.localCalendarNotes;
   $LocalCalendarNoteMediaTable get localCalendarNoteMedia =>
       attachedDatabase.localCalendarNoteMedia;
+  $LocalCalendarSyncMetadataTable get localCalendarSyncMetadata =>
+      attachedDatabase.localCalendarSyncMetadata;
   CalendarNotesDaoManager get managers => CalendarNotesDaoManager(this);
 }
 
@@ -23,5 +25,10 @@ class CalendarNotesDaoManager {
       $$LocalCalendarNoteMediaTableTableManager(
         _db.attachedDatabase,
         _db.localCalendarNoteMedia,
+      );
+  $$LocalCalendarSyncMetadataTableTableManager get localCalendarSyncMetadata =>
+      $$LocalCalendarSyncMetadataTableTableManager(
+        _db.attachedDatabase,
+        _db.localCalendarSyncMetadata,
       );
 }

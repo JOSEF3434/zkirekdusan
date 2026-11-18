@@ -6,7 +6,11 @@ import '../tables/local_calendar_notes_table.dart';
 
 part 'calendar_notes_dao.g.dart';
 
-@DriftAccessor(tables: [LocalCalendarNotes, LocalCalendarNoteMedia])
+@DriftAccessor(tables: [
+  LocalCalendarNotes,
+  LocalCalendarNoteMedia,
+  LocalCalendarSyncMetadata,
+])
 class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     with _$CalendarNotesDaoMixin {
   CalendarNotesDao(super.db);
@@ -82,6 +86,13 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     required DateTime gregorianDate,
     String? title,
     String? content,
+    String? category,
+    String? recurrenceType,
+    bool? isAutoPublishEnabled,
+    String? autoPublishTime,
+    String? publicationStatus,
+    String? nextPublicationDate,
+    String? generatedPostId,
     bool hasReminder = false,
     DateTime? reminderDateTime,
     String reminderRepeat = 'NONE',
@@ -99,13 +110,19 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
       LocalCalendarNotesCompanion.insert(
         id: noteId,
         userId: userId,
-
         ethiopianYear: ethiopianYear,
         ethiopianMonth: ethiopianMonth,
         ethiopianDay: ethiopianDay,
         gregorianDate: gregorianDate,
         title: Value(title),
         content: Value(content),
+        category: Value(category),
+        recurrenceType: Value(recurrenceType ?? 'NONE'),
+        isAutoPublishEnabled: Value(isAutoPublishEnabled ?? false),
+        autoPublishTime: Value(autoPublishTime),
+        publicationStatus: Value(publicationStatus),
+        nextPublicationDate: Value(nextPublicationDate),
+        generatedPostId: Value(generatedPostId),
         hasReminder: Value(hasReminder),
         reminderDateTime: Value(reminderDateTime),
         reminderRepeat: Value(reminderRepeat),
@@ -129,6 +146,13 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     String id, {
     String? title,
     String? content,
+    String? category,
+    String? recurrenceType,
+    bool? isAutoPublishEnabled,
+    String? autoPublishTime,
+    String? publicationStatus,
+    String? nextPublicationDate,
+    String? generatedPostId,
     bool? hasReminder,
     DateTime? reminderDateTime,
     String? reminderRepeat,
@@ -145,6 +169,24 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
       LocalCalendarNotesCompanion(
         title: Value(title),
         content: Value(content),
+        category: category == null ? const Value.absent() : Value(category),
+        recurrenceType:
+            recurrenceType == null ? const Value.absent() : Value(recurrenceType),
+        isAutoPublishEnabled: isAutoPublishEnabled == null
+            ? const Value.absent()
+            : Value(isAutoPublishEnabled),
+        autoPublishTime: autoPublishTime == null
+            ? const Value.absent()
+            : Value(autoPublishTime),
+        publicationStatus: publicationStatus == null
+            ? const Value.absent()
+            : Value(publicationStatus),
+        nextPublicationDate: nextPublicationDate == null
+            ? const Value.absent()
+            : Value(nextPublicationDate),
+        generatedPostId: generatedPostId == null
+            ? const Value.absent()
+            : Value(generatedPostId),
         hasReminder: hasReminder == null
             ? const Value.absent()
             : Value(hasReminder),
@@ -369,6 +411,64 @@ class CalendarNotesDao extends DatabaseAccessor<AppDatabase>
     await batch((batch) {
       batch.insertAllOnConflictUpdate(localCalendarNoteMedia, mediaList);
     });
+  }
+
+  /// Get all active notes within an inclusive rolling Ethiopian-year window
+  Future<List<LocalCalendarNoteData>> getNotesInRollingWindow({
+    required int startYear,
+    required int startMonth,
+    required int startDay,
+    required int endYear,
+    required int endMonth,
+    required int endDay,
+  }) async {
+    final startScore = startYear * 10000 + startMonth * 100 + startDay;
+    final endScore = endYear * 10000 + endMonth * 100 + endDay;
+
+    final notes = await (select(localCalendarNotes)
+          ..where(
+            (tbl) =>
+                tbl.ethiopianYear.isBiggerOrEqualValue(startYear) &
+                tbl.ethiopianYear.isSmallerOrEqualValue(endYear) &
+                tbl.deletedAt.isNull(),
+          )
+          ..orderBy([
+            (tbl) => OrderingTerm.asc(tbl.ethiopianYear),
+            (tbl) => OrderingTerm.asc(tbl.ethiopianMonth),
+            (tbl) => OrderingTerm.asc(tbl.ethiopianDay),
+          ]))
+        .get();
+
+    return notes.where((note) {
+      final score =
+          note.ethiopianYear * 10000 +
+          note.ethiopianMonth * 100 +
+          note.ethiopianDay;
+      return score >= startScore && score <= endScore;
+    }).toList();
+  }
+
+  /// Get synchronization metadata
+  Future<LocalCalendarSyncMetadataData?> getSyncMetadata([
+    String id = 'calendar_sync_metadata',
+  ]) {
+    return (select(localCalendarSyncMetadata)..where((tbl) => tbl.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  /// Save synchronization metadata
+  Future<void> setSyncMetadata(LocalCalendarSyncMetadataCompanion metadata) {
+    return into(localCalendarSyncMetadata).insertOnConflictUpdate(metadata);
+  }
+
+  /// Soft delete a note by marking deletedAt
+  Future<void> softDeleteNote(String id) {
+    return (update(localCalendarNotes)..where((tbl) => tbl.id.equals(id))).write(
+      LocalCalendarNotesCompanion(
+        deletedAt: Value(DateTime.now()),
+        isSynced: const Value(true),
+      ),
+    );
   }
 
   /// Clear all notes (for logout/cache clear)

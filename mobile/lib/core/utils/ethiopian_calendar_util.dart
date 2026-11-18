@@ -124,4 +124,54 @@ class EthiopianCalendarUtil {
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
+
+  /// Monotonic chronological date score: year * 10000 + month * 100 + day
+  static int getDateScore(int year, int month, int day) {
+    return year * 10000 + month * 100 + day;
+  }
+
+  /// Calculates the active rolling one-Ethiopian-year calendar window.
+  /// START: Same Ethiopian month/day in the previous Ethiopian year.
+  /// Clamped to max days of that month (e.g. Pagumen).
+  /// END: Current Ethiopian date.
+  /// Covers all 13 Ethiopian months inclusively.
+  static ({EtDatetime start, EtDatetime end}) getRollingOneYearWindow([
+    EtDatetime? referenceDate,
+  ]) {
+    final now = referenceDate ?? EthiopianCalendarUtil.now();
+    final prevYear = now.year - 1;
+    final maxPrevDays = getDaysInMonth(prevYear, now.month);
+    final startDay = now.day > maxPrevDays ? maxPrevDays : now.day;
+
+    final start = EtDatetime(year: prevYear, month: now.month, day: startDay);
+    final end = EtDatetime(year: now.year, month: now.month, day: now.day);
+    return (start: start, end: end);
+  }
+
+  /// Checks if an Ethiopian date falls within the inclusive rolling window.
+  static bool isDateInRollingWindow({
+    required int year,
+    required int month,
+    required int day,
+    required EtDatetime start,
+    required EtDatetime end,
+  }) {
+    final score = getDateScore(year, month, day);
+    final startScore = getDateScore(start.year, start.month, start.day);
+    final endScore = getDateScore(end.year, end.month, end.day);
+    return score >= startScore && score <= endScore;
+  }
+
+  /// Format Ethiopian date as standard ISO-like string "YYYY-MM-DD"
+  static String formatIsoDate(dynamic yearOrDate, [int? month, int? day]) {
+    if (yearOrDate is EtDatetime) {
+      final m = yearOrDate.month.toString().padLeft(2, '0');
+      final d = yearOrDate.day.toString().padLeft(2, '0');
+      return '${yearOrDate.year}-$m-$d';
+    }
+    final y = yearOrDate as int;
+    final m = (month ?? 1).toString().padLeft(2, '0');
+    final d = (day ?? 1).toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
 }

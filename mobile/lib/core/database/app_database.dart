@@ -43,6 +43,7 @@ part 'app_database.g.dart';
     LocalFeedItems,
     LocalCalendarNotes,
     LocalCalendarNoteMedia,
+    LocalCalendarSyncMetadata,
     SyncQueue,
     LocalDownloadedBooks,
     LocalLiveRecordings,
@@ -74,7 +75,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -148,6 +149,33 @@ class AppDatabase extends _$AppDatabase {
       // Version 6: Add local live recordings table
       if (from < 6) {
         await m.createTable(localLiveRecordings);
+      }
+
+      // Version 7: Add recurrence, category, publication fields and sync metadata
+      if (from < 7) {
+        final columns = await m.database
+            .customSelect('PRAGMA table_info(local_calendar_notes)')
+            .get();
+        final existingColumns = columns
+            .map((row) => row.read<String>('name'))
+            .toSet();
+        final additions = <String, GeneratedColumn Function()>{
+          'category': () => localCalendarNotes.category,
+          'recurrence_type': () => localCalendarNotes.recurrenceType,
+          'is_auto_publish_enabled': () =>
+              localCalendarNotes.isAutoPublishEnabled,
+          'auto_publish_time': () => localCalendarNotes.autoPublishTime,
+          'publication_status': () => localCalendarNotes.publicationStatus,
+          'next_publication_date': () => localCalendarNotes.nextPublicationDate,
+          'generated_post_id': () => localCalendarNotes.generatedPostId,
+          'remote_id': () => localCalendarNotes.remoteId,
+        };
+        for (final entry in additions.entries) {
+          if (!existingColumns.contains(entry.key)) {
+            await m.addColumn(localCalendarNotes, entry.value());
+          }
+        }
+        await m.createTable(localCalendarSyncMetadata);
       }
     },
     beforeOpen: (OpeningDetails details) async {

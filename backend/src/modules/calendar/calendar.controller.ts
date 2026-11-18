@@ -11,9 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CalendarService } from './calendar.service.js';
+import { CalendarPublicationService } from './calendar-publication.service.js';
 import { CreateCalendarNoteDto } from './dto/create-calendar-note.dto.js';
 import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
+import { UpdatePublicationSettingsDto } from './dto/update-publication-settings.dto.js';
 import { AddNoteMediaDto } from './dto/add-note-media.dto.js';
 import { UpdateNoteMediaDto } from './dto/update-note-media.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
@@ -27,7 +29,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('calendar/notes')
 export class CalendarController {
-  constructor(private readonly calendarService: CalendarService) {}
+  constructor(
+    private readonly calendarService: CalendarService,
+    private readonly publicationService: CalendarPublicationService,
+  ) {}
 
   @Post()
   @Roles(AppRole.SUPER_ADMIN)
@@ -40,11 +45,94 @@ export class CalendarController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get calendar notes (with optional filters)' })
-  findAll(
-    @Query() query: QueryCalendarNotesDto,
-  ) {
+  @ApiOperation({ summary: 'Get calendar notes (with optional filters or Ethiopian date range)' })
+  findAll(@Query() query: QueryCalendarNotesDto) {
     return this.calendarService.findAll(query);
+  }
+
+  @Get('sync')
+  @ApiOperation({
+    summary: 'Incremental calendar synchronization within the rolling Ethiopian-year window',
+  })
+  sync(
+    @Query() query: QueryCalendarNotesDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.calendarService.syncNotes(query, userId);
+  }
+
+  @Get('range')
+  @ApiOperation({ summary: 'Get calendar notes for specified Ethiopian date range' })
+  findByRange(@Query() query: QueryCalendarNotesDto) {
+    return this.calendarService.findAll(query);
+  }
+
+  // Publication management endpoints (defined before :id)
+  @Get('publications/upcoming')
+  @Roles(AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get upcoming scheduled publication occurrences' })
+  getUpcomingOccurrences(@Query('limit') limit?: number) {
+    return this.publicationService.getUpcomingOccurrences(
+      limit ? Number(limit) : 20,
+    );
+  }
+
+  @Get('publications/history')
+  @Roles(AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get feast publication execution history' })
+  getPublicationHistory(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.publicationService.getPublicationHistory(
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
+  }
+
+  @Patch('publications/:id/cancel')
+  @Roles(AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Cancel a scheduled publication occurrence' })
+  cancelPublicationOccurrence(@Param('id') occurrenceId: string) {
+    return this.publicationService.cancelOccurrence(occurrenceId);
+  }
+
+  @Post('publications/:id/retry')
+  @Roles(AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Retry a failed publication occurrence' })
+  retryPublicationOccurrence(@Param('id') occurrenceId: string) {
+    return this.publicationService.retryOccurrence(occurrenceId);
+  }
+
+  // Reminder endpoints
+  @Get('reminders/upcoming')
+  @ApiOperation({ summary: 'Get upcoming reminders (next 24 hours)' })
+  getUpcomingReminders(@CurrentUser('sub') userId: string) {
+    return this.calendarService.getUpcomingReminders(userId, 24);
+  }
+
+  @Patch(':id/reminder/mark-notified')
+  @ApiOperation({ summary: 'Mark reminder as notified' })
+  markReminderNotified(
+    @CurrentUser('sub') userId: string,
+    @Param('id') noteId: string,
+  ) {
+    return this.calendarService.markReminderAsNotified(userId, noteId);
+  }
+
+  @Patch(':id/publication-settings')
+  @Roles(AppRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update recurrence and auto-publish settings for a calendar note' })
+  updatePublicationSettings(
+    @Param('id') noteId: string,
+    @Body() dto: UpdatePublicationSettingsDto,
+  ) {
+    return this.publicationService.updatePublicationSettings(
+      noteId,
+      dto.recurrenceType,
+      dto.isAutoPublishEnabled,
+      dto.autoPublishTime,
+    );
   }
 
   @Get(':id')
@@ -116,23 +204,5 @@ export class CalendarController {
     @Param('mediaId') mediaId: string,
   ) {
     return this.calendarService.removeMedia(userId, noteId, mediaId);
-  }
-
-
-
-  // Reminder endpoints
-  @Get('reminders/upcoming')
-  @ApiOperation({ summary: 'Get upcoming reminders (next 24 hours)' })
-  getUpcomingReminders(@CurrentUser('sub') userId: string) {
-    return this.calendarService.getUpcomingReminders(userId, 24);
-  }
-
-  @Patch(':id/reminder/mark-notified')
-  @ApiOperation({ summary: 'Mark reminder as notified' })
-  markReminderNotified(
-    @CurrentUser('sub') userId: string,
-    @Param('id') noteId: string,
-  ) {
-    return this.calendarService.markReminderAsNotified(userId, noteId);
   }
 }

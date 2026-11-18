@@ -124,6 +124,21 @@ export class CreateCalendarNoteDto {
   @IsBoolean()
   allowDownload?: boolean;
 
+  @ApiPropertyOptional({ enum: CalendarReminderRepeat, description: 'Explicit recurrence type' })
+  @IsOptional()
+  @IsEnum(CalendarReminderRepeat)
+  recurrenceType?: CalendarReminderRepeat;
+
+  @ApiPropertyOptional({ example: false, description: 'Enable automatic feast publication' })
+  @IsOptional()
+  @IsBoolean()
+  isAutoPublishEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: '12:00', description: 'Scheduled publication time (HH:mm)' })
+  @IsOptional()
+  @IsString()
+  autoPublishTime?: string;
+
   @ApiPropertyOptional({
     type: [AddNoteMediaDto],
     description: 'Optional initial media attachments to associate with the note',

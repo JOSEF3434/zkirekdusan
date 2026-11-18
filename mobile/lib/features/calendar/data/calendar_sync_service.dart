@@ -2,9 +2,7 @@
 // Background sync service for calendar notes
 
 import 'dart:developer' as developer;
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
 
 final calendarSyncServiceProvider = Provider<CalendarSyncService>((ref) {
@@ -115,64 +113,18 @@ class CalendarSyncService {
       }
 
       if (!uploadOnly && !isThrottled) {
-        // Step 2: Pull updates from server using single request per Ethiopian year
+        // Step 2: Pull updates from server using rolling one-Ethiopian-year window covering all 13 months
         developer.log(
-          '⬇️ Pulling server updates (3 full Ethiopian years)...',
+          '⬇️ Pulling server updates (rolling 1-Ethiopian-year window)...',
           name: 'CalendarSync',
         );
 
-        final etNow = EthiopianCalendarUtil.now();
-        final currentEthiopianYear = etNow.year;
-        final yearsToSync = [
-          currentEthiopianYear,
-          currentEthiopianYear - 1,
-          currentEthiopianYear - 2,
-        ];
-
-        for (int i = 0; i < yearsToSync.length; i++) {
-          final year = yearsToSync[i];
-          if (isThrottled) break;
-
-          try {
-            // Omitting month queries the whole Ethiopian year in a single request,
-            // avoiding the 39-request storm that caused HTTP 429 errors.
-            final count = await _repository.syncNotesFromServer(year: year);
-            notesPulled += count;
-            developer.log(
-              '✓ Synced full Ethiopian year $year ($count notes)',
-              name: 'CalendarSync',
-            );
-          } on DioException catch (dioErr) {
-            if (dioErr.response?.statusCode == 429) {
-              isThrottled = true;
-              pullFailures++;
-              errorMessage = 'Rate limited by server (HTTP 429)';
-              developer.log(
-                '⚠️ Throttled (429) on year $year - aborting subsequent pulls',
-                name: 'CalendarSync',
-              );
-              break;
-            } else {
-              pullFailures++;
-              errorMessage ??= dioErr.toString();
-              developer.log(
-                '⚠️ Failed to sync year $year: $dioErr',
-                name: 'CalendarSync',
-              );
-            }
-          } catch (e) {
-            pullFailures++;
-            errorMessage ??= e.toString();
-            developer.log(
-              '⚠️ Failed to sync year $year: $e',
-              name: 'CalendarSync',
-            );
-          }
-
-          // Gentle backoff delay between year requests
-          if (i < yearsToSync.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 150));
-          }
+        final rollingResult = await _repository.syncRollingWindow();
+        notesPulled = rollingResult.newRecords + rollingResult.updatedRecords;
+        if (!rollingResult.isSuccess) {
+          pullFailures++;
+          isThrottled = rollingResult.isThrottled;
+          errorMessage = rollingResult.errorMessage;
         }
       }
 
@@ -232,31 +184,14 @@ class CalendarSyncService {
         errorMessage = pushResult.lastError;
       }
 
-      // 2. Only pull current Ethiopian month if not throttled
+      // 2. Pull incremental updates for the rolling window if not throttled
       if (!isThrottled) {
-        final etNow = EthiopianCalendarUtil.now();
-        try {
-          final count = await _repository.syncNotesFromServer(
-            year: etNow.year,
-            month: etNow.month,
-          );
-          notesPulled = count;
-          developer.log(
-            '✓ Quick sync pulled month ${etNow.month}/${etNow.year} ($count notes)',
-            name: 'CalendarSync',
-          );
-        } on DioException catch (dioErr) {
-          if (dioErr.response?.statusCode == 429) {
-            isThrottled = true;
-            pullFailures++;
-            errorMessage = 'Rate limited by server (HTTP 429)';
-          } else {
-            pullFailures++;
-            errorMessage ??= dioErr.toString();
-          }
-        } catch (e) {
+        final rollingResult = await _repository.syncRollingWindow();
+        notesPulled = rollingResult.newRecords + rollingResult.updatedRecords;
+        if (!rollingResult.isSuccess) {
           pullFailures++;
-          errorMessage ??= e.toString();
+          isThrottled = rollingResult.isThrottled;
+          errorMessage = rollingResult.errorMessage;
         }
       }
 

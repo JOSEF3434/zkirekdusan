@@ -37,6 +37,17 @@ class LocalCalendarNotes extends Table {
   DateTimeColumn get updatedAt => dateTime()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
+  // Category and Recurrence/Publication Configuration
+  TextColumn get category => text().nullable()();
+  TextColumn get recurrenceType => text().withDefault(const Constant('NONE'))();
+  BoolColumn get isAutoPublishEnabled =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get autoPublishTime => text().nullable()();
+  TextColumn get publicationStatus => text().nullable()();
+  TextColumn get nextPublicationDate => text().nullable()();
+  TextColumn get generatedPostId => text().nullable()();
+  TextColumn get remoteId => text().nullable()();
+
   // Sync status
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   BoolColumn get isPendingDelete =>
@@ -48,6 +59,19 @@ class LocalCalendarNotes extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [];
+}
+
+@DataClassName('LocalCalendarSyncMetadataData')
+class LocalCalendarSyncMetadata extends Table {
+  TextColumn get id => text()();
+  TextColumn get activeWindowStart => text()();
+  TextColumn get activeWindowEnd => text()();
+  DateTimeColumn get lastSuccessfulSyncAt => dateTime().nullable()();
+  TextColumn get lastSyncCursor => text().nullable()();
+  IntColumn get schemaVersion => integer().withDefault(const Constant(1))();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 @DataClassName('LocalCalendarNoteMediaData')

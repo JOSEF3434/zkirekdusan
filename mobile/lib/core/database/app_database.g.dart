@@ -7949,6 +7949,99 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceTypeMeta = const VerificationMeta(
+    'recurrenceType',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceType = GeneratedColumn<String>(
+    'recurrence_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('NONE'),
+  );
+  static const VerificationMeta _isAutoPublishEnabledMeta =
+      const VerificationMeta('isAutoPublishEnabled');
+  @override
+  late final GeneratedColumn<bool> isAutoPublishEnabled = GeneratedColumn<bool>(
+    'is_auto_publish_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_auto_publish_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _autoPublishTimeMeta = const VerificationMeta(
+    'autoPublishTime',
+  );
+  @override
+  late final GeneratedColumn<String> autoPublishTime = GeneratedColumn<String>(
+    'auto_publish_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _publicationStatusMeta = const VerificationMeta(
+    'publicationStatus',
+  );
+  @override
+  late final GeneratedColumn<String> publicationStatus =
+      GeneratedColumn<String>(
+        'publication_status',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _nextPublicationDateMeta =
+      const VerificationMeta('nextPublicationDate');
+  @override
+  late final GeneratedColumn<String> nextPublicationDate =
+      GeneratedColumn<String>(
+        'next_publication_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _generatedPostIdMeta = const VerificationMeta(
+    'generatedPostId',
+  );
+  @override
+  late final GeneratedColumn<String> generatedPostId = GeneratedColumn<String>(
+    'generated_post_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -8013,6 +8106,14 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
     createdAt,
     updatedAt,
     deletedAt,
+    category,
+    recurrenceType,
+    isAutoPublishEnabled,
+    autoPublishTime,
+    publicationStatus,
+    nextPublicationDate,
+    generatedPostId,
+    remoteId,
     isSynced,
     isPendingDelete,
     lastSyncedAt,
@@ -8210,6 +8311,72 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
         deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
       );
     }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('recurrence_type')) {
+      context.handle(
+        _recurrenceTypeMeta,
+        recurrenceType.isAcceptableOrUnknown(
+          data['recurrence_type']!,
+          _recurrenceTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_auto_publish_enabled')) {
+      context.handle(
+        _isAutoPublishEnabledMeta,
+        isAutoPublishEnabled.isAcceptableOrUnknown(
+          data['is_auto_publish_enabled']!,
+          _isAutoPublishEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_publish_time')) {
+      context.handle(
+        _autoPublishTimeMeta,
+        autoPublishTime.isAcceptableOrUnknown(
+          data['auto_publish_time']!,
+          _autoPublishTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('publication_status')) {
+      context.handle(
+        _publicationStatusMeta,
+        publicationStatus.isAcceptableOrUnknown(
+          data['publication_status']!,
+          _publicationStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_publication_date')) {
+      context.handle(
+        _nextPublicationDateMeta,
+        nextPublicationDate.isAcceptableOrUnknown(
+          data['next_publication_date']!,
+          _nextPublicationDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('generated_post_id')) {
+      context.handle(
+        _generatedPostIdMeta,
+        generatedPostId.isAcceptableOrUnknown(
+          data['generated_post_id']!,
+          _generatedPostIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -8327,6 +8494,38 @@ class $LocalCalendarNotesTable extends LocalCalendarNotes
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
       ),
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      ),
+      recurrenceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_type'],
+      )!,
+      isAutoPublishEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_auto_publish_enabled'],
+      )!,
+      autoPublishTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}auto_publish_time'],
+      ),
+      publicationStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}publication_status'],
+      ),
+      nextPublicationDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_publication_date'],
+      ),
+      generatedPostId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}generated_post_id'],
+      ),
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -8371,6 +8570,14 @@ class LocalCalendarNoteData extends DataClass
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
+  final String? category;
+  final String recurrenceType;
+  final bool isAutoPublishEnabled;
+  final String? autoPublishTime;
+  final String? publicationStatus;
+  final String? nextPublicationDate;
+  final String? generatedPostId;
+  final String? remoteId;
   final bool isSynced;
   final bool isPendingDelete;
   final DateTime? lastSyncedAt;
@@ -8396,6 +8603,14 @@ class LocalCalendarNoteData extends DataClass
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
+    this.category,
+    required this.recurrenceType,
+    required this.isAutoPublishEnabled,
+    this.autoPublishTime,
+    this.publicationStatus,
+    this.nextPublicationDate,
+    this.generatedPostId,
+    this.remoteId,
     required this.isSynced,
     required this.isPendingDelete,
     this.lastSyncedAt,
@@ -8443,6 +8658,26 @@ class LocalCalendarNoteData extends DataClass
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(category);
+    }
+    map['recurrence_type'] = Variable<String>(recurrenceType);
+    map['is_auto_publish_enabled'] = Variable<bool>(isAutoPublishEnabled);
+    if (!nullToAbsent || autoPublishTime != null) {
+      map['auto_publish_time'] = Variable<String>(autoPublishTime);
+    }
+    if (!nullToAbsent || publicationStatus != null) {
+      map['publication_status'] = Variable<String>(publicationStatus);
+    }
+    if (!nullToAbsent || nextPublicationDate != null) {
+      map['next_publication_date'] = Variable<String>(nextPublicationDate);
+    }
+    if (!nullToAbsent || generatedPostId != null) {
+      map['generated_post_id'] = Variable<String>(generatedPostId);
+    }
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
     }
     map['is_synced'] = Variable<bool>(isSynced);
     map['is_pending_delete'] = Variable<bool>(isPendingDelete);
@@ -8493,6 +8728,26 @@ class LocalCalendarNoteData extends DataClass
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
+      recurrenceType: Value(recurrenceType),
+      isAutoPublishEnabled: Value(isAutoPublishEnabled),
+      autoPublishTime: autoPublishTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(autoPublishTime),
+      publicationStatus: publicationStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publicationStatus),
+      nextPublicationDate: nextPublicationDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextPublicationDate),
+      generatedPostId: generatedPostId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(generatedPostId),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
       isSynced: Value(isSynced),
       isPendingDelete: Value(isPendingDelete),
       lastSyncedAt: lastSyncedAt == null && nullToAbsent
@@ -8536,6 +8791,20 @@ class LocalCalendarNoteData extends DataClass
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      category: serializer.fromJson<String?>(json['category']),
+      recurrenceType: serializer.fromJson<String>(json['recurrenceType']),
+      isAutoPublishEnabled: serializer.fromJson<bool>(
+        json['isAutoPublishEnabled'],
+      ),
+      autoPublishTime: serializer.fromJson<String?>(json['autoPublishTime']),
+      publicationStatus: serializer.fromJson<String?>(
+        json['publicationStatus'],
+      ),
+      nextPublicationDate: serializer.fromJson<String?>(
+        json['nextPublicationDate'],
+      ),
+      generatedPostId: serializer.fromJson<String?>(json['generatedPostId']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
       isPendingDelete: serializer.fromJson<bool>(json['isPendingDelete']),
       lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
@@ -8568,6 +8837,14 @@ class LocalCalendarNoteData extends DataClass
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'category': serializer.toJson<String?>(category),
+      'recurrenceType': serializer.toJson<String>(recurrenceType),
+      'isAutoPublishEnabled': serializer.toJson<bool>(isAutoPublishEnabled),
+      'autoPublishTime': serializer.toJson<String?>(autoPublishTime),
+      'publicationStatus': serializer.toJson<String?>(publicationStatus),
+      'nextPublicationDate': serializer.toJson<String?>(nextPublicationDate),
+      'generatedPostId': serializer.toJson<String?>(generatedPostId),
+      'remoteId': serializer.toJson<String?>(remoteId),
       'isSynced': serializer.toJson<bool>(isSynced),
       'isPendingDelete': serializer.toJson<bool>(isPendingDelete),
       'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
@@ -8596,6 +8873,14 @@ class LocalCalendarNoteData extends DataClass
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> category = const Value.absent(),
+    String? recurrenceType,
+    bool? isAutoPublishEnabled,
+    Value<String?> autoPublishTime = const Value.absent(),
+    Value<String?> publicationStatus = const Value.absent(),
+    Value<String?> nextPublicationDate = const Value.absent(),
+    Value<String?> generatedPostId = const Value.absent(),
+    Value<String?> remoteId = const Value.absent(),
     bool? isSynced,
     bool? isPendingDelete,
     Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -8631,6 +8916,22 @@ class LocalCalendarNoteData extends DataClass
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    category: category.present ? category.value : this.category,
+    recurrenceType: recurrenceType ?? this.recurrenceType,
+    isAutoPublishEnabled: isAutoPublishEnabled ?? this.isAutoPublishEnabled,
+    autoPublishTime: autoPublishTime.present
+        ? autoPublishTime.value
+        : this.autoPublishTime,
+    publicationStatus: publicationStatus.present
+        ? publicationStatus.value
+        : this.publicationStatus,
+    nextPublicationDate: nextPublicationDate.present
+        ? nextPublicationDate.value
+        : this.nextPublicationDate,
+    generatedPostId: generatedPostId.present
+        ? generatedPostId.value
+        : this.generatedPostId,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
     isSynced: isSynced ?? this.isSynced,
     isPendingDelete: isPendingDelete ?? this.isPendingDelete,
     lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
@@ -8686,6 +8987,26 @@ class LocalCalendarNoteData extends DataClass
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      category: data.category.present ? data.category.value : this.category,
+      recurrenceType: data.recurrenceType.present
+          ? data.recurrenceType.value
+          : this.recurrenceType,
+      isAutoPublishEnabled: data.isAutoPublishEnabled.present
+          ? data.isAutoPublishEnabled.value
+          : this.isAutoPublishEnabled,
+      autoPublishTime: data.autoPublishTime.present
+          ? data.autoPublishTime.value
+          : this.autoPublishTime,
+      publicationStatus: data.publicationStatus.present
+          ? data.publicationStatus.value
+          : this.publicationStatus,
+      nextPublicationDate: data.nextPublicationDate.present
+          ? data.nextPublicationDate.value
+          : this.nextPublicationDate,
+      generatedPostId: data.generatedPostId.present
+          ? data.generatedPostId.value
+          : this.generatedPostId,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
       isPendingDelete: data.isPendingDelete.present
           ? data.isPendingDelete.value
@@ -8720,6 +9041,14 @@ class LocalCalendarNoteData extends DataClass
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('category: $category, ')
+          ..write('recurrenceType: $recurrenceType, ')
+          ..write('isAutoPublishEnabled: $isAutoPublishEnabled, ')
+          ..write('autoPublishTime: $autoPublishTime, ')
+          ..write('publicationStatus: $publicationStatus, ')
+          ..write('nextPublicationDate: $nextPublicationDate, ')
+          ..write('generatedPostId: $generatedPostId, ')
+          ..write('remoteId: $remoteId, ')
           ..write('isSynced: $isSynced, ')
           ..write('isPendingDelete: $isPendingDelete, ')
           ..write('lastSyncedAt: $lastSyncedAt')
@@ -8750,6 +9079,14 @@ class LocalCalendarNoteData extends DataClass
     createdAt,
     updatedAt,
     deletedAt,
+    category,
+    recurrenceType,
+    isAutoPublishEnabled,
+    autoPublishTime,
+    publicationStatus,
+    nextPublicationDate,
+    generatedPostId,
+    remoteId,
     isSynced,
     isPendingDelete,
     lastSyncedAt,
@@ -8779,6 +9116,14 @@ class LocalCalendarNoteData extends DataClass
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
+          other.category == this.category &&
+          other.recurrenceType == this.recurrenceType &&
+          other.isAutoPublishEnabled == this.isAutoPublishEnabled &&
+          other.autoPublishTime == this.autoPublishTime &&
+          other.publicationStatus == this.publicationStatus &&
+          other.nextPublicationDate == this.nextPublicationDate &&
+          other.generatedPostId == this.generatedPostId &&
+          other.remoteId == this.remoteId &&
           other.isSynced == this.isSynced &&
           other.isPendingDelete == this.isPendingDelete &&
           other.lastSyncedAt == this.lastSyncedAt);
@@ -8807,6 +9152,14 @@ class LocalCalendarNotesCompanion
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
+  final Value<String?> category;
+  final Value<String> recurrenceType;
+  final Value<bool> isAutoPublishEnabled;
+  final Value<String?> autoPublishTime;
+  final Value<String?> publicationStatus;
+  final Value<String?> nextPublicationDate;
+  final Value<String?> generatedPostId;
+  final Value<String?> remoteId;
   final Value<bool> isSynced;
   final Value<bool> isPendingDelete;
   final Value<DateTime?> lastSyncedAt;
@@ -8833,6 +9186,14 @@ class LocalCalendarNotesCompanion
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.category = const Value.absent(),
+    this.recurrenceType = const Value.absent(),
+    this.isAutoPublishEnabled = const Value.absent(),
+    this.autoPublishTime = const Value.absent(),
+    this.publicationStatus = const Value.absent(),
+    this.nextPublicationDate = const Value.absent(),
+    this.generatedPostId = const Value.absent(),
+    this.remoteId = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.isPendingDelete = const Value.absent(),
     this.lastSyncedAt = const Value.absent(),
@@ -8860,6 +9221,14 @@ class LocalCalendarNotesCompanion
     required DateTime createdAt,
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
+    this.category = const Value.absent(),
+    this.recurrenceType = const Value.absent(),
+    this.isAutoPublishEnabled = const Value.absent(),
+    this.autoPublishTime = const Value.absent(),
+    this.publicationStatus = const Value.absent(),
+    this.nextPublicationDate = const Value.absent(),
+    this.generatedPostId = const Value.absent(),
+    this.remoteId = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.isPendingDelete = const Value.absent(),
     this.lastSyncedAt = const Value.absent(),
@@ -8894,6 +9263,14 @@ class LocalCalendarNotesCompanion
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
+    Expression<String>? category,
+    Expression<String>? recurrenceType,
+    Expression<bool>? isAutoPublishEnabled,
+    Expression<String>? autoPublishTime,
+    Expression<String>? publicationStatus,
+    Expression<String>? nextPublicationDate,
+    Expression<String>? generatedPostId,
+    Expression<String>? remoteId,
     Expression<bool>? isSynced,
     Expression<bool>? isPendingDelete,
     Expression<DateTime>? lastSyncedAt,
@@ -8924,6 +9301,16 @@ class LocalCalendarNotesCompanion
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
+      if (category != null) 'category': category,
+      if (recurrenceType != null) 'recurrence_type': recurrenceType,
+      if (isAutoPublishEnabled != null)
+        'is_auto_publish_enabled': isAutoPublishEnabled,
+      if (autoPublishTime != null) 'auto_publish_time': autoPublishTime,
+      if (publicationStatus != null) 'publication_status': publicationStatus,
+      if (nextPublicationDate != null)
+        'next_publication_date': nextPublicationDate,
+      if (generatedPostId != null) 'generated_post_id': generatedPostId,
+      if (remoteId != null) 'remote_id': remoteId,
       if (isSynced != null) 'is_synced': isSynced,
       if (isPendingDelete != null) 'is_pending_delete': isPendingDelete,
       if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
@@ -8953,6 +9340,14 @@ class LocalCalendarNotesCompanion
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
+    Value<String?>? category,
+    Value<String>? recurrenceType,
+    Value<bool>? isAutoPublishEnabled,
+    Value<String?>? autoPublishTime,
+    Value<String?>? publicationStatus,
+    Value<String?>? nextPublicationDate,
+    Value<String?>? generatedPostId,
+    Value<String?>? remoteId,
     Value<bool>? isSynced,
     Value<bool>? isPendingDelete,
     Value<DateTime?>? lastSyncedAt,
@@ -8982,6 +9377,14 @@ class LocalCalendarNotesCompanion
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      category: category ?? this.category,
+      recurrenceType: recurrenceType ?? this.recurrenceType,
+      isAutoPublishEnabled: isAutoPublishEnabled ?? this.isAutoPublishEnabled,
+      autoPublishTime: autoPublishTime ?? this.autoPublishTime,
+      publicationStatus: publicationStatus ?? this.publicationStatus,
+      nextPublicationDate: nextPublicationDate ?? this.nextPublicationDate,
+      generatedPostId: generatedPostId ?? this.generatedPostId,
+      remoteId: remoteId ?? this.remoteId,
       isSynced: isSynced ?? this.isSynced,
       isPendingDelete: isPendingDelete ?? this.isPendingDelete,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
@@ -9059,6 +9462,34 @@ class LocalCalendarNotesCompanion
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (recurrenceType.present) {
+      map['recurrence_type'] = Variable<String>(recurrenceType.value);
+    }
+    if (isAutoPublishEnabled.present) {
+      map['is_auto_publish_enabled'] = Variable<bool>(
+        isAutoPublishEnabled.value,
+      );
+    }
+    if (autoPublishTime.present) {
+      map['auto_publish_time'] = Variable<String>(autoPublishTime.value);
+    }
+    if (publicationStatus.present) {
+      map['publication_status'] = Variable<String>(publicationStatus.value);
+    }
+    if (nextPublicationDate.present) {
+      map['next_publication_date'] = Variable<String>(
+        nextPublicationDate.value,
+      );
+    }
+    if (generatedPostId.present) {
+      map['generated_post_id'] = Variable<String>(generatedPostId.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
     }
@@ -9098,6 +9529,14 @@ class LocalCalendarNotesCompanion
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('category: $category, ')
+          ..write('recurrenceType: $recurrenceType, ')
+          ..write('isAutoPublishEnabled: $isAutoPublishEnabled, ')
+          ..write('autoPublishTime: $autoPublishTime, ')
+          ..write('publicationStatus: $publicationStatus, ')
+          ..write('nextPublicationDate: $nextPublicationDate, ')
+          ..write('generatedPostId: $generatedPostId, ')
+          ..write('remoteId: $remoteId, ')
           ..write('isSynced: $isSynced, ')
           ..write('isPendingDelete: $isPendingDelete, ')
           ..write('lastSyncedAt: $lastSyncedAt, ')
@@ -9818,6 +10257,470 @@ class LocalCalendarNoteMediaCompanion
           ..write('createdAt: $createdAt, ')
           ..write('isSynced: $isSynced, ')
           ..write('isPendingDelete: $isPendingDelete, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalCalendarSyncMetadataTable extends LocalCalendarSyncMetadata
+    with
+        TableInfo<
+          $LocalCalendarSyncMetadataTable,
+          LocalCalendarSyncMetadataData
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalCalendarSyncMetadataTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activeWindowStartMeta = const VerificationMeta(
+    'activeWindowStart',
+  );
+  @override
+  late final GeneratedColumn<String> activeWindowStart =
+      GeneratedColumn<String>(
+        'active_window_start',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _activeWindowEndMeta = const VerificationMeta(
+    'activeWindowEnd',
+  );
+  @override
+  late final GeneratedColumn<String> activeWindowEnd = GeneratedColumn<String>(
+    'active_window_end',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSuccessfulSyncAtMeta =
+      const VerificationMeta('lastSuccessfulSyncAt');
+  @override
+  late final GeneratedColumn<DateTime> lastSuccessfulSyncAt =
+      GeneratedColumn<DateTime>(
+        'last_successful_sync_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastSyncCursorMeta = const VerificationMeta(
+    'lastSyncCursor',
+  );
+  @override
+  late final GeneratedColumn<String> lastSyncCursor = GeneratedColumn<String>(
+    'last_sync_cursor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _schemaVersionMeta = const VerificationMeta(
+    'schemaVersion',
+  );
+  @override
+  late final GeneratedColumn<int> schemaVersion = GeneratedColumn<int>(
+    'schema_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    activeWindowStart,
+    activeWindowEnd,
+    lastSuccessfulSyncAt,
+    lastSyncCursor,
+    schemaVersion,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_calendar_sync_metadata';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalCalendarSyncMetadataData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('active_window_start')) {
+      context.handle(
+        _activeWindowStartMeta,
+        activeWindowStart.isAcceptableOrUnknown(
+          data['active_window_start']!,
+          _activeWindowStartMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activeWindowStartMeta);
+    }
+    if (data.containsKey('active_window_end')) {
+      context.handle(
+        _activeWindowEndMeta,
+        activeWindowEnd.isAcceptableOrUnknown(
+          data['active_window_end']!,
+          _activeWindowEndMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activeWindowEndMeta);
+    }
+    if (data.containsKey('last_successful_sync_at')) {
+      context.handle(
+        _lastSuccessfulSyncAtMeta,
+        lastSuccessfulSyncAt.isAcceptableOrUnknown(
+          data['last_successful_sync_at']!,
+          _lastSuccessfulSyncAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_sync_cursor')) {
+      context.handle(
+        _lastSyncCursorMeta,
+        lastSyncCursor.isAcceptableOrUnknown(
+          data['last_sync_cursor']!,
+          _lastSyncCursorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('schema_version')) {
+      context.handle(
+        _schemaVersionMeta,
+        schemaVersion.isAcceptableOrUnknown(
+          data['schema_version']!,
+          _schemaVersionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalCalendarSyncMetadataData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalCalendarSyncMetadataData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      activeWindowStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}active_window_start'],
+      )!,
+      activeWindowEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}active_window_end'],
+      )!,
+      lastSuccessfulSyncAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_successful_sync_at'],
+      ),
+      lastSyncCursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_sync_cursor'],
+      ),
+      schemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}schema_version'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalCalendarSyncMetadataTable createAlias(String alias) {
+    return $LocalCalendarSyncMetadataTable(attachedDatabase, alias);
+  }
+}
+
+class LocalCalendarSyncMetadataData extends DataClass
+    implements Insertable<LocalCalendarSyncMetadataData> {
+  final String id;
+  final String activeWindowStart;
+  final String activeWindowEnd;
+  final DateTime? lastSuccessfulSyncAt;
+  final String? lastSyncCursor;
+  final int schemaVersion;
+  const LocalCalendarSyncMetadataData({
+    required this.id,
+    required this.activeWindowStart,
+    required this.activeWindowEnd,
+    this.lastSuccessfulSyncAt,
+    this.lastSyncCursor,
+    required this.schemaVersion,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['active_window_start'] = Variable<String>(activeWindowStart);
+    map['active_window_end'] = Variable<String>(activeWindowEnd);
+    if (!nullToAbsent || lastSuccessfulSyncAt != null) {
+      map['last_successful_sync_at'] = Variable<DateTime>(lastSuccessfulSyncAt);
+    }
+    if (!nullToAbsent || lastSyncCursor != null) {
+      map['last_sync_cursor'] = Variable<String>(lastSyncCursor);
+    }
+    map['schema_version'] = Variable<int>(schemaVersion);
+    return map;
+  }
+
+  LocalCalendarSyncMetadataCompanion toCompanion(bool nullToAbsent) {
+    return LocalCalendarSyncMetadataCompanion(
+      id: Value(id),
+      activeWindowStart: Value(activeWindowStart),
+      activeWindowEnd: Value(activeWindowEnd),
+      lastSuccessfulSyncAt: lastSuccessfulSyncAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSuccessfulSyncAt),
+      lastSyncCursor: lastSyncCursor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncCursor),
+      schemaVersion: Value(schemaVersion),
+    );
+  }
+
+  factory LocalCalendarSyncMetadataData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalCalendarSyncMetadataData(
+      id: serializer.fromJson<String>(json['id']),
+      activeWindowStart: serializer.fromJson<String>(json['activeWindowStart']),
+      activeWindowEnd: serializer.fromJson<String>(json['activeWindowEnd']),
+      lastSuccessfulSyncAt: serializer.fromJson<DateTime?>(
+        json['lastSuccessfulSyncAt'],
+      ),
+      lastSyncCursor: serializer.fromJson<String?>(json['lastSyncCursor']),
+      schemaVersion: serializer.fromJson<int>(json['schemaVersion']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'activeWindowStart': serializer.toJson<String>(activeWindowStart),
+      'activeWindowEnd': serializer.toJson<String>(activeWindowEnd),
+      'lastSuccessfulSyncAt': serializer.toJson<DateTime?>(
+        lastSuccessfulSyncAt,
+      ),
+      'lastSyncCursor': serializer.toJson<String?>(lastSyncCursor),
+      'schemaVersion': serializer.toJson<int>(schemaVersion),
+    };
+  }
+
+  LocalCalendarSyncMetadataData copyWith({
+    String? id,
+    String? activeWindowStart,
+    String? activeWindowEnd,
+    Value<DateTime?> lastSuccessfulSyncAt = const Value.absent(),
+    Value<String?> lastSyncCursor = const Value.absent(),
+    int? schemaVersion,
+  }) => LocalCalendarSyncMetadataData(
+    id: id ?? this.id,
+    activeWindowStart: activeWindowStart ?? this.activeWindowStart,
+    activeWindowEnd: activeWindowEnd ?? this.activeWindowEnd,
+    lastSuccessfulSyncAt: lastSuccessfulSyncAt.present
+        ? lastSuccessfulSyncAt.value
+        : this.lastSuccessfulSyncAt,
+    lastSyncCursor: lastSyncCursor.present
+        ? lastSyncCursor.value
+        : this.lastSyncCursor,
+    schemaVersion: schemaVersion ?? this.schemaVersion,
+  );
+  LocalCalendarSyncMetadataData copyWithCompanion(
+    LocalCalendarSyncMetadataCompanion data,
+  ) {
+    return LocalCalendarSyncMetadataData(
+      id: data.id.present ? data.id.value : this.id,
+      activeWindowStart: data.activeWindowStart.present
+          ? data.activeWindowStart.value
+          : this.activeWindowStart,
+      activeWindowEnd: data.activeWindowEnd.present
+          ? data.activeWindowEnd.value
+          : this.activeWindowEnd,
+      lastSuccessfulSyncAt: data.lastSuccessfulSyncAt.present
+          ? data.lastSuccessfulSyncAt.value
+          : this.lastSuccessfulSyncAt,
+      lastSyncCursor: data.lastSyncCursor.present
+          ? data.lastSyncCursor.value
+          : this.lastSyncCursor,
+      schemaVersion: data.schemaVersion.present
+          ? data.schemaVersion.value
+          : this.schemaVersion,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarSyncMetadataData(')
+          ..write('id: $id, ')
+          ..write('activeWindowStart: $activeWindowStart, ')
+          ..write('activeWindowEnd: $activeWindowEnd, ')
+          ..write('lastSuccessfulSyncAt: $lastSuccessfulSyncAt, ')
+          ..write('lastSyncCursor: $lastSyncCursor, ')
+          ..write('schemaVersion: $schemaVersion')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    activeWindowStart,
+    activeWindowEnd,
+    lastSuccessfulSyncAt,
+    lastSyncCursor,
+    schemaVersion,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalCalendarSyncMetadataData &&
+          other.id == this.id &&
+          other.activeWindowStart == this.activeWindowStart &&
+          other.activeWindowEnd == this.activeWindowEnd &&
+          other.lastSuccessfulSyncAt == this.lastSuccessfulSyncAt &&
+          other.lastSyncCursor == this.lastSyncCursor &&
+          other.schemaVersion == this.schemaVersion);
+}
+
+class LocalCalendarSyncMetadataCompanion
+    extends UpdateCompanion<LocalCalendarSyncMetadataData> {
+  final Value<String> id;
+  final Value<String> activeWindowStart;
+  final Value<String> activeWindowEnd;
+  final Value<DateTime?> lastSuccessfulSyncAt;
+  final Value<String?> lastSyncCursor;
+  final Value<int> schemaVersion;
+  final Value<int> rowid;
+  const LocalCalendarSyncMetadataCompanion({
+    this.id = const Value.absent(),
+    this.activeWindowStart = const Value.absent(),
+    this.activeWindowEnd = const Value.absent(),
+    this.lastSuccessfulSyncAt = const Value.absent(),
+    this.lastSyncCursor = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalCalendarSyncMetadataCompanion.insert({
+    required String id,
+    required String activeWindowStart,
+    required String activeWindowEnd,
+    this.lastSuccessfulSyncAt = const Value.absent(),
+    this.lastSyncCursor = const Value.absent(),
+    this.schemaVersion = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       activeWindowStart = Value(activeWindowStart),
+       activeWindowEnd = Value(activeWindowEnd);
+  static Insertable<LocalCalendarSyncMetadataData> custom({
+    Expression<String>? id,
+    Expression<String>? activeWindowStart,
+    Expression<String>? activeWindowEnd,
+    Expression<DateTime>? lastSuccessfulSyncAt,
+    Expression<String>? lastSyncCursor,
+    Expression<int>? schemaVersion,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (activeWindowStart != null) 'active_window_start': activeWindowStart,
+      if (activeWindowEnd != null) 'active_window_end': activeWindowEnd,
+      if (lastSuccessfulSyncAt != null)
+        'last_successful_sync_at': lastSuccessfulSyncAt,
+      if (lastSyncCursor != null) 'last_sync_cursor': lastSyncCursor,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalCalendarSyncMetadataCompanion copyWith({
+    Value<String>? id,
+    Value<String>? activeWindowStart,
+    Value<String>? activeWindowEnd,
+    Value<DateTime?>? lastSuccessfulSyncAt,
+    Value<String?>? lastSyncCursor,
+    Value<int>? schemaVersion,
+    Value<int>? rowid,
+  }) {
+    return LocalCalendarSyncMetadataCompanion(
+      id: id ?? this.id,
+      activeWindowStart: activeWindowStart ?? this.activeWindowStart,
+      activeWindowEnd: activeWindowEnd ?? this.activeWindowEnd,
+      lastSuccessfulSyncAt: lastSuccessfulSyncAt ?? this.lastSuccessfulSyncAt,
+      lastSyncCursor: lastSyncCursor ?? this.lastSyncCursor,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (activeWindowStart.present) {
+      map['active_window_start'] = Variable<String>(activeWindowStart.value);
+    }
+    if (activeWindowEnd.present) {
+      map['active_window_end'] = Variable<String>(activeWindowEnd.value);
+    }
+    if (lastSuccessfulSyncAt.present) {
+      map['last_successful_sync_at'] = Variable<DateTime>(
+        lastSuccessfulSyncAt.value,
+      );
+    }
+    if (lastSyncCursor.present) {
+      map['last_sync_cursor'] = Variable<String>(lastSyncCursor.value);
+    }
+    if (schemaVersion.present) {
+      map['schema_version'] = Variable<int>(schemaVersion.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCalendarSyncMetadataCompanion(')
+          ..write('id: $id, ')
+          ..write('activeWindowStart: $activeWindowStart, ')
+          ..write('activeWindowEnd: $activeWindowEnd, ')
+          ..write('lastSuccessfulSyncAt: $lastSuccessfulSyncAt, ')
+          ..write('lastSyncCursor: $lastSyncCursor, ')
+          ..write('schemaVersion: $schemaVersion, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12925,6 +13828,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalCalendarNotesTable(this);
   late final $LocalCalendarNoteMediaTable localCalendarNoteMedia =
       $LocalCalendarNoteMediaTable(this);
+  late final $LocalCalendarSyncMetadataTable localCalendarSyncMetadata =
+      $LocalCalendarSyncMetadataTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   late final $LocalDownloadedBooksTable localDownloadedBooks =
       $LocalDownloadedBooksTable(this);
@@ -12968,6 +13873,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localFeedItems,
     localCalendarNotes,
     localCalendarNoteMedia,
+    localCalendarSyncMetadata,
     syncQueue,
     localDownloadedBooks,
     localLiveRecordings,
@@ -16510,6 +17416,14 @@ typedef $$LocalCalendarNotesTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<DateTime?> deletedAt,
+      Value<String?> category,
+      Value<String> recurrenceType,
+      Value<bool> isAutoPublishEnabled,
+      Value<String?> autoPublishTime,
+      Value<String?> publicationStatus,
+      Value<String?> nextPublicationDate,
+      Value<String?> generatedPostId,
+      Value<String?> remoteId,
       Value<bool> isSynced,
       Value<bool> isPendingDelete,
       Value<DateTime?> lastSyncedAt,
@@ -16538,6 +17452,14 @@ typedef $$LocalCalendarNotesTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<DateTime?> deletedAt,
+      Value<String?> category,
+      Value<String> recurrenceType,
+      Value<bool> isAutoPublishEnabled,
+      Value<String?> autoPublishTime,
+      Value<String?> publicationStatus,
+      Value<String?> nextPublicationDate,
+      Value<String?> generatedPostId,
+      Value<String?> remoteId,
       Value<bool> isSynced,
       Value<bool> isPendingDelete,
       Value<DateTime?> lastSyncedAt,
@@ -16655,6 +17577,46 @@ class $$LocalCalendarNotesTableFilterComposer
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAutoPublishEnabled => $composableBuilder(
+    column: $table.isAutoPublishEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get autoPublishTime => $composableBuilder(
+    column: $table.autoPublishTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publicationStatus => $composableBuilder(
+    column: $table.publicationStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextPublicationDate => $composableBuilder(
+    column: $table.nextPublicationDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get generatedPostId => $composableBuilder(
+    column: $table.generatedPostId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16788,6 +17750,46 @@ class $$LocalCalendarNotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isAutoPublishEnabled => $composableBuilder(
+    column: $table.isAutoPublishEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get autoPublishTime => $composableBuilder(
+    column: $table.autoPublishTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publicationStatus => $composableBuilder(
+    column: $table.publicationStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextPublicationDate => $composableBuilder(
+    column: $table.nextPublicationDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get generatedPostId => $composableBuilder(
+    column: $table.generatedPostId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -16904,6 +17906,42 @@ class $$LocalCalendarNotesTableAnnotationComposer
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isAutoPublishEnabled => $composableBuilder(
+    column: $table.isAutoPublishEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get autoPublishTime => $composableBuilder(
+    column: $table.autoPublishTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get publicationStatus => $composableBuilder(
+    column: $table.publicationStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextPublicationDate => $composableBuilder(
+    column: $table.nextPublicationDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get generatedPostId => $composableBuilder(
+    column: $table.generatedPostId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
 
@@ -16979,6 +18017,14 @@ class $$LocalCalendarNotesTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> category = const Value.absent(),
+                Value<String> recurrenceType = const Value.absent(),
+                Value<bool> isAutoPublishEnabled = const Value.absent(),
+                Value<String?> autoPublishTime = const Value.absent(),
+                Value<String?> publicationStatus = const Value.absent(),
+                Value<String?> nextPublicationDate = const Value.absent(),
+                Value<String?> generatedPostId = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<bool> isPendingDelete = const Value.absent(),
                 Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -17005,6 +18051,14 @@ class $$LocalCalendarNotesTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
+                category: category,
+                recurrenceType: recurrenceType,
+                isAutoPublishEnabled: isAutoPublishEnabled,
+                autoPublishTime: autoPublishTime,
+                publicationStatus: publicationStatus,
+                nextPublicationDate: nextPublicationDate,
+                generatedPostId: generatedPostId,
+                remoteId: remoteId,
                 isSynced: isSynced,
                 isPendingDelete: isPendingDelete,
                 lastSyncedAt: lastSyncedAt,
@@ -17033,6 +18087,14 @@ class $$LocalCalendarNotesTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> category = const Value.absent(),
+                Value<String> recurrenceType = const Value.absent(),
+                Value<bool> isAutoPublishEnabled = const Value.absent(),
+                Value<String?> autoPublishTime = const Value.absent(),
+                Value<String?> publicationStatus = const Value.absent(),
+                Value<String?> nextPublicationDate = const Value.absent(),
+                Value<String?> generatedPostId = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<bool> isPendingDelete = const Value.absent(),
                 Value<DateTime?> lastSyncedAt = const Value.absent(),
@@ -17059,6 +18121,14 @@ class $$LocalCalendarNotesTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
+                category: category,
+                recurrenceType: recurrenceType,
+                isAutoPublishEnabled: isAutoPublishEnabled,
+                autoPublishTime: autoPublishTime,
+                publicationStatus: publicationStatus,
+                nextPublicationDate: nextPublicationDate,
+                generatedPostId: generatedPostId,
+                remoteId: remoteId,
                 isSynced: isSynced,
                 isPendingDelete: isPendingDelete,
                 lastSyncedAt: lastSyncedAt,
@@ -17445,6 +18515,254 @@ typedef $$LocalCalendarNoteMediaTableProcessedTableManager =
         >,
       ),
       LocalCalendarNoteMediaData,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalCalendarSyncMetadataTableCreateCompanionBuilder =
+    LocalCalendarSyncMetadataCompanion Function({
+      required String id,
+      required String activeWindowStart,
+      required String activeWindowEnd,
+      Value<DateTime?> lastSuccessfulSyncAt,
+      Value<String?> lastSyncCursor,
+      Value<int> schemaVersion,
+      Value<int> rowid,
+    });
+typedef $$LocalCalendarSyncMetadataTableUpdateCompanionBuilder =
+    LocalCalendarSyncMetadataCompanion Function({
+      Value<String> id,
+      Value<String> activeWindowStart,
+      Value<String> activeWindowEnd,
+      Value<DateTime?> lastSuccessfulSyncAt,
+      Value<String?> lastSyncCursor,
+      Value<int> schemaVersion,
+      Value<int> rowid,
+    });
+
+class $$LocalCalendarSyncMetadataTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalCalendarSyncMetadataTable> {
+  $$LocalCalendarSyncMetadataTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activeWindowStart => $composableBuilder(
+    column: $table.activeWindowStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activeWindowEnd => $composableBuilder(
+    column: $table.activeWindowEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSuccessfulSyncAt => $composableBuilder(
+    column: $table.lastSuccessfulSyncAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastSyncCursor => $composableBuilder(
+    column: $table.lastSyncCursor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalCalendarSyncMetadataTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalCalendarSyncMetadataTable> {
+  $$LocalCalendarSyncMetadataTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get activeWindowStart => $composableBuilder(
+    column: $table.activeWindowStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get activeWindowEnd => $composableBuilder(
+    column: $table.activeWindowEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSuccessfulSyncAt => $composableBuilder(
+    column: $table.lastSuccessfulSyncAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastSyncCursor => $composableBuilder(
+    column: $table.lastSyncCursor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalCalendarSyncMetadataTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalCalendarSyncMetadataTable> {
+  $$LocalCalendarSyncMetadataTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get activeWindowStart => $composableBuilder(
+    column: $table.activeWindowStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get activeWindowEnd => $composableBuilder(
+    column: $table.activeWindowEnd,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSuccessfulSyncAt => $composableBuilder(
+    column: $table.lastSuccessfulSyncAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastSyncCursor => $composableBuilder(
+    column: $table.lastSyncCursor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get schemaVersion => $composableBuilder(
+    column: $table.schemaVersion,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalCalendarSyncMetadataTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalCalendarSyncMetadataTable,
+          LocalCalendarSyncMetadataData,
+          $$LocalCalendarSyncMetadataTableFilterComposer,
+          $$LocalCalendarSyncMetadataTableOrderingComposer,
+          $$LocalCalendarSyncMetadataTableAnnotationComposer,
+          $$LocalCalendarSyncMetadataTableCreateCompanionBuilder,
+          $$LocalCalendarSyncMetadataTableUpdateCompanionBuilder,
+          (
+            LocalCalendarSyncMetadataData,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalCalendarSyncMetadataTable,
+              LocalCalendarSyncMetadataData
+            >,
+          ),
+          LocalCalendarSyncMetadataData,
+          PrefetchHooks Function()
+        > {
+  $$LocalCalendarSyncMetadataTableTableManager(
+    _$AppDatabase db,
+    $LocalCalendarSyncMetadataTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalCalendarSyncMetadataTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalCalendarSyncMetadataTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalCalendarSyncMetadataTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> activeWindowStart = const Value.absent(),
+                Value<String> activeWindowEnd = const Value.absent(),
+                Value<DateTime?> lastSuccessfulSyncAt = const Value.absent(),
+                Value<String?> lastSyncCursor = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarSyncMetadataCompanion(
+                id: id,
+                activeWindowStart: activeWindowStart,
+                activeWindowEnd: activeWindowEnd,
+                lastSuccessfulSyncAt: lastSuccessfulSyncAt,
+                lastSyncCursor: lastSyncCursor,
+                schemaVersion: schemaVersion,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String activeWindowStart,
+                required String activeWindowEnd,
+                Value<DateTime?> lastSuccessfulSyncAt = const Value.absent(),
+                Value<String?> lastSyncCursor = const Value.absent(),
+                Value<int> schemaVersion = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCalendarSyncMetadataCompanion.insert(
+                id: id,
+                activeWindowStart: activeWindowStart,
+                activeWindowEnd: activeWindowEnd,
+                lastSuccessfulSyncAt: lastSuccessfulSyncAt,
+                lastSyncCursor: lastSyncCursor,
+                schemaVersion: schemaVersion,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalCalendarSyncMetadataTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalCalendarSyncMetadataTable,
+      LocalCalendarSyncMetadataData,
+      $$LocalCalendarSyncMetadataTableFilterComposer,
+      $$LocalCalendarSyncMetadataTableOrderingComposer,
+      $$LocalCalendarSyncMetadataTableAnnotationComposer,
+      $$LocalCalendarSyncMetadataTableCreateCompanionBuilder,
+      $$LocalCalendarSyncMetadataTableUpdateCompanionBuilder,
+      (
+        LocalCalendarSyncMetadataData,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalCalendarSyncMetadataTable,
+          LocalCalendarSyncMetadataData
+        >,
+      ),
+      LocalCalendarSyncMetadataData,
       PrefetchHooks Function()
     >;
 typedef $$SyncQueueTableCreateCompanionBuilder =
@@ -18865,6 +20183,11 @@ class $AppDatabaseManager {
       $$LocalCalendarNoteMediaTableTableManager(
         _db,
         _db.localCalendarNoteMedia,
+      );
+  $$LocalCalendarSyncMetadataTableTableManager get localCalendarSyncMetadata =>
+      $$LocalCalendarSyncMetadataTableTableManager(
+        _db,
+        _db.localCalendarSyncMetadata,
       );
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);

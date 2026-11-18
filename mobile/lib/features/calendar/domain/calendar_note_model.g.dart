@@ -39,6 +39,16 @@ _CalendarNoteModel _$CalendarNoteModelFromJson(
           .toList() ??
       const [],
   allowDownload: json['allowDownload'] as bool? ?? false,
+  category: json['category'] as String?,
+  recurrenceType: $enumDecodeNullable(
+    _$ReminderRepeatEnumMap,
+    json['recurrenceType'],
+  ),
+  isAutoPublishEnabled: json['isAutoPublishEnabled'] as bool? ?? false,
+  autoPublishTime: json['autoPublishTime'] as String?,
+  publicationStatus: json['publicationStatus'] as String?,
+  nextPublicationDate: json['nextPublicationDate'] as String?,
+  generatedPostId: json['generatedPostId'] as String?,
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
   deletedAt: json['deletedAt'] == null
@@ -69,6 +79,13 @@ Map<String, dynamic> _$CalendarNoteModelToJson(
   'reminderNextOccurrence': instance.reminderNextOccurrence?.toIso8601String(),
   'media': instance.media,
   'allowDownload': instance.allowDownload,
+  'category': instance.category,
+  'recurrenceType': _$ReminderRepeatEnumMap[instance.recurrenceType],
+  'isAutoPublishEnabled': instance.isAutoPublishEnabled,
+  'autoPublishTime': instance.autoPublishTime,
+  'publicationStatus': instance.publicationStatus,
+  'nextPublicationDate': instance.nextPublicationDate,
+  'generatedPostId': instance.generatedPostId,
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'deletedAt': instance.deletedAt?.toIso8601String(),
@@ -123,6 +140,12 @@ _CreateCalendarNoteDto _$CreateCalendarNoteDtoFromJson(
   reminderMinute: (json['reminderMinute'] as num?)?.toInt(),
   reminderTimezone: json['reminderTimezone'] as String? ?? 'Africa/Addis_Ababa',
   allowDownload: json['allowDownload'] as bool? ?? false,
+  recurrenceType: $enumDecodeNullable(
+    _$ReminderRepeatEnumMap,
+    json['recurrenceType'],
+  ),
+  isAutoPublishEnabled: json['isAutoPublishEnabled'] as bool? ?? false,
+  autoPublishTime: json['autoPublishTime'] as String?,
 );
 
 Map<String, dynamic> _$CreateCalendarNoteDtoToJson(
@@ -144,6 +167,9 @@ Map<String, dynamic> _$CreateCalendarNoteDtoToJson(
   'reminderMinute': instance.reminderMinute,
   'reminderTimezone': instance.reminderTimezone,
   'allowDownload': instance.allowDownload,
+  'recurrenceType': _$ReminderRepeatEnumMap[instance.recurrenceType],
+  'isAutoPublishEnabled': instance.isAutoPublishEnabled,
+  'autoPublishTime': instance.autoPublishTime,
 };
 
 _UpdateCalendarNoteDto _$UpdateCalendarNoteDtoFromJson(
@@ -167,6 +193,12 @@ _UpdateCalendarNoteDto _$UpdateCalendarNoteDtoFromJson(
   reminderMinute: (json['reminderMinute'] as num?)?.toInt(),
   reminderTimezone: json['reminderTimezone'] as String?,
   allowDownload: json['allowDownload'] as bool?,
+  recurrenceType: $enumDecodeNullable(
+    _$ReminderRepeatEnumMap,
+    json['recurrenceType'],
+  ),
+  isAutoPublishEnabled: json['isAutoPublishEnabled'] as bool?,
+  autoPublishTime: json['autoPublishTime'] as String?,
 );
 
 Map<String, dynamic> _$UpdateCalendarNoteDtoToJson(
@@ -187,4 +219,7 @@ Map<String, dynamic> _$UpdateCalendarNoteDtoToJson(
   'reminderMinute': instance.reminderMinute,
   'reminderTimezone': instance.reminderTimezone,
   'allowDownload': instance.allowDownload,
+  'recurrenceType': _$ReminderRepeatEnumMap[instance.recurrenceType],
+  'isAutoPublishEnabled': instance.isAutoPublishEnabled,
+  'autoPublishTime': instance.autoPublishTime,
 };

@@ -14,6 +14,7 @@ import 'package:mobile/core/database/daos/calendar_notes_dao.dart';
 import 'package:mobile/core/database/daos/sync_queue_dao.dart';
 import 'package:mobile/core/providers/database_provider.dart';
 import 'package:mobile/core/sync/retry_strategy.dart';
+import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/data/calendar_repository.dart';
 import 'package:uuid/uuid.dart';
@@ -48,6 +49,31 @@ class CalendarPushResult {
 
   bool get hasErrors => failedCount > 0 || permanentFailures > 0 || isThrottled;
   bool get isSuccess => !hasErrors && failedCount == 0;
+}
+
+/// Structured result of rolling one-Ethiopian-year synchronization
+class CalendarRollingSyncResult {
+  final int localRecordsLoaded;
+  final int newRecords;
+  final int updatedRecords;
+  final int deletedRecords;
+  final int unchangedRecordsSkipped;
+  final bool isSuccess;
+  final String? errorMessage;
+  final bool isThrottled;
+
+  const CalendarRollingSyncResult({
+    this.localRecordsLoaded = 0,
+    this.newRecords = 0,
+    this.updatedRecords = 0,
+    this.deletedRecords = 0,
+    this.unchangedRecordsSkipped = 0,
+    this.isSuccess = true,
+    this.errorMessage,
+    this.isThrottled = false,
+  });
+
+  bool get hasErrors => !isSuccess || isThrottled || errorMessage != null;
 }
 
 class CalendarOfflineRepository {
@@ -219,6 +245,14 @@ class CalendarOfflineRepository {
           reminderMinute: Value(serverNote.reminderMinute),
           reminderTimezone: Value(serverNote.reminderTimezone),
           reminderNextOccurrence: Value(serverNote.reminderNextOccurrence),
+          category: Value(serverNote.category),
+          recurrenceType:
+              Value(serverNote.recurrenceType?.name.toUpperCase() ?? 'NONE'),
+          isAutoPublishEnabled: Value(serverNote.isAutoPublishEnabled),
+          autoPublishTime: Value(serverNote.autoPublishTime),
+          publicationStatus: Value(serverNote.publicationStatus),
+          nextPublicationDate: Value(serverNote.nextPublicationDate),
+          generatedPostId: Value(serverNote.generatedPostId),
           createdAt: serverNote.createdAt,
           updatedAt: serverNote.updatedAt,
           deletedAt: Value(serverNote.deletedAt),
@@ -278,6 +312,10 @@ class CalendarOfflineRepository {
     String reminderTimezone = 'Africa/Addis_Ababa',
     DateTime? reminderNextOccurrence,
     bool allowDownload = false,
+    String? category,
+    ReminderRepeat? recurrenceType,
+    bool isAutoPublishEnabled = false,
+    String? autoPublishTime,
   }) async {
     final noteId = _uuid.v4();
     final now = DateTime.now();
@@ -300,6 +338,9 @@ class CalendarOfflineRepository {
         reminderMinute: reminderMinute,
         reminderTimezone: reminderTimezone,
         allowDownload: allowDownload,
+        recurrenceType: recurrenceType ?? reminderRepeat,
+        isAutoPublishEnabled: isAutoPublishEnabled,
+        autoPublishTime: autoPublishTime,
       );
       try {
         final serverNote = await _remoteRepo.createNote(dto);
@@ -332,6 +373,10 @@ class CalendarOfflineRepository {
           reminderNextOccurrence: reminderNextOccurrence,
           media: const [],
           allowDownload: allowDownload,
+          category: category,
+          recurrenceType: recurrenceType ?? reminderRepeat,
+          isAutoPublishEnabled: isAutoPublishEnabled,
+          autoPublishTime: autoPublishTime,
           createdAt: now,
           updatedAt: now,
         );
@@ -350,6 +395,10 @@ class CalendarOfflineRepository {
       gregorianDate: gregorianDate,
       title: title,
       content: content,
+      category: category,
+      recurrenceType: (recurrenceType ?? reminderRepeat).name.toUpperCase(),
+      isAutoPublishEnabled: isAutoPublishEnabled,
+      autoPublishTime: autoPublishTime,
       hasReminder: hasReminder,
       reminderDateTime: reminderDateTime,
       reminderRepeat: reminderRepeat.name.toUpperCase(),
@@ -384,6 +433,10 @@ class CalendarOfflineRepository {
         'reminderMinute': ?reminderMinute,
         'reminderTimezone': reminderTimezone,
         'allowDownload': allowDownload,
+        'category': ?category,
+        'recurrenceType': (recurrenceType ?? reminderRepeat).name.toUpperCase(),
+        'isAutoPublishEnabled': isAutoPublishEnabled,
+        'autoPublishTime': ?autoPublishTime,
       },
     );
 
@@ -409,6 +462,10 @@ class CalendarOfflineRepository {
       reminderNextOccurrence: reminderNextOccurrence,
       media: const [],
       allowDownload: allowDownload,
+      category: category,
+      recurrenceType: recurrenceType ?? reminderRepeat,
+      isAutoPublishEnabled: isAutoPublishEnabled,
+      autoPublishTime: autoPublishTime,
       createdAt: now,
       updatedAt: now,
     );
@@ -434,6 +491,10 @@ class CalendarOfflineRepository {
     String? reminderTimezone,
     DateTime? reminderNextOccurrence,
     bool? allowDownload,
+    String? category,
+    ReminderRepeat? recurrenceType,
+    bool? isAutoPublishEnabled,
+    String? autoPublishTime,
   }) async {
     if (kIsWeb) {
       final dto = UpdateCalendarNoteDto(
@@ -448,6 +509,9 @@ class CalendarOfflineRepository {
         reminderMinute: reminderMinute,
         reminderTimezone: reminderTimezone,
         allowDownload: allowDownload,
+        recurrenceType: recurrenceType ?? reminderRepeat,
+        isAutoPublishEnabled: isAutoPublishEnabled,
+        autoPublishTime: autoPublishTime,
       );
       try {
         final serverNote = await _remoteRepo.updateNote(id, dto);
@@ -468,6 +532,10 @@ class CalendarOfflineRepository {
       id,
       title: title,
       content: content,
+      category: category,
+      recurrenceType: (recurrenceType ?? reminderRepeat)?.name.toUpperCase(),
+      isAutoPublishEnabled: isAutoPublishEnabled,
+      autoPublishTime: autoPublishTime,
       hasReminder: hasReminder,
       reminderDateTime: reminderDateTime,
       reminderRepeat: reminderRepeat?.name.toUpperCase(),
@@ -496,6 +564,10 @@ class CalendarOfflineRepository {
         'reminderMinute': ?reminderMinute,
         'reminderTimezone': ?reminderTimezone,
         'allowDownload': ?allowDownload,
+        'category': ?category,
+        'recurrenceType': ?(recurrenceType ?? reminderRepeat)?.name.toUpperCase(),
+        'isAutoPublishEnabled': ?isAutoPublishEnabled,
+        'autoPublishTime': ?autoPublishTime,
       },
     );
 
@@ -706,6 +778,278 @@ class CalendarOfflineRepository {
   // SYNC OPERATIONS
   // ═══════════════════════════════════════════════════════════════
 
+  /// Synchronize the active rolling one-Ethiopian-year calendar window covering all 13 months.
+  /// Dynamically computes window from today's Ethiopian date, loads local records immediately,
+  /// checks for incremental changes, skips unchanged records, and outputs structured logs.
+  Future<CalendarRollingSyncResult> syncRollingWindow({
+    DateTime? since,
+    bool forceFull = false,
+  }) async {
+    final etNow = EthiopianCalendarUtil.now();
+    final window = EthiopianCalendarUtil.getRollingOneYearWindow(etNow);
+    final curDateStr = EthiopianCalendarUtil.formatIsoDate(
+      etNow.year,
+      etNow.month,
+      etNow.day,
+    );
+    final startStr = EthiopianCalendarUtil.formatIsoDate(
+      window.start.year,
+      window.start.month,
+      window.start.day,
+    );
+    final endStr = EthiopianCalendarUtil.formatIsoDate(
+      window.end.year,
+      window.end.month,
+      window.end.day,
+    );
+
+    developer.log(
+      '[CalendarSync] Current Ethiopian date: $curDateStr',
+      name: 'CalendarSync',
+    );
+    developer.log(
+      '[CalendarSync] Active window: $startStr → $endStr',
+      name: 'CalendarSync',
+    );
+
+    int localLoaded = 0;
+    Map<String, LocalCalendarNoteData> localMap = {};
+    if (!kIsWeb) {
+      final localNotes = await _dao.getNotesInRollingWindow(
+        startYear: window.start.year,
+        startMonth: window.start.month,
+        startDay: window.start.day,
+        endYear: window.end.year,
+        endMonth: window.end.month,
+        endDay: window.end.day,
+      );
+      localLoaded = localNotes.length;
+      localMap = {for (final l in localNotes) l.id: l};
+    } else {
+      localLoaded = _webCache.values
+          .where(
+            (n) =>
+                EthiopianCalendarUtil.isDateInRollingWindow(
+                  year: n.ethiopianYear,
+                  month: n.ethiopianMonth,
+                  day: n.ethiopianDay,
+                  start: window.start,
+                  end: window.end,
+                ) &&
+                n.deletedAt == null,
+          )
+          .length;
+    }
+
+    developer.log(
+      '[CalendarSync] Local records loaded: $localLoaded',
+      name: 'CalendarSync',
+    );
+
+    // Determine effective incremental since timestamp
+    DateTime? effectiveSince = since;
+    if (effectiveSince == null && !forceFull && !kIsWeb) {
+      final meta = await _dao.getSyncMetadata();
+      effectiveSince = meta?.lastSuccessfulSyncAt;
+    }
+
+    int newRecords = 0;
+    int updatedRecords = 0;
+    int deletedRecords = 0;
+    int unchangedSkipped = 0;
+
+    try {
+      final syncResult = await _remoteRepo.syncRollingWindow(
+        from: startStr,
+        to: endStr,
+        since: effectiveSince,
+      );
+
+      final remoteNotes = syncResult.notes;
+      final deletedIds = syncResult.deletedIds;
+
+      if (kIsWeb) {
+        for (final note in remoteNotes) {
+          final cached = _webCache[note.id];
+          if (cached == null) {
+            newRecords++;
+          } else if (cached.updatedAt.isBefore(note.updatedAt)) {
+            updatedRecords++;
+          } else {
+            unchangedSkipped++;
+          }
+          _webCache[note.id] = note;
+        }
+        for (final delId in deletedIds) {
+          _webCache.remove(delId);
+          deletedRecords++;
+        }
+      } else {
+        // Soft delete remote-reported deleted notes
+        for (final delId in deletedIds) {
+          await _dao.softDeleteNote(delId);
+          deletedRecords++;
+        }
+
+        final companions = <LocalCalendarNotesCompanion>[];
+        final mediaCompanions = <LocalCalendarNoteMediaCompanion>[];
+
+        for (final note in remoteNotes) {
+          final local = localMap[note.id];
+          if (local != null) {
+            if (!local.isSynced) {
+              unchangedSkipped++;
+              continue;
+            }
+            if (local.updatedAt.isAfter(note.updatedAt) ||
+                local.updatedAt.isAtSameMomentAs(note.updatedAt)) {
+              unchangedSkipped++;
+              continue;
+            }
+            updatedRecords++;
+          } else {
+            newRecords++;
+          }
+
+          final effectiveContent = note.content ?? local?.content;
+          final effectiveTitle = note.title ?? local?.title;
+
+          companions.add(
+            LocalCalendarNotesCompanion.insert(
+              id: note.id,
+              userId: note.userId,
+              ethiopianYear: note.ethiopianYear,
+              ethiopianMonth: note.ethiopianMonth,
+              ethiopianDay: note.ethiopianDay,
+              gregorianDate: note.gregorianDate,
+              title: Value(effectiveTitle),
+              content: Value(effectiveContent),
+              hasReminder: Value(note.hasReminder),
+              reminderDateTime: Value(note.reminderDateTime),
+              reminderRepeat: Value(note.reminderRepeat.name.toUpperCase()),
+              reminderEthiopianMonth: Value(note.reminderEthiopianMonth),
+              reminderEthiopianDay: Value(note.reminderEthiopianDay),
+              reminderHour: Value(note.reminderHour),
+              reminderMinute: Value(note.reminderMinute),
+              reminderTimezone: Value(note.reminderTimezone),
+              reminderNextOccurrence: Value(note.reminderNextOccurrence),
+              category: Value(note.category),
+              recurrenceType: Value(
+                (note.recurrenceType ?? note.reminderRepeat).name.toUpperCase(),
+              ),
+              isAutoPublishEnabled: Value(note.isAutoPublishEnabled),
+              publicationStatus: Value(note.publicationStatus),
+              nextPublicationDate: Value(note.nextPublicationDate),
+              generatedPostId: Value(note.generatedPostId),
+              remoteId: Value(note.id),
+              createdAt: note.createdAt,
+              updatedAt: note.updatedAt,
+              deletedAt: Value(note.deletedAt),
+              isSynced: const Value(true),
+              lastSyncedAt: Value(DateTime.now()),
+            ),
+          );
+
+          for (final m in note.media) {
+            mediaCompanions.add(
+              LocalCalendarNoteMediaCompanion.insert(
+                id: m.id,
+                noteId: note.id,
+                fileId: m.fileId,
+                order: m.order,
+                caption: Value(m.caption),
+                fileUrl: Value(m.url),
+                fileName: Value(m.fileName),
+                mimeType: Value(m.mimeType),
+                fileSize: Value(m.fileSize),
+                createdAt: m.createdAt,
+                isSynced: const Value(true),
+                isPendingDelete: const Value(false),
+              ),
+            );
+          }
+        }
+
+        if (companions.isNotEmpty) {
+          await _dao.batchUpsertNotesPreservingPending(companions);
+        }
+        if (mediaCompanions.isNotEmpty) {
+          await _dao.batchUpsertMedia(mediaCompanions);
+        }
+
+        // Save sync metadata
+        await _dao.setSyncMetadata(
+          LocalCalendarSyncMetadataCompanion.insert(
+            id: 'calendar_sync_metadata',
+            activeWindowStart: startStr,
+            activeWindowEnd: endStr,
+            lastSuccessfulSyncAt: Value(DateTime.now()),
+            lastSyncCursor: Value(
+              syncResult.serverTime ?? DateTime.now().toIso8601String(),
+            ),
+            schemaVersion: const Value(1),
+          ),
+        );
+      }
+
+      developer.log(
+        '[CalendarSync] New records: $newRecords',
+        name: 'CalendarSync',
+      );
+      developer.log(
+        '[CalendarSync] Updated records: $updatedRecords',
+        name: 'CalendarSync',
+      );
+      developer.log(
+        '[CalendarSync] Deleted records: $deletedRecords',
+        name: 'CalendarSync',
+      );
+      developer.log(
+        '[CalendarSync] Unchanged records skipped: $unchangedSkipped',
+        name: 'CalendarSync',
+      );
+      developer.log(
+        '[CalendarSync] Offline cache ready',
+        name: 'CalendarSync',
+      );
+      developer.log(
+        '[CalendarSync] Incremental synchronization completed',
+        name: 'CalendarSync',
+      );
+
+      return CalendarRollingSyncResult(
+        localRecordsLoaded: localLoaded,
+        newRecords: newRecords,
+        updatedRecords: updatedRecords,
+        deletedRecords: deletedRecords,
+        unchangedRecordsSkipped: unchangedSkipped,
+        isSuccess: true,
+      );
+    } on DioException catch (dioErr) {
+      final isThrottled = dioErr.response?.statusCode == 429;
+      developer.log(
+        '[CalendarSync] Offline cache ready',
+        name: 'CalendarSync',
+      );
+      return CalendarRollingSyncResult(
+        localRecordsLoaded: localLoaded,
+        isSuccess: false,
+        isThrottled: isThrottled,
+        errorMessage: isThrottled ? 'Rate limited (HTTP 429)' : dioErr.toString(),
+      );
+    } catch (e) {
+      developer.log(
+        '[CalendarSync] Offline cache ready',
+        name: 'CalendarSync',
+      );
+      return CalendarRollingSyncResult(
+        localRecordsLoaded: localLoaded,
+        isSuccess: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
   /// Sync notes from server to local database while preserving local pending edits
   /// and reconciling note content and media attachments
   Future<int> syncNotesFromServer({int? year, int? month}) async {
@@ -883,6 +1227,17 @@ class CalendarOfflineRepository {
             reminderMinute: note.reminderMinute,
             reminderTimezone: note.reminderTimezone,
             allowDownload: allowDownload,
+            recurrenceType: note.recurrenceType.isNotEmpty &&
+                    note.recurrenceType != 'NONE'
+                ? ReminderRepeat.values.firstWhere(
+                    (v) =>
+                        v.name.toUpperCase() ==
+                        note.recurrenceType.toUpperCase(),
+                    orElse: () => ReminderRepeat.none,
+                  )
+                : null,
+            isAutoPublishEnabled: note.isAutoPublishEnabled,
+            autoPublishTime: note.autoPublishTime,
           );
 
           await _remoteRepo.createNote(dto);
@@ -1011,6 +1366,20 @@ class CalendarOfflineRepository {
       reminderMinute: data.reminderMinute,
       reminderTimezone: data.reminderTimezone,
       reminderNextOccurrence: data.reminderNextOccurrence,
+      category: data.category,
+      recurrenceType: ReminderRepeat.values.firstWhere(
+        (value) =>
+            value.name.toUpperCase() ==
+            (data.recurrenceType.isNotEmpty
+                ? data.recurrenceType
+                : data.reminderRepeat),
+        orElse: () => ReminderRepeat.none,
+      ),
+      isAutoPublishEnabled: data.isAutoPublishEnabled,
+      autoPublishTime: data.autoPublishTime,
+      publicationStatus: data.publicationStatus,
+      nextPublicationDate: data.nextPublicationDate,
+      generatedPostId: data.generatedPostId,
       media:
           media
               ?.map(

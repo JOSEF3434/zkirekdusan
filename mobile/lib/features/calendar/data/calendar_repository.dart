@@ -13,17 +13,35 @@ class CalendarRepository {
 
   CalendarRepository(this._dio);
 
-  /// Get calendar notes (optionally filtered by year, month, day)
+  /// Get calendar notes (optionally filtered by year, month, day, or range)
   Future<List<CalendarNoteModel>> getNotes({
     int? year,
     int? month,
     int? day,
+    int? startYear,
+    int? startMonth,
+    int? startDay,
+    int? endYear,
+    int? endMonth,
+    int? endDay,
+    String? from,
+    String? to,
+    DateTime? since,
   }) async {
     try {
       final queryParams = <String, dynamic>{};
       if (year != null) queryParams['year'] = year;
       if (month != null) queryParams['month'] = month;
       if (day != null) queryParams['day'] = day;
+      if (startYear != null) queryParams['startYear'] = startYear;
+      if (startMonth != null) queryParams['startMonth'] = startMonth;
+      if (startDay != null) queryParams['startDay'] = startDay;
+      if (endYear != null) queryParams['endYear'] = endYear;
+      if (endMonth != null) queryParams['endMonth'] = endMonth;
+      if (endDay != null) queryParams['endDay'] = endDay;
+      if (from != null) queryParams['from'] = from;
+      if (to != null) queryParams['to'] = to;
+      if (since != null) queryParams['since'] = since.toIso8601String();
 
       final response = await _dio.get(
         '/calendar/notes',
@@ -47,6 +65,69 @@ class CalendarRepository {
             (json) => CalendarNoteModel.fromJson(json as Map<String, dynamic>),
           )
           .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Perform incremental synchronization for the rolling Ethiopian-year window
+  Future<({List<CalendarNoteModel> notes, List<String> deletedIds, String? serverTime})>
+      syncRollingWindow({
+    int? startYear,
+    int? startMonth,
+    int? startDay,
+    int? endYear,
+    int? endMonth,
+    int? endDay,
+    String? from,
+    String? to,
+    DateTime? since,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startYear != null) queryParams['startYear'] = startYear;
+      if (startMonth != null) queryParams['startMonth'] = startMonth;
+      if (startDay != null) queryParams['startDay'] = startDay;
+      if (endYear != null) queryParams['endYear'] = endYear;
+      if (endMonth != null) queryParams['endMonth'] = endMonth;
+      if (endDay != null) queryParams['endDay'] = endDay;
+      if (from != null) queryParams['from'] = from;
+      if (to != null) queryParams['to'] = to;
+      if (since != null) queryParams['since'] = since.toIso8601String();
+
+      final response = await _dio.get(
+        '/calendar/notes/sync',
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        final rawNotes = data['notes'] as List<dynamic>? ?? [];
+        final rawDeleted = data['deletedIds'] as List<dynamic>? ?? [];
+        final serverTime = data['serverTime'] as String?;
+        final notes = rawNotes
+            .map((j) => CalendarNoteModel.fromJson(j as Map<String, dynamic>))
+            .toList();
+        final deletedIds = rawDeleted.map((d) => d.toString()).toList();
+        return (notes: notes, deletedIds: deletedIds, serverTime: serverTime);
+      }
+
+      if (data is List) {
+        final notes = data
+            .map((j) => CalendarNoteModel.fromJson(j as Map<String, dynamic>))
+            .toList();
+        return (
+          notes: notes,
+          deletedIds: <String>[],
+          serverTime: null,
+        );
+      }
+
+      return (
+        notes: <CalendarNoteModel>[],
+        deletedIds: <String>[],
+        serverTime: null,
+      );
     } catch (e) {
       rethrow;
     }

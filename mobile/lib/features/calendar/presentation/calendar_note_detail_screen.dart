@@ -247,8 +247,20 @@ class _CalendarNoteDetailScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Date chips
-                _DateChipRow(etDateStr: etDateStr, grDateStr: grDateStr),
-                const SizedBox(height: 20),
+                _DateChipRow(
+                  etDateStr: etDateStr,
+                  grDateStr: grDateStr,
+                  note: note,
+                ),
+                const SizedBox(height: 16),
+
+                // ── Feast Publication Card ──
+                if (note.isAutoPublishEnabled ||
+                    note.recurrenceType != null ||
+                    note.generatedPostId != null) ...[
+                  _FeastPublicationCard(note: note, theme: theme),
+                  const SizedBox(height: 16),
+                ],
 
                 // ── Title ──
                 if (note.title != null && note.title!.isNotEmpty) ...[
@@ -804,11 +816,19 @@ class _FullscreenMediaViewState extends State<_FullscreenMediaView> {
 class _DateChipRow extends StatelessWidget {
   final String etDateStr;
   final String grDateStr;
+  final CalendarNoteModel? note;
 
-  const _DateChipRow({required this.etDateStr, required this.grDateStr});
+  const _DateChipRow({
+    required this.etDateStr,
+    required this.grDateStr,
+    this.note,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final recurrence = note?.recurrenceType;
+    final isAuto = note?.isAutoPublishEnabled ?? false;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -819,7 +839,140 @@ class _DateChipRow extends StatelessWidget {
           fontFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
         ),
         _Chip(icon: Icons.date_range, label: grDateStr),
+        if (recurrence == ReminderRepeat.monthly)
+          const _Chip(
+            icon: Icons.repeat_rounded,
+            label: 'ወርሃዊ በዓል',
+            fontFallback: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
+          ),
+        if (recurrence == ReminderRepeat.yearly)
+          const _Chip(
+            icon: Icons.event_repeat_rounded,
+            label: 'ዓመታዊ በዓል',
+            fontFallback: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
+          ),
+        if (isAuto)
+          const _Chip(
+            icon: Icons.campaign_outlined,
+            label: 'በራስ-ሰር የሚታተም',
+            fontFallback: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
+          ),
       ],
+    );
+  }
+}
+
+class _FeastPublicationCard extends StatelessWidget {
+  final CalendarNoteModel note;
+  final ThemeData theme;
+
+  const _FeastPublicationCard({required this.note, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    final recurrenceLabel = switch (note.recurrenceType) {
+      ReminderRepeat.monthly => 'ወርሃዊ በዓል (Monthly Feast)',
+      ReminderRepeat.yearly => 'ዓመታዊ በዓል (Annual Feast)',
+      _ => 'አንድ ጊዜ (One-time)',
+    };
+
+    final isAuto = note.isAutoPublishEnabled;
+    final publishTime = note.autoPublishTime ??
+        (note.recurrenceType == ReminderRepeat.yearly ? '12:10' : '12:00');
+    final hasGeneratedPost =
+        note.generatedPostId != null && note.generatedPostId!.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.auto_stories_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      recurrenceLabel,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (isAuto)
+                      Text(
+                        'በየእለቱ $publishTime ላይ በራስ-ሰር ወደ ልጥፍ ይታተማል',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color:
+                              theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (note.publicationStatus != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: note.publicationStatus == 'PUBLISHED'
+                        ? Colors.green.withValues(alpha: 0.2)
+                        : Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    note.publicationStatus!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: note.publicationStatus == 'PUBLISHED'
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (note.nextPublicationDate != null &&
+              note.nextPublicationDate!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'ቀጣይ የህትመት ቀን: ${note.nextPublicationDate}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (hasGeneratedPost) ...[
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: () => context.push('/posts/${note.generatedPostId}'),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('የታተመውን ልጥፍ ይመልከቱ (View Published Post)'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -957,6 +1110,27 @@ class _MetadataFooter extends StatelessWidget {
         _metaRow('Created', _formatDateTime(note.createdAt)),
         const SizedBox(height: 6),
         _metaRow('Last updated', _formatDateTime(note.updatedAt)),
+        if (note.recurrenceType != null &&
+            note.recurrenceType != ReminderRepeat.none) ...[
+          const SizedBox(height: 6),
+          _metaRow(
+            'Recurrence',
+            note.recurrenceType == ReminderRepeat.monthly
+                ? 'Monthly Feast'
+                : 'Annual Feast',
+          ),
+        ],
+        if (note.isAutoPublishEnabled) ...[
+          const SizedBox(height: 6),
+          _metaRow(
+            'Auto-publish',
+            'Enabled (${note.autoPublishTime ?? '12:00'})',
+          ),
+          if (note.publicationStatus != null) ...[
+            const SizedBox(height: 6),
+            _metaRow('Publication status', note.publicationStatus!),
+          ],
+        ],
         if (note.media.isNotEmpty) ...[
           const SizedBox(height: 6),
           _metaRow('Attachments', '${note.media.length}'),

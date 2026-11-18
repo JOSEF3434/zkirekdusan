@@ -51,6 +51,12 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
   int _reminderHour = 12;
   int _reminderMinute = 0;
 
+  // Recurrence & Publication state (Admin management)
+  ReminderRepeat _recurrenceType = ReminderRepeat.monthly;
+  bool _isAutoPublishEnabled = false;
+  String _autoPublishTime = '12:00';
+  String? _category;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +74,16 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     _reminderHour = widget.existingNote?.reminderHour ?? 12;
     _reminderMinute = widget.existingNote?.reminderMinute ?? 0;
 
+    // Initialize recurrence & publication state
+    _recurrenceType = widget.existingNote?.recurrenceType ??
+        widget.existingNote?.reminderRepeat ??
+        ReminderRepeat.monthly;
+    _isAutoPublishEnabled =
+        widget.existingNote?.isAutoPublishEnabled ?? false;
+    _autoPublishTime = widget.existingNote?.autoPublishTime ??
+        (_recurrenceType == ReminderRepeat.yearly ? '12:10' : '12:00');
+    _category = widget.existingNote?.category;
+
     // Initialize allowDownload from existing note if editing
     _allowDownload = widget.existingNote?.allowDownload ?? false;
 
@@ -75,6 +91,27 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
     _existingMedia = List<CalendarNoteMedia>.from(
       widget.existingNote?.media ?? [],
     );
+  }
+
+  String _calculateNextPublicationPreview() {
+    final y = widget.selectedDate.year;
+    final m = widget.selectedDate.month;
+    final d = widget.selectedDate.day;
+    if (_recurrenceType == ReminderRepeat.none) {
+      return '$y-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')} at $_autoPublishTime';
+    } else if (_recurrenceType == ReminderRepeat.monthly) {
+      var nextM = m + 1;
+      var nextY = y;
+      if (nextM > 13) {
+        nextM = 1;
+        nextY++;
+      }
+      return '$nextY-${nextM.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')} at $_autoPublishTime';
+    } else {
+      // Annual
+      final nextY = y + 1;
+      return '$nextY-${m.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')} at $_autoPublishTime';
+    }
   }
 
   @override
@@ -259,6 +296,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           reminderTimezone: 'Africa/Addis_Ababa',
           reminderNextOccurrence: _reminderDateTime,
           allowDownload: _allowDownload,
+          category: _category,
+          recurrenceType: _recurrenceType,
+          isAutoPublishEnabled: _isAutoPublishEnabled,
+          autoPublishTime: _autoPublishTime,
         );
       } else {
         // Create new note
@@ -287,6 +328,10 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
           reminderTimezone: 'Africa/Addis_Ababa',
           reminderNextOccurrence: _reminderDateTime,
           allowDownload: _allowDownload,
+          category: _category,
+          recurrenceType: _recurrenceType,
+          isAutoPublishEnabled: _isAutoPublishEnabled,
+          autoPublishTime: _autoPublishTime,
         );
       }
 
@@ -994,6 +1039,137 @@ class _AddNoteSheetState extends ConsumerState<AddNoteSheet> {
                 );
               },
             ),
+
+            // ── Recurrence & Automated Publication (Feast System) ──
+            Card(
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.repeat_rounded,
+                          size: 20,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'የበዓላት ድግግሞሽ (Feast Recurrence)',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedButton<ReminderRepeat>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ReminderRepeat.none,
+                          label: Text('አንድ ጊዜ'),
+                        ),
+                        ButtonSegment(
+                          value: ReminderRepeat.monthly,
+                          label: Text('ወርሃዊ'),
+                        ),
+                        ButtonSegment(
+                          value: ReminderRepeat.yearly,
+                          label: Text('ዓመታዊ'),
+                        ),
+                      ],
+                      selected: {_recurrenceType},
+                      onSelectionChanged: _isSaving
+                          ? null
+                          : (newSet) {
+                              final selected = newSet.first;
+                              setState(() {
+                                _recurrenceType = selected;
+                                if (selected == ReminderRepeat.yearly &&
+                                    _autoPublishTime == '12:00') {
+                                  _autoPublishTime = '12:10';
+                                } else if (selected == ReminderRepeat.monthly &&
+                                    _autoPublishTime == '12:10') {
+                                  _autoPublishTime = '12:00';
+                                }
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _isAutoPublishEnabled,
+                      onChanged: _isSaving
+                          ? null
+                          : (val) {
+                              setState(() {
+                                _isAutoPublishEnabled = val;
+                              });
+                            },
+                      title: const Text('በራስ-ሰር የሚታተም (Automated Publication)'),
+                      subtitle: Text(
+                        _recurrenceType == ReminderRepeat.monthly
+                            ? 'በየወሩ 12:00 PM ላይ በራስ-ሰር ልጥፍ ይፈጥራል'
+                            : _recurrenceType == ReminderRepeat.yearly
+                                ? 'በየዓመቱ 12:10 PM ላይ በራስ-ሰር ልጥፍ ይፈጥራል'
+                                : 'በተመረጠው ቀን ላይ በራስ-ሰር ልጥፍ ይፈጥራል',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    if (_isAutoPublishEnabled) ...[
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('የህትመት ሰዓት (Publication Time):'),
+                          Text(
+                            _autoPublishTime,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'ቀጣይ ህትመት ቅድመ-ዕይታ: ${_calculateNextPublicationPreview()}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Reminder picker
             RecurringReminderPicker(

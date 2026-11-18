@@ -236,6 +236,14 @@ enum CalendarReminderRepeat {
   YEARLY
 }
 
+enum CalendarPublicationStatus {
+  PENDING
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
 enum JoinRequestStatus {
   PENDING
   APPROVED
@@ -819,6 +827,11 @@ model Post {
   savedBy         SavedPost[]
   downloadRecords DownloadRecord[]
 
+  // Calendar Note association (if automatically or manually generated from calendar)
+  calendarNoteId  String?
+  calendarNote    CalendarNote? @relation("CalendarNotePosts", fields: [calendarNoteId], references: [id], onDelete: SetNull)
+  calendarPublicationOccurrences CalendarPublicationOccurrence[]
+
   publishedAt DateTime?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
@@ -829,6 +842,7 @@ model Post {
   @@index([status, visibility, publishedAt(sort: Desc)])
   @@index([deletedAt])
   @@index([createdAt])
+  @@index([calendarNoteId])
   @@map("posts")
 }
 
@@ -2855,9 +2869,18 @@ model CalendarNote {
   reminderMinute    Int?
   reminderTimezone  String @default("Africa/Addis_Ababa")
   reminderNextOccurrence DateTime?
+
+  // Recurrence & Automated Publication
+  recurrenceType        CalendarReminderRepeat @default(NONE)
+  isAutoPublishEnabled  Boolean                @default(false)
+  autoPublishTime       String?                @default("12:00")
   
   // Media attachments
   media CalendarNoteMedia[]
+
+  // Publication occurrences & generated posts
+  publicationOccurrences CalendarPublicationOccurrence[]
+  posts                  Post[]                  @relation("CalendarNotePosts")
   
   // Timestamps
   createdAt DateTime  @default(now())
@@ -2892,6 +2915,47 @@ model CalendarNoteMedia {
   @@index([noteId])
   @@index([fileId])
   @@map("calendar_note_media")
+}
+
+model CalendarPublicationOccurrence {
+  id                    String                    @id @default(uuid())
+  calendarNoteId        String
+  calendarNote          CalendarNote              @relation(fields: [calendarNoteId], references: [id], onDelete: Cascade)
+  recurrenceType        CalendarReminderRepeat
+  occurrenceEthiopianDate String                  // e.g. "2019-03-09"
+  occurrenceYear        Int
+  occurrenceMonth       Int
+  occurrenceDay         Int
+  scheduledAt           DateTime
+  publishedAt           DateTime?
+  generatedPostId       String?
+  generatedPost         Post?                     @relation(fields: [generatedPostId], references: [id], onDelete: SetNull)
+  publicationStatus     CalendarPublicationStatus @default(PENDING)
+  lastError             String?
+  retryCount            Int                       @default(0)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@unique([calendarNoteId, recurrenceType, occurrenceEthiopianDate], name: "calendar_note_recurrence_occurrence_unique")
+  @@index([publicationStatus, scheduledAt])
+  @@index([occurrenceEthiopianDate])
+  @@index([generatedPostId])
+  @@map("calendar_publication_occurrences")
+}
+
+model CalendarSyncMetadata {
+  id                  String   @id @default(uuid())
+  userId              String?
+  activeWindowStart   String
+  activeWindowEnd     String
+  lastSuccessfulSyncAt DateTime @default(now())
+  lastSyncCursor      String?
+  schemaVersion       Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@map("calendar_sync_metadata")
 }
 
 // ─────────────────────────────────────────────

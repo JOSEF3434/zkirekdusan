@@ -8,6 +8,12 @@ import { CreateCalendarNoteDto } from './dto/create-calendar-note.dto.js';
 import { UpdateCalendarNoteDto } from './dto/update-calendar-note.dto.js';
 import { QueryCalendarNotesDto } from './dto/query-calendar-notes.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import {
+  calculateRollingOneYearWindow,
+  getEthiopianDate,
+  formatEthiopianDate,
+  parseEthiopianDate,
+} from './calendar-ethiopian.util.js';
 
 function validateReminderRule(
   dto: CreateCalendarNoteDto | UpdateCalendarNoteDto,
@@ -102,6 +108,9 @@ export class CalendarService {
         reminderNextOccurrence: dto.reminderDateTime
           ? new Date(dto.reminderDateTime)
           : null,
+        recurrenceType: dto.recurrenceType ?? dto.reminderRepeat ?? 'NONE',
+        isAutoPublishEnabled: dto.isAutoPublishEnabled ?? false,
+        autoPublishTime: dto.autoPublishTime ?? '12:00',
         ...(dto.media && dto.media.length > 0
           ? {
               media: {
@@ -141,6 +150,76 @@ export class CalendarService {
     return note;
   }
 
+  buildRangeWhere(
+    startEth: { year: number; month: number; day: number },
+    endEth: { year: number; month: number; day: number },
+  ) {
+    if (startEth.year === endEth.year) {
+      if (startEth.month === endEth.month) {
+        return {
+          ethiopianYear: startEth.year,
+          ethiopianMonth: startEth.month,
+          ethiopianDay: { gte: startEth.day, lte: endEth.day },
+        };
+      }
+      return {
+        ethiopianYear: startEth.year,
+        OR: [
+          {
+            ethiopianMonth: startEth.month,
+            ethiopianDay: { gte: startEth.day },
+          },
+          {
+            ethiopianMonth: { gt: startEth.month, lt: endEth.month },
+          },
+          {
+            ethiopianMonth: endEth.month,
+            ethiopianDay: { lte: endEth.day },
+          },
+        ],
+      };
+    }
+
+    return {
+      OR: [
+        {
+          ethiopianYear: startEth.year,
+          OR: [
+            {
+              ethiopianMonth: startEth.month,
+              ethiopianDay: { gte: startEth.day },
+            },
+            {
+              ethiopianMonth: { gt: startEth.month },
+            },
+          ],
+        },
+        {
+          ethiopianYear: endEth.year,
+          OR: [
+            {
+              ethiopianMonth: { lt: endEth.month },
+            },
+            {
+              ethiopianMonth: endEth.month,
+              ethiopianDay: { lte: endEth.day },
+            },
+          ],
+        },
+        ...(endEth.year - startEth.year > 1
+          ? [
+              {
+                ethiopianYear: {
+                  gt: startEth.year,
+                  lt: endEth.year,
+                },
+              },
+            ]
+          : []),
+      ],
+    };
+  }
+
   async findAll(
     queryOrUserId: QueryCalendarNotesDto | string = {},
     maybeQuery?: QueryCalendarNotesDto,
@@ -148,20 +227,53 @@ export class CalendarService {
     const query: QueryCalendarNotesDto =
       typeof queryOrUserId === 'string' ? (maybeQuery ?? {}) : queryOrUserId;
 
-    const where: any = {
-      deletedAt: null,
-    };
+    const where: any = {};
 
-    if (query.year !== undefined) {
-      where.ethiopianYear = query.year;
+    if (!query.includeDeleted) {
+      where.deletedAt = null;
     }
 
-    if (query.month !== undefined) {
-      where.ethiopianMonth = query.month;
+    // Range filtering takes precedence if provided
+    let startEth: { year: number; month: number; day: number } | null = null;
+    let endEth: { year: number; month: number; day: number } | null = null;
+
+    if (query.from) {
+      startEth = parseEthiopianDate(query.from);
+    } else if (query.startYear !== undefined) {
+      startEth = {
+        year: query.startYear,
+        month: query.startMonth ?? 1,
+        day: query.startDay ?? 1,
+      };
     }
 
-    if (query.day !== undefined) {
-      where.ethiopianDay = query.day;
+    if (query.to) {
+      endEth = parseEthiopianDate(query.to);
+    } else if (query.endYear !== undefined) {
+      endEth = {
+        year: query.endYear,
+        month: query.endMonth ?? 13,
+        day: query.endDay ?? 30,
+      };
+    }
+
+    if (startEth && endEth) {
+      Object.assign(where, this.buildRangeWhere(startEth, endEth));
+    } else {
+      if (query.year !== undefined) {
+        where.ethiopianYear = query.year;
+      }
+      if (query.month !== undefined) {
+        where.ethiopianMonth = query.month;
+      }
+      if (query.day !== undefined) {
+        where.ethiopianDay = query.day;
+      }
+    }
+
+    // Incremental sync cursor
+    if (query.since) {
+      where.updatedAt = { gte: new Date(query.since) };
     }
 
     return this.prisma.calendarNote.findMany({
@@ -175,6 +287,10 @@ export class CalendarService {
             order: 'asc',
           },
         },
+        publicationOccurrences: {
+          orderBy: { scheduledAt: 'desc' },
+          take: 5,
+        },
       },
       orderBy: [
         { ethiopianYear: 'desc' },
@@ -183,6 +299,87 @@ export class CalendarService {
         { createdAt: 'desc' },
       ],
     });
+  }
+
+  async syncNotes(query: QueryCalendarNotesDto = {}, userId?: string) {
+    const currentEth = getEthiopianDate();
+    const rollingWindow = calculateRollingOneYearWindow(currentEth);
+
+    const startEth = query.from
+      ? parseEthiopianDate(query.from)
+      : query.startYear !== undefined
+      ? {
+          year: query.startYear,
+          month: query.startMonth ?? 1,
+          day: query.startDay ?? 1,
+        }
+      : rollingWindow.start;
+
+    const endEth = query.to
+      ? parseEthiopianDate(query.to)
+      : query.endYear !== undefined
+      ? {
+          year: query.endYear,
+          month: query.endMonth ?? 13,
+          day: query.endDay ?? 30,
+        }
+      : rollingWindow.end;
+
+    const queryWithRange: QueryCalendarNotesDto = {
+      ...query,
+      startYear: startEth.year,
+      startMonth: startEth.month,
+      startDay: startEth.day,
+      endYear: endEth.year,
+      endMonth: endEth.month,
+      endDay: endEth.day,
+    };
+
+    const notes = await this.findAll(queryWithRange);
+
+    let deletedIds: string[] = [];
+    if (query.since) {
+      const deletedNotes = await this.prisma.calendarNote.findMany({
+        where: {
+          deletedAt: { gte: new Date(query.since) },
+          ...this.buildRangeWhere(startEth, endEth),
+        },
+        select: { id: true },
+      });
+      deletedIds = deletedNotes.map((n) => n.id);
+    }
+
+    // Record sync metadata
+    await this.prisma.calendarSyncMetadata
+      .create({
+        data: {
+          userId: userId ?? null,
+          activeWindowStart: formatEthiopianDate(
+            startEth.year,
+            startEth.month,
+            startEth.day,
+          ),
+          activeWindowEnd: formatEthiopianDate(
+            endEth.year,
+            endEth.month,
+            endEth.day,
+          ),
+          lastSuccessfulSyncAt: new Date(),
+          lastSyncCursor: query.since ?? null,
+          schemaVersion: 1,
+        },
+      })
+      .catch(() => null);
+
+    return {
+      activeWindow: {
+        start: formatEthiopianDate(startEth.year, startEth.month, startEth.day),
+        end: formatEthiopianDate(endEth.year, endEth.month, endEth.day),
+      },
+      notes,
+      deletedIds,
+      serverTime: new Date().toISOString(),
+    };
   }
 
   async findOne(idOrUserId: string, maybeId?: string) {
@@ -269,6 +466,15 @@ export class CalendarService {
       updateData.reminderMinute = dto.reminderMinute;
     if (dto.reminderTimezone !== undefined) {
       updateData.reminderTimezone = dto.reminderTimezone;
+    }
+    if (dto.recurrenceType !== undefined) {
+      updateData.recurrenceType = dto.recurrenceType;
+    }
+    if (dto.isAutoPublishEnabled !== undefined) {
+      updateData.isAutoPublishEnabled = dto.isAutoPublishEnabled;
+    }
+    if (dto.autoPublishTime !== undefined) {
+      updateData.autoPublishTime = dto.autoPublishTime;
     }
     if (dto.reminderRepeat === 'NONE' || dto.hasReminder === false) {
       updateData.reminderNextOccurrence = null;

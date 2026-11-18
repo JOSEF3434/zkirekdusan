@@ -51,6 +51,10 @@ final createCalendarNoteProvider =
         String? reminderTimezone,
         DateTime? reminderNextOccurrence,
         bool? allowDownload,
+        String? category,
+        ReminderRepeat? recurrenceType,
+        bool? isAutoPublishEnabled,
+        String? autoPublishTime,
       })
     >(
       (ref) =>
@@ -72,6 +76,10 @@ final createCalendarNoteProvider =
             String? reminderTimezone,
             DateTime? reminderNextOccurrence,
             bool? allowDownload,
+            String? category,
+            ReminderRepeat? recurrenceType,
+            bool? isAutoPublishEnabled,
+            String? autoPublishTime,
           }) {
             final repository = ref.read(calendarOfflineRepositoryProvider);
             return repository.createNote(
@@ -92,6 +100,10 @@ final createCalendarNoteProvider =
               reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
               reminderNextOccurrence: reminderNextOccurrence,
               allowDownload: allowDownload ?? false,
+              category: category,
+              recurrenceType: recurrenceType,
+              isAutoPublishEnabled: isAutoPublishEnabled ?? false,
+              autoPublishTime: autoPublishTime,
             );
           },
     );
@@ -113,6 +125,10 @@ final updateCalendarNoteProvider =
         String? reminderTimezone,
         DateTime? reminderNextOccurrence,
         bool? allowDownload,
+        String? category,
+        ReminderRepeat? recurrenceType,
+        bool? isAutoPublishEnabled,
+        String? autoPublishTime,
       })
     >(
       (ref) =>
@@ -130,6 +146,10 @@ final updateCalendarNoteProvider =
             reminderTimezone,
             reminderNextOccurrence,
             allowDownload,
+            category,
+            recurrenceType,
+            isAutoPublishEnabled,
+            autoPublishTime,
           }) {
             final repository = ref.read(calendarOfflineRepositoryProvider);
             return repository.updateNote(
@@ -146,6 +166,10 @@ final updateCalendarNoteProvider =
               reminderTimezone: reminderTimezone ?? 'Africa/Addis_Ababa',
               reminderNextOccurrence: reminderNextOccurrence,
               allowDownload: allowDownload,
+              category: category,
+              recurrenceType: recurrenceType,
+              isAutoPublishEnabled: isAutoPublishEnabled,
+              autoPublishTime: autoPublishTime,
             );
           },
     );

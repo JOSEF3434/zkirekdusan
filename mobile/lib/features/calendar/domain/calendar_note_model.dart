@@ -36,6 +36,13 @@ abstract class CalendarNoteModel with _$CalendarNoteModel {
     DateTime? reminderNextOccurrence,
     @Default([]) List<CalendarNoteMedia> media,
     @Default(false) bool allowDownload,
+    String? category,
+    ReminderRepeat? recurrenceType,
+    @Default(false) bool isAutoPublishEnabled,
+    String? autoPublishTime,
+    String? publicationStatus,
+    String? nextPublicationDate,
+    String? generatedPostId,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? deletedAt,
@@ -98,6 +105,9 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     int? reminderMinute,
     @Default('Africa/Addis_Ababa') String reminderTimezone,
     @Default(false) bool allowDownload,
+    ReminderRepeat? recurrenceType,
+    @Default(false) bool isAutoPublishEnabled,
+    String? autoPublishTime,
   }) = _CreateCalendarNoteDto;
 
   factory CreateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -123,6 +133,10 @@ abstract class CreateCalendarNoteDto with _$CreateCalendarNoteDto {
     if (reminderMinute != null) 'reminderMinute': reminderMinute,
     'reminderTimezone': reminderTimezone,
     'allowDownload': allowDownload,
+    if (recurrenceType != null)
+      'recurrenceType': _$ReminderRepeatEnumMap[recurrenceType],
+    'isAutoPublishEnabled': isAutoPublishEnabled,
+    if (autoPublishTime != null) 'autoPublishTime': autoPublishTime,
   };
 }
 
@@ -146,6 +160,9 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     int? reminderMinute,
     String? reminderTimezone,
     bool? allowDownload,
+    ReminderRepeat? recurrenceType,
+    bool? isAutoPublishEnabled,
+    String? autoPublishTime,
   }) = _UpdateCalendarNoteDto;
 
   factory UpdateCalendarNoteDto.fromJson(Map<String, dynamic> json) =>
@@ -179,6 +196,13 @@ abstract class UpdateCalendarNoteDto with _$UpdateCalendarNoteDto {
     if (reminderMinute != null) map['reminderMinute'] = reminderMinute;
     if (reminderTimezone != null) map['reminderTimezone'] = reminderTimezone;
     if (allowDownload != null) map['allowDownload'] = allowDownload;
+    if (recurrenceType != null) {
+      map['recurrenceType'] = _$ReminderRepeatEnumMap[recurrenceType];
+    }
+    if (isAutoPublishEnabled != null) {
+      map['isAutoPublishEnabled'] = isAutoPublishEnabled;
+    }
+    if (autoPublishTime != null) map['autoPublishTime'] = autoPublishTime;
     return map;
   }
 }

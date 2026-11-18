@@ -68,6 +68,15 @@ class FakeCalendarRepository implements CalendarRepository {
     int? year,
     int? month,
     int? day,
+    int? startYear,
+    int? startMonth,
+    int? startDay,
+    int? endYear,
+    int? endMonth,
+    int? endDay,
+    String? from,
+    String? to,
+    DateTime? since,
   }) async {
     queriedYears.add(year);
     queriedMonths.add(month);
@@ -153,6 +162,47 @@ class FakeCalendarRepository implements CalendarRepository {
     String? caption,
     int? order,
   }) async {}
+
+  int rollingSyncCalls = 0;
+  String? lastRollingStart;
+  String? lastRollingEnd;
+  String? lastRollingSince;
+  bool shouldThrow429OnRollingSync = false;
+
+  @override
+  Future<({List<CalendarNoteModel> notes, List<String> deletedIds, String? serverTime})>
+      syncRollingWindow({
+    int? startYear,
+    int? startMonth,
+    int? startDay,
+    int? endYear,
+    int? endMonth,
+    int? endDay,
+    String? from,
+    String? to,
+    DateTime? since,
+  }) async {
+    rollingSyncCalls++;
+    lastRollingStart = from ?? (startYear != null ? '$startYear-$startMonth-$startDay' : null);
+    lastRollingEnd = to ?? (endYear != null ? '$endYear-$endMonth-$endDay' : null);
+    lastRollingSince = since?.toIso8601String();
+
+    if (shouldThrow429OnRollingSync || shouldThrow429OnGet) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/calendar/notes/sync'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/calendar/notes/sync'),
+          statusCode: 429,
+        ),
+      );
+    }
+
+    return (
+      notes: customNotesToReturn ?? [],
+      deletedIds: <String>[],
+      serverTime: DateTime.now().toUtc().toIso8601String(),
+    );
+  }
 }
 
 void main() {
@@ -447,24 +497,28 @@ void main() {
   });
 
   group(
-    'CalendarSyncService - Rate Limiting Mitigation & Ethiopian Calculation',
+    'CalendarSyncService - Rolling One-Ethiopian-Year Sync & Single-Flight Lock',
     () {
       test(
-        'performSync syncs at most 3 Ethiopian years in 3 requests instead of 39',
+        'performSync syncs single rolling 1-Ethiopian-year window in 1 request instead of 3 separate full years',
         () async {
           final result = await syncService.performSync();
 
           expect(result.isSuccess, isTrue);
-          expect(remoteRepo.queriedYears.length, 3);
+          expect(remoteRepo.rollingSyncCalls, 1);
+          expect(remoteRepo.queriedYears.isEmpty, isTrue);
 
           final etNow = EthiopianCalendarUtil.now();
-          expect(remoteRepo.queriedYears, [
-            etNow.year,
-            etNow.year - 1,
-            etNow.year - 2,
-          ]);
-          // All months should be null because 1 request fetches the full year
-          expect(remoteRepo.queriedMonths, [null, null, null]);
+          final expectedWindow =
+              EthiopianCalendarUtil.getRollingOneYearWindow(etNow);
+          expect(
+            remoteRepo.lastRollingStart,
+            EthiopianCalendarUtil.formatIsoDate(expectedWindow.start),
+          );
+          expect(
+            remoteRepo.lastRollingEnd,
+            EthiopianCalendarUtil.formatIsoDate(expectedWindow.end),
+          );
         },
       );
 
@@ -479,13 +533,13 @@ void main() {
           final results = await Future.wait([future1, future2]);
           expect(results[0].isSuccess, isTrue);
           expect(results[1].isSuccess, isTrue);
-          // Remote repository queried only 3 times, not 6
-          expect(remoteRepo.queriedYears.length, 3);
+          // Remote repository queried only 1 time, not duplicated
+          expect(remoteRepo.rollingSyncCalls, 1);
         },
       );
 
       test(
-        'performQuickSync syncs current Ethiopian month and pushes notes',
+        'performQuickSync syncs rolling window and pushes notes',
         () async {
           await offlineRepo.createNote(
             userId: 'user-1',
@@ -500,17 +554,14 @@ void main() {
 
           expect(result.isSuccess, isTrue);
           expect(result.notesPushed, 1);
-
-          final etNow = EthiopianCalendarUtil.now();
-          expect(remoteRepo.queriedYears, [etNow.year]);
-          expect(remoteRepo.queriedMonths, [etNow.month]);
+          expect(remoteRepo.rollingSyncCalls, 1);
         },
       );
 
       test(
         'performSync reports throttled outcome honestly on HTTP 429',
         () async {
-          remoteRepo.shouldThrow429OnGet = true;
+          remoteRepo.shouldThrow429OnRollingSync = true;
 
           final result = await syncService.performSync();
 
@@ -518,24 +569,23 @@ void main() {
           expect(result.isThrottled, isTrue);
           expect(result.pullFailures, 1);
           expect(result.errorMessage, contains('429'));
-          // Aborts after first throttled request, not continuing to hit server
-          expect(remoteRepo.queriedYears.length, 1);
+          expect(remoteRepo.rollingSyncCalls, 1);
         },
       );
     },
   );
 
   group('CalendarConnectivitySync - Lifecycle & Reconnection', () {
-    test('didChangeAppLifecycleState(resumed) triggers sync', () async {
+    test('didChangeAppLifecycleState(resumed) triggers rolling-window sync', () async {
       final connectivitySync = CalendarConnectivitySync(syncService);
 
       // Trigger app resumed lifecycle event
       connectivitySync.didChangeAppLifecycleState(AppLifecycleState.resumed);
 
-      // Allow 3 years with 150ms backoff to complete
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 200));
 
-      expect(remoteRepo.queriedYears.length, 3);
+      expect(remoteRepo.rollingSyncCalls, 1);
+      expect(remoteRepo.queriedYears.isEmpty, isTrue);
       connectivitySync.dispose();
     });
 
@@ -544,15 +594,56 @@ void main() {
 
       // First trigger
       connectivitySync.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // Immediate second trigger
       connectivitySync.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Should only have executed once (3 year queries)
-      expect(remoteRepo.queriedYears.length, 3);
+      // Should only have executed once (1 rolling sync query)
+      expect(remoteRepo.rollingSyncCalls, 1);
       connectivitySync.dispose();
+    });
+  });
+
+  group('CalendarOfflineRepository - Rolling Window & Deduplication', () {
+    test('syncRollingWindow avoids downloading and re-inserting unchanged records', () async {
+      final testNote = CalendarNoteModel(
+        id: 'note-rolling-1',
+        userId: 'admin-user',
+        ethiopianYear: 2019,
+        ethiopianMonth: 3,
+        ethiopianDay: 9,
+        gregorianDate: DateTime(2026, 11, 18),
+        title: 'Feast of Qirqos',
+        content: 'Commemoration content',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      );
+
+      remoteRepo.customNotesToReturn = [testNote];
+
+      // 1. First sync: downloads and inserts new record
+      final res1 = await offlineRepo.syncRollingWindow();
+      expect(res1.isSuccess, isTrue);
+      expect(res1.newRecords, 1);
+      expect(res1.unchangedRecordsSkipped, 0);
+
+      // 2. Second sync: unchanged record skipped, zero redundant inserts
+      final res2 = await offlineRepo.syncRollingWindow();
+      expect(res2.isSuccess, isTrue);
+      expect(res2.newRecords, 0);
+      expect(res2.updatedRecords, 0);
+      expect(res2.unchangedRecordsSkipped, 1);
+
+      // 3. Read offline from SQLite
+      final notes = await offlineRepo.getNotesForDate(
+        year: 2019,
+        month: 3,
+        day: 9,
+      );
+      expect(notes.length, 1);
+      expect(notes.first.title, 'Feast of Qirqos');
     });
   });
 
