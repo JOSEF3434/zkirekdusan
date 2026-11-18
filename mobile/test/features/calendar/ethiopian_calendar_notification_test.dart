@@ -83,11 +83,16 @@ void main() {
       expect(EthiopianCalendarUtil.getMonthName(1), 'መስከረም');
     });
 
-    test('Channel and notification ID constants are defined appropriately', () {
+    test('Channel, category, and notification ID constants are defined appropriately', () {
       expect(EthiopianCalendarNotificationService.notificationId, 7701);
+      expect(EthiopianCalendarNotificationService.maxIosScheduledDays, 14);
       expect(
         EthiopianCalendarNotificationService.channelId,
         'ethiopian_calendar_persistent',
+      );
+      expect(
+        EthiopianCalendarNotificationService.categoryIdentifier,
+        'ethiopian_calendar_category',
       );
       expect(
         EthiopianCalendarNotificationService.prefsKey,

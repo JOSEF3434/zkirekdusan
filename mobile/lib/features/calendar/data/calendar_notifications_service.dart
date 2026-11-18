@@ -418,12 +418,18 @@ class CalendarNotificationsService {
   /// Handle notification tap — navigate to the note detail screen or calendar.
   static void _onNotificationTapped(NotificationResponse response) {
     final payload = response.payload;
+    final actionId = response.actionId;
+    final id = response.id;
     developer.log(
-      '📱 Notification tapped: payload=$payload, id=${response.id}',
+      '📱 Notification tapped: payload=$payload, id=$id, actionId=$actionId',
       name: 'CalendarNotifications',
     );
 
-    if (payload == 'calendar' || response.id == 7701) {
+    final isCalendarId = (id != null && id >= 7701 && id <= 7731);
+
+    if (payload == 'calendar' ||
+        isCalendarId ||
+        actionId == 'action_open_calendar') {
       NavigationService.instance.goTo('/calendar');
       return;
     }

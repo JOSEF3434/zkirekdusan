@@ -19,7 +19,9 @@ class EthiopianCalendarNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const int notificationId = 7701;
+  static const int maxIosScheduledDays = 14;
   static const String channelId = 'ethiopian_calendar_persistent';
+  static const String categoryIdentifier = 'ethiopian_calendar_category';
   static const String prefsKey = 'ethiopian_calendar_notification_enabled';
   static const String taskName = 'ethiopian_calendar_notification_update';
   static const String _lastDisplayedDateKey = 'ethiopian_calendar_last_date';
@@ -48,13 +50,31 @@ class EthiopianCalendarNotificationService {
       } catch (_) {}
 
       const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const iosSettings = DarwinInitializationSettings(
+      final iosSettings = DarwinInitializationSettings(
         requestAlertPermission: true,
-        requestBadgePermission: false,
+        requestBadgePermission: true,
         requestSoundPermission: false,
+        notificationCategories: [
+          DarwinNotificationCategory(
+            categoryIdentifier,
+            actions: [
+              DarwinNotificationAction.plain(
+                'action_open_calendar',
+                'ቀን መቁጠሪያ ክፈት',
+                options: {
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+            ],
+            options: {
+              DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+              DarwinNotificationCategoryOption.hiddenPreviewShowSubtitle,
+            },
+          ),
+        ],
       );
 
-      const initSettings = InitializationSettings(
+      final initSettings = InitializationSettings(
         android: androidSettings,
         iOS: iosSettings,
       );
@@ -260,11 +280,17 @@ class EthiopianCalendarNotificationService {
         enableVibration: false,
       );
 
-      const iosDetails = DarwinNotificationDetails(
+      final iosDetails = DarwinNotificationDetails(
         presentAlert: true,
-        presentBadge: false,
+        presentBanner: true,
+        presentList: true,
         presentSound: false,
-        categoryIdentifier: channelId,
+        presentBadge: true,
+        badgeNumber: info.etDay,
+        subtitle: info.body,
+        threadIdentifier: 'ethiopian_calendar',
+        categoryIdentifier: categoryIdentifier,
+        interruptionLevel: InterruptionLevel.active,
       );
 
       final notificationDetails = NotificationDetails(
@@ -373,27 +399,112 @@ class EthiopianCalendarNotificationService {
         enableVibration: false,
       );
 
-      const iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: false,
-        presentSound: false,
-        categoryIdentifier: channelId,
-      );
+      // On Android: schedule exact alarm for next midnight
+      if (defaultTargetPlatform != TargetPlatform.iOS) {
+        await _notifications.zonedSchedule(
+          notificationId,
+          'የዛሬ ቀን',
+          tomorrowBody,
+          nextMidnight,
+          NotificationDetails(android: androidDetails),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: 'calendar',
+        );
+      }
 
-      await _notifications.zonedSchedule(
-        notificationId,
-        'የዛሬ ቀን',
-        tomorrowBody,
-        nextMidnight,
-        NotificationDetails(android: androidDetails, iOS: iosDetails),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: 'calendar',
-      );
+      // On iOS: schedule the rolling 14-day window of upcoming midnights
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _scheduleIosRollingNotifications();
+      }
     } catch (e) {
       developer.log(
         '⚠️ Failed to schedule midnight update: $e',
+        name: 'EthCalendarNotification',
+      );
+    }
+  }
+
+  /// Schedules a rolling 14-day window of upcoming daily Ethiopian calendar
+  /// notifications for iOS. This ensures that iOS displays the correct date
+  /// every midnight in Notification Center and Lock Screen even if the app
+  /// remains closed for up to 2 weeks.
+  static Future<void> _scheduleIosRollingNotifications() async {
+    try {
+      final addis = tz.getLocation('Africa/Addis_Ababa');
+      final nowAddis = tz.TZDateTime.now(addis);
+
+      for (int i = 1; i <= maxIosScheduledDays; i++) {
+        final targetMidnight = tz.TZDateTime(
+          addis,
+          nowAddis.year,
+          nowAddis.month,
+          nowAddis.day + i,
+          0,
+          0,
+          5,
+        );
+
+        final futureGregorian = targetMidnight.add(const Duration(seconds: 10));
+        final futureAnchor = DateTime.utc(
+          futureGregorian.year,
+          futureGregorian.month,
+          futureGregorian.day,
+          12,
+          0,
+        );
+        final futureEt = EthiopianCalendarUtil.fromGregorian(futureAnchor);
+        final monthName = EthiopianCalendarUtil.getMonthName(futureEt.month);
+        final day = futureEt.day;
+        final weekdayName =
+            EthiopianCalendarUtil.getWeekdayName(futureGregorian.weekday);
+
+        String geezDay = '$day';
+        String geezYear = '${futureEt.year}';
+        try {
+          geezDay = ConvertToEthiopic(day) ?? '$day';
+          geezYear = ConvertToEthiopic(futureEt.year) ?? '${futureEt.year}';
+        } catch (_) {}
+
+        final futureTitle = 'የዛሬ ቀን';
+        final futureSubtitle = '$monthName $day';
+        final futureBody =
+            '$weekdayName፣ $monthName $day ቀን ${futureEt.year} ዓ.ም\n($geezDay $monthName $geezYear)';
+
+        final iosDetails = DarwinNotificationDetails(
+          presentAlert: true,
+          presentBanner: true,
+          presentList: true,
+          presentSound: false,
+          presentBadge: true,
+          badgeNumber: day,
+          subtitle: futureSubtitle,
+          threadIdentifier: 'ethiopian_calendar',
+          categoryIdentifier: categoryIdentifier,
+          interruptionLevel: InterruptionLevel.active,
+        );
+
+        await _notifications.zonedSchedule(
+          notificationId + i,
+          futureTitle,
+          futureBody,
+          targetMidnight,
+          NotificationDetails(iOS: iosDetails),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: 'calendar',
+        );
+      }
+
+      developer.log(
+        '🍎 Scheduled $maxIosScheduledDays-day rolling Ethiopian calendar notifications for iOS',
+        name: 'EthCalendarNotification',
+      );
+    } catch (e) {
+      developer.log(
+        '⚠️ Failed to schedule iOS rolling notifications: $e',
         name: 'EthCalendarNotification',
       );
     }
@@ -481,10 +592,13 @@ class EthiopianCalendarNotificationService {
     } catch (_) {}
   }
 
-  /// Cancel the persistent calendar notification.
+  /// Cancel the persistent calendar notification and all scheduled iOS rolling days.
   static Future<void> cancel() async {
     try {
       await _notifications.cancel(notificationId);
+      for (int i = 1; i <= maxIosScheduledDays; i++) {
+        await _notifications.cancel(notificationId + i);
+      }
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_lastDisplayedDateKey);
       developer.log('🚫 Cancelled Ethiopian calendar notification', name: 'EthCalendarNotification');
@@ -538,7 +652,7 @@ class EthiopianCalendarNotificationService {
       if (iosPlugin != null) {
         final granted = await iosPlugin.requestPermissions(
           alert: true,
-          badge: false,
+          badge: true,
           sound: false,
         );
         if (granted == true) return true;
@@ -566,11 +680,18 @@ class EthiopianCalendarNotificationService {
   /// Handles notification tap — navigates directly to the Calendar tab.
   static void _onNotificationTapped(NotificationResponse response) {
     developer.log(
-      '📱 Calendar notification tapped: id=${response.id}, payload=${response.payload}',
+      '📱 Calendar notification tapped: id=${response.id}, actionId=${response.actionId}, payload=${response.payload}',
       name: 'EthCalendarNotification',
     );
 
-    if (response.id == notificationId || response.payload == 'calendar') {
+    final id = response.id;
+    final isCalendarId = id != null &&
+        id >= notificationId &&
+        id <= notificationId + maxIosScheduledDays;
+
+    if (isCalendarId ||
+        response.payload == 'calendar' ||
+        response.actionId == 'action_open_calendar') {
       NavigationService.instance.goTo('/calendar');
     }
   }
