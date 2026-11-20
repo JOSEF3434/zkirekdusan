@@ -84,6 +84,7 @@ import { HealthModule } from './modules/health/health.module.js';
 
 // Deep Link Verification
 import { WellKnownModule } from './modules/well-known/well-known.module.js';
+import { LicensesModule } from './modules/licenses/licenses.module.js';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
@@ -209,6 +210,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 
     // Deep Link Verification (Android App Links & iOS Universal Links)
     WellKnownModule,
+
+    // License & Device Protection
+    LicensesModule,
   ],
 
   controllers: [AppController],

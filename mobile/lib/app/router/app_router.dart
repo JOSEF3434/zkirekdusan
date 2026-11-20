@@ -7,6 +7,8 @@ import 'package:mobile/core/utils/app_link_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
 import 'package:mobile/features/security/presentation/app_lock_screen.dart';
+import 'package:mobile/features/license/presentation/license_gate_screen.dart';
+import 'package:mobile/features/license/presentation/activation_screen.dart';
 import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/features/splash/presentation/splash_screen.dart';
 import 'package:mobile/features/splash/presentation/onboarding_screen.dart';
@@ -133,7 +135,9 @@ class RouterNotifier extends ChangeNotifier {
   bool _isPublicRoute(String location) {
     if (location == '/login' ||
         location == '/register' ||
-        location == '/onboarding') {
+        location == '/onboarding' ||
+        location == '/license-gate' ||
+        location.startsWith('/license/')) {
       return true;
     }
     // Profile deep links
@@ -296,7 +300,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = ref.watch(routerNotifierProvider);
   final router = GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: '/license-gate',
     refreshListenable: notifier,
     redirect: notifier.redirect,
     errorBuilder: (context, state) {
@@ -330,6 +334,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       );
     },
     routes: [
+      GoRoute(
+        path: '/license-gate',
+        builder: (context, state) => const LicenseGateScreen(),
+      ),
+      GoRoute(
+        path: '/license/activate',
+        builder: (context, state) => const ActivationScreen(),
+      ),
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/lock',

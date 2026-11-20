@@ -3725,3 +3725,46 @@ model GroupAuditLog {
   @@index([createdAt(sort: Desc)])
   @@map("group_audit_logs")
 }
+
+
+/// License status for the mobile app
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  PENDING
+}
+
+/// One record per issued license (created by admin, one activation code per license)
+model AppLicense {
+  id             String        @id @default(uuid())
+  activationCode String        @unique
+  status         LicenseStatus @default(PENDING)
+  expiresAt      DateTime?
+  maxDevices     Int           @default(1)
+  note           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  devices        DeviceRegistration[]
+
+  @@index([activationCode])
+  @@map("app_licenses")
+}
+
+/// One record per activated device — ties a device to a license
+model DeviceRegistration {
+  id          String     @id @default(uuid())
+  deviceId    String
+  platform    String
+  appVersion  String?
+  licenseId   String
+  license     AppLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  activatedAt DateTime   @default(now())
+  lastSeenAt  DateTime   @default(now())
+  isActive    Boolean    @default(true)
+
+  @@unique([deviceId, licenseId])
+  @@index([deviceId])
+  @@index([licenseId])
+  @@map("device_registrations")
+}

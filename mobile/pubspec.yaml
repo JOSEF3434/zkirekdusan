@@ -83,6 +83,8 @@ dependencies:
   # F8: Digital Library — PDF reader (Android/iOS/macOS/web/Windows/Linux)
   pdfx: ^2.9.2
   percent_indicator: ^4.2.3
+  device_info_plus: ^12.4.0
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
