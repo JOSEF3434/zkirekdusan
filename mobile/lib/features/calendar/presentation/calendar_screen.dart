@@ -457,8 +457,6 @@ class CalendarScreen extends ConsumerWidget {
       textColor = theme.colorScheme.onPrimaryContainer;
     } else if (isToday) {
       textColor = theme.colorScheme.primary;
-    } else if (isMajorHoliday) {
-      textColor = isDark ? const Color(0xFFFCA5A5) : redColor;
     } else if (hasFast) {
       // Clean readable text: warm ivory in dark mode, deep amber in light mode
       textColor = isDark ? const Color(0xFFFEF3C7) : const Color(0xFFB45309);
@@ -475,32 +473,27 @@ class CalendarScreen extends ConsumerWidget {
         isFastEnd ||
         hasSpecialEvent;
 
-    // Background color: clean, very subtle ambient aura (never muddy opaque brown!)
+    // Background color:
+    // For holidays, the star is enough — do NOT color the box.
     Color backgroundColor;
     if (isSelected) {
       backgroundColor = theme.colorScheme.primaryContainer;
     } else if (isToday) {
       backgroundColor = theme.colorScheme.secondaryContainer.withValues(alpha: 0.3);
-    } else if (hasFast && isMajorHoliday) {
-      // Conflict resolution: Fasting tint + holiday accent border
-      backgroundColor = fastColor.withValues(alpha: isDark ? 0.06 : 0.07);
     } else if (hasFast) {
       // 4.5% opacity in dark mode gives a pristine, gentle golden sheen rather than dark muddy brown
       backgroundColor = fastColor.withValues(alpha: isDark ? 0.045 : 0.06);
-    } else if (isMajorHoliday) {
-      backgroundColor = redColor.withValues(alpha: isDark ? 0.10 : 0.06);
     } else if (hasSpecialEvent) {
       backgroundColor = greenColor.withValues(alpha: isDark ? 0.10 : 0.06);
     } else {
       backgroundColor = Colors.transparent;
     }
 
-    // Border: highlighting today, major holiday, fast, or special event
+    // Border: highlighting today, fast, or special event.
+    // For holidays, the star is enough — do NOT color the box outline.
     Border? border;
     if (isToday && !isSelected) {
       border = Border.all(color: theme.colorScheme.primary, width: 2);
-    } else if (isMajorHoliday && !isSelected) {
-      border = Border.all(color: redColor.withValues(alpha: isDark ? 0.6 : 0.7), width: 1.2);
     } else if (hasFast && !isSelected) {
       border = Border.all(color: fastColor.withValues(alpha: isDark ? 0.22 : 0.28), width: 1);
     } else if (hasSpecialEvent && !isSelected) {
@@ -643,13 +636,13 @@ class CalendarScreen extends ConsumerWidget {
                             shape: BoxShape.circle,
                           ),
                         ),
-                      if (hasHoliday)
+                      if (hasHoliday && !isMajorHoliday)
                         Container(
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: BoxDecoration(
-                            color: isMajorHoliday ? redColor : const Color(0xFFD97706),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFD97706),
                             shape: BoxShape.circle,
                           ),
                         ),
