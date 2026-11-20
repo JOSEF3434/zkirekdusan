@@ -1470,7 +1470,10 @@
     "calendar.mark_end_day": "Mark Ending (ፍጻሜ)",
     "calendar.multiple_events": "Multiple Events",
     "admin.calendar_day_settings": "Calendar Day Settings",
-    "calendar.only_special_events": "Special Events"
+    "calendar.only_special_events": "Special Events",
+    "calendar.wed_fri_fasts": "Wed & Fri Fast",
+    "calendar.major_holidays": "Major Holidays",
+    "calendar.saints_feasts": "Saints' Commemorations"
   },
   "am": {
     "app.name": "ዝክረ ክዱሳን",
@@ -2515,7 +2518,10 @@
     "calendar.mark_end_day": "የማብቂያ ቀን ምልክት (ፍጻሜ)",
     "calendar.multiple_events": "ተደራራቢ ሁነቶች",
     "admin.calendar_day_settings": "የቀን ማስተካከያ እና የቀለም ቅንብር",
-    "calendar.only_special_events": "ልዩ ክስተቶች"
+    "calendar.only_special_events": "ልዩ ክስተቶች",
+    "calendar.wed_fri_fasts": "ረቡዕና ዓርብ ጾም",
+    "calendar.major_holidays": "ዐበይት በዓላት",
+    "calendar.saints_feasts": "የቅዱሳን በዓላት"
   },
   "gez": {
     "app.name": "Zekre Kedusan",
@@ -3988,6 +3994,9 @@
     "calendar.mark_end_day": "ምልክተ ፍጻሜ",
     "calendar.multiple_events": "ተደራራቢ ሁነታት",
     "admin.calendar_day_settings": "ቅንብረ ዕለት",
-    "calendar.only_special_events": "ፍሉያት ተግባራት"
+    "calendar.only_special_events": "ፍሉያት ተግባራት",
+    "calendar.wed_fri_fasts": "ጾመ ረቡዕ ወዓርብ",
+    "calendar.major_holidays": "ዐበይት በዓላት",
+    "calendar.saints_feasts": "በዓላተ ቅዱሳን"
   }
 }

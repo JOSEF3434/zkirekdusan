@@ -253,4 +253,157 @@ void main() {
       expect(crossYearRange.isSpecialEvent, isTrue);
     });
   });
+
+  group('Bahire Hasab (ባሕረ ሐሳብ) & Movable Fasting Computations in Flutter', () {
+    test('Evangelist (ወንጌላዊ) calculation across multiple Ethiopian years', () {
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2015).evangelist, equals('ሉቃስ'));
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2016).evangelist, equals('ዮሐንስ'));
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2017).evangelist, equals('ማቴዎስ'));
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2018).evangelist, equals('ማርቆስ'));
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2019).evangelist, equals('ሉቃስ'));
+      expect(EthiopianCalendarUtil.calculateBahireHasab(2020).evangelist, equals('ዮሐንስ'));
+    });
+
+    test('Bahire Hasab movable fasts calculation for Ethiopian year 2016', () {
+      final bh2016 = EthiopianCalendarUtil.calculateBahireHasab(2016);
+      expect(bh2016.year, equals(2016));
+      expect(bh2016.evangelist, equals('ዮሐንስ'));
+
+      // Nenewe in 2016: Yekatit 18
+      expect(bh2016.nenewe.month, equals(6));
+      expect(bh2016.nenewe.day, equals(18));
+
+      // Abiy Tsom (Great Lent) begins Megabit 2, duration 55 days
+      expect(bh2016.abiyTsom.startMonth, equals(7));
+      expect(bh2016.abiyTsom.startDay, equals(2));
+
+      // Debre Zeyt: Megabit 29
+      expect(bh2016.debreZeyt.month, equals(7));
+      expect(bh2016.debreZeyt.day, equals(29));
+
+      // Fasika (Easter): Miazia 27
+      expect(bh2016.fasika.month, equals(8));
+      expect(bh2016.fasika.day, equals(27));
+
+      // Erget (Ascension): Sene 6
+      expect(bh2016.erget.month, equals(10));
+      expect(bh2016.erget.day, equals(6));
+
+      // Peraklitos (Pentecost): Sene 16
+      expect(bh2016.peraklitos.month, equals(10));
+      expect(bh2016.peraklitos.day, equals(16));
+
+      // Apostles Fast: starts Sene 17, ends Hamle 5
+      expect(bh2016.apostlesFast.startMonth, equals(10));
+      expect(bh2016.apostlesFast.startDay, equals(17));
+      expect(bh2016.apostlesFast.endMonth, equals(11));
+      expect(bh2016.apostlesFast.endDay, equals(5));
+    });
+  });
+
+  group('Wednesday & Friday Fasting Rules (ጾመ ድኅነት) & Beale Hamsa Exemptions', () {
+    test('Standard Wednesdays and Fridays outside Beale Hamsa are fasting days', () {
+      // Meskerem 2016
+      for (int day = 1; day <= 30; day++) {
+        final weekday = EthiopianCalendarUtil.getWeekday(2016, 1, day);
+        final isFast = EthiopianCalendarUtil.isWednesdayFridayFastingDay(2016, 1, day);
+        if (weekday == 3 || weekday == 5) {
+          expect(isFast, isTrue, reason: 'Meskerem $day is weekday $weekday and must be fasting');
+        } else {
+          expect(isFast, isFalse, reason: 'Meskerem $day is weekday $weekday and not Wed/Fri');
+        }
+      }
+    });
+
+    test('Wednesdays and Fridays during Beale Hamsa (በዓለ ኀምሳ) are non-fasting', () {
+      // In 2016, Fasika is Miazia 27 (Sunday). The subsequent Wednesday is Miazia 30!
+      final weekdayMiazia30 = EthiopianCalendarUtil.getWeekday(2016, 8, 30);
+      expect(weekdayMiazia30, equals(3)); // Wednesday
+
+      // Must be exempt because it is inside Beale Hamsa
+      expect(
+        EthiopianCalendarUtil.isWednesdayFridayFastingDay(2016, 8, 30),
+        isFalse,
+        reason: 'Miazia 30 falls within the 50 joyful days of Beale Hamsa and must be exempt',
+      );
+
+      // Check Ginbot (month 9) which is entirely within Beale Hamsa in 2016
+      for (int day = 1; day <= 30; day++) {
+        final isFast = EthiopianCalendarUtil.isWednesdayFridayFastingDay(2016, 9, day);
+        expect(isFast, isFalse, reason: 'Ginbot $day is within Beale Hamsa and cannot be a Wed/Fri fast');
+      }
+    });
+
+    test('Monthly fast days list returns all fasting Wednesdays and Fridays in the month', () {
+      final fastDays = EthiopianCalendarUtil.getWednesdayFridayFastDaysForMonth(2016, 1);
+      expect(fastDays.length, greaterThanOrEqualTo(8));
+      for (final day in fastDays) {
+        final wd = EthiopianCalendarUtil.getWeekday(2016, 1, day);
+        expect([3, 5].contains(wd), isTrue);
+      }
+    });
+  });
+
+  group('Canonical Fasts & Holidays Verification', () {
+    test('Repository contains verified ጾመ ስብከት / ጾመ ስቢይ with canonical descriptions', () async {
+      final repo = CalendarEventRepository(Dio());
+      final events = await repo.getEventsForYear(2016);
+
+      // ጾመ ስብከት / ጾመ ስቢይ
+      final adventSubEvent = events.firstWhere(
+        (e) => e.name.contains('ስብከት') || e.name.contains('ስቢይ'),
+        orElse: () => const CalendarEventModel(id: '', name: '', type: CalendarEventType.fast, category: CalendarEventCategory.majorFast, startMonth: 0, startDay: 0, endMonth: 0, endDay: 0),
+      );
+      expect(adventSubEvent.id.isNotEmpty, isTrue);
+      expect(adventSubEvent.isFast, isTrue);
+      expect(adventSubEvent.description?.isNotEmpty, isTrue);
+
+      // ጾመ ድኅነት (Wednesday & Friday Fasting rule)
+      final wedFriEvent = events.firstWhere(
+        (e) => e.id == 'fast-wed-fri' || e.name.contains('ድኅነት'),
+        orElse: () => const CalendarEventModel(id: '', name: '', type: CalendarEventType.fast, category: CalendarEventCategory.majorFast, startMonth: 0, startDay: 0, endMonth: 0, endDay: 0),
+      );
+      expect(wedFriEvent.id.isNotEmpty, isTrue);
+      expect(wedFriEvent.isFast, isTrue);
+
+      // Feasts of the Blessed Virgin Mary (e.g. ፍልሰታ ለማርያም, አስተርእዮ ማርያም)
+      final filseta = events.firstWhere(
+        (e) => e.name.contains('ፍልሰታ ለማርያም'),
+        orElse: () => const CalendarEventModel(id: '', name: '', type: CalendarEventType.holiday, category: CalendarEventCategory.majorHoliday, startMonth: 0, startDay: 0, endMonth: 0, endDay: 0),
+      );
+      expect(filseta.id.isNotEmpty, isTrue);
+
+      // Major Saints & Angels (e.g. ቅዱስ ሚካኤል, ቅዱስ ገብርኤል)
+      final michael = events.where((e) => e.name.contains('ሚካኤል')).toList();
+      expect(michael.isNotEmpty, isTrue);
+    });
+
+    test('Filter logic properly segregates events into the 5 category chips', () async {
+      final repo = CalendarEventRepository(Dio());
+      final events = await repo.getEventsForYear(2016);
+
+      // 1. Fasting Periods (አጽዋማት)
+      final fasts = events.where((e) => e.isFast && e.id != 'fast-wed-fri').toList();
+      expect(fasts.isNotEmpty, isTrue);
+      for (final f in fasts) {
+        expect(f.isFast, isTrue);
+        expect(f.id, isNot('fast-wed-fri'));
+      }
+
+      // 2. Wed & Fri Fasts (ረቡዕና ዓርብ ጾም)
+      final wedFri = events.where((e) => e.id == 'fast-wed-fri' || e.name.contains('ድኅነት') || e.name.contains('ረቡዕ')).toList();
+      expect(wedFri.isNotEmpty, isTrue);
+
+      // 3. Major Holidays (ዐበይት በዓላት)
+      final majorHolidays = events.where((e) => !e.isFast && (e.isMajor || e.category == CalendarEventCategory.majorHoliday)).toList();
+      expect(majorHolidays.isNotEmpty, isTrue);
+      for (final h in majorHolidays) {
+        expect(h.isFast, isFalse);
+      }
+
+      // 4. Saints & Commemorations (የቅዱሳን በዓላት)
+      final saints = events.where((e) => !e.isFast && !e.isMajor && e.category != CalendarEventCategory.majorHoliday).toList();
+      expect(saints.isNotEmpty, isTrue);
+    });
+  });
 }

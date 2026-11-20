@@ -71,6 +71,13 @@ export class CalendarEventsController {
     return this.eventsService.findOne(id);
   }
 
+  @Post('sync-canonical')
+  @Permissions(PERMISSIONS.CALENDAR.CREATE)
+  @ApiOperation({ summary: 'Synchronize canonical Ethiopian Orthodox fasts and holidays (Admin only)' })
+  syncCanonical() {
+    return this.eventsService.seedDefaultEventsIfEmpty();
+  }
+
   @Post()
   @Permissions(PERMISSIONS.CALENDAR.CREATE)
   @ApiOperation({ summary: 'Create a new fasting period or holiday (Admin only)' })

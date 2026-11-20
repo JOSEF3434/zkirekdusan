@@ -108,62 +108,48 @@ class _YearlyFastsHolidaysScreenState
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
-              // Filter Segments (All, Fasts, Holidays)
-              Padding(
+              // Filter Chips: All, Fasts, Wed & Fri, Major Holidays, Saints
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SegmentedButton<int>(
-                  segments: [
-                    ButtonSegment<int>(
-                      value: 0,
-                      label: Text(
-                        tr('calendar.all_events', {'fallback': 'ሁሉም'}),
-                        style: const TextStyle(
-                          fontFamilyFallback: [
-                            'Noto Serif Ethiopic',
-                            'Noto Sans Ethiopic',
-                          ],
-                        ),
-                      ),
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text(tr('calendar.all_events', {'fallback': 'ሁሉም'})),
+                      selected: _selectedFilterIndex == 0,
+                      onSelected: (_) => setState(() => _selectedFilterIndex = 0),
                     ),
-                    ButtonSegment<int>(
-                      value: 1,
-                      icon: const Icon(Icons.hourglass_top_rounded, size: 16),
-                      label: Text(
-                        tr('calendar.only_fasts', {'fallback': 'አጽዋማት'}),
-                        style: const TextStyle(
-                          fontFamilyFallback: [
-                            'Noto Serif Ethiopic',
-                            'Noto Sans Ethiopic',
-                          ],
-                        ),
-                      ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.hourglass_top_rounded, size: 16, color: Color(0xFFF59E0B)),
+                      label: Text(tr('calendar.only_fasts', {'fallback': 'አጽዋማት'})),
+                      selected: _selectedFilterIndex == 1,
+                      onSelected: (_) => setState(() => _selectedFilterIndex = 1),
                     ),
-                    ButtonSegment<int>(
-                      value: 2,
-                      icon: const Icon(Icons.celebration_rounded, size: 16),
-                      label: Text(
-                        tr('calendar.only_holidays', {'fallback': 'በዓላት'}),
-                        style: const TextStyle(
-                          fontFamilyFallback: [
-                            'Noto Serif Ethiopic',
-                            'Noto Sans Ethiopic',
-                          ],
-                        ),
-                      ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFFD97706)),
+                      label: Text(tr('calendar.wed_fri_fasts', {'fallback': 'ረቡዕና ዓርብ ጾም'})),
+                      selected: _selectedFilterIndex == 2,
+                      onSelected: (_) => setState(() => _selectedFilterIndex = 2),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.star_rounded, size: 16, color: Color(0xFFDC2626)),
+                      label: Text(tr('calendar.major_holidays', {'fallback': 'ዐበይት በዓላት'})),
+                      selected: _selectedFilterIndex == 3,
+                      onSelected: (_) => setState(() => _selectedFilterIndex = 3),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.people_alt_rounded, size: 16, color: Color(0xFF16A34A)),
+                      label: Text(tr('calendar.saints_feasts', {'fallback': 'የቅዱሳን በዓላት'})),
+                      selected: _selectedFilterIndex == 4,
+                      onSelected: (_) => setState(() => _selectedFilterIndex = 4),
                     ),
                   ],
-                  selected: {_selectedFilterIndex},
-                  onSelectionChanged: (val) {
-                    setState(() {
-                      _selectedFilterIndex = val.first;
-                    });
-                  },
-                  showSelectedIcon: false,
-                  style: SegmentedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
                 ),
               ),
 
@@ -193,8 +179,22 @@ class _YearlyFastsHolidaysScreenState
         ),
         data: (allEvents) {
           final filtered = allEvents.where((e) {
-            if (_selectedFilterIndex == 1) return e.isFast;
-            if (_selectedFilterIndex == 2) return e.isHoliday;
+            if (_selectedFilterIndex == 1) {
+              // Fasts except the recurring wed-fri rule
+              return e.isFast && !e.name.contains('የረቡዕ እና የዓርብ');
+            }
+            if (_selectedFilterIndex == 2) {
+              // Wed & Fri fast rule
+              return e.name.contains('የረቡዕ እና የዓርብ');
+            }
+            if (_selectedFilterIndex == 3) {
+              // Major holidays
+              return e.isHoliday && (e.isMajorHoliday || e.isMajor);
+            }
+            if (_selectedFilterIndex == 4) {
+              // Saints and other religious commemorations
+              return (e.isHoliday && !e.isMajorHoliday) || e.isSpecialEvent;
+            }
             return true;
           }).toList();
 

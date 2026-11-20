@@ -17,6 +17,9 @@ import {
   calculateEventDuration,
   ethiopianToGregorian,
   formatEthiopianDate,
+  calculateBahireHasab,
+  getMovableEventsForYear,
+  getWednesdayFridayFastDaysForMonth,
 } from './calendar-ethiopian.util.js';
 
 @Injectable()
@@ -34,12 +37,17 @@ export class CalendarEventsService implements OnModuleInit {
    */
   async seedDefaultEventsIfEmpty(): Promise<void> {
     try {
-      const count = await this.prisma.calendarEvent.count({
-        where: { deletedAt: null },
-      });
-      if (count === 0) {
-        this.logger.log('Seeding default canonical Ethiopian Orthodox fasts and holidays...');
-        for (const item of EOTC_DEFAULT_EVENTS) {
+      this.logger.log('Syncing default canonical Ethiopian Orthodox fasts and holidays...');
+      for (const item of EOTC_DEFAULT_EVENTS) {
+        const existing = await this.prisma.calendarEvent.findFirst({
+          where: {
+            name: item.name,
+            startMonth: item.startMonth,
+            startDay: item.startDay,
+            deletedAt: null,
+          },
+        });
+        if (!existing) {
           await this.prisma.calendarEvent.create({
             data: {
               name: item.name,
@@ -57,12 +65,13 @@ export class CalendarEventsService implements OnModuleInit {
               fastingRules: item.fastingRules,
               primaryColor: item.primaryColor,
               isMajor: item.isMajor,
+              importance: item.importance ?? (item.isMajor ? 'MAJOR' : 'NORMAL'),
               isActive: item.isActive,
             },
           });
         }
-        this.logger.log(`Seeded ${EOTC_DEFAULT_EVENTS.length} default calendar events.`);
       }
+      this.logger.log('Canonical calendar events synchronization completed.');
     } catch (err) {
       this.logger.warn(`Could not seed default events (migration or db might not be ready yet): ${err}`);
     }
@@ -204,7 +213,43 @@ export class CalendarEventsService implements OnModuleInit {
     });
 
     const refYear = query.year ?? 2017;
-    return events.map((e) => this.formatEventMetadata(e, refYear));
+    let allEvents: any[] = [...events];
+    if (query.year) {
+      const movable = getMovableEventsForYear(query.year);
+      for (const mov of movable) {
+        const exists = events.some(
+          (e) =>
+            e.name === mov.name &&
+            (e.ethiopianYear === query.year || e.startYear === query.year),
+        );
+        if (!exists) {
+          allEvents.push(mov);
+        }
+      }
+      if (query.type) {
+        allEvents = allEvents.filter((e) => e.type === query.type);
+      }
+      if (query.category) {
+        allEvents = allEvents.filter((e) => e.category === query.category);
+      }
+      if (query.isMajor !== undefined) {
+        allEvents = allEvents.filter((e) => e.isMajor === query.isMajor);
+      }
+      if (query.importance) {
+        allEvents = allEvents.filter((e) => e.importance === query.importance);
+      }
+      if (query.search) {
+        const s = query.search.toLowerCase();
+        allEvents = allEvents.filter(
+          (e) =>
+            (e.name && e.name.toLowerCase().includes(s)) ||
+            (e.nameEn && e.nameEn.toLowerCase().includes(s)) ||
+            (e.description && e.description.toLowerCase().includes(s)),
+        );
+      }
+    }
+
+    return allEvents.map((e) => this.formatEventMetadata(e, refYear));
   }
 
   /**
@@ -229,8 +274,20 @@ export class CalendarEventsService implements OnModuleInit {
       orderBy: [{ startMonth: 'asc' }, { startDay: 'asc' }],
     });
 
+    // Merge calculated movable events for this year (if not customized in DB)
+    const movableEvents = getMovableEventsForYear(year);
+    const combinedEvents: any[] = [...events];
+    for (const mov of movableEvents) {
+      const existsInDb = events.some(
+        (e) => e.name === mov.name && (e.ethiopianYear === year || e.startYear === year),
+      );
+      if (!existsInDb) {
+        combinedEvents.push(mov);
+      }
+    }
+
     // Filter by actual month overlap and decorate with monthly coverage
-    const monthEvents = events
+    const monthEvents = combinedEvents
       .filter((e) => doesEventOverlapMonth(e, year, month))
       .map((e) => {
         const coverage = getEventMonthDaysCoverage(e, year, month);
@@ -240,6 +297,56 @@ export class CalendarEventsService implements OnModuleInit {
           coverage,
         };
       });
+
+    // Add recurring Wednesday & Friday fast (ጾመ ድኅነት) with month-specific coverage
+    const wedFriDays = getWednesdayFridayFastDaysForMonth(year, month);
+    if (wedFriDays.length > 0) {
+      const isStartMonth = month === 1;
+      const isEndMonth = month === 13;
+      monthEvents.push({
+        id: `wed-fri-fast-${year}-${month}`,
+        name: 'ጾመ ድኅነት (የረቡዕ እና የዓርብ ጾም)',
+        nameEn: 'Fast of Salvation (Wednesday & Friday Fast)',
+        type: 'FAST',
+        category: 'MAJOR_FAST',
+        isRecurring: true,
+        isMajor: true,
+        importance: 'MAJOR',
+        primaryColor: '#F59E0B',
+        startMonth: 1,
+        startDay: 1,
+        endMonth: 13,
+        endDay: 6,
+        description:
+          'ዓመቱን ሙሉ በየሳምንቱ የሚጾም የረቡዕ (የጌታችን የመያዝ ምክር) እና የዓርብ (የስቅለቱ መታሰቢያ) ጾም። ከትንሣኤ እስከ ጰራቅሊጦስ ባሉት ፶ ቀናት (በዓለ ኀምሳ) እና በገና/ጥምቀት በዓላት ወቅት ጾሙ ይፈሰካል።',
+        spiritualMeaning:
+          'በየሳምንቱ የጌታችንን ሕማማት እና በመስቀል ላይ የፈጸመውን የዘላለም ድኅነት የምንዘክርበት ታላቅ ጾም።',
+        fastingRules: 'ከእንስሳት ተዋጽኦ መከልከል፣ እስከ ቀትር/፱ ሰዓት መጾም።',
+        durationDays: wedFriDays.length,
+        isActive: true,
+        startEthiopianDateFormatted: formatEthiopianDate(year, month, wedFriDays[0]),
+        endEthiopianDateFormatted: formatEthiopianDate(
+          year,
+          month,
+          wedFriDays[wedFriDays.length - 1],
+        ),
+        startGregorianDate: ethiopianToGregorian(year, month, wedFriDays[0]).toISOString(),
+        endGregorianDate: ethiopianToGregorian(
+          year,
+          month,
+          wedFriDays[wedFriDays.length - 1],
+        ).toISOString(),
+        coverage: {
+          overlaps: true,
+          days: wedFriDays,
+          isStartMonth,
+          isEndMonth,
+          startDay: wedFriDays[0],
+          endDay: wedFriDays[wedFriDays.length - 1],
+          durationDays: wedFriDays.length,
+        },
+      });
+    }
 
     return monthEvents;
   }
@@ -261,7 +368,26 @@ export class CalendarEventsService implements OnModuleInit {
       orderBy: [{ startMonth: 'asc' }, { startDay: 'asc' }],
     });
 
-    return events.map((e) => this.formatEventMetadata(e, year));
+    // Merge calculated movable events for this year
+    const movableEvents = getMovableEventsForYear(year);
+    const combinedEvents: any[] = [...events];
+    for (const mov of movableEvents) {
+      const existsInDb = events.some(
+        (e) => e.name === mov.name && (e.ethiopianYear === year || e.startYear === year),
+      );
+      if (!existsInDb) {
+        combinedEvents.push(mov);
+      }
+    }
+
+    // Sort chronologically by startMonth, startDay, then name
+    combinedEvents.sort((a, b) => {
+      if (a.startMonth !== b.startMonth) return a.startMonth - b.startMonth;
+      if (a.startDay !== b.startDay) return a.startDay - b.startDay;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return combinedEvents.map((e) => this.formatEventMetadata(e, year));
   }
 
   /**
