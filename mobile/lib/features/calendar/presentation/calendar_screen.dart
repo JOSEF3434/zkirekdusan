@@ -14,6 +14,10 @@ import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dar
 import 'package:mobile/features/calendar/presentation/widgets/sync_status_indicator.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_sync_provider.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/domain/calendar_event_model.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/monthly_fasts_holidays_summary.dart';
+import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
 import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_learning_view.dart';
 
@@ -104,8 +108,12 @@ class CalendarScreen extends ConsumerWidget {
                 final quickSync = ref.read(quickSyncProvider);
                 await quickSync();
 
-                // Refresh current month notes
+                // Refresh current month notes & fasts/holidays
                 ref.invalidate(calendarNotesForMonthProvider);
+                ref.invalidate(calendarEventsForMonthProvider((
+                  year: calendarState.year,
+                  month: calendarState.month,
+                )));
               },
               child: CustomScrollView(
           slivers: [
@@ -203,6 +211,17 @@ class CalendarScreen extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: _buildSelectedDateInfo(theme, calendarState),
               ),
+
+            // Monthly Fasting & Holiday Summary
+            SliverToBoxAdapter(
+              child: MonthlyFastsHolidaysSummary(
+                year: calendarState.year,
+                month: calendarState.month,
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 32),
+            ),
           ],
         ),
       )
@@ -270,6 +289,11 @@ class CalendarScreen extends ConsumerWidget {
     );
     final monthNotes =
         monthNotesAsync.valueOrNull ?? const <CalendarNoteModel>[];
+    final monthEventsAsync = ref.watch(
+      calendarEventsForMonthProvider((year: year, month: month)),
+    );
+    final monthEvents =
+        monthEventsAsync.valueOrNull ?? const <CalendarEventModel>[];
 
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -310,6 +334,21 @@ class CalendarScreen extends ConsumerWidget {
         final hasReminder = notes.any((note) => note.hasReminder);
         final hasMedia = notes.any((note) => note.media.isNotEmpty);
 
+        // Check if there are fasts or holidays covering this day
+        final dayEvents = monthEvents.where((e) {
+          if (e.coverage != null) {
+            return e.coverage!.days.contains(day);
+          }
+          return false;
+        }).toList();
+
+        final hasFast = dayEvents.any((e) => e.isFast);
+        final hasHoliday = dayEvents.any((e) => e.isHoliday);
+        final isFastStart = dayEvents.any((e) => e.isFast && e.isDayStart(day));
+        final isFastEnd = dayEvents.any((e) => e.isFast && e.isDayEnd(day));
+        final isMajorHoliday = dayEvents.any((e) => e.isHoliday && e.isMajor);
+        final isMajorFast = dayEvents.any((e) => e.isFast && e.isMajor);
+
         return _buildDayCell(
           context: context,
           theme: theme,
@@ -320,16 +359,45 @@ class CalendarScreen extends ConsumerWidget {
           noteCount: noteCount,
           hasReminder: hasReminder,
           hasMedia: hasMedia,
+          dayEvents: dayEvents,
+          hasFast: hasFast,
+          hasHoliday: hasHoliday,
+          isFastStart: isFastStart,
+          isFastEnd: isFastEnd,
+          isMajorHoliday: isMajorHoliday,
+          isMajorFast: isMajorFast,
           onTap: () {
             ref.read(calendarProvider.notifier).selectDate(year, month, day);
             _showDayNotesSheet(context, cellDate);
           },
-          onLongPress: canManage
-              ? () {
-                  ref.read(calendarProvider.notifier).selectDate(year, month, day);
-                  _showAddNoteSheet(context, cellDate);
-                }
-              : null,
+          onLongPress: () {
+            if (dayEvents.isNotEmpty) {
+              CalendarEventDetailsDialog.show(
+                context,
+                event: dayEvents.first,
+                selectedDay: day,
+                selectedMonth: month,
+                selectedYear: year,
+              );
+            } else if (canManage) {
+              ref.read(calendarProvider.notifier).selectDate(year, month, day);
+              _showAddNoteSheet(context, cellDate);
+            }
+          },
+          onSecondaryTap: () {
+            if (dayEvents.isNotEmpty) {
+              CalendarEventDetailsDialog.show(
+                context,
+                event: dayEvents.first,
+                selectedDay: day,
+                selectedMonth: month,
+                selectedYear: year,
+              );
+            } else {
+              ref.read(calendarProvider.notifier).selectDate(year, month, day);
+              _showDayNotesSheet(context, cellDate);
+            }
+          },
         );
       }, childCount: rows * 7),
     );
@@ -345,64 +413,190 @@ class CalendarScreen extends ConsumerWidget {
     required int noteCount,
     required bool hasReminder,
     required bool hasMedia,
+    required List<CalendarEventModel> dayEvents,
+    required bool hasFast,
+    required bool hasHoliday,
+    required bool isFastStart,
+    required bool isFastEnd,
+    required bool isMajorHoliday,
+    required bool isMajorFast,
     required VoidCallback onTap,
     required VoidCallback? onLongPress,
+    required VoidCallback? onSecondaryTap,
   }) {
+    final isDark = theme.brightness == Brightness.dark;
+
+    Color? textColor;
+    if (isSelected) {
+      textColor = theme.colorScheme.onPrimaryContainer;
+    } else if (isToday) {
+      textColor = theme.colorScheme.primary;
+    } else if (isMajorHoliday) {
+      textColor = isDark ? Colors.amber.shade300 : Colors.amber.shade900;
+    } else if (hasFast) {
+      textColor = isDark ? Colors.purple.shade200 : Colors.purple.shade800;
+    } else {
+      textColor = theme.textTheme.bodyLarge?.color;
+    }
+
+    final isBold = isToday ||
+        isSelected ||
+        isMajorHoliday ||
+        isFastStart ||
+        isFastEnd;
+
     return Material(
       color: isSelected
           ? theme.colorScheme.primaryContainer
           : (isToday
-                ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
-                : Colors.transparent),
+              ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
+              : (hasFast
+                  ? Colors.purple.withValues(alpha: isDark ? 0.08 : 0.04)
+                  : Colors.transparent)),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        onSecondaryTap: onSecondaryTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: isToday && !isSelected
                 ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : null,
+                : (isMajorHoliday && !isSelected
+                    ? Border.all(
+                        color: Colors.amber.withValues(alpha: 0.6),
+                        width: 1,
+                      )
+                    : null),
           ),
           child: Stack(
             children: [
+              // Top-left badge: Fast start/end or Major Holiday star
+              if (isFastStart)
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade700,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'መግቢያ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.bold,
+                        fontFamilyFallback: [
+                          'Noto Serif Ethiopic',
+                          'Noto Sans Ethiopic',
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isFastEnd)
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.deepOrange.shade700,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'ፍጻሜ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.bold,
+                        fontFamilyFallback: [
+                          'Noto Serif Ethiopic',
+                          'Noto Sans Ethiopic',
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isMajorHoliday)
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: Icon(
+                    Icons.star_rounded,
+                    size: 14,
+                    color: Colors.amber.shade800,
+                  ),
+                ),
+
+              // Day Number
               Center(
                 child: Text(
                   '$day',
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: (isToday || isSelected)
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: isSelected
-                        ? theme.colorScheme.onPrimaryContainer
-                        : (isToday
-                              ? theme.colorScheme.primary
-                              : theme.textTheme.bodyLarge?.color),
+                    fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                    color: textColor,
                   ),
                 ),
               ),
-              // Note indicator with count
-              if (hasNotes)
-                Positioned(
-                  bottom: 4,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+
+              // Bottom Indicator Row: Fast Dot + Holiday Dot + Note Count Badge
+              Positioned(
+                bottom: 3,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasFast)
                         Container(
+                          width: 5,
+                          height: 5,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: BoxDecoration(
+                            color: isFastStart
+                                ? Colors.green.shade700
+                                : (isFastEnd
+                                    ? Colors.deepOrange.shade700
+                                    : const Color(0xFF7C3AED)),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      if (hasHoliday)
+                        Container(
+                          width: 5,
+                          height: 5,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: BoxDecoration(
+                            color: isMajorHoliday
+                                ? Colors.amber.shade800
+                                : Colors.teal.shade700,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      if (hasNotes)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
+                            horizontal: 3,
+                            vertical: 1,
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? theme.colorScheme.onPrimaryContainer
                                 : theme.colorScheme.primary,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             noteCount > 9 ? '9+' : '$noteCount',
@@ -410,32 +604,34 @@ class CalendarScreen extends ConsumerWidget {
                               color: isSelected
                                   ? theme.colorScheme.primaryContainer
                                   : theme.colorScheme.onPrimary,
-                              fontSize: 9,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
+              ),
+
+              // Top-right Icons: Media & Reminder
               if (hasReminder || hasMedia)
                 Positioned(
-                  top: 4,
-                  right: 4,
+                  top: 3,
+                  right: 3,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (hasMedia)
                         Icon(
                           Icons.attach_file,
-                          size: 11,
+                          size: 10,
                           color: theme.colorScheme.secondary,
                         ),
                       if (hasReminder)
                         Icon(
                           Icons.notifications_active_outlined,
-                          size: 12,
+                          size: 11,
                           color: theme.colorScheme.tertiary,
                         ),
                     ],

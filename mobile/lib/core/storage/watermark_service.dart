@@ -11,8 +11,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
+import 'package:mobile/features/home/domain/video_model.dart';
 
 class WatermarkService {
   static const String defaultBrandAmharic = 'ዝክረ ቅዱሳን';
@@ -194,146 +197,347 @@ class WatermarkService {
   }
 }
 
-/// Floating TikTok-style animated watermark overlay for video playback.
-/// Matches the exact red-circled screenshot presentation:
-///   [ Circular Logo ]
-///   ዝክረ ቅዱሳን
-///   @publisher_username
-/// Vertically stacked on a transparent background with soft drop-shadows.
-/// Periodically shifts between corners (Lower-Left <-> Top-Right)
-/// to maintain visibility while preventing obstruction of important content.
+/// Video branding watermark overlay for Zikre Kedusan media playback.
+///
+/// Displays the Zikre Kedusan / Publisher logo and identity in a single
+/// horizontal layout:
+///   - Logo on the LEFT (circular with white border and drop shadow)
+///   - Publisher information on the RIGHT of the logo:
+///       * Primary text: Publisher name (channel, group, or user display name)
+///       * Secondary text: Identity handle (@channel, @group, @username) underneath
+///   - Vertically center-aligned
+///
+/// Deterministic duration-based positioning:
+///   - First half (0% - 49.99%): comfortably at the BOTTOM of the video frame.
+///   - Second half (50% - 100%): smoothly transitions to the TOP of the video frame.
+///   - Live streams / media without known duration: stable default position near bottom.
+///
+/// The watermark moves strictly as one cohesive component between intentional positions
+/// without rapid bouncing, flickering, or continuous animations.
 class TikTokWatermarkOverlay extends StatefulWidget {
-  final String publisherUsername;
+  final String? publisherUsername;
+  final String? publisherName;
+  final String? publisherIdentity;
+  final String? publisherLogoUrl;
   final String brandName;
   final bool isVisible;
+  final VideoPlayerController? controller;
+  final Duration? duration;
+  final Duration? position;
+  final bool isLive;
+  final VideoResponseDto? video;
+  final Alignment? bottomAlignment;
+  final Alignment? topAlignment;
+  final EdgeInsetsGeometry? padding;
+  final Widget Function(BuildContext context)? logoBuilder;
 
   const TikTokWatermarkOverlay({
     super.key,
-    required this.publisherUsername,
+    this.publisherUsername,
+    this.publisherName,
+    this.publisherIdentity,
+    this.publisherLogoUrl,
     this.brandName = WatermarkService.defaultBrandAmharic,
     this.isVisible = true,
+    this.controller,
+    this.duration,
+    this.position,
+    this.isLive = false,
+    this.video,
+    this.bottomAlignment,
+    this.topAlignment,
+    this.padding,
+    this.logoBuilder,
   });
 
   @override
   State<TikTokWatermarkOverlay> createState() => _TikTokWatermarkOverlayState();
 }
 
+typedef VideoWatermarkOverlay = TikTokWatermarkOverlay;
+
 class _TikTokWatermarkOverlayState extends State<TikTokWatermarkOverlay> {
-  Timer? _shiftTimer;
-  bool _isTopRight = false;
+  bool _isSecondHalf = false;
+
+  static const List<Shadow> _kTextShadows = [
+    Shadow(
+      color: Color(0xF2000000), // 95% opacity black
+      blurRadius: 4,
+      offset: Offset(1.2, 1.2),
+    ),
+    Shadow(
+      color: Color(0xBF000000), // 75% opacity black
+      blurRadius: 2,
+      offset: Offset(-0.8, -0.8),
+    ),
+    Shadow(
+      color: Color(0x99000000), // 60% opacity black
+      blurRadius: 6,
+      offset: Offset(0, 1.5),
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    // Shift watermark position every 5 seconds, similar to TikTok
-    _shiftTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) {
-        setState(() {
-          _isTopRight = !_isTopRight;
-        });
-      }
-    });
+    _isSecondHalf = _calculateIsSecondHalf();
+    widget.controller?.addListener(_onControllerTick);
+  }
+
+  @override
+  void didUpdateWidget(TikTokWatermarkOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onControllerTick);
+      widget.controller?.addListener(_onControllerTick);
+    }
+    _updatePositionState();
   }
 
   @override
   void dispose() {
-    _shiftTimer?.cancel();
+    widget.controller?.removeListener(_onControllerTick);
     super.dispose();
+  }
+
+  void _onControllerTick() {
+    if (!mounted) return;
+    _updatePositionState();
+  }
+
+  void _updatePositionState() {
+    final newIsSecondHalf = _calculateIsSecondHalf();
+    if (newIsSecondHalf != _isSecondHalf) {
+      setState(() {
+        _isSecondHalf = newIsSecondHalf;
+      });
+    }
+  }
+
+  bool _calculateIsSecondHalf() {
+    if (widget.isLive) return false;
+    if (widget.video?.isStream == true) return false;
+
+    Duration currentPos = Duration.zero;
+    Duration totalDur = Duration.zero;
+
+    final ctrl = widget.controller;
+    if (ctrl != null && ctrl.value.isInitialized) {
+      currentPos = ctrl.value.position;
+      totalDur = ctrl.value.duration;
+    }
+
+    if (widget.position != null) {
+      currentPos = widget.position!;
+    }
+
+    if (widget.duration != null && widget.duration! > Duration.zero) {
+      totalDur = widget.duration!;
+    } else if (totalDur <= Duration.zero &&
+        widget.video != null &&
+        widget.video!.duration > 0) {
+      totalDur = Duration(seconds: widget.video!.duration);
+    }
+
+    if (totalDur <= Duration.zero || currentPos < Duration.zero) {
+      return false; // Live stream or unknown duration -> default bottom
+    }
+
+    final progress = currentPos.inMicroseconds / totalDur.inMicroseconds;
+    if (progress.isNaN || progress.isInfinite) return false;
+
+    return progress >= 0.50;
+  }
+
+  String _cleanIdentity(String identity) {
+    final trimmed = identity.trim();
+    if (trimmed.isEmpty) return '@zikre_kdusan';
+    return trimmed.startsWith('@') ? trimmed : '@$trimmed';
+  }
+
+  Widget _buildLogoWidget(String? logoUrl) {
+    if (widget.logoBuilder != null) {
+      return widget.logoBuilder!(context);
+    }
+
+    if (logoUrl != null &&
+        logoUrl.trim().isNotEmpty &&
+        (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'))) {
+      return CachedNetworkImage(
+        imageUrl: logoUrl.trim(),
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Image.asset(
+          WatermarkService.logoAssetPath,
+          fit: BoxFit.cover,
+        ),
+        errorWidget: (context, url, error) => Image.asset(
+          WatermarkService.logoAssetPath,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(
+      WatermarkService.logoAssetPath,
+      fit: BoxFit.cover,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isVisible) return const SizedBox.shrink();
+    // 1. Resolve publisher metadata dynamically
+    String resolvedPrimaryText;
+    String resolvedSecondaryText;
+    String? resolvedLogoUrl;
 
-    final cleanUsername = widget.publisherUsername.startsWith('@')
-        ? widget.publisherUsername
-        : '@${widget.publisherUsername}';
+    if (widget.publisherName != null &&
+        widget.publisherName!.trim().isNotEmpty) {
+      resolvedPrimaryText = widget.publisherName!.trim();
+      resolvedSecondaryText = _cleanIdentity(
+        widget.publisherIdentity ??
+            widget.publisherUsername ??
+            'zikre_kdusan',
+      );
+      resolvedLogoUrl = widget.publisherLogoUrl;
+    } else if (widget.video != null) {
+      final v = widget.video!;
+      // Case 1: Channel
+      if (v.channelName != null && v.channelName!.trim().isNotEmpty) {
+        resolvedPrimaryText = v.channelName!.trim();
+        final handle = v.channelHandle ?? v.author.username ?? v.channelName!;
+        resolvedSecondaryText = _cleanIdentity(handle);
+        resolvedLogoUrl = widget.publisherLogoUrl ??
+            v.channelAvatarUrl ??
+            v.author.avatarUrl;
+      }
+      // Case 2: Group
+      else if (v.groupName != null && v.groupName!.trim().isNotEmpty) {
+        resolvedPrimaryText = v.groupName!.trim();
+        final groupIdentity = v.groupSlug ?? v.groupName!;
+        resolvedSecondaryText = _cleanIdentity(groupIdentity);
+        resolvedLogoUrl = widget.publisherLogoUrl ?? v.groupAvatarUrl;
+      }
+      // Case 3: Regular User
+      else {
+        final authorName = (v.author.displayName != null &&
+                v.author.displayName!.trim().isNotEmpty)
+            ? v.author.displayName!.trim()
+            : ((v.author.username != null &&
+                    v.author.username!.trim().isNotEmpty)
+                ? v.author.username!.trim()
+                : widget.brandName);
+        resolvedPrimaryText = authorName;
+        final userHandle = (v.author.username != null &&
+                v.author.username!.trim().isNotEmpty)
+            ? v.author.username!.trim()
+            : 'zikre_kdusan';
+        resolvedSecondaryText = _cleanIdentity(userHandle);
+        resolvedLogoUrl = widget.publisherLogoUrl ?? v.author.avatarUrl;
+      }
+    } else {
+      if (widget.publisherUsername != null &&
+          widget.publisherUsername!.trim().isNotEmpty) {
+        final rawUser = widget.publisherUsername!.trim();
+        if (rawUser.startsWith('@')) {
+          resolvedPrimaryText = widget.brandName;
+          resolvedSecondaryText = rawUser;
+        } else {
+          resolvedPrimaryText = rawUser;
+          resolvedSecondaryText = '@$rawUser';
+        }
+      } else {
+        resolvedPrimaryText = widget.brandName;
+        resolvedSecondaryText = '@zikre_kdusan';
+      }
+      resolvedLogoUrl = widget.publisherLogoUrl;
+    }
 
-    // Shifting positions: Lower-Left (matching reference screenshot) <-> Top-Right
-    final alignment = _isTopRight
-        ? const Alignment(0.85, -0.75) // Top-Right
-        : const Alignment(-0.85, 0.65); // Lower-Left (screenshot)
+    final alignment = _isSecondHalf
+        ? (widget.topAlignment ?? Alignment.topLeft)
+        : (widget.bottomAlignment ?? Alignment.bottomLeft);
 
     return IgnorePointer(
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeInOutCubic,
-        alignment: alignment,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Zikire Kdusan Logo Icon (circular with white border & shadow)
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      blurRadius: 6,
-                      offset: const Offset(1, 2),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    WatermarkService.logoAssetPath,
-                    fit: BoxFit.cover,
+      child: AnimatedOpacity(
+        opacity: widget.isVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOutCubic,
+          alignment: alignment,
+          child: Padding(
+            padding: widget.padding ??
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = constraints.maxWidth.isFinite
+                    ? (constraints.maxWidth * 0.70).clamp(160.0, 320.0)
+                    : 280.0;
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // 1. Logo on LEFT
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              blurRadius: 6,
+                              offset: const Offset(1, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _buildLogoWidget(resolvedLogoUrl),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 2. Publisher information on RIGHT of logo
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              resolvedPrimaryText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                                shadows: _kTextShadows,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              resolvedSecondaryText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.92),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.1,
+                                shadows: _kTextShadows,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              // 2. Brand Name: 'ዝክረ ቅዱሳን' / 'Zikire Kdusan'
-              Text(
-                widget.brandName,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.9),
-                      blurRadius: 4,
-                      offset: const Offset(1.2, 1.2),
-                    ),
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      blurRadius: 2,
-                      offset: const Offset(-0.6, -0.6),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 1),
-              // 3. Original Publisher Username: '@username' (e.g. @yemariyam123)
-              Text(
-                cleanUsername,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.1,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.9),
-                      blurRadius: 4,
-                      offset: const Offset(1.2, 1.2),
-                    ),
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      blurRadius: 2,
-                      offset: const Offset(-0.6, -0.6),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
         ),
       ),

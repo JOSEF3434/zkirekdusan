@@ -77,9 +77,15 @@ class AdminPermissions {
   bool get canDeleteAlephat =>
       isAuthenticated && (role == 'SUPER_ADMIN' || role == 'ADMIN');
 
+  bool get canManageCalendar =>
+      isAuthenticated &&
+      (role == 'SUPER_ADMIN' || role == 'ADMIN' || role == 'MODERATOR');
+
   bool hasPermission(String requiredResource) {
     if (isSuperAdmin) return true;
     switch (requiredResource) {
+      case 'calendar':
+        return canManageCalendar;
       case 'alephat':
         return canManageAlephat;
       case 'users':

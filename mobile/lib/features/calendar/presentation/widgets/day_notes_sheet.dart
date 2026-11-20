@@ -12,6 +12,8 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
 
 class DayNotesSheet extends ConsumerWidget {
@@ -99,6 +101,113 @@ class DayNotesSheet extends ConsumerWidget {
           ),
 
           const Divider(height: 1),
+
+          // Day's Fasts & Holidays Banner / Cards (if any)
+          Consumer(
+            builder: (context, ref, _) {
+              final dayEvents = ref.watch(
+                calendarEventsForDayProvider((
+                  year: selectedDate.year,
+                  month: selectedDate.month,
+                  day: selectedDate.day,
+                )),
+              );
+              if (dayEvents.isEmpty) return const SizedBox.shrink();
+
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: dayEvents.map((ev) {
+                    final isFastStart =
+                        ev.isFast && ev.isDayStart(selectedDate.day);
+                    final isFastEnd =
+                        ev.isFast && ev.isDayEnd(selectedDate.day);
+                    final tag = isFastStart
+                        ? ' • ጾም መግቢያ'
+                        : (isFastEnd
+                            ? ' • ጾም መፍቻ'
+                            : (ev.isFast
+                                ? ' • የጾም ዕለት'
+                                : (ev.isMajor ? ' • ዓቢይ በዓል' : ' • በዓል')));
+
+                    return Card(
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 6),
+                      color: ev.isFast
+                          ? Colors.purple.withValues(alpha: 0.12)
+                          : (ev.isMajor
+                              ? Colors.amber.withValues(alpha: 0.15)
+                              : Colors.teal.withValues(alpha: 0.12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: ev.isFast
+                              ? Colors.purple.withValues(alpha: 0.3)
+                              : (ev.isMajor
+                                  ? Colors.amber.withValues(alpha: 0.4)
+                                  : Colors.teal.withValues(alpha: 0.3)),
+                        ),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          CalendarEventDetailsDialog.show(
+                            context,
+                            event: ev,
+                            selectedDay: selectedDate.day,
+                            selectedMonth: selectedDate.month,
+                            selectedYear: selectedDate.year,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                ev.isFast
+                                    ? Icons.hourglass_top_rounded
+                                    : (ev.isMajor
+                                        ? Icons.stars_rounded
+                                        : Icons.celebration_rounded),
+                                size: 18,
+                                color: ev.isFast
+                                    ? Colors.purple.shade700
+                                    : (ev.isMajor
+                                        ? Colors.amber.shade800
+                                        : Colors.teal.shade700),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${ev.name}$tag',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontFamilyFallback: const [
+                                      'Noto Serif Ethiopic',
+                                      'Noto Sans Ethiopic',
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
 
           // Notes list
           Flexible(

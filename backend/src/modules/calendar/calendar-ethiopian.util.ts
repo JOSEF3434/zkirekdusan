@@ -305,3 +305,152 @@ export function getNextAnnualOccurrence(
     day: effectiveDay,
   };
 }
+
+// ─────────────────────────────────────────────
+// FASTING & HOLIDAY EVENT ARITHMETIC HELPERS
+// ─────────────────────────────────────────────
+
+export interface CalendarEventDateRange {
+  isRecurring: boolean;
+  ethiopianYear?: number | null;
+  startMonth: number;
+  startDay: number;
+  startYear?: number | null;
+  endMonth: number;
+  endDay: number;
+  endYear?: number | null;
+}
+
+export interface EventMonthDaysCoverage {
+  overlaps: boolean;
+  days: number[];
+  isStartMonth: boolean;
+  isEndMonth: boolean;
+  startDay?: number;
+  endDay?: number;
+  durationDays: number;
+}
+
+/**
+ * Calculates the total inclusive duration (in days) between two Ethiopian dates.
+ */
+export function calculateEventDuration(
+  startYear: number,
+  startMonth: number,
+  startDay: number,
+  endYear: number,
+  endMonth: number,
+  endDay: number,
+): number {
+  const startFixed = fixedFromEthiopic(startYear, startMonth, startDay);
+  const endFixed = fixedFromEthiopic(endYear, endMonth, endDay);
+  return Math.max(1, endFixed - startFixed + 1);
+}
+
+/**
+ * Checks whether an event overlaps with a specified Ethiopian month of a given year.
+ */
+export function doesEventOverlapMonth(
+  event: CalendarEventDateRange,
+  queryYear: number,
+  queryMonth: number,
+): boolean {
+  if (queryMonth < 1 || queryMonth > 13) return false;
+
+  // Year-specific check
+  if (!event.isRecurring && event.ethiopianYear != null && event.ethiopianYear !== queryYear) {
+    return false;
+  }
+
+  const startM = event.startMonth;
+  const endM = event.endMonth;
+
+  if (startM === endM) {
+    return startM === queryMonth;
+  }
+
+  if (startM < endM) {
+    return queryMonth >= startM && queryMonth <= endM;
+  }
+
+  // Crosses Ethiopian year boundary (e.g., month 13 into month 1)
+  return queryMonth >= startM || queryMonth <= endM;
+}
+
+/**
+ * Calculates the exact days of queryMonth covered by an event, along with duration and boundary flags.
+ */
+export function getEventMonthDaysCoverage(
+  event: CalendarEventDateRange,
+  queryYear: number,
+  queryMonth: number,
+): EventMonthDaysCoverage {
+  const overlaps = doesEventOverlapMonth(event, queryYear, queryMonth);
+  const startYear = event.startYear ?? event.ethiopianYear ?? queryYear;
+  let endYear = event.endYear ?? event.ethiopianYear ?? queryYear;
+  if (event.isRecurring && event.startMonth > event.endMonth) {
+    endYear = startYear + 1;
+  }
+
+  const durationDays = calculateEventDuration(
+    startYear,
+    event.startMonth,
+    event.startDay,
+    endYear,
+    event.endMonth,
+    event.endDay,
+  );
+
+  if (!overlaps) {
+    return {
+      overlaps: false,
+      days: [],
+      isStartMonth: false,
+      isEndMonth: false,
+      durationDays,
+    };
+  }
+
+  const daysInMonth = getDaysInEthiopianMonth(queryYear, queryMonth);
+  const startM = event.startMonth;
+  const endM = event.endMonth;
+
+  let isStartMonth = false;
+  let isEndMonth = false;
+  let fromDay = 1;
+  let toDay = daysInMonth;
+
+  if (startM === endM) {
+    isStartMonth = true;
+    isEndMonth = true;
+    fromDay = Math.min(event.startDay, daysInMonth);
+    toDay = Math.min(event.endDay, daysInMonth);
+  } else if (queryMonth === startM) {
+    isStartMonth = true;
+    fromDay = Math.min(event.startDay, daysInMonth);
+    toDay = daysInMonth;
+  } else if (queryMonth === endM) {
+    isEndMonth = true;
+    fromDay = 1;
+    toDay = Math.min(event.endDay, daysInMonth);
+  } else {
+    // Middle month entirely covered
+    fromDay = 1;
+    toDay = daysInMonth;
+  }
+
+  const days: number[] = [];
+  for (let d = fromDay; d <= toDay; d++) {
+    days.push(d);
+  }
+
+  return {
+    overlaps: true,
+    days,
+    isStartMonth,
+    isEndMonth,
+    startDay: isStartMonth ? fromDay : undefined,
+    endDay: isEndMonth ? toDay : undefined,
+    durationDays,
+  };
+}

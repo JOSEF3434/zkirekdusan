@@ -3,6 +3,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/app_link_service.dart';
+import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/security/presentation/providers/app_lock_provider.dart';
@@ -97,6 +98,8 @@ import 'package:mobile/features/admin/presentation/screens/group_management_scre
 import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_rbac_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_auth_policy_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_calendar_events_screen.dart';
+import 'package:mobile/features/calendar/presentation/yearly_fasts_holidays_screen.dart';
 import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/channel_detail_screen.dart';
@@ -867,6 +870,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/auth-policy',
             builder: (context, state) => const AdminAuthPolicyScreen(),
+          ),
+          GoRoute(
+            path: '/admin/calendar-events',
+            builder: (context, state) => const AdminCalendarEventsScreen(),
+          ),
+          GoRoute(
+            path: '/calendar/yearly-events',
+            builder: (context, state) {
+              final yearStr = state.uri.queryParameters['year'];
+              final year = int.tryParse(yearStr ?? '') ??
+                  EthiopianCalendarUtil.now().year;
+              return YearlyFastsHolidaysScreen(initialYear: year);
+            },
           ),
           GoRoute(
             path: '/groups/:id',

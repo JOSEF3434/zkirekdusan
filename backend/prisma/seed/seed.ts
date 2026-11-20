@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { DEFAULT_ROLES, AppRole } from '../../src/common/constants/roles.js';
 import { PERMISSION_REGISTRY, ROLE_PERMISSIONS } from '../../src/common/constants/permissions.js';
+import { EOTC_DEFAULT_EVENTS } from '../../src/modules/calendar/calendar-events.seed.js';
 
 export async function seed(prisma: PrismaClient) {
   console.log('🌱 Starting database seed for enterprise social platform...');
@@ -229,6 +230,44 @@ export async function seed(prisma: PrismaClient) {
     });
   }
   console.log(`✅ Seeded ${defaultLanguages.length} default dictionary languages`);
+
+  /**
+   * 8. Seed Ethiopian Orthodox Fasting & Holiday Events
+   */
+  for (const event of EOTC_DEFAULT_EVENTS) {
+    const existing = await prisma.calendarEvent.findFirst({
+      where: {
+        name: event.name,
+        isRecurring: event.isRecurring,
+        ethiopianYear: event.ethiopianYear ?? null,
+        deletedAt: null,
+      },
+    });
+
+    if (!existing) {
+      await prisma.calendarEvent.create({
+        data: {
+          name: event.name,
+          nameEn: event.nameEn,
+          type: event.type,
+          category: event.category,
+          isRecurring: event.isRecurring,
+          ethiopianYear: event.ethiopianYear,
+          startMonth: event.startMonth,
+          startDay: event.startDay,
+          endMonth: event.endMonth,
+          endDay: event.endDay,
+          description: event.description,
+          spiritualMeaning: event.spiritualMeaning,
+          fastingRules: event.fastingRules,
+          primaryColor: event.primaryColor,
+          isMajor: event.isMajor,
+          isActive: event.isActive,
+        },
+      });
+    }
+  }
+  console.log(`✅ Seeded ${EOTC_DEFAULT_EVENTS.length} default Ethiopian calendar fasts & holidays`);
 
   console.log('🎉 Database seed completed successfully!');
 }

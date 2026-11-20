@@ -98,6 +98,12 @@ class VideoResponseDto {
   final PostAuthorDto author; // Using existing author DTO
   final String? channelId;
   final String? channelName;
+  final String? channelHandle;
+  final String? channelAvatarUrl;
+  final String? groupId;
+  final String? groupName;
+  final String? groupAvatarUrl;
+  final String? groupSlug;
   final List<VideoRenditionDto> renditions;
   final bool? isLiked;
   final bool? isSaved;
@@ -126,6 +132,12 @@ class VideoResponseDto {
     required this.author,
     this.channelId,
     this.channelName,
+    this.channelHandle,
+    this.channelAvatarUrl,
+    this.groupId,
+    this.groupName,
+    this.groupAvatarUrl,
+    this.groupSlug,
     this.renditions = const [],
     this.isLiked,
     this.isSaved,
@@ -147,14 +159,39 @@ class VideoResponseDto {
     }
 
     // channelId comes directly OR from nested videoChannel
+    final videoChannelMap = json['videoChannel'] as Map<String, dynamic>?;
+    final groupMap = (json['group'] as Map<String, dynamic>?) ??
+        (videoChannelMap?['group'] as Map<String, dynamic>?);
+
     final channelId =
         json['channelId'] as String? ??
-        (json['videoChannel'] as Map<String, dynamic>?)?['id'] as String? ??
+        videoChannelMap?['id'] as String? ??
         json['videoChannelId'] as String?;
 
     final channelName =
         json['channelName'] as String? ??
-        (json['videoChannel'] as Map<String, dynamic>?)?['name'] as String?;
+        videoChannelMap?['name'] as String?;
+
+    final channelHandle = json['channelHandle'] as String? ??
+        videoChannelMap?['handle'] as String?;
+
+    final channelAvatarUrl = json['channelAvatarUrl'] as String? ??
+        (videoChannelMap?['avatarFile'] as Map<String, dynamic>?)?['url'] as String? ??
+        videoChannelMap?['avatarUrl'] as String?;
+
+    final groupId = json['groupId'] as String? ??
+        groupMap?['id'] as String? ??
+        videoChannelMap?['groupId'] as String?;
+
+    final groupName = json['groupName'] as String? ??
+        groupMap?['name'] as String?;
+
+    final groupSlug = json['groupSlug'] as String? ??
+        groupMap?['slug'] as String?;
+
+    final groupAvatarUrl = json['groupAvatarUrl'] as String? ??
+        (groupMap?['avatarFile'] as Map<String, dynamic>?)?['url'] as String? ??
+        groupMap?['avatarUrl'] as String?;
 
     final uploadedById =
         json['uploadedById'] as String? ??
@@ -210,6 +247,12 @@ class VideoResponseDto {
       author: PostAuthorDto.fromJson(authorJson),
       channelId: channelId,
       channelName: channelName,
+      channelHandle: channelHandle,
+      channelAvatarUrl: channelAvatarUrl,
+      groupId: groupId,
+      groupName: groupName,
+      groupAvatarUrl: groupAvatarUrl,
+      groupSlug: groupSlug,
       renditions:
           (json['renditions'] as List<dynamic>?)
               ?.map(

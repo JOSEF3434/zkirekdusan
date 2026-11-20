@@ -191,6 +191,15 @@ export const PERMISSIONS = {
     DELETE: 'alephat.delete',
     PUBLISH: 'alephat.publish',
   },
+
+  // ─── Ethiopian Calendar Fasts & Holidays ─────────────────
+  CALENDAR: {
+    VIEW: 'calendar.view',
+    CREATE: 'calendar.create',
+    UPDATE: 'calendar.update',
+    DELETE: 'calendar.delete',
+    MANAGE: 'calendar.manage',
+  },
 } as const;
 
 export type Permission =
@@ -289,6 +298,12 @@ export const PERMISSION_REGISTRY: PermissionMeta[] = [
   { code: 'alephat.update',            displayName: 'Edit Alephat',             description: 'Update Alephat learning entries',                  category: 'Books & Learning',      riskLevel: 'medium' },
   { code: 'alephat.delete',            displayName: 'Delete Alephat',           description: 'Remove Alephat learning content',                  category: 'Books & Learning',      riskLevel: 'high' },
   { code: 'alephat.publish',           displayName: 'Publish Alephat',          description: 'Publish or unpublish Alephat content',             category: 'Books & Learning',      riskLevel: 'medium' },
+  // ── Ethiopian Calendar Fasts & Holidays ──
+  { code: 'calendar.view',             displayName: 'View Calendar Events',     description: 'View Ethiopian fasting periods and holidays',       category: 'Calendar',              riskLevel: 'low' },
+  { code: 'calendar.create',           displayName: 'Create Calendar Events',   description: 'Create Ethiopian fasting periods and holidays',     category: 'Calendar',              riskLevel: 'medium' },
+  { code: 'calendar.update',           displayName: 'Edit Calendar Events',     description: 'Update Ethiopian fasting periods and holidays',     category: 'Calendar',              riskLevel: 'medium' },
+  { code: 'calendar.delete',           displayName: 'Delete Calendar Events',   description: 'Remove Ethiopian fasting periods and holidays',     category: 'Calendar',              riskLevel: 'high' },
+  { code: 'calendar.manage',           displayName: 'Manage Calendar',          description: 'Full management of fasting and holiday calendar system', category: 'Calendar',        riskLevel: 'medium' },
   // ── User Features (standard USER permissions) ──
   { code: 'profile.read',              displayName: 'Read Profile',             description: 'Read own and others public profiles',              category: 'User Features',         riskLevel: 'low' },
   { code: 'profile.update',            displayName: 'Update Profile',           description: 'Edit own profile information',                     category: 'User Features',         riskLevel: 'low' },
@@ -350,6 +365,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'books.view', 'books.create', 'books.update', 'books.delete',
     'books.publish', 'books.manage_categories', 'books.manage_languages', 'books.manage_library', 'books.download',
     'alephat.view', 'alephat.create', 'alephat.update', 'alephat.delete', 'alephat.publish',
+    'calendar.view', 'calendar.create', 'calendar.update', 'calendar.delete', 'calendar.manage',
   ],
 
   MODERATOR: [
@@ -364,12 +380,14 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'live.view', 'live.moderate', 'live.stop',
     'books.view', 'books.manage_library', 'books.create', 'books.update', 'books.publish',
     'alephat.view', 'alephat.create', 'alephat.update', 'alephat.publish',
+    'calendar.view', 'calendar.create', 'calendar.update', 'calendar.manage',
   ],
 
   SUPPORT: [
     'users.view',
     'reports.view', 'reports.review', 'reports.resolve', 'reports.dismiss',
     'notifications.view',
+    'calendar.view',
   ],
 
   USER: [
@@ -383,5 +401,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'streams.start', 'streams.end',
     'books.view', 'books.download',
     'alephat.view',
+    'calendar.view',
   ],
 };

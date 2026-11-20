@@ -328,6 +328,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/content'),
                   ),
+                if (perms.canManageCalendar)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.event_note_rounded,
+                      color: Colors.deepPurpleAccent,
+                    ),
+                    title: Text(tr('admin.calendar_events', {'fallback': 'አጽዋማት እና በዓላት'})),
+                    subtitle: Text(tr('admin.calendar_events_sub', {'fallback': 'የአጽዋማትና በዓላት አስተዳደር'})),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin/calendar-events'),
+                  ),
                 if (perms.canManageLive)
                   ListTile(
                     leading: const Icon(

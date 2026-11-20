@@ -774,12 +774,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                     },
                   ),
 
-                // TikTok-style periodic moving watermark overlay
-                TikTokWatermarkOverlay(
-                  publisherUsername: video.channelName ??
-                      video.author.username ??
-                      'zikre_kdusan',
-                  isVisible: !state.showControls,
+                // Branding watermark overlay positioned relative to the actual visible video frame
+                ClipRect(
+                  child: _isCover
+                      ? SizedBox.expand(
+                          child: TikTokWatermarkOverlay(
+                            controller: state.controller,
+                            video: video,
+                            isVisible: !state.showControls,
+                            isLive: notifier.isLiveStream,
+                          ),
+                        )
+                      : Center(
+                          child: AspectRatio(
+                            aspectRatio: videoAspect,
+                            child: TikTokWatermarkOverlay(
+                              controller: state.controller,
+                              video: video,
+                              isVisible: !state.showControls,
+                              isLive: notifier.isLiveStream,
+                            ),
+                          ),
+                        ),
                 ),
 
                 if (state.isBuffering)
