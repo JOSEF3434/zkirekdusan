@@ -2,14 +2,26 @@
 
 enum CalendarEventType {
   fast,
-  holiday;
+  holiday,
+  specialEvent;
 
   static CalendarEventType fromString(String val) {
-    if (val.toUpperCase() == 'FAST') return CalendarEventType.fast;
+    final v = val.toUpperCase();
+    if (v == 'FAST') return CalendarEventType.fast;
+    if (v == 'SPECIAL_EVENT') return CalendarEventType.specialEvent;
     return CalendarEventType.holiday;
   }
 
-  String toJson() => name.toUpperCase();
+  String toJson() {
+    switch (this) {
+      case CalendarEventType.fast:
+        return 'FAST';
+      case CalendarEventType.specialEvent:
+        return 'SPECIAL_EVENT';
+      case CalendarEventType.holiday:
+        return 'HOLIDAY';
+    }
+  }
 }
 
 enum CalendarEventCategory {
@@ -120,6 +132,7 @@ class CalendarEventModel {
   final String? primaryColor;
   final String? icon;
   final bool isMajor;
+  final String importance;
   final bool isActive;
   final int durationDays;
   final String? startEthiopianDateFormatted;
@@ -149,6 +162,7 @@ class CalendarEventModel {
     this.primaryColor,
     this.icon,
     this.isMajor = false,
+    this.importance = 'NORMAL',
     this.isActive = true,
     this.durationDays = 1,
     this.startEthiopianDateFormatted,
@@ -161,6 +175,29 @@ class CalendarEventModel {
 
   bool get isFast => type == CalendarEventType.fast;
   bool get isHoliday => type == CalendarEventType.holiday;
+  bool get isSpecialEvent => type == CalendarEventType.specialEvent;
+  bool get isMajorHoliday => isHoliday && (isMajor || importance == 'MAJOR');
+  bool get isSpecial => isSpecialEvent || importance == 'SPECIAL';
+  bool get isSingleDay =>
+      startMonth == endMonth &&
+      startDay == endDay &&
+      (startYear == endYear || startYear == null || endYear == null);
+
+  /// Color rules:
+  /// Orange (#F59E0B): Fasting period
+  /// Red (#DC2626): Major holiday
+  /// Green (#16A34A): Fast start/end or special event marker
+  String get defaultColorHex {
+    if (isFast) return '#F59E0B';
+    if (isMajorHoliday) return '#DC2626';
+    if (isSpecial) return '#16A34A';
+    return '#10B981';
+  }
+
+  String get effectiveColorHex =>
+      (primaryColor != null && primaryColor!.isNotEmpty)
+          ? primaryColor!
+          : defaultColorHex;
 
   bool isDayStart(int day) {
     if (coverage != null) {
@@ -174,6 +211,70 @@ class CalendarEventModel {
       return coverage!.isEndMonth && coverage!.endDay == day;
     }
     return startMonth == endMonth ? endDay == day : endDay == day;
+  }
+
+  CalendarEventModel copyWith({
+    String? id,
+    String? name,
+    String? nameEn,
+    CalendarEventType? type,
+    CalendarEventCategory? category,
+    bool? isRecurring,
+    int? ethiopianYear,
+    int? startMonth,
+    int? startDay,
+    int? startYear,
+    int? endMonth,
+    int? endDay,
+    int? endYear,
+    String? description,
+    String? spiritualMeaning,
+    String? fastingRules,
+    String? primaryColor,
+    String? icon,
+    bool? isMajor,
+    String? importance,
+    bool? isActive,
+    int? durationDays,
+    String? startEthiopianDateFormatted,
+    String? endEthiopianDateFormatted,
+    String? startGregorianDate,
+    String? endGregorianDate,
+    CalendarEventCoverageModel? coverage,
+    String? dayRole,
+  }) {
+    return CalendarEventModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      nameEn: nameEn ?? this.nameEn,
+      type: type ?? this.type,
+      category: category ?? this.category,
+      isRecurring: isRecurring ?? this.isRecurring,
+      ethiopianYear: ethiopianYear ?? this.ethiopianYear,
+      startMonth: startMonth ?? this.startMonth,
+      startDay: startDay ?? this.startDay,
+      startYear: startYear ?? this.startYear,
+      endMonth: endMonth ?? this.endMonth,
+      endDay: endDay ?? this.endDay,
+      endYear: endYear ?? this.endYear,
+      description: description ?? this.description,
+      spiritualMeaning: spiritualMeaning ?? this.spiritualMeaning,
+      fastingRules: fastingRules ?? this.fastingRules,
+      primaryColor: primaryColor ?? this.primaryColor,
+      icon: icon ?? this.icon,
+      isMajor: isMajor ?? this.isMajor,
+      importance: importance ?? this.importance,
+      isActive: isActive ?? this.isActive,
+      durationDays: durationDays ?? this.durationDays,
+      startEthiopianDateFormatted:
+          startEthiopianDateFormatted ?? this.startEthiopianDateFormatted,
+      endEthiopianDateFormatted:
+          endEthiopianDateFormatted ?? this.endEthiopianDateFormatted,
+      startGregorianDate: startGregorianDate ?? this.startGregorianDate,
+      endGregorianDate: endGregorianDate ?? this.endGregorianDate,
+      coverage: coverage ?? this.coverage,
+      dayRole: dayRole ?? this.dayRole,
+    );
   }
 
   factory CalendarEventModel.fromJson(Map<String, dynamic> json) {
@@ -198,7 +299,10 @@ class CalendarEventModel {
       fastingRules: json['fastingRules']?.toString(),
       primaryColor: json['primaryColor']?.toString(),
       icon: json['icon']?.toString(),
-      isMajor: json['isMajor'] as bool? ?? false,
+      isMajor: (json['isMajor'] as bool?) ??
+          (json['importance']?.toString() == 'MAJOR'),
+      importance: json['importance']?.toString() ??
+          ((json['isMajor'] as bool? ?? false) ? 'MAJOR' : 'NORMAL'),
       isActive: json['isActive'] as bool? ?? true,
       durationDays: json['durationDays'] as int? ?? 1,
       startEthiopianDateFormatted:
@@ -235,6 +339,7 @@ class CalendarEventModel {
         'primaryColor': primaryColor,
         'icon': icon,
         'isMajor': isMajor,
+        'importance': importance,
         'isActive': isActive,
         'durationDays': durationDays,
         'startEthiopianDateFormatted': startEthiopianDateFormatted,

@@ -49,6 +49,7 @@ void main() {
         'durationDays': 1,
         'isMajor': true,
         'isActive': true,
+        'importance': 'MAJOR',
       };
 
       final event = CalendarEventModel.fromJson(json);
@@ -60,6 +61,9 @@ void main() {
       expect(event.isMajor, isTrue);
       expect(event.isFast, isFalse);
       expect(event.isHoliday, isTrue);
+      expect(event.isSpecialEvent, isFalse);
+      expect(event.importance, equals('MAJOR'));
+      expect(event.isSingleDay, isTrue);
       expect(event.startMonth, equals(4));
       expect(event.startDay, equals(29));
       expect(event.endMonth, equals(4));
@@ -73,6 +77,89 @@ void main() {
       expect(serialized['type'], equals('HOLIDAY'));
       expect(serialized['category'], equals('MAJOR_HOLIDAY'));
       expect(serialized['nameEn'], equals('Christmas'));
+      expect(serialized['importance'], equals('MAJOR'));
+    });
+
+    test('Special Event serialization, category, and importance behavior', () {
+      final json = {
+        'id': 'spec-1',
+        'name': 'የደብር በዓል',
+        'nameEn': 'Parish Feast Day',
+        'description': 'የታቦት ንግሥ በዓል',
+        'type': 'SPECIAL_EVENT',
+        'category': 'MEMORIAL',
+        'startMonth': 2,
+        'startDay': 12,
+        'endMonth': 2,
+        'endDay': 12,
+        'isRecurring': false,
+        'importance': 'SPECIAL',
+        'isActive': true,
+      };
+
+      final event = CalendarEventModel.fromJson(json);
+      expect(event.id, equals('spec-1'));
+      expect(event.type, equals(CalendarEventType.specialEvent));
+      expect(event.isSpecialEvent, isTrue);
+      expect(event.isFast, isFalse);
+      expect(event.isHoliday, isFalse);
+      expect(event.isSpecial, isTrue);
+      expect(event.isSingleDay, isTrue);
+      expect(event.defaultColorHex, equals('#16A34A'));
+      expect(event.effectiveColorHex, equals('#16A34A'));
+
+      final serialized = event.toJson();
+      expect(serialized['type'], equals('SPECIAL_EVENT'));
+      expect(serialized['importance'], equals('SPECIAL'));
+    });
+
+    test('Automatic color rules & effectiveColorHex priority', () {
+      // 1. Fasting period default: Orange (#F59E0B)
+      const fastEvent = CalendarEventModel(
+        id: 'fast-1',
+        name: 'ጾመ ነቢያት',
+        type: CalendarEventType.fast,
+        category: CalendarEventCategory.majorFast,
+        startMonth: 3,
+        startDay: 15,
+        endMonth: 4,
+        endDay: 28,
+      );
+      expect(fastEvent.defaultColorHex, equals('#F59E0B'));
+      expect(fastEvent.effectiveColorHex, equals('#F59E0B'));
+
+      // 2. Major holiday default: Red (#DC2626)
+      const holidayEvent = CalendarEventModel(
+        id: 'hol-1',
+        name: 'ገና',
+        type: CalendarEventType.holiday,
+        category: CalendarEventCategory.majorHoliday,
+        startMonth: 4,
+        startDay: 29,
+        endMonth: 4,
+        endDay: 29,
+        isMajor: true,
+      );
+      expect(holidayEvent.defaultColorHex, equals('#DC2626'));
+      expect(holidayEvent.effectiveColorHex, equals('#DC2626'));
+
+      // 3. Special event default: Green (#16A34A)
+      const specialEvent = CalendarEventModel(
+        id: 'spec-1',
+        name: 'ጉባኤ',
+        type: CalendarEventType.specialEvent,
+        category: CalendarEventCategory.annualFeast,
+        startMonth: 5,
+        startDay: 1,
+        endMonth: 5,
+        endDay: 1,
+      );
+      expect(specialEvent.defaultColorHex, equals('#16A34A'));
+      expect(specialEvent.effectiveColorHex, equals('#16A34A'));
+
+      // 4. Custom primaryColor override takes priority over default
+      final customColorEvent = fastEvent.copyWith(primaryColor: '#7C3AED');
+      expect(customColorEvent.effectiveColorHex, equals('#7C3AED'));
     });
 
     test('Single-month event day start/end boundary checks', () {
@@ -90,6 +177,7 @@ void main() {
         isMajor: true,
       );
 
+      expect(meskel.isSingleDay, isTrue);
       expect(meskel.isDayStart(17), isTrue);
       expect(meskel.isDayEnd(17), isTrue);
       expect(meskel.isDayStart(16), isFalse);
@@ -141,6 +229,28 @@ void main() {
           expect(cmp < 0, isTrue);
         }
       }
+    });
+
+    test('Cross-year non-recurring date range attributes and validation', () {
+      const crossYearRange = CalendarEventModel(
+        id: 'cross-year-1',
+        name: 'ልዩ የጸሎት ሳምንት',
+        type: CalendarEventType.specialEvent,
+        category: CalendarEventCategory.majorFast,
+        startMonth: 13,
+        startDay: 1,
+        endMonth: 1,
+        endDay: 5,
+        ethiopianYear: 2016,
+        isRecurring: false,
+      );
+
+      expect(crossYearRange.isSingleDay, isFalse);
+      expect(crossYearRange.startMonth, equals(13));
+      expect(crossYearRange.endMonth, equals(1));
+      expect(crossYearRange.startDay, equals(1));
+      expect(crossYearRange.endDay, equals(5));
+      expect(crossYearRange.isSpecialEvent, isTrue);
     });
   });
 }

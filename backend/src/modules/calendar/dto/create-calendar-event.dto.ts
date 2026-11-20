@@ -104,6 +104,11 @@ export class CreateCalendarEventDto {
   @IsBoolean()
   isMajor?: boolean;
 
+  @ApiPropertyOptional({ enum: ['NORMAL', 'SPECIAL', 'MAJOR'], default: 'NORMAL', description: 'Event importance level' })
+  @IsOptional()
+  @IsString()
+  importance?: string;
+
   @ApiPropertyOptional({ default: true, description: 'Whether the event is active' })
   @IsOptional()
   @IsBoolean()

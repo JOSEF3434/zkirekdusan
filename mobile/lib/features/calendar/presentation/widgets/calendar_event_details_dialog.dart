@@ -4,25 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
+import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/domain/calendar_event_model.dart';
 
-class CalendarEventDetailsDialog extends ConsumerWidget {
-  final CalendarEventModel event;
+class CalendarEventDetailsDialog extends ConsumerStatefulWidget {
+  final CalendarEventModel? event;
+  final List<CalendarEventModel>? events;
   final int? selectedDay;
   final int? selectedMonth;
   final int? selectedYear;
 
   const CalendarEventDetailsDialog({
     super.key,
-    required this.event,
+    this.event,
+    this.events,
     this.selectedDay,
     this.selectedMonth,
     this.selectedYear,
-  });
+  }) : assert(event != null || events != null);
 
   static Future<void> show(
     BuildContext context, {
-    required CalendarEventModel event,
+    CalendarEventModel? event,
+    List<CalendarEventModel>? events,
     int? selectedDay,
     int? selectedMonth,
     int? selectedYear,
@@ -36,9 +41,10 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+            constraints: const BoxConstraints(maxWidth: 540, maxHeight: 720),
             child: CalendarEventDetailsDialog(
               event: event,
+              events: events,
               selectedDay: selectedDay,
               selectedMonth: selectedMonth,
               selectedYear: selectedYear,
@@ -59,10 +65,11 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.88,
             ),
             child: CalendarEventDetailsDialog(
               event: event,
+              events: events,
               selectedDay: selectedDay,
               selectedMonth: selectedMonth,
               selectedYear: selectedYear,
@@ -74,16 +81,47 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CalendarEventDetailsDialog> createState() =>
+      _CalendarEventDetailsDialogState();
+}
+
+class _CalendarEventDetailsDialogState
+    extends ConsumerState<CalendarEventDetailsDialog> {
+  int _selectedIndex = 0;
+
+  List<CalendarEventModel> get _allEvents {
+    if (widget.events != null && widget.events!.isNotEmpty) {
+      return widget.events!;
+    }
+    if (widget.event != null) {
+      return [widget.event!];
+    }
+    return const [];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+    final adminPerms = ref.watch(adminPermissionsProvider);
+    final canManage = adminPerms.canManageCalendar;
 
-    final eventColor = _parseColor(event.primaryColor) ??
+    final events = _allEvents;
+    if (events.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final activeIndex = _selectedIndex < events.length ? _selectedIndex : 0;
+    final event = events[activeIndex];
+
+    final eventColor = _parseColor(event.effectiveColorHex) ??
         (event.isFast
-            ? Colors.purple.shade700
-            : (event.isMajor ? Colors.amber.shade800 : Colors.teal.shade700));
+            ? const Color(0xFFF59E0B)
+            : (event.isMajorHoliday
+                ? const Color(0xFFDC2626)
+                : const Color(0xFF16A34A)));
 
-    final dayRoleLabel = _getDayRoleLabel(tr);
+    final dayRoleLabel = _getDayRoleLabel(event, tr);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -91,6 +129,47 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // If multiple events on this day, show tab switcher
+          if (events.length > 1) ...[
+            Text(
+              tr('calendar.multiple_events', {'fallback': 'በዚህ ቀን ያሉ ሁነቶች'}),
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.textTheme.bodySmall?.color,
+              ),
+            ),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(events.length, (idx) {
+                  final ev = events[idx];
+                  final isSelected = idx == activeIndex;
+                  final evColor = _parseColor(ev.effectiveColorHex) ??
+                      (ev.isFast ? const Color(0xFFF59E0B) : const Color(0xFFDC2626));
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      avatar: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(color: evColor, shape: BoxShape.circle),
+                      ),
+                      label: Text(ev.name),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedIndex = idx);
+                      },
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+          ],
+
           // Header Bar
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +183,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
                 child: Icon(
                   event.isFast
                       ? Icons.hourglass_top_rounded
-                      : (event.isMajor
+                      : (event.isMajorHoliday
                           ? Icons.stars_rounded
                           : Icons.celebration_rounded),
                   color: eventColor,
@@ -145,20 +224,22 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Chips: Type, Category, Day Role
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              // Fast vs Holiday
+              // Fast vs Holiday vs Special Event
               Chip(
                 backgroundColor: eventColor.withValues(alpha: 0.12),
                 label: Text(
                   event.isFast
                       ? tr('calendar.event_type_fast', {'fallback': 'ጾም'})
-                      : tr('calendar.event_type_holiday', {'fallback': 'በዓል'}),
+                      : (event.isSpecialEvent
+                          ? tr('calendar.event_type_special_event', {'fallback': 'ልዩ ክስተት'})
+                          : tr('calendar.event_type_holiday', {'fallback': 'በዓል'})),
                   style: TextStyle(
                     color: eventColor,
                     fontWeight: FontWeight.w600,
@@ -173,7 +254,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
               Chip(
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 label: Text(
-                  _getCategoryLabel(tr),
+                  _getCategoryLabel(event, tr),
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -183,22 +264,38 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
                 padding: EdgeInsets.zero,
               ),
 
-              // Day Role if applicable (e.g. Beginning of Fast, Ending, Holiday)
+              // Importance Badge
+              if (event.isMajorHoliday)
+                Chip(
+                  backgroundColor: const Color(0xFFDC2626).withValues(alpha: 0.14),
+                  label: Text(
+                    tr('calendar.importance_major', {'fallback': 'ዓቢይ'}),
+                    style: const TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: EdgeInsets.zero,
+                ),
+
+              // Day Role if applicable (Beginning of Fast, Ending, Holiday)
               if (dayRoleLabel != null)
                 Chip(
                   avatar: Icon(
-                    event.isDayStart(selectedDay ?? 0)
+                    event.isDayStart(widget.selectedDay ?? 0)
                         ? Icons.flag_rounded
-                        : (event.isDayEnd(selectedDay ?? 0)
+                        : (event.isDayEnd(widget.selectedDay ?? 0)
                             ? Icons.check_circle_rounded
                             : Icons.calendar_today_rounded),
                     size: 14,
                     color: Colors.white,
                   ),
-                  backgroundColor: event.isDayStart(selectedDay ?? 0)
-                      ? Colors.green.shade700
-                      : (event.isDayEnd(selectedDay ?? 0)
-                          ? Colors.deepOrange.shade700
+                  backgroundColor: event.isDayStart(widget.selectedDay ?? 0)
+                      ? const Color(0xFF16A34A)
+                      : (event.isDayEnd(widget.selectedDay ?? 0)
+                          ? const Color(0xFF16A34A)
                           : eventColor),
                   label: Text(
                     dayRoleLabel,
@@ -243,7 +340,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
             context,
             icon: Icons.calendar_month_outlined,
             title: tr('calendar.ethiopian_date', {'fallback': 'የኢትዮጵያ ቀን'}),
-            content: _formatEthiopianRange(),
+            content: _formatEthiopianRange(event),
           ),
 
           if (event.startGregorianDate != null) ...[
@@ -253,7 +350,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
               icon: Icons.public_rounded,
               title: tr('calendar.gregorian_equiv',
                   {'fallback': 'የፈረንጆች አቆጣጠር'}),
-              content: _formatGregorianRange(),
+              content: _formatGregorianRange(event),
             ),
           ],
 
@@ -294,7 +391,23 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
             ),
           ],
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // Admin Edit Shortcut if authorized
+          if (canManage) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: Text(tr('admin.edit_event', {'fallback': 'ይህንን የቀን ቅንብር አስተካክል'})),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ManageCalendarEventDialog.show(context, event: event);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
 
           // Close button
           SizedBox(
@@ -404,10 +517,10 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
     );
   }
 
-  String _formatEthiopianRange() {
+  String _formatEthiopianRange(CalendarEventModel event) {
     final startM = EthiopianCalendarUtil.getMonthName(event.startMonth);
     final endM = EthiopianCalendarUtil.getMonthName(event.endMonth);
-    final year = selectedYear ?? event.ethiopianYear;
+    final year = widget.selectedYear ?? event.ethiopianYear;
     final yearSuffix = year != null ? ' $year' : '';
 
     if (event.startMonth == event.endMonth) {
@@ -420,7 +533,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
     return 'ከ ${event.startDay} $startM እስከ ${event.endDay} $endM$yearSuffix';
   }
 
-  String _formatGregorianRange() {
+  String _formatGregorianRange(CalendarEventModel event) {
     if (event.startGregorianDate == null) return '';
     try {
       final start = DateTime.parse(event.startGregorianDate!);
@@ -440,7 +553,7 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
     }
   }
 
-  String _getCategoryLabel(String Function(String, [Map<String, dynamic>?]) tr) {
+  String _getCategoryLabel(CalendarEventModel event, String Function(String, [Map<String, dynamic>?]) tr) {
     switch (event.category) {
       case CalendarEventCategory.majorFast:
         return tr('calendar.major_fast', {'fallback': 'ዐቢይ ጾም'});
@@ -458,14 +571,14 @@ class CalendarEventDetailsDialog extends ConsumerWidget {
   }
 
   String? _getDayRoleLabel(
-      String Function(String, [Map<String, dynamic>?]) tr) {
-    if (selectedDay == null) return null;
+      CalendarEventModel event, String Function(String, [Map<String, dynamic>?]) tr) {
+    if (widget.selectedDay == null) return null;
 
     if (event.isFast) {
-      if (event.isDayStart(selectedDay!)) {
+      if (event.isDayStart(widget.selectedDay!)) {
         return tr('calendar.fast_start', {'fallback': 'ጾም መግቢያ'});
       }
-      if (event.isDayEnd(selectedDay!)) {
+      if (event.isDayEnd(widget.selectedDay!)) {
         return tr('calendar.fast_end', {'fallback': 'ጾም መፍቻ / ፍጻሜ'});
       }
       return tr('calendar.fast_ongoing', {'fallback': 'የጾም ዕለት'});

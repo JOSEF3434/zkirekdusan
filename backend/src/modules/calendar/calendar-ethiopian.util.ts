@@ -358,8 +358,26 @@ export function doesEventOverlapMonth(
   if (queryMonth < 1 || queryMonth > 13) return false;
 
   // Year-specific check
-  if (!event.isRecurring && event.ethiopianYear != null && event.ethiopianYear !== queryYear) {
-    return false;
+  if (!event.isRecurring) {
+    const sYear = event.startYear ?? event.ethiopianYear;
+    const eYear = event.endYear ?? event.ethiopianYear ?? sYear;
+    if (sYear != null && eYear != null) {
+      if (queryYear < sYear || queryYear > eYear) return false;
+      if (sYear === eYear) {
+        if (event.startMonth === event.endMonth) {
+          return queryMonth === event.startMonth;
+        }
+        return queryMonth >= event.startMonth && queryMonth <= event.endMonth;
+      }
+      // Spans across multiple years (e.g. sYear: 2016, eYear: 2017)
+      if (queryYear === sYear) {
+        return queryMonth >= event.startMonth;
+      }
+      if (queryYear === eYear) {
+        return queryMonth <= event.endMonth;
+      }
+      return true; // Middle year is entirely covered
+    }
   }
 
   const startM = event.startMonth;

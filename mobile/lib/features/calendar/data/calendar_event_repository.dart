@@ -123,6 +123,7 @@ class CalendarEventRepository {
     String? type,
     String? category,
     bool? isMajor,
+    String? importance,
     bool? includeInactive,
     String? search,
   }) async {
@@ -131,6 +132,7 @@ class CalendarEventRepository {
     if (type != null) query['type'] = type;
     if (category != null) query['category'] = category;
     if (isMajor != null) query['isMajor'] = isMajor;
+    if (importance != null) query['importance'] = importance;
     if (includeInactive != null) query['includeInactive'] = includeInactive;
     if (search != null && search.isNotEmpty) query['search'] = search;
 
@@ -302,7 +304,7 @@ class CalendarEventRepository {
       endDay: 1,
       description: 'የኢትዮጵያ አዲስ ዓመት መጀመሪያ እና የቅዱስ ዮሐንስ መጥምቅ መታሰቢያ በዓል።',
       spiritualMeaning: 'አሮጌው ዘመን አልፎ አዲሱ የተተካበት፣ ምሕረትና ሰላም የሚለመንበት በዓል።',
-      primaryColor: '#D97706',
+      primaryColor: '#DC2626',
       isMajor: true,
       durationDays: 1,
     ),
@@ -319,7 +321,7 @@ class CalendarEventRepository {
       endDay: 17,
       description: 'ንግሥት ዕሌኒ የጌታችንን መስቀል በደመራ ጭስ መሪነት የቆፈረችበት እና ያገኘችበት ታላቅ ክብረ በዓል።',
       spiritualMeaning: 'የመስቀሉ ኃይል እና የድኅነት ምልክት መገለጡን የምናከብርበት በዓል።',
-      primaryColor: '#D97706',
+      primaryColor: '#DC2626',
       isMajor: true,
       durationDays: 1,
     ),
@@ -337,7 +339,7 @@ class CalendarEventRepository {
       description: 'የክርስቶስን መወለድ በመናፈቅ ነቢያት የጾሙት የ፵፫ (43) ቀናት ጾም።',
       spiritualMeaning: 'የአምላክን ሰው መሆን እና የነቢያትን ትንቢት በማሰብ በጸሎት እና በንስሐ የምንዘጋጅበት ወቅት።',
       fastingRules: 'ከእንስሳት ተዋጽኦ መከልከል፣ እስከ ፱ (9) ሰዓት መጾም እና በምግባረ ሠናይ መትጋት።',
-      primaryColor: '#7C3AED',
+      primaryColor: '#F59E0B',
       isMajor: true,
       durationDays: 44,
     ),
@@ -354,7 +356,7 @@ class CalendarEventRepository {
       endDay: 29,
       description: 'የጌታችንና የመድኃኒታችን የኢየሱስ ክርስቶስ የልደት ታላቅ በዓል።',
       spiritualMeaning: 'ቃል ሥጋ ሆነ፣ ጸጋንና እውነትንም ተሞልቶ በእኛ አደረ።',
-      primaryColor: '#B45309',
+      primaryColor: '#DC2626',
       isMajor: true,
       durationDays: 1,
     ),
@@ -370,7 +372,7 @@ class CalendarEventRepository {
       endMonth: 5,
       endDay: 10,
       description: 'ታቦተ ሕጉ በካህናት እና በምእመናን ታጅቦ ወደ ማጠመቂያው ባሕረ ጥምቀት የሚወርድበት በዓል።',
-      primaryColor: '#0284C7',
+      primaryColor: '#16A34A',
       isMajor: true,
       durationDays: 1,
     ),
@@ -387,7 +389,7 @@ class CalendarEventRepository {
       endDay: 11,
       description: 'ጌታችን በፈለገ ዮርዳኖስ በዮሐንስ እጅ የተጠመቀበት እና ምሥጢረ ሥላሴ የተገለጠበት በዓል።',
       spiritualMeaning: 'የልጅነት ጥምቀት የተሰጠንበት ዕለት።',
-      primaryColor: '#0284C7',
+      primaryColor: '#DC2626',
       isMajor: true,
       durationDays: 1,
     ),
@@ -403,7 +405,7 @@ class CalendarEventRepository {
       endMonth: 5,
       endDay: 12,
       description: 'ጌታችን በቃና ዘገሊላ ሰርግ ላይ ውኃውን ወደ ወይን የለወጠበት የመጀመሪያው ተአምር መታሰቢያ።',
-      primaryColor: '#059669',
+      primaryColor: '#16A34A',
       isMajor: false,
       durationDays: 1,
     ),
@@ -421,7 +423,7 @@ class CalendarEventRepository {
       description: 'የእመቤታችን የቅድስት ድንግል ማርያም ትንሣኤና ዕርገት መታሰቢያ የ፲፮ (16) ቀናት ጾም።',
       spiritualMeaning: 'ሐዋርያት የእመቤታችንን ሥጋ ለማየት የጾሙት እና ትንሣኤዋን ያዩበት የበረከት ወቅት።',
       fastingRules: 'ከእንስሳት ተዋጽኦ መከልከል፣ በየቀኑ በጸሎተ ፍልሰታ እና ምህላ መትጋት።',
-      primaryColor: '#7C3AED',
+      primaryColor: '#F59E0B',
       isMajor: true,
       durationDays: 16,
     ),
@@ -437,7 +439,7 @@ class CalendarEventRepository {
       endMonth: 12,
       endDay: 13,
       description: 'ጌታችን በደብረ ታቦር ተራራ ላይ ክብሩንና መለኮታዊ ብርሃኑን ለደቀ መዛሙርቱ የገለጠበት በዓል።',
-      primaryColor: '#D97706',
+      primaryColor: '#DC2626',
       isMajor: true,
       durationDays: 1,
     ),

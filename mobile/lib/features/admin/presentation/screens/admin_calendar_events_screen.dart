@@ -81,35 +81,46 @@ class _AdminCalendarEventsScreenState
               ),
             ),
 
-            // Filter Chips
+            // Filter Chips & Month selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    label: Text(tr('calendar.all_events', {'fallback': 'ሁሉም'})),
-                    selected: _selectedTypeIndex == 0,
-                    onSelected: (sel) {
-                      if (sel) setState(() => _selectedTypeIndex = 0);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(tr('calendar.only_fasts', {'fallback': 'አጽዋማት'})),
-                    selected: _selectedTypeIndex == 1,
-                    onSelected: (sel) {
-                      if (sel) setState(() => _selectedTypeIndex = 1);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(tr('calendar.only_holidays', {'fallback': 'በዓላት'})),
-                    selected: _selectedTypeIndex == 2,
-                    onSelected: (sel) {
-                      if (sel) setState(() => _selectedTypeIndex = 2);
-                    },
-                  ),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      label: Text(tr('calendar.all_events', {'fallback': 'ሁሉም'})),
+                      selected: _selectedTypeIndex == 0,
+                      onSelected: (sel) {
+                        if (sel) setState(() => _selectedTypeIndex = 0);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(tr('calendar.only_fasts', {'fallback': 'አጽዋማት'})),
+                      selected: _selectedTypeIndex == 1,
+                      onSelected: (sel) {
+                        if (sel) setState(() => _selectedTypeIndex = 1);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(tr('calendar.only_holidays', {'fallback': 'በዓላት'})),
+                      selected: _selectedTypeIndex == 2,
+                      onSelected: (sel) {
+                        if (sel) setState(() => _selectedTypeIndex = 2);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(tr('calendar.only_special_events', {'fallback': 'ልዩ ክስተቶች'})),
+                      selected: _selectedTypeIndex == 3,
+                      onSelected: (sel) {
+                        if (sel) setState(() => _selectedTypeIndex = 3);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -140,6 +151,7 @@ class _AdminCalendarEventsScreenState
                   final filtered = events.where((e) {
                     if (_selectedTypeIndex == 1 && !e.isFast) return false;
                     if (_selectedTypeIndex == 2 && !e.isHoliday) return false;
+                    if (_selectedTypeIndex == 3 && !e.isSpecialEvent) return false;
                     if (_searchQuery.isNotEmpty) {
                       final matchName =
                           e.name.toLowerCase().contains(_searchQuery);
@@ -195,10 +207,10 @@ class _AdminCalendarEventsScreenState
     String Function(String, [Map<String, dynamic>?]) tr,
     CalendarEventModel event,
   ) {
-    final eventColor = _parseColor(event.primaryColor) ??
+    final eventColor = _parseColor(event.effectiveColorHex) ??
         (event.isFast
-            ? Colors.purple.shade700
-            : (event.isMajor ? Colors.amber.shade800 : Colors.teal.shade700));
+            ? const Color(0xFFF59E0B)
+            : (event.isMajorHoliday ? const Color(0xFFDC2626) : const Color(0xFF16A34A)));
 
     String dateStr = '';
     if (event.startMonth == event.endMonth) {

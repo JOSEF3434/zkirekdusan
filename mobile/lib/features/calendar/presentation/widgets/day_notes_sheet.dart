@@ -14,6 +14,7 @@ import 'package:mobile/features/calendar/presentation/providers/calendar_downloa
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
+import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
 
 class DayNotesSheet extends ConsumerWidget {
@@ -265,18 +266,48 @@ class DayNotesSheet extends ConsumerWidget {
             ),
           ),
 
-          // Add note button — admin only
+          // Add note and configure day buttons — admin only
           if (canManage) ...[
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: () => _showAddNoteSheet(context, ref, selectedDate),
-                icon: const Icon(Icons.add),
-                label: Consumer(
-                  builder: (_, ref, _) =>
-                      Text(ref.watch(trProvider)('calendar.add_note')),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ManageCalendarEventDialog.show(
+                          context,
+                          prefillYear: selectedDate.year,
+                          prefillMonth: selectedDate.month,
+                          prefillDay: selectedDate.day,
+                        );
+                      },
+                      icon: const Icon(Icons.settings_suggest_rounded, size: 18),
+                      label: Consumer(
+                        builder: (_, ref, _) => Text(
+                          ref.watch(trProvider)(
+                            'calendar.configure_day',
+                            {'fallback': 'ይህንን ቀን አመቻች'},
+                          ),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _showAddNoteSheet(context, ref, selectedDate),
+                      icon: const Icon(Icons.add),
+                      label: Consumer(
+                        builder: (_, ref, _) =>
+                            Text(ref.watch(trProvider)('calendar.add_note')),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ] else

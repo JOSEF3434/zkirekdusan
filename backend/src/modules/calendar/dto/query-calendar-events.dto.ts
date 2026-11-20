@@ -48,4 +48,9 @@ export class QueryCalendarEventsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by importance level (NORMAL, SPECIAL, MAJOR)' })
+  @IsOptional()
+  @IsString()
+  importance?: string;
 }

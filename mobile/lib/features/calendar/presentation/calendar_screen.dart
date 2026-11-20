@@ -18,6 +18,8 @@ import 'package:mobile/features/calendar/domain/calendar_event_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/monthly_fasts_holidays_summary.dart';
 import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
+import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
 import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_learning_view.dart';
 
@@ -26,7 +28,8 @@ class CalendarScreen extends ConsumerWidget {
 
   bool _canManage(WidgetRef ref) {
     final role = ref.watch(authProvider).user?.role ?? '';
-    return role == 'SUPER_ADMIN';
+    final canManageCal = ref.watch(adminPermissionsProvider).canManageCalendar;
+    return role == 'SUPER_ADMIN' || canManageCal;
   }
 
   @override
@@ -344,9 +347,10 @@ class CalendarScreen extends ConsumerWidget {
 
         final hasFast = dayEvents.any((e) => e.isFast);
         final hasHoliday = dayEvents.any((e) => e.isHoliday);
+        final hasSpecialEvent = dayEvents.any((e) => e.isSpecialEvent);
         final isFastStart = dayEvents.any((e) => e.isFast && e.isDayStart(day));
         final isFastEnd = dayEvents.any((e) => e.isFast && e.isDayEnd(day));
-        final isMajorHoliday = dayEvents.any((e) => e.isHoliday && e.isMajor);
+        final isMajorHoliday = dayEvents.any((e) => e.isMajorHoliday);
         final isMajorFast = dayEvents.any((e) => e.isFast && e.isMajor);
 
         return _buildDayCell(
@@ -362,6 +366,7 @@ class CalendarScreen extends ConsumerWidget {
           dayEvents: dayEvents,
           hasFast: hasFast,
           hasHoliday: hasHoliday,
+          hasSpecialEvent: hasSpecialEvent,
           isFastStart: isFastStart,
           isFastEnd: isFastEnd,
           isMajorHoliday: isMajorHoliday,
@@ -371,24 +376,12 @@ class CalendarScreen extends ConsumerWidget {
             _showDayNotesSheet(context, cellDate);
           },
           onLongPress: () {
-            if (dayEvents.isNotEmpty) {
+            if (canManage) {
+              _showDayContextMenu(context, cellDate, dayEvents);
+            } else if (dayEvents.isNotEmpty) {
               CalendarEventDetailsDialog.show(
                 context,
-                event: dayEvents.first,
-                selectedDay: day,
-                selectedMonth: month,
-                selectedYear: year,
-              );
-            } else if (canManage) {
-              ref.read(calendarProvider.notifier).selectDate(year, month, day);
-              _showAddNoteSheet(context, cellDate);
-            }
-          },
-          onSecondaryTap: () {
-            if (dayEvents.isNotEmpty) {
-              CalendarEventDetailsDialog.show(
-                context,
-                event: dayEvents.first,
+                events: dayEvents,
                 selectedDay: day,
                 selectedMonth: month,
                 selectedYear: year,
@@ -397,6 +390,9 @@ class CalendarScreen extends ConsumerWidget {
               ref.read(calendarProvider.notifier).selectDate(year, month, day);
               _showDayNotesSheet(context, cellDate);
             }
+          },
+          onSecondaryTap: () {
+            _showDayContextMenu(context, cellDate, dayEvents);
           },
         );
       }, childCount: rows * 7),
@@ -416,6 +412,7 @@ class CalendarScreen extends ConsumerWidget {
     required List<CalendarEventModel> dayEvents,
     required bool hasFast,
     required bool hasHoliday,
+    required bool hasSpecialEvent,
     required bool isFastStart,
     required bool isFastEnd,
     required bool isMajorHoliday,
@@ -426,15 +423,25 @@ class CalendarScreen extends ConsumerWidget {
   }) {
     final isDark = theme.brightness == Brightness.dark;
 
+    // Default color rules:
+    // Orange (#F59E0B) — Fasting period
+    // Red (#DC2626) — Major holiday
+    // Green (#16A34A) — Fast start/end or special event markers
+    const orangeColor = Color(0xFFF59E0B);
+    const redColor = Color(0xFFDC2626);
+    const greenColor = Color(0xFF16A34A);
+
     Color? textColor;
     if (isSelected) {
       textColor = theme.colorScheme.onPrimaryContainer;
     } else if (isToday) {
       textColor = theme.colorScheme.primary;
     } else if (isMajorHoliday) {
-      textColor = isDark ? Colors.amber.shade300 : Colors.amber.shade900;
+      textColor = isDark ? const Color(0xFFFCA5A5) : redColor;
     } else if (hasFast) {
-      textColor = isDark ? Colors.purple.shade200 : Colors.purple.shade800;
+      textColor = isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706);
+    } else if (hasSpecialEvent) {
+      textColor = isDark ? const Color(0xFF86EFAC) : greenColor;
     } else {
       textColor = theme.textTheme.bodyLarge?.color;
     }
@@ -443,16 +450,42 @@ class CalendarScreen extends ConsumerWidget {
         isSelected ||
         isMajorHoliday ||
         isFastStart ||
-        isFastEnd;
+        isFastEnd ||
+        hasSpecialEvent;
+
+    // Background color: subtle tinting (never solid opaque) to maintain text accessibility
+    Color backgroundColor;
+    if (isSelected) {
+      backgroundColor = theme.colorScheme.primaryContainer;
+    } else if (isToday) {
+      backgroundColor = theme.colorScheme.secondaryContainer.withValues(alpha: 0.3);
+    } else if (hasFast && isMajorHoliday) {
+      // Conflict resolution: Fasting tint + holiday accent border
+      backgroundColor = orangeColor.withValues(alpha: isDark ? 0.16 : 0.09);
+    } else if (hasFast) {
+      backgroundColor = orangeColor.withValues(alpha: isDark ? 0.14 : 0.08);
+    } else if (isMajorHoliday) {
+      backgroundColor = redColor.withValues(alpha: isDark ? 0.14 : 0.08);
+    } else if (hasSpecialEvent) {
+      backgroundColor = greenColor.withValues(alpha: isDark ? 0.14 : 0.08);
+    } else {
+      backgroundColor = Colors.transparent;
+    }
+
+    // Border: highlighting today, major holiday, fast, or special event
+    Border? border;
+    if (isToday && !isSelected) {
+      border = Border.all(color: theme.colorScheme.primary, width: 2);
+    } else if (isMajorHoliday && !isSelected) {
+      border = Border.all(color: redColor.withValues(alpha: 0.7), width: 1.2);
+    } else if (hasFast && !isSelected) {
+      border = Border.all(color: orangeColor.withValues(alpha: 0.35), width: 1);
+    } else if (hasSpecialEvent && !isSelected) {
+      border = Border.all(color: greenColor.withValues(alpha: 0.5), width: 1);
+    }
 
     return Material(
-      color: isSelected
-          ? theme.colorScheme.primaryContainer
-          : (isToday
-              ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
-              : (hasFast
-                  ? Colors.purple.withValues(alpha: isDark ? 0.08 : 0.04)
-                  : Colors.transparent)),
+      color: backgroundColor,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -462,18 +495,11 @@ class CalendarScreen extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: isToday && !isSelected
-                ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : (isMajorHoliday && !isSelected
-                    ? Border.all(
-                        color: Colors.amber.withValues(alpha: 0.6),
-                        width: 1,
-                      )
-                    : null),
+            border: border,
           ),
           child: Stack(
             children: [
-              // Top-left badge: Fast start/end or Major Holiday star
+              // Top-left badge: Fast start (Green መግቢያ), Fast end (Green ፍጻሜ), or Major Holiday star (Red)
               if (isFastStart)
                 Positioned(
                   top: 2,
@@ -484,7 +510,7 @@ class CalendarScreen extends ConsumerWidget {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade700,
+                      color: greenColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
@@ -511,7 +537,7 @@ class CalendarScreen extends ConsumerWidget {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.deepOrange.shade700,
+                      color: greenColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
@@ -535,7 +561,32 @@ class CalendarScreen extends ConsumerWidget {
                   child: Icon(
                     Icons.star_rounded,
                     size: 14,
-                    color: Colors.amber.shade800,
+                    color: redColor,
+                  ),
+                )
+              else if (hasSpecialEvent)
+                Positioned(
+                  top: 3,
+                  left: 3,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: greenColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+
+              // If day has both fasting and holiday, show holiday star at top right when start/end badge occupies top-left
+              if (isMajorHoliday && (isFastStart || isFastEnd))
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Icon(
+                    Icons.star_rounded,
+                    size: 13,
+                    color: redColor,
                   ),
                 ),
 
@@ -550,7 +601,7 @@ class CalendarScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Bottom Indicator Row: Fast Dot + Holiday Dot + Note Count Badge
+              // Bottom Indicator Row: Fast Dot (Orange) + Holiday Dot (Red) + Special Dot (Green) + Note Count Badge
               Positioned(
                 bottom: 3,
                 left: 0,
@@ -564,12 +615,8 @@ class CalendarScreen extends ConsumerWidget {
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: BoxDecoration(
-                            color: isFastStart
-                                ? Colors.green.shade700
-                                : (isFastEnd
-                                    ? Colors.deepOrange.shade700
-                                    : const Color(0xFF7C3AED)),
+                          decoration: const BoxDecoration(
+                            color: orangeColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -579,9 +626,17 @@ class CalendarScreen extends ConsumerWidget {
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
                           decoration: BoxDecoration(
-                            color: isMajorHoliday
-                                ? Colors.amber.shade800
-                                : Colors.teal.shade700,
+                            color: isMajorHoliday ? redColor : const Color(0xFFD97706),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      if (hasSpecialEvent)
+                        Container(
+                          width: 5,
+                          height: 5,
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          decoration: const BoxDecoration(
+                            color: greenColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -614,8 +669,8 @@ class CalendarScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Top-right Icons: Media & Reminder
-              if (hasReminder || hasMedia)
+              // Top-right Icons: Media & Reminder (when not occupied by holiday star)
+              if ((hasReminder || hasMedia) && !(isMajorHoliday && (isFastStart || isFastEnd)))
                 Positioned(
                   top: 3,
                   right: 3,
@@ -657,6 +712,119 @@ class CalendarScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (context) => AddNoteSheet(selectedDate: date),
+    );
+  }
+
+  void _showDayContextMenu(
+    BuildContext context,
+    EtDatetime cellDate,
+    List<CalendarEventModel> dayEvents,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final tr = ref.watch(trProvider);
+          final canManage = _canManage(ref);
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          EthiopianCalendarUtil.formatEthiopianDate(cellDate),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  if (dayEvents.isNotEmpty)
+                    ListTile(
+                      leading: const Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      title: Text(
+                        dayEvents.length > 1
+                            ? '${tr('calendar.multiple_events', {'fallback': 'ሁነቶች'})} (${dayEvents.length})'
+                            : dayEvents.first.name,
+                      ),
+                      subtitle: Text(
+                        dayEvents.map((e) => e.name).join(' • '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        CalendarEventDetailsDialog.show(
+                          context,
+                          events: dayEvents,
+                          selectedDay: cellDate.day,
+                          selectedMonth: cellDate.month,
+                          selectedYear: cellDate.year,
+                        );
+                      },
+                    ),
+                  if (canManage)
+                    ListTile(
+                      leading: const Icon(
+                        Icons.app_registration_rounded,
+                        color: Color(0xFF16A34A),
+                      ),
+                      title: Text(
+                        tr(
+                          'calendar.configure_day',
+                          {'fallback': 'ይህንን ቀን አመቻች/መዝግብ'},
+                        ),
+                      ),
+                      subtitle: const Text('ጾም፣ በዓል ወይም የቀን ቀለም አዋቅር'),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        ManageCalendarEventDialog.show(
+                          context,
+                          prefillYear: cellDate.year,
+                          prefillMonth: cellDate.month,
+                          prefillDay: cellDate.day,
+                        );
+                      },
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.note_alt_outlined),
+                    title: Text(
+                      tr('calendar.tab_calendar', {'fallback': 'ማስታወሻዎች'}),
+                    ),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      ref.read(calendarProvider.notifier).selectDate(
+                            cellDate.year,
+                            cellDate.month,
+                            cellDate.day,
+                          );
+                      _showDayNotesSheet(context, cellDate);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

@@ -107,9 +107,13 @@ export class CalendarEventsService implements OnModuleInit {
       );
     }
 
-    // If same month, start day must be <= end day
-    if (dto.startMonth === dto.endMonth && dto.startDay > dto.endDay) {
-      throw new BadRequestException('Start day cannot be after end day in the same month');
+    // If same month and same year (or recurring), start day must be <= end day
+    const sYear = (dto as any).startYear;
+    const eYear = (dto as any).endYear;
+    if (dto.startMonth === dto.endMonth && (sYear == null || eYear == null || sYear === eYear)) {
+      if (dto.startDay > dto.endDay) {
+        throw new BadRequestException('Start day cannot be after end day in the same month');
+      }
     }
   }
 
@@ -135,8 +139,13 @@ export class CalendarEventsService implements OnModuleInit {
     const startGregorian = ethiopianToGregorian(startYear, event.startMonth, event.startDay);
     const endGregorian = ethiopianToGregorian(endYear, event.endMonth, event.endDay);
 
+    const isMajor = event.isMajor ?? ((event as any).importance === 'MAJOR');
+    const importance = (event as any).importance ?? (isMajor ? 'MAJOR' : 'NORMAL');
+
     return {
       ...event,
+      isMajor,
+      importance,
       durationDays,
       startEthiopianDateFormatted: formatEthiopianDate(startYear, event.startMonth, event.startDay),
       endEthiopianDateFormatted: formatEthiopianDate(endYear, event.endMonth, event.endDay),
@@ -167,6 +176,10 @@ export class CalendarEventsService implements OnModuleInit {
 
     if (query.isMajor !== undefined) {
       where.isMajor = query.isMajor;
+    }
+
+    if (query.importance) {
+      where.importance = query.importance;
     }
 
     if (query.search) {
@@ -207,7 +220,11 @@ export class CalendarEventsService implements OnModuleInit {
       where: {
         deletedAt: null,
         isActive: true,
-        OR: [{ isRecurring: true }, { ethiopianYear: year }],
+        OR: [
+          { isRecurring: true },
+          { ethiopianYear: year },
+          { AND: [{ startYear: { lte: year } }, { endYear: { gte: year } }] },
+        ],
       },
       orderBy: [{ startMonth: 'asc' }, { startDay: 'asc' }],
     });
@@ -235,7 +252,11 @@ export class CalendarEventsService implements OnModuleInit {
       where: {
         deletedAt: null,
         isActive: true,
-        OR: [{ isRecurring: true }, { ethiopianYear: year }],
+        OR: [
+          { isRecurring: true },
+          { ethiopianYear: year },
+          { AND: [{ startYear: { lte: year } }, { endYear: { gte: year } }] },
+        ],
       },
       orderBy: [{ startMonth: 'asc' }, { startDay: 'asc' }],
     });
@@ -300,6 +321,22 @@ export class CalendarEventsService implements OnModuleInit {
       );
     }
 
+    const isMajor = dto.isMajor ?? (dto.importance === 'MAJOR');
+    const importance = dto.importance ?? (isMajor ? 'MAJOR' : 'NORMAL');
+
+    let primaryColor = dto.primaryColor;
+    if (!primaryColor || primaryColor.trim() === '') {
+      if (dto.type === 'FAST') {
+        primaryColor = '#F59E0B'; // Orange default for fasting period
+      } else if (dto.type === 'HOLIDAY' && isMajor) {
+        primaryColor = '#DC2626'; // Red default for major holiday
+      } else if (dto.type === 'SPECIAL_EVENT' || importance === 'SPECIAL') {
+        primaryColor = '#16A34A'; // Green default for special event
+      } else {
+        primaryColor = '#F59E0B';
+      }
+    }
+
     const created = await this.prisma.calendarEvent.create({
       data: {
         name: dto.name,
@@ -317,9 +354,10 @@ export class CalendarEventsService implements OnModuleInit {
         description: dto.description,
         spiritualMeaning: dto.spiritualMeaning,
         fastingRules: dto.fastingRules,
-        primaryColor: dto.primaryColor,
+        primaryColor,
         icon: dto.icon,
-        isMajor: dto.isMajor ?? false,
+        isMajor,
+        importance,
         isActive: dto.isActive ?? true,
         createdById: userId,
       },
@@ -369,7 +407,12 @@ export class CalendarEventsService implements OnModuleInit {
         ...(dto.fastingRules !== undefined ? { fastingRules: dto.fastingRules } : {}),
         ...(dto.primaryColor !== undefined ? { primaryColor: dto.primaryColor } : {}),
         ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-        ...(dto.isMajor !== undefined ? { isMajor: dto.isMajor } : {}),
+        ...(dto.isMajor !== undefined
+          ? { isMajor: dto.isMajor }
+          : dto.importance === 'MAJOR'
+            ? { isMajor: true }
+            : {}),
+        ...(dto.importance !== undefined ? { importance: dto.importance } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });

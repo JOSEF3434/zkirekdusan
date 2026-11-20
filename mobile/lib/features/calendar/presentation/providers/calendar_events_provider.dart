@@ -64,6 +64,7 @@ class AdminCalendarEventsNotifier
     String? type,
     String? category,
     bool? isMajor,
+    String? importance,
     bool? includeInactive = true,
     String? search,
   }) async {
@@ -74,6 +75,7 @@ class AdminCalendarEventsNotifier
         type: type,
         category: category,
         isMajor: isMajor,
+        importance: importance,
         includeInactive: includeInactive,
         search: search,
       );

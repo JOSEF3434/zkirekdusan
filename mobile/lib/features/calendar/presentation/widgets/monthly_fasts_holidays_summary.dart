@@ -228,10 +228,12 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
     String Function(String, [Map<String, dynamic>?]) tr,
     CalendarEventModel event,
   ) {
-    final eventColor = _parseColor(event.primaryColor) ??
+    final eventColor = _parseColor(event.effectiveColorHex) ??
         (event.isFast
-            ? Colors.purple.shade700
-            : (event.isMajor ? Colors.amber.shade800 : Colors.teal.shade700));
+            ? const Color(0xFFF59E0B)
+            : (event.isMajorHoliday
+                ? const Color(0xFFDC2626)
+                : const Color(0xFF16A34A)));
 
     final isStartInThisMonth =
         event.coverage?.isStartMonth ?? (event.startMonth == month);

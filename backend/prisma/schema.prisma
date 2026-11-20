@@ -247,6 +247,7 @@ enum CalendarPublicationStatus {
 enum CalendarEventType {
   FAST
   HOLIDAY
+  SPECIAL_EVENT
 }
 
 enum CalendarEventCategory {
@@ -3007,6 +3008,7 @@ model CalendarEvent {
   primaryColor     String?
   icon             String?
   isMajor          Boolean               @default(false)
+  importance       String?               @default("NORMAL")
   isActive         Boolean               @default(true)
 
   // Audit
