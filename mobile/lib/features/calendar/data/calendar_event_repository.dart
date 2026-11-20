@@ -491,7 +491,10 @@ class CalendarEventRepository {
     final result = <CalendarEventModel>[];
 
     for (final e in yearEvents) {
-      if (e.id == 'builtin-wed-fri' || e.name.contains('የረቡዕ እና የዓርብ')) {
+      if (e.id.contains('wed-fri') ||
+          e.name.contains('ድኅነት') ||
+          e.name.contains('የረቡዕ እና የዓርብ') ||
+          (e.nameEn != null && e.nameEn!.contains('Wednesday & Friday'))) {
         continue;
       }
       final overlaps = _checkOverlap(e, month);
@@ -569,8 +572,8 @@ class CalendarEventRepository {
           coverage: CalendarEventCoverageModel(
             overlaps: true,
             days: wedFriDays,
-            isStartMonth: month == 1,
-            isEndMonth: month == 13,
+            isStartMonth: false,
+            isEndMonth: false,
             startDay: wedFriDays.first,
             endDay: wedFriDays.last,
             durationDays: wedFriDays.length,

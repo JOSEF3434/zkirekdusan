@@ -286,8 +286,15 @@ export class CalendarEventsService implements OnModuleInit {
       }
     }
 
-    // Filter by actual month overlap and decorate with monthly coverage
+    // Filter by actual month overlap and decorate with monthly coverage.
+    // Exclude annual template/placeholder for Wednesday & Friday fasts, as it is computed per-month with active fast days.
     const monthEvents = combinedEvents
+      .filter(
+        (e) =>
+          !e.name.includes('ጾመ ድኅነት') &&
+          !e.name.includes('Wednesday & Friday Fast') &&
+          e.id !== 'fast-wed-fri',
+      )
       .filter((e) => doesEventOverlapMonth(e, year, month))
       .map((e) => {
         const coverage = getEventMonthDaysCoverage(e, year, month);
@@ -301,8 +308,6 @@ export class CalendarEventsService implements OnModuleInit {
     // Add recurring Wednesday & Friday fast (ጾመ ድኅነት) with month-specific coverage
     const wedFriDays = getWednesdayFridayFastDaysForMonth(year, month);
     if (wedFriDays.length > 0) {
-      const isStartMonth = month === 1;
-      const isEndMonth = month === 13;
       monthEvents.push({
         id: `wed-fri-fast-${year}-${month}`,
         name: 'ጾመ ድኅነት (የረቡዕ እና የዓርብ ጾም)',
@@ -313,10 +318,10 @@ export class CalendarEventsService implements OnModuleInit {
         isMajor: true,
         importance: 'MAJOR',
         primaryColor: '#F59E0B',
-        startMonth: 1,
-        startDay: 1,
-        endMonth: 13,
-        endDay: 6,
+        startMonth: month,
+        startDay: wedFriDays[0],
+        endMonth: month,
+        endDay: wedFriDays[wedFriDays.length - 1],
         description:
           'ዓመቱን ሙሉ በየሳምንቱ የሚጾም የረቡዕ (የጌታችን የመያዝ ምክር) እና የዓርብ (የስቅለቱ መታሰቢያ) ጾም። ከትንሣኤ እስከ ጰራቅሊጦስ ባሉት ፶ ቀናት (በዓለ ኀምሳ) እና በገና/ጥምቀት በዓላት ወቅት ጾሙ ይፈሰካል።',
         spiritualMeaning:
@@ -339,8 +344,8 @@ export class CalendarEventsService implements OnModuleInit {
         coverage: {
           overlaps: true,
           days: wedFriDays,
-          isStartMonth,
-          isEndMonth,
+          isStartMonth: false,
+          isEndMonth: false,
           startDay: wedFriDays[0],
           endDay: wedFriDays[wedFriDays.length - 1],
           durationDays: wedFriDays.length,

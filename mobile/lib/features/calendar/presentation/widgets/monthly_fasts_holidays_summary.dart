@@ -11,11 +11,13 @@ import 'package:mobile/features/calendar/presentation/widgets/calendar_event_det
 class MonthlyFastsHolidaysSummary extends ConsumerWidget {
   final int year;
   final int month;
+  final double horizontalMargin;
 
   const MonthlyFastsHolidaysSummary({
     super.key,
     required this.year,
     required this.month,
+    this.horizontalMargin = 16.0,
   });
 
   @override
@@ -27,7 +29,7 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
     );
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -235,13 +237,23 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
                 ? const Color(0xFFDC2626)
                 : const Color(0xFF16A34A)));
 
+    final isWedFri = event.id.contains('wed-fri') ||
+        event.name.contains('ድኅነት') ||
+        event.name.contains('የረቡዕ እና የዓርብ') ||
+        (event.nameEn != null && event.nameEn!.contains('Wednesday & Friday'));
+
     final isStartInThisMonth =
         event.coverage?.isStartMonth ?? (event.startMonth == month);
     final isEndInThisMonth =
         event.coverage?.isEndMonth ?? (event.endMonth == month);
 
+    final fastDaysCount = event.coverage?.days.length ??
+        (event.durationDays <= 14 ? event.durationDays : 8);
+
     String dateSubtitle = '';
-    if (event.startMonth == event.endMonth) {
+    if (isWedFri) {
+      dateSubtitle = 'በዚህ ወር $fastDaysCount የጾም ቀናት (ረቡዕ እና ዓርብ)';
+    } else if (event.startMonth == event.endMonth) {
       if (event.startDay == event.endDay) {
         dateSubtitle = '${event.startDay} ${EthiopianCalendarUtil.getMonthName(month)}';
       } else {
@@ -255,7 +267,7 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
     }
 
     String? multiMonthNote;
-    if (event.startMonth != event.endMonth) {
+    if (!isWedFri && event.startMonth != event.endMonth) {
       if (isStartInThisMonth && !isEndInThisMonth) {
         multiMonthNote =
             'ይህ ጾም እስከ ${EthiopianCalendarUtil.getMonthName(event.endMonth)} ${event.endDay} ይቀጥላል';
@@ -313,7 +325,7 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        if (event.durationDays > 1)
+                        if ((isWedFri && fastDaysCount > 0) || (!isWedFri && event.durationDays > 1))
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -324,7 +336,7 @@ class MonthlyFastsHolidaysSummary extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              '${event.durationDays} ቀናት',
+                              isWedFri ? '$fastDaysCount ቀናት' : '${event.durationDays} ቀናት',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,

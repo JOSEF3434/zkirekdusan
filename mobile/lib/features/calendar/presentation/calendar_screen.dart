@@ -32,6 +32,13 @@ class CalendarScreen extends ConsumerWidget {
     return role == 'SUPER_ADMIN' || canManageCal;
   }
 
+  double _getHorizontalMargin(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width > 1200) return 36.0;
+    if (width > 800) return 24.0;
+    return 16.0;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -39,6 +46,7 @@ class CalendarScreen extends ConsumerWidget {
     final calendarState = ref.watch(calendarProvider);
     final tr = ref.watch(trProvider);
     final topTab = ref.watch(calendarTopTabProvider);
+    final horizontalMargin = _getHorizontalMargin(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -124,16 +132,17 @@ class CalendarScreen extends ConsumerWidget {
             SliverAppBar(
               floating: true,
               pinned: true,
-              expandedHeight: 120,
+              expandedHeight: 90,
               flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                title: Column(
+                titlePadding: EdgeInsets.only(left: horizontalMargin, bottom: 12),
+                title: Row(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
                       EthiopianCalendarUtil.getMonthName(calendarState.month),
-                      style: theme.textTheme.headlineSmall?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontFamilyFallback: const [
                           'Noto Serif Ethiopic',
@@ -141,9 +150,10 @@ class CalendarScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${calendarState.year}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.textTheme.bodySmall?.color,
                       ),
                     ),
@@ -181,8 +191,8 @@ class CalendarScreen extends ConsumerWidget {
             // Gregorian equivalent
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalMargin,
                   vertical: 8,
                 ),
                 child: Text(
@@ -201,18 +211,18 @@ class CalendarScreen extends ConsumerWidget {
             ),
 
             // Weekday header
-            SliverToBoxAdapter(child: _buildWeekdayHeader(theme)),
+            SliverToBoxAdapter(child: _buildWeekdayHeader(theme, horizontalMargin)),
 
             // Calendar grid
             SliverPadding(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 8),
               sliver: _buildCalendarGrid(theme, calendarState, ref, canManage),
             ),
 
             // Selected date info
             if (calendarState.selectedDate != null)
               SliverToBoxAdapter(
-                child: _buildSelectedDateInfo(theme, calendarState),
+                child: _buildSelectedDateInfo(theme, calendarState, horizontalMargin),
               ),
 
             // Monthly Fasting & Holiday Summary
@@ -220,6 +230,7 @@ class CalendarScreen extends ConsumerWidget {
               child: MonthlyFastsHolidaysSummary(
                 year: calendarState.year,
                 month: calendarState.month,
+                horizontalMargin: horizontalMargin,
               ),
             ),
             const SliverToBoxAdapter(
@@ -242,9 +253,9 @@ class CalendarScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeekdayHeader(ThemeData theme) {
+  Widget _buildWeekdayHeader(ThemeData theme, double horizontalMargin) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: EdgeInsets.symmetric(vertical: 10, horizontal: horizontalMargin),
       child: Row(
         children: EthiopianCalendarUtil.ethiopianWeekdayNames.map((weekday) {
           return Expanded(
@@ -348,8 +359,18 @@ class CalendarScreen extends ConsumerWidget {
         final hasFast = dayEvents.any((e) => e.isFast);
         final hasHoliday = dayEvents.any((e) => e.isHoliday);
         final hasSpecialEvent = dayEvents.any((e) => e.isSpecialEvent);
-        final isFastStart = dayEvents.any((e) => e.isFast && e.isDayStart(day));
-        final isFastEnd = dayEvents.any((e) => e.isFast && e.isDayEnd(day));
+        final isFastStart = dayEvents.any((e) =>
+            e.isFast &&
+            !e.id.contains('wed-fri') &&
+            !e.name.contains('ድኅነት') &&
+            !e.name.contains('የረቡዕ እና የዓርብ') &&
+            e.isDayStart(day));
+        final isFastEnd = dayEvents.any((e) =>
+            e.isFast &&
+            !e.id.contains('wed-fri') &&
+            !e.name.contains('ድኅነት') &&
+            !e.name.contains('የረቡዕ እና የዓርብ') &&
+            e.isDayEnd(day));
         final isMajorHoliday = dayEvents.any((e) => e.isMajorHoliday);
         final isMajorFast = dayEvents.any((e) => e.isFast && e.isMajor);
 
@@ -423,11 +444,11 @@ class CalendarScreen extends ConsumerWidget {
   }) {
     final isDark = theme.brightness == Brightness.dark;
 
-    // Default color rules:
-    // Orange (#F59E0B) — Fasting period
-    // Red (#DC2626) — Major holiday
-    // Green (#16A34A) — Fast start/end or special event markers
-    const orangeColor = Color(0xFFF59E0B);
+    // Refined compatible liturgical colors:
+    // Fasting: warm amber gold (#F59E0B / #D97706)
+    // Major Holiday: crimson red (#DC2626)
+    // Special Event / Feast: emerald green (#16A34A)
+    final fastColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
     const redColor = Color(0xFFDC2626);
     const greenColor = Color(0xFF16A34A);
 
@@ -439,7 +460,8 @@ class CalendarScreen extends ConsumerWidget {
     } else if (isMajorHoliday) {
       textColor = isDark ? const Color(0xFFFCA5A5) : redColor;
     } else if (hasFast) {
-      textColor = isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706);
+      // Clean readable text: warm ivory in dark mode, deep amber in light mode
+      textColor = isDark ? const Color(0xFFFEF3C7) : const Color(0xFFB45309);
     } else if (hasSpecialEvent) {
       textColor = isDark ? const Color(0xFF86EFAC) : greenColor;
     } else {
@@ -453,7 +475,7 @@ class CalendarScreen extends ConsumerWidget {
         isFastEnd ||
         hasSpecialEvent;
 
-    // Background color: subtle tinting (never solid opaque) to maintain text accessibility
+    // Background color: clean, very subtle ambient aura (never muddy opaque brown!)
     Color backgroundColor;
     if (isSelected) {
       backgroundColor = theme.colorScheme.primaryContainer;
@@ -461,13 +483,14 @@ class CalendarScreen extends ConsumerWidget {
       backgroundColor = theme.colorScheme.secondaryContainer.withValues(alpha: 0.3);
     } else if (hasFast && isMajorHoliday) {
       // Conflict resolution: Fasting tint + holiday accent border
-      backgroundColor = orangeColor.withValues(alpha: isDark ? 0.16 : 0.09);
+      backgroundColor = fastColor.withValues(alpha: isDark ? 0.06 : 0.07);
     } else if (hasFast) {
-      backgroundColor = orangeColor.withValues(alpha: isDark ? 0.14 : 0.08);
+      // 4.5% opacity in dark mode gives a pristine, gentle golden sheen rather than dark muddy brown
+      backgroundColor = fastColor.withValues(alpha: isDark ? 0.045 : 0.06);
     } else if (isMajorHoliday) {
-      backgroundColor = redColor.withValues(alpha: isDark ? 0.14 : 0.08);
+      backgroundColor = redColor.withValues(alpha: isDark ? 0.10 : 0.06);
     } else if (hasSpecialEvent) {
-      backgroundColor = greenColor.withValues(alpha: isDark ? 0.14 : 0.08);
+      backgroundColor = greenColor.withValues(alpha: isDark ? 0.10 : 0.06);
     } else {
       backgroundColor = Colors.transparent;
     }
@@ -477,11 +500,11 @@ class CalendarScreen extends ConsumerWidget {
     if (isToday && !isSelected) {
       border = Border.all(color: theme.colorScheme.primary, width: 2);
     } else if (isMajorHoliday && !isSelected) {
-      border = Border.all(color: redColor.withValues(alpha: 0.7), width: 1.2);
+      border = Border.all(color: redColor.withValues(alpha: isDark ? 0.6 : 0.7), width: 1.2);
     } else if (hasFast && !isSelected) {
-      border = Border.all(color: orangeColor.withValues(alpha: 0.35), width: 1);
+      border = Border.all(color: fastColor.withValues(alpha: isDark ? 0.22 : 0.28), width: 1);
     } else if (hasSpecialEvent && !isSelected) {
-      border = Border.all(color: greenColor.withValues(alpha: 0.5), width: 1);
+      border = Border.all(color: greenColor.withValues(alpha: isDark ? 0.35 : 0.45), width: 1);
     }
 
     return Material(
@@ -615,8 +638,8 @@ class CalendarScreen extends ConsumerWidget {
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: const BoxDecoration(
-                            color: orangeColor,
+                          decoration: BoxDecoration(
+                            color: fastColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -828,12 +851,16 @@ class CalendarScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSelectedDateInfo(ThemeData theme, CalendarState state) {
+  Widget _buildSelectedDateInfo(
+    ThemeData theme,
+    CalendarState state,
+    double horizontalMargin,
+  ) {
     final selected = state.selectedDate!;
     final gregorian = EthiopianCalendarUtil.toGregorian(selected);
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,

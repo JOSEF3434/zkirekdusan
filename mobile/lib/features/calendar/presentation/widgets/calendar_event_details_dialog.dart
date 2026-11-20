@@ -310,7 +310,24 @@ class _CalendarEventDetailsDialogState
                 ),
 
               // Duration Badge
-              if (event.durationDays > 1)
+              if (isWedFriFast(event))
+                Chip(
+                  backgroundColor:
+                      theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  label: Text(
+                    widget.selectedMonth != null
+                        ? '${event.coverage?.days.length ?? (event.durationDays <= 14 ? event.durationDays : 8)} ቀናት በዚህ ወር'
+                        : 'ሳምንታዊ ጾም',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: EdgeInsets.zero,
+                )
+              else if (event.durationDays > 1)
                 Chip(
                   backgroundColor:
                       theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
@@ -517,7 +534,23 @@ class _CalendarEventDetailsDialogState
     );
   }
 
+  bool isWedFriFast(CalendarEventModel event) {
+    return event.id.contains('wed-fri') ||
+        event.name.contains('ድኅነት') ||
+        event.name.contains('የረቡዕ እና የዓርብ') ||
+        (event.nameEn != null && event.nameEn!.contains('Wednesday & Friday'));
+  }
+
   String _formatEthiopianRange(CalendarEventModel event) {
+    if (isWedFriFast(event)) {
+      if (widget.selectedMonth != null) {
+        final daysCount = event.coverage?.days.length ??
+            (event.durationDays <= 14 ? event.durationDays : 8);
+        return 'በዚህ ወር $daysCount የጾም ቀናት (ረቡዕ እና ዓርብ)';
+      }
+      return 'ዓመቱን ሙሉ በየሳምንቱ ረቡዕ እና ዓርብ';
+    }
+
     final startM = EthiopianCalendarUtil.getMonthName(event.startMonth);
     final endM = EthiopianCalendarUtil.getMonthName(event.endMonth);
     final year = widget.selectedYear ?? event.ethiopianYear;

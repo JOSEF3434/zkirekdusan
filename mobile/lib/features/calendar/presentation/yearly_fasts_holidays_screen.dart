@@ -291,13 +291,20 @@ class _YearlyFastsHolidaysScreenState
     String Function(String, [Map<String, dynamic>?]) tr,
     CalendarEventModel event,
   ) {
-    final eventColor = _parseColor(event.primaryColor) ??
+    final eventColor = _parseColor(event.effectiveColorHex) ??
         (event.isFast
-            ? Colors.purple.shade700
-            : (event.isMajor ? Colors.amber.shade800 : Colors.teal.shade700));
+            ? const Color(0xFFF59E0B)
+            : (event.isMajor ? const Color(0xFFDC2626) : const Color(0xFF16A34A)));
+
+    final isWedFri = event.id.contains('wed-fri') ||
+        event.name.contains('ድኅነት') ||
+        event.name.contains('የረቡዕ እና የዓርብ') ||
+        (event.nameEn != null && event.nameEn!.contains('Wednesday & Friday'));
 
     String dateRangeStr = '';
-    if (event.startMonth == event.endMonth) {
+    if (isWedFri) {
+      dateRangeStr = 'ዓመቱን ሙሉ በየሳምንቱ (ረቡዕ እና ዓርብ)';
+    } else if (event.startMonth == event.endMonth) {
       if (event.startDay == event.endDay) {
         dateRangeStr =
             '${event.startDay} ${EthiopianCalendarUtil.getMonthName(event.startMonth)}';
@@ -379,7 +386,26 @@ class _YearlyFastsHolidaysScreenState
                       ],
                     ),
                   ),
-                  if (event.durationDays > 1)
+                  if (isWedFri)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: eventColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'ሳምንታዊ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: eventColor,
+                        ),
+                      ),
+                    )
+                  else if (event.durationDays > 1)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
