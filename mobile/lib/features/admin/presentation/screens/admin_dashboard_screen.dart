@@ -328,7 +328,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/content'),
                   ),
-                if (perms.canManageCalendar)
+                if (perms.canManageCalendar) ...[
                   ListTile(
                     leading: const Icon(
                       Icons.event_note_rounded,
@@ -339,6 +339,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/calendar-events'),
                   ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.menu_book_rounded,
+                      color: Color(0xFFD4AF37),
+                    ),
+                    title: Text(tr('admin.mesbaks', {'fallback': 'የምስባክ አስተዳደር'})),
+                    subtitle: Text(tr('admin.mesbaks_sub', {'fallback': 'የዕለቱን፣ የሳምንቱን እና የወሩን ምስባካት መመዝገብና ማስተዳደር'})),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin/mesbaks'),
+                  ),
+                ],
                 if (perms.canManageLive)
                   ListTile(
                     leading: const Icon(

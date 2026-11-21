@@ -14,6 +14,7 @@ import 'package:mobile/features/calendar/presentation/providers/calendar_downloa
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_theme_colors_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dart';
 
@@ -38,6 +39,7 @@ class DayNotesSheet extends ConsumerWidget {
       )),
     );
     final canManage = _canManage(ref);
+    final themeColors = ref.watch(calendarThemeColorsProvider);
 
     return Container(
       constraints: BoxConstraints(
@@ -138,18 +140,18 @@ class DayNotesSheet extends ConsumerWidget {
                       elevation: 0,
                       margin: const EdgeInsets.only(bottom: 6),
                       color: ev.isFast
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                          ? themeColors.fastColor.withValues(alpha: 0.12)
                           : (ev.isMajor
-                              ? const Color(0xFFDC2626).withValues(alpha: 0.12)
-                              : const Color(0xFF16A34A).withValues(alpha: 0.12)),
+                              ? themeColors.holidayColor.withValues(alpha: 0.12)
+                              : themeColors.feastColor.withValues(alpha: 0.12)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(
                           color: ev.isFast
-                              ? Colors.purple.withValues(alpha: 0.3)
+                              ? themeColors.fastColor.withValues(alpha: 0.35)
                               : (ev.isMajor
-                                  ? Colors.amber.withValues(alpha: 0.4)
-                                  : Colors.teal.withValues(alpha: 0.3)),
+                                  ? themeColors.holidayColor.withValues(alpha: 0.4)
+                                  : themeColors.feastColor.withValues(alpha: 0.35)),
                         ),
                       ),
                       child: InkWell(

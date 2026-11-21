@@ -99,6 +99,7 @@ import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.
 import 'package:mobile/features/admin/presentation/screens/admin_rbac_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_auth_policy_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_calendar_events_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_mesbaks_screen.dart';
 import 'package:mobile/features/calendar/presentation/yearly_fasts_holidays_screen.dart';
 import 'package:mobile/features/profile/presentation/widgets/qr_scanner_screen.dart';
 import 'package:mobile/features/groups/presentation/screens/group_channel_screen.dart';
@@ -874,6 +875,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/calendar-events',
             builder: (context, state) => const AdminCalendarEventsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/mesbaks',
+            builder: (context, state) => const AdminMesbaksScreen(),
           ),
           GoRoute(
             path: '/calendar/yearly-events',

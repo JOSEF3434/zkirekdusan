@@ -1,5 +1,7 @@
 // lib/features/calendar/presentation/providers/calendar_notes_provider.dart
+import 'package:abushakir/abushakir.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/features/calendar/data/calendar_offline_repository.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 
@@ -29,6 +31,69 @@ final calendarNotesForMonthProvider =
         month: params.month,
       );
     });
+
+/// Provider for notes within a specific Ethiopian date range
+final calendarNotesForRangeProvider = FutureProvider.family<
+    List<CalendarNoteModel>,
+    ({
+      int? startYear,
+      int? startMonth,
+      int? startDay,
+      int? endYear,
+      int? endMonth,
+      int? endDay,
+      String? from,
+      String? to,
+    })>((ref, params) async {
+  final repository = ref.watch(calendarOfflineRepositoryProvider);
+  return repository.getNotesForRange(
+    startYear: params.startYear,
+    startMonth: params.startMonth,
+    startDay: params.startDay,
+    endYear: params.endYear,
+    endMonth: params.endMonth,
+    endDay: params.endDay,
+    from: params.from,
+    to: params.to,
+  );
+});
+
+/// Provider for notes for the current Ethiopian week (Monday to Sunday)
+final calendarNotesForCurrentWeekProvider = FutureProvider<
+    List<({EtDatetime date, CalendarNoteModel? note})>>((ref) async {
+  final repository = ref.watch(calendarOfflineRepositoryProvider);
+  final nowGregorian = DateTime.now();
+  final mondayGregorian =
+      nowGregorian.subtract(Duration(days: nowGregorian.weekday - 1));
+  final weekDates = List.generate(7, (i) {
+    final gDate = mondayGregorian.add(Duration(days: i));
+    return EthiopianCalendarUtil.fromGregorian(gDate);
+  });
+
+  final startDate = weekDates.first;
+  final endDate = weekDates.last;
+
+  final notes = await repository.getNotesForRange(
+    startYear: startDate.year,
+    startMonth: startDate.month,
+    startDay: startDate.day,
+    endYear: endDate.year,
+    endMonth: endDate.month,
+    endDay: endDate.day,
+  );
+
+  return weekDates.map((d) {
+    final match = notes.where((n) =>
+        n.ethiopianYear == d.year &&
+        n.ethiopianMonth == d.month &&
+        n.ethiopianDay == d.day &&
+        n.deletedAt == null).toList();
+    return (
+      date: d,
+      note: match.isNotEmpty ? match.first : null,
+    );
+  }).toList();
+});
 
 /// Provider for creating a note (offline-first)
 final createCalendarNoteProvider =

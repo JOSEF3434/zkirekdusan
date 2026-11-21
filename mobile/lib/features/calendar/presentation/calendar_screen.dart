@@ -25,6 +25,9 @@ import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_le
 import 'package:mobile/features/calendar/presentation/providers/fasting_holiday_notification_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/fasting_holiday_notification_sheet.dart';
 import 'package:mobile/features/calendar/presentation/widgets/create_user_event_dialog.dart';
+import 'package:mobile/features/calendar/domain/calendar_theme_colors.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_theme_colors_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/calendar_color_settings_sheet.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -48,6 +51,7 @@ class CalendarScreen extends ConsumerWidget {
     final canManage = _canManage(ref);
     final calendarState = ref.watch(calendarProvider);
     final fastingHolidayState = ref.watch(fastingHolidayNotificationProvider);
+    final themeColors = ref.watch(calendarThemeColorsProvider);
     final tr = ref.watch(trProvider);
     final topTab = ref.watch(calendarTopTabProvider);
     final horizontalMargin = _getHorizontalMargin(context);
@@ -209,6 +213,20 @@ class CalendarScreen extends ConsumerWidget {
                     FastingHolidayNotificationSheet.show(context);
                   },
                 ),
+                // Calendar Color customizer shortcut
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.palette_outlined, size: 20),
+                  tooltip: tr(
+                    'calendar.customize_colors',
+                    {'fallback': 'የቀን መቁጠሪያ ቀለሞች'},
+                  ),
+                  onPressed: () {
+                    CalendarColorSettingsSheet.show(context);
+                  },
+                ),
                 // Sync status indicator
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 2.0),
@@ -274,7 +292,7 @@ class CalendarScreen extends ConsumerWidget {
             // Calendar grid
             SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 8),
-              sliver: _buildCalendarGrid(theme, calendarState, ref, canManage),
+              sliver: _buildCalendarGrid(theme, calendarState, ref, canManage, themeColors),
             ),
 
             // Selected date info
@@ -343,6 +361,7 @@ class CalendarScreen extends ConsumerWidget {
     CalendarState state,
     WidgetRef ref,
     bool canManage,
+    CalendarThemeColors themeColors,
   ) {
     final year = state.year;
     final month = state.month;
@@ -439,6 +458,7 @@ class CalendarScreen extends ConsumerWidget {
         return _buildDayCell(
           context: context,
           theme: theme,
+          themeColors: themeColors,
           day: day,
           isToday: isToday,
           isSelected: isSelected,
@@ -478,6 +498,7 @@ class CalendarScreen extends ConsumerWidget {
   Widget _buildDayCell({
     required BuildContext context,
     required ThemeData theme,
+    required CalendarThemeColors themeColors,
     required int day,
     required bool isToday,
     required bool isSelected,
@@ -499,13 +520,10 @@ class CalendarScreen extends ConsumerWidget {
   }) {
     final isDark = theme.brightness == Brightness.dark;
 
-    // Refined compatible liturgical colors:
-    // Fasting: warm amber gold (#F59E0B / #D97706)
-    // Major Holiday: crimson red (#DC2626)
-    // Special Event / Feast: emerald green (#16A34A)
-    final fastColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
-    const redColor = Color(0xFFDC2626);
-    const greenColor = Color(0xFF16A34A);
+    // User-customizable liturgical colors:
+    final fastColor = themeColors.fastColor;
+    final redColor = themeColors.holidayColor;
+    final greenColor = themeColors.feastColor;
 
     Color? textColor;
     if (isSelected) {
@@ -513,10 +531,10 @@ class CalendarScreen extends ConsumerWidget {
     } else if (isToday) {
       textColor = theme.colorScheme.primary;
     } else if (hasFast) {
-      // Clean readable text: warm ivory in dark mode, deep amber in light mode
-      textColor = isDark ? const Color(0xFFFEF3C7) : const Color(0xFFB45309);
+      // Adaptive text color corresponding to chosen fast color
+      textColor = themeColors.getFastTextColor(isDark);
     } else if (hasSpecialEvent) {
-      textColor = isDark ? const Color(0xFF86EFAC) : greenColor;
+      textColor = themeColors.getFeastTextColor(isDark);
     } else {
       textColor = theme.textTheme.bodyLarge?.color;
     }
@@ -536,8 +554,7 @@ class CalendarScreen extends ConsumerWidget {
     } else if (isToday) {
       backgroundColor = theme.colorScheme.secondaryContainer.withValues(alpha: 0.3);
     } else if (hasFast) {
-      // 4.5% opacity in dark mode gives a pristine, gentle golden sheen rather than dark muddy brown
-      backgroundColor = fastColor.withValues(alpha: isDark ? 0.045 : 0.06);
+      backgroundColor = fastColor.withValues(alpha: isDark ? 0.05 : 0.07);
     } else if (hasSpecialEvent) {
       backgroundColor = greenColor.withValues(alpha: isDark ? 0.10 : 0.06);
     } else {
@@ -550,7 +567,7 @@ class CalendarScreen extends ConsumerWidget {
     if (isToday && !isSelected) {
       border = Border.all(color: theme.colorScheme.primary, width: 2);
     } else if (hasFast && !isSelected) {
-      border = Border.all(color: fastColor.withValues(alpha: isDark ? 0.22 : 0.28), width: 1);
+      border = Border.all(color: fastColor.withValues(alpha: isDark ? 0.25 : 0.30), width: 1);
     } else if (hasSpecialEvent && !isSelected) {
       border = Border.all(color: greenColor.withValues(alpha: isDark ? 0.35 : 0.45), width: 1);
     }
@@ -642,7 +659,7 @@ class CalendarScreen extends ConsumerWidget {
                   child: Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: greenColor,
                       shape: BoxShape.circle,
                     ),
@@ -696,8 +713,8 @@ class CalendarScreen extends ConsumerWidget {
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFD97706),
+                          decoration: BoxDecoration(
+                            color: redColor.withValues(alpha: 0.85),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -706,7 +723,7 @@ class CalendarScreen extends ConsumerWidget {
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: greenColor,
                             shape: BoxShape.circle,
                           ),
@@ -895,6 +912,23 @@ class CalendarScreen extends ConsumerWidget {
                         initialMonth: cellDate.month,
                         initialDay: cellDate.day,
                       );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.palette_outlined,
+                      color: Color(0xFFF59E0B),
+                    ),
+                    title: Text(
+                      tr(
+                        'calendar.customize_colors',
+                        {'fallback': 'የቀን መቁጠሪያ ቀለሞች (Themes)'},
+                      ),
+                    ),
+                    subtitle: const Text('የጾም እና የበዓላት መለያ ቀለሞችን ያብጁ'),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      CalendarColorSettingsSheet.show(context);
                     },
                   ),
                   ListTile(

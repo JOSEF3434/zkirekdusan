@@ -7,6 +7,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/domain/calendar_event_model.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_theme_colors_provider.dart';
 
 class CalendarEventDetailsDialog extends ConsumerStatefulWidget {
   final CalendarEventModel? event;
@@ -113,13 +114,25 @@ class _CalendarEventDetailsDialogState
 
     final activeIndex = _selectedIndex < events.length ? _selectedIndex : 0;
     final event = events[activeIndex];
+    final themeColors = ref.watch(calendarThemeColorsProvider);
 
-    final eventColor = _parseColor(event.effectiveColorHex) ??
-        (event.isFast
-            ? const Color(0xFFF59E0B)
+    final isCustomColor = event.primaryColor != null &&
+        event.primaryColor!.isNotEmpty &&
+        event.primaryColor != '#F59E0B' &&
+        event.primaryColor != '#DC2626' &&
+        event.primaryColor != '#16A34A';
+    final eventColor = isCustomColor
+        ? (_parseColor(event.primaryColor) ??
+            (event.isFast
+                ? themeColors.fastColor
+                : (event.isMajorHoliday
+                    ? themeColors.holidayColor
+                    : themeColors.feastColor)))
+        : (event.isFast
+            ? themeColors.fastColor
             : (event.isMajorHoliday
-                ? const Color(0xFFDC2626)
-                : const Color(0xFF16A34A)));
+                ? themeColors.holidayColor
+                : themeColors.feastColor));
 
     final dayRoleLabel = _getDayRoleLabel(event, tr);
 
@@ -145,8 +158,19 @@ class _CalendarEventDetailsDialogState
                 children: List.generate(events.length, (idx) {
                   final ev = events[idx];
                   final isSelected = idx == activeIndex;
-                  final evColor = _parseColor(ev.effectiveColorHex) ??
-                      (ev.isFast ? const Color(0xFFF59E0B) : const Color(0xFFDC2626));
+                  final evIsCustom = ev.primaryColor != null &&
+                      ev.primaryColor!.isNotEmpty &&
+                      ev.primaryColor != '#F59E0B' &&
+                      ev.primaryColor != '#DC2626' &&
+                      ev.primaryColor != '#16A34A';
+                  final evColor = evIsCustom
+                      ? (_parseColor(ev.primaryColor) ??
+                          (ev.isFast ? themeColors.fastColor : themeColors.holidayColor))
+                      : (ev.isFast
+                          ? themeColors.fastColor
+                          : (ev.isMajorHoliday
+                              ? themeColors.holidayColor
+                              : themeColors.feastColor));
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(

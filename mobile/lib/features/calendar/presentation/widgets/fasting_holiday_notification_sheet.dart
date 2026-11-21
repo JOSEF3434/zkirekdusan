@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/presentation/providers/fasting_holiday_notification_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/calendar_color_settings_sheet.dart';
 
 class FastingHolidayNotificationSheet extends ConsumerWidget {
   const FastingHolidayNotificationSheet({super.key});
@@ -260,6 +261,70 @@ class FastingHolidayNotificationSheet extends ConsumerWidget {
               ),
             ),
           ],
+
+          const SizedBox(height: 14),
+
+          // Shortcut to Calendar Color Settings
+          InkWell(
+            onTap: () {
+              Navigator.of(context).pop();
+              CalendarColorSettingsSheet.show(context);
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF28283E) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.palette_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('calendar.customize_colors', {'fallback': 'የቀን መቁጠሪያ ቀለሞች'}),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          tr(
+                            'calendar.customize_colors_sub',
+                            {'fallback': 'የጾም እና የበዓላት መለያ ቀለሞችን ያብጁ'},
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFFF59E0B),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           const SizedBox(height: 12),
         ],

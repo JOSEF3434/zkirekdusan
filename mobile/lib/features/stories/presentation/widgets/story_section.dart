@@ -10,14 +10,24 @@ import 'package:mobile/features/stories/presentation/screens/story_viewer_screen
 import 'package:mobile/features/stories/presentation/widgets/my_story_item.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_empty_state.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_item.dart';
+import 'package:mobile/features/home/presentation/widgets/today_mesbak_button.dart';
 
 class StorySection extends ConsumerWidget {
   const StorySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Hidden platform-wide when admin disables the Stories Service.
-    if (!ref.watch(storiesEnabledProvider)) return const SizedBox.shrink();
+    // When admin disables stories service, still show the Mesbak button
+    if (!ref.watch(storiesEnabledProvider)) {
+      return Container(
+        height: 104,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [TodayMesbakButton()],
+        ),
+      );
+    }
 
     final authState = ref.watch(authProvider);
     final isAuthenticated = authState.status == AuthStatus.authenticated;
@@ -34,11 +44,14 @@ class StorySection extends ConsumerWidget {
         return Container(
           height: 104,
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 1 + (otherGroups.isEmpty ? 1 : otherGroups.length),
-            itemBuilder: (context, index) {
+          child: Row(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: 1 + (otherGroups.isEmpty ? 1 : otherGroups.length),
+                  itemBuilder: (context, index) {
               if (index == 0) {
                 return MyStoryItem(
                   myGroup: myGroup,
@@ -100,6 +113,10 @@ class StorySection extends ConsumerWidget {
               );
             },
           ),
+              ),
+              const TodayMesbakButton(),
+            ],
+          ),
         );
       },
       loading: () => _buildSkeleton(theme),
@@ -111,38 +128,45 @@ class StorySection extends ConsumerWidget {
     return Container(
       height: 104,
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
+      child: Row(
         children: [
-          MyStoryItem(
-            myGroup: null,
-            onViewStory: () {
-              if (isAuthenticated) {
-                context.push('/story/create');
-              } else {
-                context.push('/login');
-              }
-            },
-            onCreateStory: () {
-              if (isAuthenticated) {
-                context.push('/story/create');
-              } else {
-                context.push('/login');
-              }
-            },
-          ),
-          Center(
-            child: StoryEmptyState(
-              onAddStory: () {
-                if (isAuthenticated) {
-                  context.push('/story/create');
-                } else {
-                  context.push('/login');
-                }
-              },
+          Expanded(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              children: [
+                MyStoryItem(
+                  myGroup: null,
+                  onViewStory: () {
+                    if (isAuthenticated) {
+                      context.push('/story/create');
+                    } else {
+                      context.push('/login');
+                    }
+                  },
+                  onCreateStory: () {
+                    if (isAuthenticated) {
+                      context.push('/story/create');
+                    } else {
+                      context.push('/login');
+                    }
+                  },
+                ),
+                Center(
+                  child: StoryEmptyState(
+                    onAddStory: () {
+                      if (isAuthenticated) {
+                        context.push('/story/create');
+                      } else {
+                        context.push('/login');
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
+          const TodayMesbakButton(),
         ],
       ),
     );
@@ -152,11 +176,14 @@ class StorySection extends ConsumerWidget {
     return Container(
       height: 104,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: 6,
-        physics: const NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 4,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Column(
@@ -185,8 +212,12 @@ class StorySection extends ConsumerWidget {
               ],
             ),
           );
-        },
-      ),
-    );
-  }
+            },
+          ),
+        ),
+        const TodayMesbakButton(),
+      ],
+    ),
+  );
+}
 }

@@ -6,6 +6,8 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/calendar/domain/calendar_event_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/calendar_event_details_dialog.dart';
+import 'package:mobile/features/calendar/domain/calendar_theme_colors.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_theme_colors_provider.dart';
 
 class YearlyFastsHolidaysScreen extends ConsumerStatefulWidget {
   final int initialYear;
@@ -35,6 +37,7 @@ class _YearlyFastsHolidaysScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+    final themeColors = ref.watch(calendarThemeColorsProvider);
     final eventsAsync = ref.watch(calendarEventsForYearProvider(_selectedYear));
 
     return Scaffold(
@@ -275,7 +278,7 @@ class _YearlyFastsHolidaysScreenState
                   ),
 
                   // Cards for each event in this month
-                  ...monthEvents.map((event) => _buildEventCard(context, theme, tr, event)),
+                  ...monthEvents.map((event) => _buildEventCard(context, theme, tr, event, themeColors)),
                 ],
               );
             },
@@ -290,11 +293,25 @@ class _YearlyFastsHolidaysScreenState
     ThemeData theme,
     String Function(String, [Map<String, dynamic>?]) tr,
     CalendarEventModel event,
+    CalendarThemeColors themeColors,
   ) {
-    final eventColor = _parseColor(event.effectiveColorHex) ??
-        (event.isFast
-            ? const Color(0xFFF59E0B)
-            : (event.isMajor ? const Color(0xFFDC2626) : const Color(0xFF16A34A)));
+    final isCustomColor = event.primaryColor != null &&
+        event.primaryColor!.isNotEmpty &&
+        event.primaryColor != '#F59E0B' &&
+        event.primaryColor != '#DC2626' &&
+        event.primaryColor != '#16A34A';
+    final eventColor = isCustomColor
+        ? (_parseColor(event.primaryColor) ??
+            (event.isFast
+                ? themeColors.fastColor
+                : (event.isMajor
+                    ? themeColors.holidayColor
+                    : themeColors.feastColor)))
+        : (event.isFast
+            ? themeColors.fastColor
+            : (event.isMajor
+                ? themeColors.holidayColor
+                : themeColors.feastColor));
 
     final isWedFri = event.id.contains('wed-fri') ||
         event.name.contains('ድኅነት') ||

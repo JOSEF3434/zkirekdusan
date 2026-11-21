@@ -92,7 +92,74 @@ class CalendarOfflineRepository {
   // READ OPERATIONS (Local First - Instantaneous & Offline-Safe)
   // ═══════════════════════════════════════════════════════════════
 
-  /// Get notes for a specific date (authoritative local database or Web cache)
+  /// Cache server note locally (helper method)
+  Future<void> _cacheServerNote(CalendarNoteModel serverNote) async {
+    if (kIsWeb) {
+      _webCache[serverNote.id] = serverNote;
+      return;
+    }
+    try {
+      await _dao.upsertNote(
+        LocalCalendarNotesCompanion.insert(
+          id: serverNote.id,
+          userId: serverNote.userId,
+          ethiopianYear: serverNote.ethiopianYear,
+          ethiopianMonth: serverNote.ethiopianMonth,
+          ethiopianDay: serverNote.ethiopianDay,
+          gregorianDate: serverNote.gregorianDate,
+          title: Value(serverNote.title),
+          content: Value(serverNote.content),
+          hasReminder: Value(serverNote.hasReminder),
+          reminderDateTime: Value(serverNote.reminderDateTime),
+          reminderRepeat: Value(serverNote.reminderRepeat.name.toUpperCase()),
+          reminderEthiopianMonth: Value(serverNote.reminderEthiopianMonth),
+          reminderEthiopianDay: Value(serverNote.reminderEthiopianDay),
+          reminderHour: Value(serverNote.reminderHour),
+          reminderMinute: Value(serverNote.reminderMinute),
+          reminderTimezone: Value(serverNote.reminderTimezone),
+          reminderNextOccurrence: Value(serverNote.reminderNextOccurrence),
+          category: Value(serverNote.category),
+          recurrenceType:
+              Value(serverNote.recurrenceType?.name.toUpperCase() ?? 'NONE'),
+          isAutoPublishEnabled: Value(serverNote.isAutoPublishEnabled),
+          autoPublishTime: Value(serverNote.autoPublishTime),
+          publicationStatus: Value(serverNote.publicationStatus),
+          nextPublicationDate: Value(serverNote.nextPublicationDate),
+          generatedPostId: Value(serverNote.generatedPostId),
+          createdAt: serverNote.createdAt,
+          updatedAt: serverNote.updatedAt,
+          deletedAt: Value(serverNote.deletedAt),
+          isSynced: const Value(true),
+          lastSyncedAt: Value(DateTime.now()),
+        ),
+      );
+      if (serverNote.media.isNotEmpty) {
+        final mediaCompanions = serverNote.media.map((m) {
+          return LocalCalendarNoteMediaCompanion.insert(
+            id: m.id,
+            noteId: serverNote.id,
+            fileId: m.fileId,
+            order: m.order,
+            caption: Value(m.caption),
+            fileUrl: Value(m.url),
+            fileName: Value(m.fileName),
+            mimeType: Value(m.mimeType),
+            fileSize: Value(m.fileSize),
+            createdAt: m.createdAt,
+            isSynced: const Value(true),
+          );
+        }).toList();
+        await _dao.batchUpsertMedia(mediaCompanions);
+      }
+    } catch (e) {
+      developer.log(
+        'Failed to cache server note: $e',
+        name: 'CalendarOfflineRepository',
+      );
+    }
+  }
+
+  /// Get notes for a specific date (authoritative local database or Web cache, with remote fallback)
   Future<List<CalendarNoteModel>> getNotesForDate({
     required int year,
     required int month,
@@ -141,10 +208,33 @@ class CalendarOfflineRepository {
       final media = await _dao.getMediaForNote(n.id);
       results.add(_mapToModel(n, media: media));
     }
+
+    // Remote fallback if local storage doesn't have records yet
+    if (results.isEmpty) {
+      try {
+        final remote = await _remoteRepo.getNotes(
+          year: year,
+          month: month,
+          day: day,
+        );
+        for (final n in remote) {
+          if (n.deletedAt == null) {
+            await _cacheServerNote(n);
+            results.add(n);
+          }
+        }
+      } catch (e) {
+        developer.log(
+          'Mobile getNotesForDate remote fallback error: $e',
+          name: 'CalendarOfflineRepository',
+        );
+      }
+    }
+
     return results;
   }
 
-  /// Get notes for a specific month (authoritative local database or Web cache)
+  /// Get notes for a specific month (authoritative local database or Web cache, with remote fallback)
   Future<List<CalendarNoteModel>> getNotesForMonth({
     required int year,
     required int month,
@@ -194,7 +284,93 @@ class CalendarOfflineRepository {
       final media = await _dao.getMediaForNote(n.id);
       results.add(_mapToModel(n, media: media));
     }
+
+    if (results.isEmpty) {
+      try {
+        final remote = await _remoteRepo.getNotes(year: year, month: month);
+        for (final n in remote) {
+          if (n.deletedAt == null) {
+            await _cacheServerNote(n);
+            results.add(n);
+          }
+        }
+      } catch (e) {
+        developer.log(
+          'Mobile getNotesForMonth remote fallback error: $e',
+          name: 'CalendarOfflineRepository',
+        );
+      }
+    }
+
+    results.sort((a, b) {
+      final dayCmp = a.ethiopianDay.compareTo(b.ethiopianDay);
+      if (dayCmp != 0) return dayCmp;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
     return results;
+  }
+
+  /// Get notes for a specified date range (inclusive)
+  Future<List<CalendarNoteModel>> getNotesForRange({
+    int? startYear,
+    int? startMonth,
+    int? startDay,
+    int? endYear,
+    int? endMonth,
+    int? endDay,
+    String? from,
+    String? to,
+  }) async {
+    try {
+      final remote = await _remoteRepo.getNotes(
+        startYear: startYear,
+        startMonth: startMonth,
+        startDay: startDay,
+        endYear: endYear,
+        endMonth: endMonth,
+        endDay: endDay,
+        from: from,
+        to: to,
+      );
+      for (final n in remote) {
+        if (n.deletedAt == null) {
+          await _cacheServerNote(n);
+        }
+      }
+      final valid = remote.where((n) => n.deletedAt == null).toList();
+      valid.sort((a, b) {
+        if (a.ethiopianYear != b.ethiopianYear) {
+          return a.ethiopianYear.compareTo(b.ethiopianYear);
+        }
+        if (a.ethiopianMonth != b.ethiopianMonth) {
+          return a.ethiopianMonth.compareTo(b.ethiopianMonth);
+        }
+        final dayCmp = a.ethiopianDay.compareTo(b.ethiopianDay);
+        if (dayCmp != 0) return dayCmp;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+      return valid;
+    } catch (e) {
+      developer.log(
+        'getNotesForRange error: $e',
+        name: 'CalendarOfflineRepository',
+      );
+      if (!kIsWeb && startYear != null && startMonth != null && startYear == endYear && startMonth == endMonth) {
+        final localNotes = await _dao.getNotesForMonth(year: startYear, month: startMonth);
+        final filtered = localNotes.where((n) =>
+          (startDay == null || n.ethiopianDay >= startDay) &&
+          (endDay == null || n.ethiopianDay <= endDay)
+        ).toList();
+        final results = <CalendarNoteModel>[];
+        for (final n in filtered) {
+          final media = await _dao.getMediaForNote(n.id);
+          results.add(_mapToModel(n, media: media));
+        }
+        return results;
+      }
+      return [];
+    }
   }
 
   /// Get note by ID (local first, remote fallback)

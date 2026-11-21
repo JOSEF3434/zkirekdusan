@@ -23,6 +23,7 @@ import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/presentation/widgets/video_thumbnail_widget.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/today_mesbak_centered_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -107,6 +108,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future.microtask(() {
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
         ref.read(profileProvider.notifier).loadMyProfile();
+      }
+    });
+
+    // Check for unseen today mesbak when opening home page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        TodayMesbakCenteredDialog.checkAndShow(context, ref);
       }
     });
   }

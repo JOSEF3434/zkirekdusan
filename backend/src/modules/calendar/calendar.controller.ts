@@ -21,6 +21,7 @@ import { UpdateNoteMediaDto } from './dto/update-note-media.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { AppRole } from '../../common/constants/roles.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -45,6 +46,7 @@ export class CalendarController {
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get calendar notes (with optional filters or Ethiopian date range)' })
   findAll(@Query() query: QueryCalendarNotesDto) {
     return this.calendarService.findAll(query);
@@ -62,6 +64,7 @@ export class CalendarController {
   }
 
   @Get('range')
+  @Public()
   @ApiOperation({ summary: 'Get calendar notes for specified Ethiopian date range' })
   findByRange(@Query() query: QueryCalendarNotesDto) {
     return this.calendarService.findAll(query);
@@ -136,6 +139,7 @@ export class CalendarController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get a specific calendar note' })
   findOne(@Param('id') id: string) {
     return this.calendarService.findOne(id);
