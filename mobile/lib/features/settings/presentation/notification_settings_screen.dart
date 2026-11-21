@@ -6,6 +6,8 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/presentation/widgets/settings_widgets.dart';
 import 'package:mobile/features/calendar/presentation/providers/ethiopian_calendar_notification_provider.dart';
 import 'package:mobile/features/calendar/data/ethiopian_calendar_notification_service.dart';
+import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
+import 'package:mobile/features/calendar/presentation/providers/fasting_holiday_notification_provider.dart';
 
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
@@ -17,6 +19,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final n = ref.read(socialSettingsProvider.notifier);
     final calendarNotificationEnabled =
         ref.watch(ethiopianCalendarNotificationEnabledProvider);
+    final fastingHolidayState =
+        ref.watch(fastingHolidayNotificationProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -70,6 +74,120 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 },
                 isLast: true,
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Fasting & Holiday Notifications (Default: OFF, 2:00 & 5:30) ────
+          SettingsGroup(
+            label: tr(
+              'calendar.fasting_holiday_notifications',
+              {'fallback': 'የአጽዋማት እና የበዓላት ማሳወቂያ'},
+            ),
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.notifications_active_rounded,
+                iconColor: const Color(0xFFF59E0B),
+                title: tr(
+                  'calendar.fasting_holiday_setting_title',
+                  {'fallback': 'የጾም እና የበዓላት ማሳወቂያ'},
+                ),
+                subtitle: tr(
+                  'calendar.fasting_holiday_setting_desc',
+                  {
+                    'fallback':
+                        'በጾም እና በበዓላት ቀናት ጠዋት 2:00 እና 5:30 ማሳወቂያ ይደርስዎታል',
+                  },
+                ),
+                value: fastingHolidayState.isEnabled,
+                onChanged: (val) async {
+                  await ref
+                      .read(fastingHolidayNotificationProvider.notifier)
+                      .setEnabled(val);
+                },
+                isLast: !fastingHolidayState.isEnabled,
+              ),
+              if (fastingHolidayState.isEnabled) ...[
+                SettingsNavTile(
+                  icon: Icons.access_time_filled_rounded,
+                  iconColor: const Color(0xFFF59E0B),
+                  title: '1ኛ ማሳወቂያ ሰዓት (First Reminder)',
+                  subtitle:
+                      '${EthiopianCalendarUtil.toEthiopianTime(fastingHolidayState.time1.hour, fastingHolidayState.time1.minute).formatAmharic()} (${EthiopianCalendarUtil.toEthiopianTime(fastingHolidayState.time1.hour, fastingHolidayState.time1.minute).formatGregorian()})',
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: fastingHolidayState.time1,
+                      helpText: '1ኛ ማሳወቂያ ሰዓት ይምረጡ',
+                      cancelText: 'ይቅር',
+                      confirmText: 'ምረጥ',
+                    );
+                    if (picked != null) {
+                      await ref
+                          .read(fastingHolidayNotificationProvider.notifier)
+                          .updateTime1(picked);
+                    }
+                  },
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'ቀይር',
+                      style: TextStyle(
+                        color: Color(0xFFF59E0B),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                SettingsNavTile(
+                  icon: Icons.access_time_rounded,
+                  iconColor: const Color(0xFFF59E0B),
+                  title: '2ኛ ማሳወቂያ ሰዓት (Second Reminder)',
+                  subtitle:
+                      '${EthiopianCalendarUtil.toEthiopianTime(fastingHolidayState.time2.hour, fastingHolidayState.time2.minute).formatAmharic()} (${EthiopianCalendarUtil.toEthiopianTime(fastingHolidayState.time2.hour, fastingHolidayState.time2.minute).formatGregorian()})',
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: fastingHolidayState.time2,
+                      helpText: '2ኛ ማሳወቂያ ሰዓት ይምረጡ',
+                      cancelText: 'ይቅር',
+                      confirmText: 'ምረጥ',
+                    );
+                    if (picked != null) {
+                      await ref
+                          .read(fastingHolidayNotificationProvider.notifier)
+                          .updateTime2(picked);
+                    }
+                  },
+                  isLast: true,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'ቀይር',
+                      style: TextStyle(
+                        color: Color(0xFFF59E0B),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),

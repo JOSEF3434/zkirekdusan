@@ -213,6 +213,14 @@ class CalendarEventModel {
     return startMonth == endMonth ? endDay == day : endDay == day;
   }
 
+  /// Returns whether this event covers a specific Ethiopian day in this month.
+  bool appliesToDay(int day) {
+    if (coverage != null) {
+      return coverage!.days.contains(day);
+    }
+    return false;
+  }
+
   CalendarEventModel copyWith({
     String? id,
     String? name,

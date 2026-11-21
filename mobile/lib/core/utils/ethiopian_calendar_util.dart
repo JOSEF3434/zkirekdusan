@@ -351,4 +351,124 @@ class EthiopianCalendarUtil {
     }
     return fastDays;
   }
+
+  /// Converts a Gregorian hour and minute (0-23, 0-59) to an Ethiopian time representation.
+  static EthiopianTime toEthiopianTime(int gregorianHour, int gregorianMinute) {
+    int ethHour;
+    String periodAmharic;
+    String periodEnglish;
+
+    if (gregorianHour >= 6 && gregorianHour < 12) {
+      // 06:00 - 11:59 -> ጧት (Morning)
+      ethHour = (gregorianHour == 6) ? 12 : (gregorianHour - 6);
+      periodAmharic = 'ጧት';
+      periodEnglish = 'Morning';
+    } else if (gregorianHour >= 12 && gregorianHour < 18) {
+      // 12:00 - 17:59 -> ከሰዓት / ቀትር (Afternoon)
+      ethHour = (gregorianHour == 12) ? 6 : (gregorianHour - 6);
+      periodAmharic = (gregorianHour == 12) ? 'ቀትር' : 'ከሰዓት';
+      periodEnglish = (gregorianHour == 12) ? 'Noon' : 'Afternoon';
+    } else if (gregorianHour >= 18 && gregorianHour < 24) {
+      // 18:00 - 23:59 -> ምሽት (Evening)
+      ethHour = (gregorianHour == 18) ? 12 : (gregorianHour - 18);
+      periodAmharic = 'ምሽት';
+      periodEnglish = 'Evening';
+    } else {
+      // 00:00 - 05:59 -> ሌሊት / እኩለ ሌሊት (Night / Midnight)
+      ethHour = (gregorianHour == 0) ? 6 : (gregorianHour + 6);
+      periodAmharic = (gregorianHour == 0) ? 'እኩለ ሌሊት' : 'ሌሊት';
+      periodEnglish = (gregorianHour == 0) ? 'Midnight' : 'Night';
+    }
+
+    return EthiopianTime(
+      hour: ethHour,
+      minute: gregorianMinute,
+      periodAmharic: periodAmharic,
+      periodEnglish: periodEnglish,
+      gregorianHour: gregorianHour,
+      gregorianMinute: gregorianMinute,
+    );
+  }
+
+  /// Converts Ethiopian time back to Gregorian hour (0-23) and minute (0-59).
+  static ({int hour, int minute}) toGregorianTime({
+    required int ethiopianHour,
+    required int ethiopianMinute,
+    required String period,
+  }) {
+    final p = period.toLowerCase();
+    int gregHour;
+
+    if (p.contains('ጧት') || p.contains('ጠዋት') || p.contains('morning')) {
+      gregHour = (ethiopianHour == 12) ? 6 : (ethiopianHour + 6) % 24;
+    } else if (p.contains('ቀትር') || p.contains('noon')) {
+      gregHour = 12;
+    } else if (p.contains('ከሰዓት') || p.contains('afternoon')) {
+      gregHour = (ethiopianHour == 12) ? 18 : (ethiopianHour + 6) % 24;
+    } else if (p.contains('ምሽት') || p.contains('evening')) {
+      gregHour = (ethiopianHour == 12) ? 18 : (ethiopianHour + 18) % 24;
+    } else if (p.contains('እኩለ') || p.contains('midnight')) {
+      gregHour = 0;
+    } else {
+      // ሌሊት / night
+      if (ethiopianHour == 6) {
+        gregHour = 0;
+      } else if (ethiopianHour == 12) {
+        gregHour = 6;
+      } else if (ethiopianHour >= 7 && ethiopianHour <= 11) {
+        gregHour = ethiopianHour - 6;
+      } else {
+        gregHour = (ethiopianHour + 6) % 24;
+      }
+    }
+
+    return (hour: gregHour, minute: ethiopianMinute);
+  }
+
+  /// Formatted string showing both Ethiopian and Gregorian times: e.g. "ጧት 2:00 (8:00 AM)"
+  static String formatDualTime(int gregorianHour, int gregorianMinute) {
+    final et = toEthiopianTime(gregorianHour, gregorianMinute);
+    return et.formatDual();
+  }
+}
+
+/// Class representing Ethiopian time with hour (1-12), minute (0-59), and period.
+class EthiopianTime {
+  final int hour; // 1-12
+  final int minute; // 0-59
+  final String periodAmharic; // 'ጧት', 'ቀትር', 'ከሰዓት', 'ምሽት', 'እኩለ ሌሊት', 'ሌሊት'
+  final String periodEnglish; // 'Morning', 'Noon', 'Afternoon', 'Evening', 'Midnight', 'Night'
+  final int gregorianHour; // 0-23
+  final int gregorianMinute; // 0-59
+
+  const EthiopianTime({
+    required this.hour,
+    required this.minute,
+    required this.periodAmharic,
+    required this.periodEnglish,
+    required this.gregorianHour,
+    required this.gregorianMinute,
+  });
+
+  /// Formatted Amharic time string, e.g. "ጧት 2:00" or "ጧት 5:30"
+  String formatAmharic() {
+    final m = minute.toString().padLeft(2, '0');
+    return '$periodAmharic $hour:$m';
+  }
+
+  /// Formatted Gregorian time string, e.g. "08:00 AM" or "11:30 AM"
+  String formatGregorian() {
+    final h = gregorianHour % 12 == 0 ? 12 : gregorianHour % 12;
+    final m = gregorianMinute.toString().padLeft(2, '0');
+    final p = gregorianHour < 12 ? 'AM' : 'PM';
+    return '$h:$m $p';
+  }
+
+  /// Formatted dual time string, e.g. "ጧት 2:00 (8:00 AM)"
+  String formatDual() {
+    return '${formatAmharic()} (${formatGregorian()})';
+  }
+
+  @override
+  String toString() => formatDual();
 }

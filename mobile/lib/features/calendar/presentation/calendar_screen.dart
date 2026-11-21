@@ -22,6 +22,9 @@ import 'package:mobile/features/admin/presentation/providers/admin_permissions_p
 import 'package:mobile/features/admin/presentation/widgets/manage_calendar_event_dialog.dart';
 import 'package:mobile/features/calendar/alephat/presentation/providers/alephat_providers.dart';
 import 'package:mobile/features/calendar/alephat/presentation/widgets/alephat_learning_view.dart';
+import 'package:mobile/features/calendar/presentation/providers/fasting_holiday_notification_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/fasting_holiday_notification_sheet.dart';
+import 'package:mobile/features/calendar/presentation/widgets/create_user_event_dialog.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -44,6 +47,7 @@ class CalendarScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final canManage = _canManage(ref);
     final calendarState = ref.watch(calendarProvider);
+    final fastingHolidayState = ref.watch(fastingHolidayNotificationProvider);
     final tr = ref.watch(trProvider);
     final topTab = ref.watch(calendarTopTabProvider);
     final horizontalMargin = _getHorizontalMargin(context);
@@ -132,17 +136,18 @@ class CalendarScreen extends ConsumerWidget {
             SliverAppBar(
               floating: true,
               pinned: true,
-              expandedHeight: 90,
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: EdgeInsets.only(left: horizontalMargin, bottom: 12),
-                title: Row(
+              toolbarHeight: 60,
+              centerTitle: false,
+              title: Padding(
+                padding: EdgeInsets.only(left: horizontalMargin > 16 ? horizontalMargin - 16 : 0),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
                       EthiopianCalendarUtil.getMonthName(calendarState.month),
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontFamilyFallback: const [
                           'Noto Serif Ethiopic',
@@ -153,17 +158,53 @@ class CalendarScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       '${calendarState.year}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.textTheme.bodySmall?.color,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.8,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               actions: [
+                // Add Event / Reminder button for any user
+                IconButton(
+                  icon: const Icon(Icons.add_alarm_rounded),
+                  tooltip: tr(
+                    'calendar.add_user_event',
+                    {'fallback': 'ሁነት / ማሳሰቢያ አክል'},
+                  ),
+                  onPressed: () {
+                    CreateUserEventDialog.show(
+                      context,
+                      initialYear: calendarState.year,
+                      initialMonth: calendarState.month,
+                      initialDay: calendarState.selectedDate?.day,
+                    );
+                  },
+                ),
+                // Fasting & Holiday Notifications settings shortcut
+                IconButton(
+                  icon: Icon(
+                    fastingHolidayState.isEnabled
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_none_rounded,
+                    color: fastingHolidayState.isEnabled
+                        ? const Color(0xFFF59E0B)
+                        : null,
+                  ),
+                  tooltip: tr(
+                    'calendar.fasting_holiday_notif_title',
+                    {'fallback': 'የአጽዋማት እና የበዓላት ማሳወቂያ'},
+                  ),
+                  onPressed: () {
+                    FastingHolidayNotificationSheet.show(context);
+                  },
+                ),
                 // Sync status indicator
                 const Padding(
-                  padding: EdgeInsets.only(right: 8.0),
+                  padding: EdgeInsets.only(right: 4.0),
                   child: SyncStatusIndicator(),
                 ),
                 // Today button
@@ -820,6 +861,28 @@ class CalendarScreen extends ConsumerWidget {
                         );
                       },
                     ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.add_alarm_rounded,
+                      color: Color(0xFF00C6FF),
+                    ),
+                    title: Text(
+                      tr(
+                        'calendar.add_user_event',
+                        {'fallback': 'ለዚህ ቀን ሁነት / ማሳሰቢያ መዝግብ'},
+                      ),
+                    ),
+                    subtitle: const Text('የግል ማስታወሻ እና የማሳወቂያ ሰዓት ያስቀምጡ'),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      CreateUserEventDialog.show(
+                        context,
+                        initialYear: cellDate.year,
+                        initialMonth: cellDate.month,
+                        initialDay: cellDate.day,
+                      );
+                    },
+                  ),
                   ListTile(
                     leading: const Icon(Icons.note_alt_outlined),
                     title: Text(
