@@ -332,7 +332,7 @@ void main() {
 
       // Fasting start/end markers checkboxes should appear for Date Range fast
       expect(find.text('የመግቢያ ምልክት (መግቢያ)'), findsOneWidget);
-      expect(find.text('የማብቂያ ምልክት (ፍጻሜ)'), findsOneWidget);
+      expect(find.text('የመጨረሻ ምልክት (መጨረሻ)'), findsOneWidget);
 
       // Switch to Specific Day mode
       await tester.tap(find.text('አንድ ቀን ብቻ'));

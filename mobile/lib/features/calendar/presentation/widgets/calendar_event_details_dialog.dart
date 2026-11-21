@@ -608,11 +608,11 @@ class _CalendarEventDetailsDialogState
     if (widget.selectedDay == null) return null;
 
     if (event.isFast) {
-      if (event.isDayStart(widget.selectedDay!)) {
-        return tr('calendar.fast_start', {'fallback': 'ጾም መግቢያ'});
+      if (!event.isSingleDay && event.isDayEnd(widget.selectedDay!)) {
+        return tr('calendar.fast_end', {'fallback': 'ጾም መጨረሻ'});
       }
-      if (event.isDayEnd(widget.selectedDay!)) {
-        return tr('calendar.fast_end', {'fallback': 'ጾም መፍቻ / ፍጻሜ'});
+      if (!event.isSingleDay && event.isDayStart(widget.selectedDay!)) {
+        return tr('calendar.fast_start', {'fallback': 'ጾም መግቢያ'});
       }
       return tr('calendar.fast_ongoing', {'fallback': 'የጾም ዕለት'});
     } else {

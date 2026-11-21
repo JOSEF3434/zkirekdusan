@@ -77,4 +77,56 @@ void main() {
     expect(result!.event.month, 1);
     expect(result.event.day, 30);
   });
+
+  test('calculates next recurrence for daily reminder', () {
+    final note = CalendarNoteModel(
+      id: 'daily-note',
+      userId: 'user',
+      ethiopianYear: 2019,
+      ethiopianMonth: 1,
+      ethiopianDay: 10,
+      gregorianDate: DateTime(2026, 9, 20),
+      hasReminder: true,
+      reminderRepeat: ReminderRepeat.daily,
+      reminderHour: 8,
+      reminderMinute: 0,
+      createdAt: DateTime(2026, 9, 20),
+      updatedAt: DateTime(2026, 9, 20),
+    );
+
+    final now = DateTime(2026, 9, 20, 7, 0); // before 8:00 AM
+    final result = CalendarReminderSchedule.nextForNote(note, now: now);
+
+    expect(result, isNotNull);
+    expect(result!.notificationGregorian.hour, 8);
+    expect(result.notificationGregorian.minute, 0);
+  });
+
+  test('calculates next recurrence for weekly reminder on matching weekday', () {
+    // 2026-09-20 was a Sunday (weekday = 7)
+    final note = CalendarNoteModel(
+      id: 'weekly-note',
+      userId: 'user',
+      ethiopianYear: 2019,
+      ethiopianMonth: 1,
+      ethiopianDay: 10,
+      gregorianDate: DateTime(2026, 9, 20),
+      hasReminder: true,
+      reminderRepeat: ReminderRepeat.weekly,
+      reminderHour: 9,
+      reminderMinute: 30,
+      createdAt: DateTime(2026, 9, 20),
+      updatedAt: DateTime(2026, 9, 20),
+    );
+
+    final now = DateTime(2026, 9, 21, 10, 0); // Monday, after Sunday
+    final result = CalendarReminderSchedule.nextForNote(note, now: now);
+
+    expect(result, isNotNull);
+    // Next Sunday should be 2026-09-27
+    expect(result!.notificationGregorian.weekday, DateTime.sunday);
+    expect(result.notificationGregorian.day, 27);
+    expect(result.notificationGregorian.hour, 9);
+    expect(result.notificationGregorian.minute, 30);
+  });
 }

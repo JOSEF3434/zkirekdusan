@@ -402,12 +402,16 @@ class CalendarScreen extends ConsumerWidget {
         final hasSpecialEvent = dayEvents.any((e) => e.isSpecialEvent);
         final isFastStart = dayEvents.any((e) =>
             e.isFast &&
+            !e.isSingleDay &&
+            e.durationDays > 1 &&
             !e.id.contains('wed-fri') &&
             !e.name.contains('ድኅነት') &&
             !e.name.contains('የረቡዕ እና የዓርብ') &&
             e.isDayStart(day));
         final isFastEnd = dayEvents.any((e) =>
             e.isFast &&
+            !e.isSingleDay &&
+            e.durationDays > 1 &&
             !e.id.contains('wed-fri') &&
             !e.name.contains('ድኅነት') &&
             !e.name.contains('የረቡዕ እና የዓርብ') &&
@@ -438,20 +442,13 @@ class CalendarScreen extends ConsumerWidget {
             _showDayNotesSheet(context, cellDate);
           },
           onLongPress: () {
-            if (canManage) {
-              _showDayContextMenu(context, cellDate, dayEvents);
-            } else if (dayEvents.isNotEmpty) {
-              CalendarEventDetailsDialog.show(
-                context,
-                events: dayEvents,
-                selectedDay: day,
-                selectedMonth: month,
-                selectedYear: year,
-              );
-            } else {
-              ref.read(calendarProvider.notifier).selectDate(year, month, day);
-              _showDayNotesSheet(context, cellDate);
-            }
+            // Holding/long pressing a specific day triggers add event functionality
+            CreateUserEventDialog.show(
+              context,
+              initialYear: cellDate.year,
+              initialMonth: cellDate.month,
+              initialDay: cellDate.day,
+            );
           },
           onSecondaryTap: () {
             _showDayContextMenu(context, cellDate, dayEvents);
@@ -556,8 +553,35 @@ class CalendarScreen extends ConsumerWidget {
           ),
           child: Stack(
             children: [
-              // Top-left badge: Fast start (Green መግቢያ), Fast end (Green ፍጻሜ), or Major Holiday star (Red)
-              if (isFastStart)
+              // Top-left badge: Fast end (Green መጨረሻ), Fast start (Green መግቢያ), or Major Holiday star (Red)
+              if (isFastEnd)
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: greenColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'መጨረሻ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.bold,
+                        fontFamilyFallback: [
+                          'Noto Serif Ethiopic',
+                          'Noto Sans Ethiopic',
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (isFastStart)
                 Positioned(
                   top: 2,
                   left: 2,
@@ -572,33 +596,6 @@ class CalendarScreen extends ConsumerWidget {
                     ),
                     child: const Text(
                       'መግቢያ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.bold,
-                        fontFamilyFallback: [
-                          'Noto Serif Ethiopic',
-                          'Noto Sans Ethiopic',
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              else if (isFastEnd)
-                Positioned(
-                  top: 2,
-                  left: 2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 3,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: greenColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'ፍጻሜ',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 7.5,

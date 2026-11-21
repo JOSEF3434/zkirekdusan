@@ -584,7 +584,7 @@ class _ManageCalendarEventDialogState
                                     dense: true,
                                     contentPadding: EdgeInsets.zero,
                                     title: Text(
-                                      tr('calendar.mark_end_day', {'fallback': 'የማብቂያ ምልክት (ፍጻሜ)'}),
+                                      tr('calendar.mark_end_day', {'fallback': 'የመጨረሻ ምልክት (መጨረሻ)'}),
                                       style: const TextStyle(fontSize: 12),
                                     ),
                                     value: _markEndBadge,

@@ -648,6 +648,14 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                         child: Text('አንዴ ብቻ (Once)'),
                       ),
                       DropdownMenuItem(
+                        value: ReminderRepeat.daily,
+                        child: Text('በየቀኑ (Daily)'),
+                      ),
+                      DropdownMenuItem(
+                        value: ReminderRepeat.weekly,
+                        child: Text('በየሳምንቱ (Weekly)'),
+                      ),
+                      DropdownMenuItem(
                         value: ReminderRepeat.monthly,
                         child: Text('በየወሩ (Monthly)'),
                       ),

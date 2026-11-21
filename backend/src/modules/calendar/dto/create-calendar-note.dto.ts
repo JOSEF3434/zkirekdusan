@@ -16,6 +16,8 @@ import { AddNoteMediaDto } from './add-note-media.dto.js';
 
 export enum CalendarReminderRepeat {
   NONE = 'NONE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
   YEARLY = 'YEARLY',
 }

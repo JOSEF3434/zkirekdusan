@@ -103,6 +103,51 @@ class CalendarReminderSchedule {
     }
 
     final currentEthiopian = EthiopianCalendarUtil.fromGregorian(current);
+
+    if (note.reminderRepeat == ReminderRepeat.daily) {
+      for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
+        final targetDate = current.add(Duration(days: dayOffset));
+        final targetDt = DateTime(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+          hour,
+          minute,
+        );
+        if (targetDt.isAfter(current)) {
+          final targetEt = EthiopianCalendarUtil.fromGregorian(targetDt);
+          return CalendarReminderSchedule(
+            event: targetEt,
+            notification: targetEt,
+          );
+        }
+      }
+    }
+
+    if (note.reminderRepeat == ReminderRepeat.weekly) {
+      final baseGregorian = note.gregorianDate;
+      final targetWeekday = baseGregorian.weekday; // 1-7
+      for (var dayOffset = 0; dayOffset < 60; dayOffset++) {
+        final targetDate = current.add(Duration(days: dayOffset));
+        if (targetDate.weekday == targetWeekday) {
+          final targetDt = DateTime(
+            targetDate.year,
+            targetDate.month,
+            targetDate.day,
+            hour,
+            minute,
+          );
+          if (targetDt.isAfter(current)) {
+            final targetEt = EthiopianCalendarUtil.fromGregorian(targetDt);
+            return CalendarReminderSchedule(
+              event: targetEt,
+              notification: targetEt,
+            );
+          }
+        }
+      }
+    }
+
     if (note.reminderRepeat == ReminderRepeat.monthly) {
       final day = note.reminderEthiopianDay ?? note.ethiopianDay;
       for (var offset = 0; offset < 24; offset++) {

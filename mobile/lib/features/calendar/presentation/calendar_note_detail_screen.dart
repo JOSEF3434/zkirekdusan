@@ -1023,6 +1023,8 @@ class _ReminderCard extends StatelessWidget {
     final reminderTime = note.reminderDateTime;
     final repeatLabel = switch (note.reminderRepeat) {
       ReminderRepeat.none => 'Once',
+      ReminderRepeat.daily => 'Daily',
+      ReminderRepeat.weekly => 'Weekly',
       ReminderRepeat.monthly => 'Monthly',
       ReminderRepeat.yearly => 'Yearly',
     };

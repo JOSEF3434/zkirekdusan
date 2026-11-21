@@ -323,8 +323,12 @@ class CalendarNotificationsService {
               return 0;
             case ReminderRepeat.monthly:
               return 1;
-            case ReminderRepeat.none:
+            case ReminderRepeat.weekly:
               return 2;
+            case ReminderRepeat.daily:
+              return 3;
+            case ReminderRepeat.none:
+              return 4;
           }
         }
 

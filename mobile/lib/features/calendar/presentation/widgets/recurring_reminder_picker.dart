@@ -88,6 +88,8 @@ class RecurringReminderPicker extends StatelessWidget {
                         minute: 0,
                       ),
                     );
+                  case ReminderRepeat.daily:
+                  case ReminderRepeat.weekly:
                   case ReminderRepeat.monthly:
                   case ReminderRepeat.yearly:
                     onChanged(

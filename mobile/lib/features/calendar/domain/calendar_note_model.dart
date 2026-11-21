@@ -7,6 +7,10 @@ part 'calendar_note_model.g.dart';
 enum ReminderRepeat {
   @JsonValue('NONE')
   none,
+  @JsonValue('DAILY')
+  daily,
+  @JsonValue('WEEKLY')
+  weekly,
   @JsonValue('MONTHLY')
   monthly,
   @JsonValue('YEARLY')

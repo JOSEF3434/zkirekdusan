@@ -232,6 +232,8 @@ enum NotificationType {
 
 enum CalendarReminderRepeat {
   NONE
+  DAILY
+  WEEKLY
   MONTHLY
   YEARLY
 }

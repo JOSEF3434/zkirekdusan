@@ -93,6 +93,8 @@ Map<String, dynamic> _$CalendarNoteModelToJson(
 
 const _$ReminderRepeatEnumMap = {
   ReminderRepeat.none: 'NONE',
+  ReminderRepeat.daily: 'DAILY',
+  ReminderRepeat.weekly: 'WEEKLY',
   ReminderRepeat.monthly: 'MONTHLY',
   ReminderRepeat.yearly: 'YEARLY',
 };
