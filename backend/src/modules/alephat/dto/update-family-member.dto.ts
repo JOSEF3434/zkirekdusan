@@ -7,11 +7,11 @@ export class UpdateFamilyMemberDto {
   @IsString()
   glyph?: string;
 
-  @ApiPropertyOptional({ example: 2, description: 'Order index (1=ግዕዝ ... 8=ሳምን)' })
+  @ApiPropertyOptional({ example: 2, description: 'Order index (1=ግዕዝ ... 8=ሳምን, 9..13+ for extended)' })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(8)
+  @Max(50)
   orderIndex?: number;
 
   @ApiPropertyOptional({ example: 'ካዕብ', description: 'Traditional order name' })

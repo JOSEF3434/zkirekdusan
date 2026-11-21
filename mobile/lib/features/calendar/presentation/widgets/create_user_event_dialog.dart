@@ -349,11 +349,12 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                     Expanded(
                       flex: 2,
                       child: DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: _selectedDay,
                         decoration: InputDecoration(
                           labelText: 'ቀን',
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 8,
                             vertical: 8,
                           ),
                           border: OutlineInputBorder(
@@ -378,11 +379,12 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                     Expanded(
                       flex: 4,
                       child: DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: _selectedMonth,
                         decoration: InputDecoration(
                           labelText: 'ወር',
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 8,
                             vertical: 8,
                           ),
                           border: OutlineInputBorder(
@@ -395,6 +397,7 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                             value: month,
                             child: Text(
                               EthiopianCalendarUtil.getMonthName(month),
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontFamilyFallback: [
                                   'Noto Serif Ethiopic',
@@ -427,11 +430,12 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: _selectedYear,
                         decoration: InputDecoration(
                           labelText: 'ዓመት',
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 8,
                             vertical: 8,
                           ),
                           border: OutlineInputBorder(
@@ -631,6 +635,7 @@ class _CreateUserEventDialogState extends ConsumerState<CreateUserEventDialog> {
                 if (_enableReminder) ...[
                   const SizedBox(height: 10),
                   DropdownButtonFormField<ReminderRepeat>(
+                    isExpanded: true,
                     initialValue: _repeat,
                     decoration: InputDecoration(
                       labelText: 'ድግግሞሽ (Repeat)',

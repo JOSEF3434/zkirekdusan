@@ -60,6 +60,38 @@ class AlephatRepository {
                   AlephatLetterModel.fromJson(item as Map<String, dynamic>))
               .toList();
           letters.sort((a, b) => a.order.compareTo(b.order));
+
+          // Ensure cached letters with expanded families (e.g. 12 or 13 members) have all members
+          const extendedLetters = {'ቀ', 'ኀ', 'ከ', 'ኸ', 'ገ'};
+          final seeds = AlephatSeedData.getInitialLetters();
+          bool needsResave = false;
+          for (var i = 0; i < letters.length; i++) {
+            if (!extendedLetters.contains(letters[i].letter)) continue;
+            final seed = seeds.firstWhere(
+              (s) => s.letter == letters[i].letter || s.id == letters[i].id,
+              orElse: () => letters[i],
+            );
+            if (seed.familyMembers.length > letters[i].familyMembers.length) {
+              final existingIndices =
+                  letters[i].familyMembers.map((m) => m.orderIndex).toSet();
+              final missing = seed.familyMembers
+                  .where((m) => !existingIndices.contains(m.orderIndex));
+              if (missing.isNotEmpty) {
+                final updatedMembers =
+                    List<AlephatFamilyMemberModel>.from(letters[i].familyMembers)
+                      ..addAll(missing);
+                updatedMembers
+                    .sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+                letters[i] =
+                    letters[i].copyWith(familyMembers: updatedMembers);
+                needsResave = true;
+              }
+            }
+          }
+          if (needsResave) {
+            saveCachedLetters(letters);
+          }
+
           return letters;
         }
       }

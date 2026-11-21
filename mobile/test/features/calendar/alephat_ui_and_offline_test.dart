@@ -990,5 +990,88 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
     });
+
+    testWidgets(
+        'LetterFamilyDisplay supports 12 and 13 letter family members and displays dynamic count',
+        (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final letters = AlephatSeedData.getInitialLetters();
+      final qafLetter = letters.firstWhere((l) => l.letter == 'ቀ');
+      final kafLetter = letters.firstWhere((l) => l.letter == 'ከ');
+
+      expect(qafLetter.familyMembers.length, 13);
+      expect(kafLetter.familyMembers.length, 12);
+
+      // Render Qaf (13 members)
+      await tester.pumpWidget(
+        createTestApp(
+          child: Column(
+            children: [
+              LetterInfoPanel(letter: qafLetter),
+              LetterFamilyDisplay(letter: qafLetter),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check header shows 13 sounds
+      expect(find.text('የ"ቀ" ቤተሰብ (13 ድምጾች)'), findsOneWidget);
+
+      // Tap 10th order member (ቋ)
+      final quaFinder = find.text('ቋ');
+      expect(quaFinder, findsOneWidget);
+      await tester.tap(quaFinder);
+      await tester.pumpAndSettle();
+
+      // Verify LetterInfoPanel displays selected ቋ and its order name and pronunciation
+      expect(find.text('ቋ፡'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(LetterInfoPanel),
+          matching: find.text('ዲቃላ ራብዕ'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('qʷa'), findsOneWidget);
+    });
+
+    test('getCachedLetters automatically backfills missing members when cache has older 7-member letters', () async {
+      SharedPreferences.setMockInitialValues({
+        'alephat_cached_letters': '''[
+          {
+            "id": "seed_let_9",
+            "letter": "ቀ",
+            "name": "ቃፍ",
+            "order": 9,
+            "defaultNote": "ቀ፡ ቃፍ ይባላል።",
+            "familyMembers": [
+              {"id": "m1", "baseLetterId": "seed_let_9", "glyph": "ቀ", "orderIndex": 1, "orderName": "ግዕዝ"},
+              {"id": "m2", "baseLetterId": "seed_let_9", "glyph": "ቁ", "orderIndex": 2, "orderName": "ካዕብ"},
+              {"id": "m3", "baseLetterId": "seed_let_9", "glyph": "ቂ", "orderIndex": 3, "orderName": "ሣልስ"},
+              {"id": "m4", "baseLetterId": "seed_let_9", "glyph": "ቃ", "orderIndex": 4, "orderName": "ራብዕ"},
+              {"id": "m5", "baseLetterId": "seed_let_9", "glyph": "ቄ", "orderIndex": 5, "orderName": "ኃምስ"},
+              {"id": "m6", "baseLetterId": "seed_let_9", "glyph": "ቅ", "orderIndex": 6, "orderName": "ሳድስ"},
+              {"id": "m7", "baseLetterId": "seed_let_9", "glyph": "ቆ", "orderIndex": 7, "orderName": "ሳብዕ"}
+            ]
+          }
+        ]''',
+      });
+
+      final prefs = await SharedPreferences.getInstance();
+      final repo = AlephatRepository(Dio(), prefs);
+      final letters = await repo.getCachedLetters();
+
+      final qaf = letters.firstWhere((l) => l.letter == 'ቀ');
+      expect(qaf.familyMembers.length, 13);
+      expect(qaf.familyMembers.any((m) => m.glyph == 'ቋ'), isTrue);
+      expect(qaf.familyMembers.any((m) => m.glyph == 'ቇ'), isTrue);
+    });
   });
 }

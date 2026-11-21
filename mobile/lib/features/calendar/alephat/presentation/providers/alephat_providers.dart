@@ -21,7 +21,7 @@ final alephat22SearchProvider = StateProvider<String>((ref) => '');
 // Currently selected base letter ID
 final selectedBaseLetterIdProvider = StateProvider<String?>((ref) => null);
 
-// Currently selected family member order index (1..8). If null, base letter's default note is shown.
+// Currently selected family member order index (1..13+). If null, base letter's default note is shown.
 final selectedFamilyMemberOrderProvider = StateProvider<int?>((ref) => null);
 
 // Selected 22 Alephat entry for detailed preview

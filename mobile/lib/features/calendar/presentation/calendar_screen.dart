@@ -136,41 +136,44 @@ class CalendarScreen extends ConsumerWidget {
             SliverAppBar(
               floating: true,
               pinned: true,
-              toolbarHeight: 60,
+              toolbarHeight: 56,
+              titleSpacing: horizontalMargin > 16 ? horizontalMargin : 12,
               centerTitle: false,
-              title: Padding(
-                padding: EdgeInsets.only(left: horizontalMargin > 16 ? horizontalMargin - 16 : 0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
                       EthiopianCalendarUtil.getMonthName(calendarState.month),
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontFamilyFallback: const [
                           'Noto Serif Ethiopic',
                           'Noto Sans Ethiopic',
                         ],
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${calendarState.year}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.textTheme.bodySmall?.color?.withValues(
-                          alpha: 0.8,
-                        ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${calendarState.year}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.8,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
                 // Add Event / Reminder button for any user
                 IconButton(
-                  icon: const Icon(Icons.add_alarm_rounded),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.add_alarm_rounded, size: 20),
                   tooltip: tr(
                     'calendar.add_user_event',
                     {'fallback': 'ሁነት / ማሳሰቢያ አክል'},
@@ -186,6 +189,9 @@ class CalendarScreen extends ConsumerWidget {
                 ),
                 // Fasting & Holiday Notifications settings shortcut
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   icon: Icon(
                     fastingHolidayState.isEnabled
                         ? Icons.notifications_active_rounded
@@ -193,6 +199,7 @@ class CalendarScreen extends ConsumerWidget {
                     color: fastingHolidayState.isEnabled
                         ? const Color(0xFFF59E0B)
                         : null,
+                    size: 20,
                   ),
                   tooltip: tr(
                     'calendar.fasting_holiday_notif_title',
@@ -204,28 +211,38 @@ class CalendarScreen extends ConsumerWidget {
                 ),
                 // Sync status indicator
                 const Padding(
-                  padding: EdgeInsets.only(right: 4.0),
+                  padding: EdgeInsets.symmetric(horizontal: 2.0),
                   child: SyncStatusIndicator(),
                 ),
                 // Today button
                 IconButton(
-                  icon: const Icon(Icons.today),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.today, size: 20),
                   tooltip: tr('calendar.today_tooltip'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).goToToday(),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_left),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.chevron_left, size: 20),
                   tooltip: tr('calendar.prev_month'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).previousMonth(),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.chevron_right, size: 20),
                   tooltip: tr('calendar.next_month'),
                   onPressed: () =>
                       ref.read(calendarProvider.notifier).nextMonth(),
                 ),
+                SizedBox(width: horizontalMargin > 16 ? horizontalMargin - 12 : 4),
               ],
             ),
 

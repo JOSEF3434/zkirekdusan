@@ -55,7 +55,7 @@ export class CreateAlephatLetterDto {
 
   @ApiPropertyOptional({
     type: [CreateFamilyMemberDto],
-    description: 'Initial letter family members (orders 1 through 7/8)',
+    description: 'Initial letter family members (orders 1 through 7, 8, 12, 13+)',
   })
   @IsOptional()
   @IsArray()

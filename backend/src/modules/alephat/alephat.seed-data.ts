@@ -26,12 +26,35 @@ export interface Seed22Alephat {
   supplementaryInfo?: string;
 }
 
-const ORDER_NAMES = ['ግዕዝ', 'ካዕብ', 'ሣልስ', 'ራብዕ', 'ኃምስ', 'ሳድስ', 'ሳብዕ', 'ሳምን'];
+const ORDER_NAMES = [
+  'ግዕዝ',
+  'ካዕብ',
+  'ሣልስ',
+  'ራብዕ',
+  'ኃምስ',
+  'ሳድስ',
+  'ሳብዕ',
+  'ሳምን',
+  'ታስዕ',
+  'ዐሥር',
+  '11ኛ',
+  '12ኛ',
+  '13ኛ',
+  '14ኛ',
+  '15ኛ',
+];
 
-function makeFamily(base: string, forms: string[], phoneticRoots: string[], baseNote: string): SeedFamilyMember[] {
+function makeFamily(
+  base: string,
+  forms: string[],
+  phoneticRoots: string[],
+  baseNote: string,
+  customOrderNames?: string[],
+): SeedFamilyMember[] {
   return forms.map((glyph, idx) => {
     const orderIndex = idx + 1;
-    const orderName = ORDER_NAMES[idx] || `${orderIndex}ኛ`;
+    const orderName =
+      (customOrderNames && customOrderNames[idx]) || ORDER_NAMES[idx] || `${orderIndex}ኛ`;
     const pron = phoneticRoots[idx] || '';
     return {
       glyph,
@@ -114,7 +137,27 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 9,
     defaultNote: 'ቀ፡ ቃፍ ይባላል። ከላንቃ ጀርባ የሚወጣ የጉሮሮ ፍንዳታ (ejective velar/uvular) ድምጽ ነው።',
     pronunciationGuide: 'Qä - Velar/uvular ejective stop',
-    familyMembers: makeFamily('ቀ', ['ቀ', 'ቁ', 'ቂ', 'ቃ', 'ቄ', 'ቅ', 'ቆ'], ['qä', 'qu', 'qi', 'qa', 'qé', 'qə', 'qo'], 'ከላንቃ ጀርባ የሚወጣ ጠንካራ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ቀ',
+      ['ቀ', 'ቁ', 'ቂ', 'ቃ', 'ቄ', 'ቅ', 'ቆ', 'ቈ', 'ቊ', 'ቋ', 'ቌ', 'ቍ', 'ቇ'],
+      ['qä', 'qu', 'qi', 'qa', 'qé', 'qə', 'qo', 'qʷä', 'qʷi', 'qʷa', 'qʷé', 'qʷə', 'qoa'],
+      'ከላንቃ ጀርባ የሚወጣ ጠንካራ ድምጽ።',
+      [
+        'ግዕዝ',
+        'ካዕብ',
+        'ሣልስ',
+        'ራብዕ',
+        'ኃምስ',
+        'ሳድስ',
+        'ሳብዕ',
+        'ዲቃላ ግዕዝ',
+        'ዲቃላ ሣልስ',
+        'ዲቃላ ራብዕ',
+        'ዲቃላ ኃምስ',
+        'ዲቃላ ሳድስ',
+        'ሳምን',
+      ],
+    ),
   },
   {
     letter: 'በ',
@@ -146,7 +189,27 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 13,
     defaultNote: 'ኀ፡ ኀርም ይባላል (የብዙኃኑ ኀ)። ከጥልቅ ጉሮሮ የሚወጣ ለስላሳ ድምጽ ነው።',
     pronunciationGuide: 'Hä (Velar) - Voiceless velar fricative',
-    familyMembers: makeFamily('ኀ', ['ኀ', 'ኁ', 'ኂ', 'ኃ', 'ኄ', 'ኅ', 'ኆ'], ['hä', 'hu', 'hi', 'ha', 'hé', 'hə', 'ho'], 'የብዙኃኑ ኀ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ኀ',
+      ['ኀ', 'ኁ', 'ኂ', 'ኃ', 'ኄ', 'ኅ', 'ኆ', 'ኈ', 'ኊ', 'ኋ', 'ኌ', 'ኍ', 'ኇ'],
+      ['hä', 'hu', 'hi', 'ha', 'hé', 'hə', 'ho', 'hʷä', 'hʷi', 'hʷa', 'hʷé', 'hʷə', 'hoa'],
+      'የብዙኃኑ ኀ ድምጽ።',
+      [
+        'ግዕዝ',
+        'ካዕብ',
+        'ሣልስ',
+        'ራብዕ',
+        'ኃምስ',
+        'ሳድስ',
+        'ሳብዕ',
+        'ዲቃላ ግዕዝ',
+        'ዲቃላ ሣልስ',
+        'ዲቃላ ራብዕ',
+        'ዲቃላ ኃምስ',
+        'ዲቃላ ሳድስ',
+        'ሳምን',
+      ],
+    ),
   },
   {
     letter: 'ነ',
@@ -178,7 +241,26 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 17,
     defaultNote: 'ከ፡ ካፍ ይባላል። የምላስ የኋላ ክፍል ለስላሳውን ላንቃ በመንካት የሚወጣ ድምጽ ነው።',
     pronunciationGuide: 'Kä - Voiceless velar stop',
-    familyMembers: makeFamily('ከ', ['ከ', 'ኩ', 'ኪ', 'ካ', 'ኬ', 'ክ', 'ኮ'], ['kä', 'ku', 'ki', 'ka', 'ké', 'kə', 'ko'], 'የላንቃ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ከ',
+      ['ከ', 'ኩ', 'ኪ', 'ካ', 'ኬ', 'ክ', 'ኮ', 'ኰ', 'ኲ', 'ኳ', 'ኴ', 'ኵ'],
+      ['kä', 'ku', 'ki', 'ka', 'ké', 'kə', 'ko', 'kʷä', 'kʷi', 'kʷa', 'kʷé', 'kʷə'],
+      'የላንቃ ድምጽ።',
+      [
+        'ግዕዝ',
+        'ካዕብ',
+        'ሣልስ',
+        'ራብዕ',
+        'ኃምስ',
+        'ሳድስ',
+        'ሳብዕ',
+        'ዲቃላ ግዕዝ',
+        'ዲቃላ ሣልስ',
+        'ዲቃላ ራብዕ',
+        'ዲቃላ ኃምስ',
+        'ዲቃላ ሳድስ',
+      ],
+    ),
   },
   {
     letter: 'ኸ',
@@ -186,7 +268,26 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 18,
     defaultNote: 'ኸ፡ ኻ ይባላል። በምላስ የኋላ ክፍልና በላንቃ መካከል የሚወጣ ሰበቃ ድምጽ ነው።',
     pronunciationGuide: 'Kha - Voiceless velar fricative',
-    familyMembers: makeFamily('ኸ', ['ኸ', 'ኹ', 'ኺ', 'ኻ', 'ኼ', 'ኽ', 'ኾ'], ['khä', 'khu', 'khi', 'kha', 'khé', 'khə', 'kho'], 'የሰበቃ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ኸ',
+      ['ኸ', 'ኹ', 'ኺ', 'ኻ', 'ኼ', 'ኽ', 'ኾ', 'ዀ', 'ዂ', 'ዃ', 'ዄ', 'ዅ'],
+      ['khä', 'khu', 'khi', 'kha', 'khé', 'khə', 'kho', 'khʷä', 'khʷi', 'khʷa', 'khʷé', 'khʷə'],
+      'የሰበቃ ድምጽ።',
+      [
+        'ግዕዝ',
+        'ካዕብ',
+        'ሣልስ',
+        'ራብዕ',
+        'ኃምስ',
+        'ሳድስ',
+        'ሳብዕ',
+        'ዲቃላ ግዕዝ',
+        'ዲቃላ ሣልስ',
+        'ዲቃላ ራብዕ',
+        'ዲቃላ ኃምስ',
+        'ዲቃላ ሳድስ',
+      ],
+    ),
   },
   {
     letter: 'ወ',
@@ -250,7 +351,27 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 26,
     defaultNote: 'ገ፡ ገምል ይባላል። የምላስ ጀርባ ከላንቃ ጋር ሲገናኝ የሚፈጠር ድምጽ ነው።',
     pronunciationGuide: 'Gä - Voiced velar stop',
-    familyMembers: makeFamily('ገ', ['ገ', 'ጉ', 'ጊ', 'ጋ', 'ጌ', 'ግ', 'ጎ'], ['gä', 'gu', 'gi', 'ga', 'gé', 'gə', 'go'], 'የላንቃ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ገ',
+      ['ገ', 'ጉ', 'ጊ', 'ጋ', 'ጌ', 'ግ', 'ጎ', 'ጐ', 'ጒ', 'ጓ', 'ጔ', 'ጕ', 'ጏ'],
+      ['gä', 'gu', 'gi', 'ga', 'gé', 'gə', 'go', 'gʷä', 'gʷi', 'gʷa', 'gʷé', 'gʷə', 'goa'],
+      'የላንቃ ድምጽ።',
+      [
+        'ግዕዝ',
+        'ካዕብ',
+        'ሣልስ',
+        'ራብዕ',
+        'ኃምስ',
+        'ሳድስ',
+        'ሳብዕ',
+        'ዲቃላ ግዕዝ',
+        'ዲቃላ ሣልስ',
+        'ዲቃላ ራብዕ',
+        'ዲቃላ ኃምስ',
+        'ዲቃላ ሳድስ',
+        'ሳምን',
+      ],
+    ),
   },
   {
     letter: 'ጠ',
@@ -290,7 +411,12 @@ export const INITIAL_ALEPHAT_LETTERS: SeedAlephatLetter[] = [
     order: 31,
     defaultNote: 'ፀ፡ ፀጳ ይባላል (የፀሐዩ ፀ)። ከጥልቅ ጉሮሮና ከላንቃ ጋር ተያይዞ የሚወጣ ድምጽ ነው።',
     pronunciationGuide: 'Ts’ä (Pharyngealized) - Ejective fricative',
-    familyMembers: makeFamily('ፀ', ['ፀ', 'ፁ', 'ፂ', 'ፃ', 'ፄ', 'ፅ', 'ፆ'], ['ts’ä', 'ts’u', 'ts’i', 'ts’a', 'ts’é', 'ts’ə', 'ts’o'], 'የፀሐዩ ፀ ድምጽ።'),
+    familyMembers: makeFamily(
+      'ፀ',
+      ['ፀ', 'ፁ', 'ፂ', 'ፃ', 'ፄ', 'ፅ', 'ፆ', 'ፇ'],
+      ['ts’ä', 'ts’u', 'ts’i', 'ts’a', 'ts’é', 'ts’ə', 'ts’o', 'ts’wa'],
+      'የፀሐዩ ፀ ድምጽ።',
+    ),
   },
   {
     letter: 'ፈ',

@@ -63,6 +63,32 @@ export class AlephatService implements OnApplicationBootstrap {
         });
       }
       this.logger.log(`✅ Seeded ${INITIAL_ALEPHAT_LETTERS.length} Amharic base letters with complete families`);
+    } else {
+      // If base letters already exist, ensure letters with expanded families (e.g. 12 or 13 members) have all members
+      for (const item of INITIAL_ALEPHAT_LETTERS) {
+        const existing = await this.prisma.alephatLetter.findUnique({
+          where: { letter: item.letter },
+          include: { familyMembers: true },
+        });
+        if (existing && existing.familyMembers.length < item.familyMembers.length) {
+          const existingIndices = new Set(existing.familyMembers.map((m) => m.orderIndex));
+          const missing = item.familyMembers.filter((m) => !existingIndices.has(m.orderIndex));
+          if (missing.length > 0) {
+            await this.prisma.alephatFamilyMember.createMany({
+              data: missing.map((m) => ({
+                baseLetterId: existing.id,
+                glyph: m.glyph,
+                orderIndex: m.orderIndex,
+                orderName: m.orderName,
+                note: m.note,
+                pronunciation: m.pronunciation,
+                isPublished: true,
+              })),
+            });
+            this.logger.log(`🔄 Backfilled ${missing.length} family members for letter '${item.letter}' (total now ${existing.familyMembers.length + missing.length})`);
+          }
+        }
+      }
     }
 
     const entries22Count = await this.prisma.alephat22Entry.count();

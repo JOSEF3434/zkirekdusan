@@ -6,10 +6,10 @@ export class CreateFamilyMemberDto {
   @IsString()
   glyph!: string;
 
-  @ApiProperty({ example: 2, description: 'Order index (1=ግዕዝ, 2=ካዕብ, 3=ሣልስ, 4=ራብዕ, 5=ኃምስ, 6=ሳድስ, 7=ሳብዕ, 8=ሳምን)' })
+  @ApiProperty({ example: 2, description: 'Order index (1=ግዕዝ, 2=ካዕብ, 3=ሣልስ, 4=ራብዕ, 5=ኃምስ, 6=ሳድስ, 7=ሳብዕ, 8=ሳምን, 9..13+ for labiovelars/extended)' })
   @IsInt()
   @Min(1)
-  @Max(8)
+  @Max(50)
   orderIndex!: number;
 
   @ApiPropertyOptional({ example: 'ካዕብ', description: 'Traditional order name' })

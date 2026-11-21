@@ -362,25 +362,36 @@ class _ManageCalendarEventDialogState
                         Row(
                           children: [
                             Expanded(
-                              flex: 3,
+                              flex: 1,
                               child: DropdownButtonFormField<CalendarEventType>(
+                                isExpanded: true,
                                 initialValue: _type,
                                 decoration: InputDecoration(
                                   labelText: tr('admin.type', {'fallback': 'ሁነት ዓይነት'}),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: [
                                   DropdownMenuItem(
                                     value: CalendarEventType.fast,
-                                    child: Text(tr('calendar.event_type_fast', {'fallback': 'ጾም'})),
+                                    child: Text(
+                                      tr('calendar.event_type_fast', {'fallback': 'ጾም'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: CalendarEventType.holiday,
-                                    child: Text(tr('calendar.event_type_holiday', {'fallback': 'በዓል'})),
+                                    child: Text(
+                                      tr('calendar.event_type_holiday', {'fallback': 'በዓል'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: CalendarEventType.specialEvent,
-                                    child: Text(tr('calendar.event_type_special_event', {'fallback': 'ልዩ ክስተት'})),
+                                    child: Text(
+                                      tr('calendar.event_type_special_event', {'fallback': 'ልዩ ክስተት'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                                 onChanged: (val) {
@@ -390,25 +401,36 @@ class _ManageCalendarEventDialogState
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              flex: 2,
+                              flex: 1,
                               child: DropdownButtonFormField<String>(
+                                isExpanded: true,
                                 initialValue: _importance,
                                 decoration: const InputDecoration(
                                   labelText: 'ደረጃ (Importance)',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                   border: OutlineInputBorder(),
                                 ),
                                 items: [
                                   DropdownMenuItem(
                                     value: 'NORMAL',
-                                    child: Text(tr('calendar.importance_normal', {'fallback': 'መደበኛ'})),
+                                    child: Text(
+                                      tr('calendar.importance_normal', {'fallback': 'መደበኛ'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: 'SPECIAL',
-                                    child: Text(tr('calendar.importance_special', {'fallback': 'ልዩ'})),
+                                    child: Text(
+                                      tr('calendar.importance_special', {'fallback': 'ልዩ'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                   DropdownMenuItem(
                                     value: 'MAJOR',
-                                    child: Text(tr('calendar.importance_major', {'fallback': 'ዓቢይ'})),
+                                    child: Text(
+                                      tr('calendar.importance_major', {'fallback': 'ዓቢይ'}),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                                 onChanged: (val) {
@@ -437,18 +459,23 @@ class _ManageCalendarEventDialogState
                             Expanded(
                               flex: 3,
                               child: DropdownButtonFormField<int>(
+                                isExpanded: true,
                                 initialValue: _startMonth,
                                 decoration: InputDecoration(
                                   labelText: _configMode == CalendarConfigMode.specificDay
                                       ? 'ወር'
                                       : 'መጀመሪያ ወር',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                   border: const OutlineInputBorder(),
                                 ),
                                 items: List.generate(
                                   13,
                                   (i) => DropdownMenuItem(
                                     value: i + 1,
-                                    child: Text(EthiopianCalendarUtil.getMonthName(i + 1)),
+                                    child: Text(
+                                      EthiopianCalendarUtil.getMonthName(i + 1),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ),
                                 onChanged: (val) {
@@ -473,9 +500,11 @@ class _ManageCalendarEventDialogState
                             Expanded(
                               flex: 2,
                               child: DropdownButtonFormField<int>(
+                                isExpanded: true,
                                 initialValue: _startDay,
                                 decoration: const InputDecoration(
                                   labelText: 'ቀን',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                   border: OutlineInputBorder(),
                                 ),
                                 items: List.generate(
@@ -508,16 +537,21 @@ class _ManageCalendarEventDialogState
                               Expanded(
                                 flex: 3,
                                 child: DropdownButtonFormField<int>(
+                                  isExpanded: true,
                                   initialValue: _endMonth,
                                   decoration: const InputDecoration(
                                     labelText: 'ማብቂያ ወር',
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                     border: OutlineInputBorder(),
                                   ),
                                   items: List.generate(
                                     13,
                                     (i) => DropdownMenuItem(
                                       value: i + 1,
-                                      child: Text(EthiopianCalendarUtil.getMonthName(i + 1)),
+                                      child: Text(
+                                        EthiopianCalendarUtil.getMonthName(i + 1),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ),
                                   onChanged: (val) {
@@ -536,9 +570,11 @@ class _ManageCalendarEventDialogState
                               Expanded(
                                 flex: 2,
                                 child: DropdownButtonFormField<int>(
+                                  isExpanded: true,
                                   initialValue: _endDay,
                                   decoration: const InputDecoration(
                                     labelText: 'ቀን',
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                     border: OutlineInputBorder(),
                                   ),
                                   items: List.generate(
@@ -635,12 +671,12 @@ class _ManageCalendarEventDialogState
                           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 6),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
                           children: [
                             _buildColorChip(colorOrange, 'Orange (ጾም)', parsedColor),
-                            const SizedBox(width: 8),
                             _buildColorChip(colorRed, 'Red (ዓቢይ)', parsedColor),
-                            const SizedBox(width: 8),
                             _buildColorChip(colorGreen, 'Green (መግቢያ/ልዩ)', parsedColor),
                           ],
                         ),
@@ -771,7 +807,7 @@ class _ManageCalendarEventDialogState
       onTap: () => setState(() => _selectedColor = hex),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
           color: c.withValues(alpha: isSel ? 0.2 : 0.08),
           borderRadius: BorderRadius.circular(8),
@@ -784,15 +820,15 @@ class _ManageCalendarEventDialogState
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 12,
-              height: 12,
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(color: c, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                 color: c,
               ),

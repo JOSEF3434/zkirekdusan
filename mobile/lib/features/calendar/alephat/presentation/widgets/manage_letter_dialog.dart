@@ -175,8 +175,15 @@ class _ManageLetterDialogState extends ConsumerState<ManageLetterDialog>
                 TextFormField(
                   controller: orderIndexCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'ቅደም ተከተል (1-8)*'),
-                  validator: (v) => int.tryParse(v ?? '') == null ? 'ቁጥር ያስገቡ' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'ቅደም ተከተል (1-13+)*',
+                    hintText: 'ምሳሌ፡ 1 ለግዕዝ፣ 8 ለሳምን፣ 12/13 ለዲቃላ',
+                  ),
+                  validator: (v) {
+                    final num = int.tryParse(v ?? '');
+                    if (num == null || num < 1) return 'ትክክለኛ ቁጥር ያስገቡ';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

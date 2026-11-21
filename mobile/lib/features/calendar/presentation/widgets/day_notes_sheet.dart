@@ -120,14 +120,16 @@ class DayNotesSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: dayEvents.map((ev) {
-                    final isFastStart =
-                        ev.isFast && ev.isDayStart(selectedDate.day);
+                    final isMultiDay =
+                        ev.isFast && !ev.isSingleDay && ev.durationDays > 1;
                     final isFastEnd =
-                        ev.isFast && ev.isDayEnd(selectedDate.day);
-                    final tag = isFastStart
-                        ? ' • ጾም መግቢያ'
-                        : (isFastEnd
-                            ? ' • ጾም መፍቻ'
+                        isMultiDay && ev.isDayEnd(selectedDate.day);
+                    final isFastStart =
+                        isMultiDay && ev.isDayStart(selectedDate.day);
+                    final tag = isFastEnd
+                        ? ' • ጾም መጨረሻ'
+                        : (isFastStart
+                            ? ' • ጾም መግቢያ'
                             : (ev.isFast
                                 ? ' • የጾም ዕለት'
                                 : (ev.isMajor ? ' • ዓቢይ በዓል' : ' • በዓል')));
@@ -136,10 +138,10 @@ class DayNotesSheet extends ConsumerWidget {
                       elevation: 0,
                       margin: const EdgeInsets.only(bottom: 6),
                       color: ev.isFast
-                          ? Colors.purple.withValues(alpha: 0.12)
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
                           : (ev.isMajor
-                              ? Colors.amber.withValues(alpha: 0.15)
-                              : Colors.teal.withValues(alpha: 0.12)),
+                              ? const Color(0xFFDC2626).withValues(alpha: 0.12)
+                              : const Color(0xFF16A34A).withValues(alpha: 0.12)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(
