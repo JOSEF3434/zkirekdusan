@@ -638,7 +638,11 @@ export class CalendarEventsService implements OnModuleInit {
 
       if (!existing && template) {
         // Create new record from template + dto
-        const isMajor = dto.isMajor ?? (dto.importance === 'MAJOR') ?? template.isMajor ?? false;
+        const isMajor =
+          dto.isMajor ??
+          (dto.importance !== undefined
+            ? dto.importance === 'MAJOR'
+            : (template.isMajor ?? false));
         const importance = dto.importance ?? (isMajor ? 'MAJOR' : (template.importance ?? 'NORMAL'));
         const created = await this.prisma.calendarEvent.create({
           data: {
