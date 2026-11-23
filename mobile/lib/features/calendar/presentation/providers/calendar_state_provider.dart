@@ -75,10 +75,20 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     state = state.copyWith(year: now.year, month: now.month, selectedDate: now);
   }
 
-  /// Select a specific date
+  /// Select a specific date and navigate to its month/year
   void selectDate(int year, int month, int day) {
     final selected = EthiopianCalendarUtil.create(year, month, day);
-    state = state.copyWith(selectedDate: selected);
+    state = state.copyWith(year: year, month: month, selectedDate: selected);
+  }
+
+  /// Navigate to a specific Ethiopian year and month
+  void goToYearMonth(int year, int month, {int? day}) {
+    if (day != null) {
+      final selected = EthiopianCalendarUtil.create(year, month, day);
+      state = state.copyWith(year: year, month: month, selectedDate: selected);
+    } else {
+      state = state.copyWith(year: year, month: month);
+    }
   }
 
   /// Clear selection

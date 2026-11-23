@@ -28,6 +28,7 @@ import 'package:mobile/features/calendar/presentation/widgets/create_user_event_
 import 'package:mobile/features/calendar/domain/calendar_theme_colors.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_theme_colors_provider.dart';
 import 'package:mobile/features/calendar/presentation/widgets/calendar_color_settings_sheet.dart';
+import 'package:mobile/features/calendar/presentation/widgets/ethiopian_date_picker_dialog.dart';
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -40,8 +41,15 @@ class CalendarScreen extends ConsumerWidget {
 
   double _getHorizontalMargin(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width > 1200) return 36.0;
-    if (width > 800) return 24.0;
+    if (width > 1200) {
+      final calculated = (width - 1080) / 2;
+      return calculated > 64.0 ? calculated : 64.0;
+    }
+    if (width > 900) {
+      final calculated = (width - 860) / 2;
+      return calculated > 44.0 ? calculated : 44.0;
+    }
+    if (width > 600) return 28.0;
     return 16.0;
   }
 
@@ -150,33 +158,72 @@ class CalendarScreen extends ConsumerWidget {
               toolbarHeight: 56,
               titleSpacing: horizontalMargin > 16 ? horizontalMargin : 12,
               centerTitle: false,
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      EthiopianCalendarUtil.getMonthName(calendarState.month),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontFamilyFallback: const [
-                          'Noto Serif Ethiopic',
-                          'Noto Sans Ethiopic',
-                        ],
+              title: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  EthiopianDatePickerDialog.show(
+                    context,
+                    initialYear: calendarState.year,
+                    initialMonth: calendarState.month,
+                    initialDay: calendarState.selectedDate?.day,
+                    onDateSelected: (year, month, day) {
+                      ref
+                          .read(calendarProvider.notifier)
+                          .goToYearMonth(year, month, day: day);
+                      ref.invalidate(
+                        calendarNotesForMonthProvider((
+                          year: year,
+                          month: month,
+                        )),
+                      );
+                      ref.invalidate(
+                        calendarEventsForMonthProvider((
+                          year: year,
+                          month: month,
+                        )),
+                      );
+                    },
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          EthiopianCalendarUtil.getMonthName(calendarState.month),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontFamilyFallback: const [
+                              'Noto Serif Ethiopic',
+                              'Noto Sans Ethiopic',
+                            ],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${calendarState.year}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.textTheme.bodySmall?.color?.withValues(
-                        alpha: 0.8,
+                      const SizedBox(width: 6),
+                      Text(
+                        '${calendarState.year}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withValues(
+                            alpha: 0.8,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 24,
+                        color: theme.textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
               actions: [
                 // 3-dot overflow menu for calendar options (Add Event, Notifications, Colors)
