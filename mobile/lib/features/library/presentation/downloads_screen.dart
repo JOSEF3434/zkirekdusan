@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/storage/download_service.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/presentation/widgets/web_downloads_view.dart';
@@ -50,26 +51,29 @@ class _AndroidDownloadsView extends ConsumerWidget {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Content
-          Expanded(
-            child: allIds.isEmpty
-                ? _buildEmptyState(context, tr, theme)
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: allIds.length,
-                    itemBuilder: (context, index) {
-                      final videoId = allIds[index];
-                      final metadata = downloadState.downloads[videoId];
-                      return DownloadStatusTile(
-                        videoId: videoId,
-                        metadata: metadata,
-                      );
-                    },
-                  ),
-          ),
-        ],
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 1000,
+        child: Column(
+          children: [
+            // Content
+            Expanded(
+              child: allIds.isEmpty
+                  ? _buildEmptyState(context, tr, theme)
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: allIds.length,
+                      itemBuilder: (context, index) {
+                        final videoId = allIds[index];
+                        final metadata = downloadState.downloads[videoId];
+                        return DownloadStatusTile(
+                          videoId: videoId,
+                          metadata: metadata,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

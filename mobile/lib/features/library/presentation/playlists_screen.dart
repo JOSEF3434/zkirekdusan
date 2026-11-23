@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/domain/playlist_dto.dart';
@@ -31,7 +32,9 @@ class PlaylistsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 1000,
+        child: RefreshIndicator(
         onRefresh: () async => ref.invalidate(myPlaylistsProvider),
         child: playlistsAsync.when(
           data: (playlists) {
@@ -280,7 +283,8 @@ class PlaylistsScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   void _showCreatePlaylistDialog(BuildContext context, WidgetRef ref) {

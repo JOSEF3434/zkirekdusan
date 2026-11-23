@@ -529,7 +529,11 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
                           setState(() => _fitToPage = !_fitToPage),
                       onClose: () {
                         _flushFinalProgress();
-                        context.pop();
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/books');
+                        }
                       },
                     ),
                   ),

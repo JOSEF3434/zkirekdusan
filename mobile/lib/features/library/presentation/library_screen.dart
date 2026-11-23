@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 
 class LibraryScreen extends ConsumerWidget {
@@ -12,8 +13,11 @@ class LibraryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(tr('library.title'))),
-      body: ListView(
-        children: [
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 800,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          children: [
           _LibraryItem(
             icon: Icons.play_circle_outline,
             title: tr('home.continue_watching'),
@@ -52,7 +56,8 @@ class LibraryScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

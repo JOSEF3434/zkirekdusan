@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/network/connectivity_service.dart';
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import '../../data/models/book_category_model.dart';
 import '../../data/models/book_model.dart';
@@ -78,14 +79,17 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildAppBar(context, theme, prefs, libraryState, bookPerms),
-          _buildDownloadTabBar(theme),
-        ],
-        body: RefreshIndicator(
-          onRefresh: () async => ref.read(libraryProvider.notifier).refresh(),
-          child: _buildBody(context, theme, libraryState, cats, prefs, isAuth, userId),
+      body: ResponsiveLayout.maxReadingWidth(
+        maxWidth: 1200,
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            _buildAppBar(context, theme, prefs, libraryState, bookPerms),
+            _buildDownloadTabBar(theme),
+          ],
+          body: RefreshIndicator(
+            onRefresh: () async => ref.read(libraryProvider.notifier).refresh(),
+            child: _buildBody(context, theme, libraryState, cats, prefs, isAuth, userId),
+          ),
         ),
       ),
     );
@@ -106,7 +110,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
       elevation: 0,
       backgroundColor: theme.colorScheme.surface,
       flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.only(left: 20, bottom: 12),
+        titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
         title: _showSearch
             ? _SearchBar(
                 controller: _searchController,
@@ -269,7 +273,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
                 ),
             ],
           ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -299,6 +303,7 @@ class _BooksScreenState extends ConsumerState<BooksScreen>
           ],
         ),
         color: theme.colorScheme.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
     );
   }
@@ -2026,7 +2031,8 @@ class _DownloadsEmptyState extends StatelessWidget {
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
   final Color color;
-  const _TabBarDelegate(this.tabBar, {required this.color});
+  final EdgeInsetsGeometry? padding;
+  const _TabBarDelegate(this.tabBar, {required this.color, this.padding});
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -2036,10 +2042,14 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(color: color, child: tabBar);
+    return Container(
+      color: color,
+      padding: padding,
+      child: tabBar,
+    );
   }
 
   @override
   bool shouldRebuild(_TabBarDelegate oldDelegate) =>
-      tabBar != oldDelegate.tabBar || color != oldDelegate.color;
+      tabBar != oldDelegate.tabBar || color != oldDelegate.color || padding != oldDelegate.padding;
 }

@@ -11,6 +11,8 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 
+import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
+
 import 'package:mobile/core/utils/media_url_resolver.dart';
 
 import '../../data/models/book_attachment_model.dart';
@@ -61,105 +63,111 @@ class BookDetailScreen extends ConsumerWidget {
 
         body: Center(
 
-          child: Padding(
+          child: ResponsiveLayout.maxReadingWidth(
 
-            padding: const EdgeInsets.all(28),
+            maxWidth: 600,
 
-            child: Column(
+            child: Padding(
 
-              mainAxisSize: MainAxisSize.min,
+              padding: const EdgeInsets.all(28),
 
-              children: [
+              child: Column(
 
-                Container(
+                mainAxisSize: MainAxisSize.min,
 
-                  padding: const EdgeInsets.all(16),
+                children: [
 
-                  decoration: BoxDecoration(
+                  Container(
 
-                    color: Colors.red.withValues(alpha: 0.1),
+                    padding: const EdgeInsets.all(16),
 
-                    shape: BoxShape.circle,
+                    decoration: BoxDecoration(
+
+                      color: Colors.red.withValues(alpha: 0.1),
+
+                      shape: BoxShape.circle,
+
+                    ),
+
+                    child: const Icon(
+
+                      Icons.cloud_off_rounded,
+
+                      size: 56,
+
+                      color: Colors.redAccent,
+
+                    ),
 
                   ),
 
-                  child: const Icon(
+                  const SizedBox(height: 20),
 
-                    Icons.cloud_off_rounded,
+                  Text(
 
-                    size: 56,
+                    'Book Unavailable Offline',
 
-                    color: Colors.redAccent,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+
+                          fontWeight: FontWeight.w700,
+
+                        ),
+
+                    textAlign: TextAlign.center,
 
                   ),
 
-                ),
+                  const SizedBox(height: 10),
 
-                const SizedBox(height: 20),
+                  Text(
 
-                Text(
+                    'This book is not downloaded on this device or could not be loaded without an active internet connection.',
 
-                  'Book Unavailable Offline',
+                    textAlign: TextAlign.center,
 
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
 
-                        fontWeight: FontWeight.w700,
+                          color: Theme.of(context)
 
-                      ),
+                              .colorScheme
 
-                  textAlign: TextAlign.center,
+                              .onSurface
 
-                ),
+                              .withValues(alpha: 0.7),
 
-                const SizedBox(height: 10),
+                          height: 1.5,
 
-                Text(
+                        ),
 
-                  'This book is not downloaded on this device or could not be loaded without an active internet connection.',
+                  ),
 
-                  textAlign: TextAlign.center,
+                  const SizedBox(height: 24),
 
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  FilledButton.icon(
 
-                        color: Theme.of(context)
+                    onPressed: () => context.go('/books'),
 
-                            .colorScheme
+                    icon: const Icon(Icons.download_done_rounded),
 
-                            .onSurface
+                    label: const Text('Go to Downloaded Books'),
 
-                            .withValues(alpha: 0.7),
+                  ),
 
-                        height: 1.5,
+                  const SizedBox(height: 12),
 
-                      ),
+                  OutlinedButton.icon(
 
-                ),
+                    onPressed: () => ref.invalidate(bookDetailProvider(bookId)),
 
-                const SizedBox(height: 24),
+                    icon: const Icon(Icons.refresh),
 
-                FilledButton.icon(
+                    label: const Text('Retry Connection'),
 
-                  onPressed: () => context.go('/books'),
+                  ),
 
-                  icon: const Icon(Icons.download_done_rounded),
+                ],
 
-                  label: const Text('Go to Downloaded Books'),
-
-                ),
-
-                const SizedBox(height: 12),
-
-                OutlinedButton.icon(
-
-                  onPressed: () => ref.invalidate(bookDetailProvider(bookId)),
-
-                  icon: const Icon(Icons.refresh),
-
-                  label: const Text('Retry Connection'),
-
-                ),
-
-              ],
+              ),
 
             ),
 
@@ -319,7 +327,11 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
 
     return Scaffold(
 
-      body: NestedScrollView(
+      body: ResponsiveLayout.maxReadingWidth(
+
+        maxWidth: 1000,
+
+        child: NestedScrollView(
 
         headerSliverBuilder: (_, _) => [
 
@@ -357,7 +369,19 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
 
               ),
 
-              onPressed: () => context.pop(),
+              onPressed: () {
+
+                if (context.canPop()) {
+
+                  context.pop();
+
+                } else {
+
+                  context.go('/books');
+
+                }
+
+              },
 
             ),
 
@@ -793,15 +817,29 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent>
 
 
 
+      ),
+
       // Read / Open CTA
 
-      bottomNavigationBar: _ReadButton(
+      bottomNavigationBar: Center(
 
-        book: book,
+        heightFactor: 1.0,
 
-        isAuth: widget.isAuth,
+        child: ConstrainedBox(
 
-        isDownloaded: isDownloaded,
+          constraints: const BoxConstraints(maxWidth: 1000),
+
+          child: _ReadButton(
+
+            book: book,
+
+            isAuth: widget.isAuth,
+
+            isDownloaded: isDownloaded,
+
+          ),
+
+        ),
 
       ),
 

@@ -1093,7 +1093,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return BookDetailScreen(bookId: id);
+                      return ResponsiveDesktopShell(
+                        child: BookDetailScreen(bookId: id),
+                      );
                     },
                     routes: [
                       GoRoute(
@@ -1113,10 +1115,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                         builder: (context, state) {
                           final id = state.pathParameters['id']!;
                           final extra = state.extra as Map<String, dynamic>?;
-                          return BookReaderScreen(
-                            bookId: id,
-                            startChapter: extra?['startChapter'] as int? ?? 0,
-                            isDownloaded: extra?['isDownloaded'] as bool? ?? false,
+                          return ResponsiveDesktopShell(
+                            child: BookReaderScreen(
+                              bookId: id,
+                              startChapter: extra?['startChapter'] as int? ?? 0,
+                              isDownloaded: extra?['isDownloaded'] as bool? ?? false,
+                            ),
                           );
                         },
                       ),
