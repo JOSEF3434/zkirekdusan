@@ -209,6 +209,15 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     }
   }
 
+  void _retry() {
+    setState(() {
+      _isLoading = true;
+      _loadError = false;
+      _loadErrorMsg = null;
+    });
+    _initialize();
+  }
+
   /// Downloads bytes from a URL using Dio (fully cross-platform on web, mobile, desktop)
   Future<Uint8List> _fetchBytes(String url) async {
     final dio = Dio();
@@ -361,7 +370,6 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
   @override
   Widget build(BuildContext context) {
     _captureDependencies();
-    final theme = Theme.of(context);
     final prefs = ref.watch(readingPrefsProvider);
     final downloadState = ref.watch(downloadsNotifierProvider);
     final isDownloadedAsync = ref.watch(isBookDownloadedProvider(widget.bookId));
@@ -389,43 +397,18 @@ class BookReaderScreenState extends ConsumerState<BookReaderScreen>
     }
 
     if (_loadError) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Reader')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  _loadErrorMsg ?? 'Could not open this book',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                if (!widget.isDownloaded)
-                  const Text(
-                    'Tip: Download the book for reliable offline reading.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () => context.go('/books'),
-                  icon: const Icon(Icons.download_done_rounded),
-                  label: const Text('Go to Downloaded Books'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => context.pop(),
-                  child: const Text('Go Back'),
-                ),
-              ],
-            ),
-          ),
-        ),
+      return _ReaderErrorView(
+        errorMsg: _loadErrorMsg,
+        isDownloaded: widget.isDownloaded,
+        onRetry: _retry,
+        onGoToDownloads: () => context.go('/books'),
+        onGoBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/books/${widget.bookId}');
+          }
+        },
       );
     }
 
@@ -1099,6 +1082,382 @@ class _UnsupportedFormatScreen extends StatelessWidget {
                 label: const Text('Back to Library'),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Reader Error Display ────────────────────────────────────────────────────
+
+class _ReaderErrorInfo {
+  final String title;
+  final String summary;
+  final String rawError;
+  final IconData icon;
+  final Color iconColor;
+  final String? badgeText;
+
+  const _ReaderErrorInfo({
+    required this.title,
+    required this.summary,
+    required this.rawError,
+    required this.icon,
+    required this.iconColor,
+    this.badgeText,
+  });
+
+  static _ReaderErrorInfo parse(String? raw) {
+    final rawText = raw ?? 'Unknown error occurred while opening document.';
+    final lower = rawText.toLowerCase();
+
+    if (lower.contains('401') || lower.contains('unauthorized')) {
+      return _ReaderErrorInfo(
+        title: 'Cloud Storage Access Restricted',
+        summary:
+            'The book document is hosted on external cloud storage (Cloudinary) which returned HTTP 401 Unauthorized. Access permissions or storage configuration are currently being updated on the server.',
+        rawError: rawText,
+        icon: Icons.cloud_off_rounded,
+        iconColor: const Color(0xFFF59E0B),
+        badgeText: 'Storage 401 (Unauthorized)',
+      );
+    } else if (lower.contains('403') || lower.contains('forbidden')) {
+      return _ReaderErrorInfo(
+        title: 'Storage Access Restricted',
+        summary:
+            'Access to this document on cloud storage is currently restricted (HTTP 403 Forbidden). Please check back later or contact an administrator.',
+        rawError: rawText,
+        icon: Icons.lock_person_outlined,
+        iconColor: const Color(0xFFF97316),
+        badgeText: 'Storage 403 (Forbidden)',
+      );
+    } else if (lower.contains('404') || lower.contains('not found')) {
+      return _ReaderErrorInfo(
+        title: 'Document Not Found',
+        summary:
+            'The requested document file could not be located on the storage server. It may have been moved, updated, or removed.',
+        rawError: rawText,
+        icon: Icons.find_in_page_outlined,
+        iconColor: const Color(0xFFEF4444),
+        badgeText: 'Storage 404 (Not Found)',
+      );
+    } else if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('network') ||
+        lower.contains('connection')) {
+      return _ReaderErrorInfo(
+        title: 'No Internet Connection',
+        summary:
+            'Unable to reach the document server. Check your internet connection or browse your downloaded offline books.',
+        rawError: rawText,
+        icon: Icons.wifi_off_rounded,
+        iconColor: const Color(0xFF38BDF8),
+        badgeText: 'Network Offline',
+      );
+    } else {
+      return _ReaderErrorInfo(
+        title: 'Could Not Open Book',
+        summary:
+            'An error occurred while loading this document. Please try again or download the book for offline reading.',
+        rawError: rawText,
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEF4444),
+      );
+    }
+  }
+}
+
+class _ReaderErrorView extends StatefulWidget {
+  final String? errorMsg;
+  final bool isDownloaded;
+  final VoidCallback onRetry;
+  final VoidCallback onGoToDownloads;
+  final VoidCallback onGoBack;
+
+  const _ReaderErrorView({
+    required this.errorMsg,
+    required this.isDownloaded,
+    required this.onRetry,
+    required this.onGoToDownloads,
+    required this.onGoBack,
+  });
+
+  @override
+  State<_ReaderErrorView> createState() => _ReaderErrorViewState();
+}
+
+class _ReaderErrorViewState extends State<_ReaderErrorView> {
+  bool _showTechnicalDetails = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final errorInfo = _ReaderErrorInfo.parse(widget.errorMsg);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Reader'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+          onPressed: widget.onGoBack,
+        ),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: errorInfo.iconColor.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Icon badge
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: errorInfo.iconColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      errorInfo.icon,
+                      size: 40,
+                      color: errorInfo.iconColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Optional status badge
+                  if (errorInfo.badgeText != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: errorInfo.iconColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        errorInfo.badgeText!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: errorInfo.iconColor,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // Title
+                  Text(
+                    errorInfo.title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+
+                  // User-friendly summary message
+                  Text(
+                    errorInfo.summary,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Diagnostic summary snippet
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      errorInfo.rawError.length > 90
+                          ? '${errorInfo.rawError.substring(0, 87)}...'
+                          : errorInfo.rawError,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Offline reading tip banner
+                  if (!widget.isDownloaded) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline_rounded,
+                            size: 20,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Tip: Download books for reliable offline reading anytime without relying on cloud storage availability.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Action Buttons
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: widget.onRetry,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Try Again'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: widget.onGoToDownloads,
+                        icon: const Icon(Icons.download_done_rounded, size: 18),
+                        label: const Text('Go to Downloaded Books'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: widget.onGoBack,
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Go Back'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Technical details toggle
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => setState(() => _showTechnicalDetails = !_showTechnicalDetails),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showTechnicalDetails
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _showTechnicalDetails
+                                ? 'Hide Technical Details'
+                                : 'Show Technical Details',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Technical Details Container
+                  if (_showTechnicalDetails) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Diagnostic Log',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 15),
+                                tooltip: 'Copy Log',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: errorInfo.rawError));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Error log copied to clipboard'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          SelectableText(
+                            errorInfo.rawError,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              color: Colors.white70,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
