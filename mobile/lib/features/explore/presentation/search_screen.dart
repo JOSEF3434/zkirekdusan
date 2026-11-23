@@ -4,8 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
-import 'package:mobile/core/presentation/widgets/responsive_layout.dart';
 import 'package:mobile/features/explore/domain/search_model.dart';
 import 'package:mobile/features/explore/presentation/providers/search_provider.dart';
 import 'package:mobile/features/explore/presentation/widgets/search_result_widgets.dart';
@@ -44,72 +44,130 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
+  double _getHorizontalMargin(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width > 1200) return 24.0;
+    if (width > 800) return 20.0;
+    if (width > 600) return 16.0;
+    return 12.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final searchState = ref.watch(searchProvider);
     final recentSearchesAsync = ref.watch(recentSearchesProvider);
+    final horizontalMargin = _getHorizontalMargin(context);
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: TextField(
-            controller: _searchController,
-            autofocus: true,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Search videos, people, groups…',
-              border: InputBorder.none,
-              hintStyle: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: 'Clear',
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalMargin,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      tooltip: 'Back',
                       onPressed: () {
-                        _searchController.clear();
-                        ref.read(searchProvider.notifier).clear();
-                        setState(() => _showResults = false);
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/home');
+                        }
                       },
-                    )
-                  : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search videos, people, groups…',
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _searchController,
+                              builder: (context, value, _) {
+                                if (value.text.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return IconButton(
+                                  icon: const Icon(Icons.close_rounded, size: 20),
+                                  tooltip: 'Clear',
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    ref.read(searchProvider.notifier).clear();
+                                    setState(() => _showResults = false);
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setState(() => _showResults = val.trim().isNotEmpty);
+                            ref.read(searchProvider.notifier).setQuery(val);
+                          },
+                          onSubmitted: (val) {
+                            if (val.trim().isNotEmpty) {
+                              setState(() => _showResults = true);
+                              ref.read(searchProvider.notifier).setQuery(val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            onChanged: (val) {
-              setState(() => _showResults = val.trim().isNotEmpty);
-              ref.read(searchProvider.notifier).setQuery(val);
-            },
-            onSubmitted: (val) {
-              if (val.trim().isNotEmpty) {
-                setState(() => _showResults = true);
-                ref.read(searchProvider.notifier).setQuery(val);
-              }
-            },
           ),
         ),
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: ResponsiveLayout.isDesktop(context)
-                ? 800
-                : double.infinity,
-          ),
-          child: Column(
-            children: [
-              // Filter Chips
-              if (_showResults || searchState.query.isNotEmpty)
-                _FilterChips(searchState: searchState),
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+            child: Column(
+              children: [
+                // Filter Chips
+                if (_showResults || searchState.query.isNotEmpty)
+                  _FilterChips(searchState: searchState),
 
-              // Main Content
-              Expanded(
-                child: _showResults
-                    ? _buildResultsBody(searchState)
-                    : _buildRecentSearches(recentSearchesAsync),
-              ),
-            ],
+                // Main Content
+                Expanded(
+                  child: _showResults
+                      ? _buildResultsBody(searchState)
+                      : _buildRecentSearches(recentSearchesAsync),
+                ),
+              ],
+            ),
           ),
         ),
       ),

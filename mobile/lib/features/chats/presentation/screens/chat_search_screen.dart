@@ -124,7 +124,13 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/chats');
+            }
+          },
         ),
         title: Container(
           height: 42,
