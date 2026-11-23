@@ -52,6 +52,7 @@ class StoryModel {
   final int viewsCount;
   final int reactionsCount;
   final int commentsCount;
+  final bool isArchived;
   final bool hasViewedByMe;
   final String? myReaction;
   final StoryAuthorModel author;
@@ -68,6 +69,7 @@ class StoryModel {
     this.viewsCount = 0,
     this.reactionsCount = 0,
     this.commentsCount = 0,
+    this.isArchived = false,
     this.hasViewedByMe = false,
     this.myReaction,
     required this.author,
@@ -79,6 +81,7 @@ class StoryModel {
   bool get isImage => type.toUpperCase() == 'IMAGE';
   bool get isText => type.toUpperCase() == 'TEXT';
   bool get isExpired => DateTime.now().isAfter(expiresAt);
+  bool get isActive => DateTime.now().isBefore(expiresAt) && !isArchived;
 
   StoryModel copyWith({
     String? id,
@@ -90,6 +93,7 @@ class StoryModel {
     int? viewsCount,
     int? reactionsCount,
     int? commentsCount,
+    bool? isArchived,
     bool? hasViewedByMe,
     String? myReaction,
     StoryAuthorModel? author,
@@ -106,6 +110,7 @@ class StoryModel {
       viewsCount: viewsCount ?? this.viewsCount,
       reactionsCount: reactionsCount ?? this.reactionsCount,
       commentsCount: commentsCount ?? this.commentsCount,
+      isArchived: isArchived ?? this.isArchived,
       hasViewedByMe: hasViewedByMe ?? this.hasViewedByMe,
       myReaction: myReaction ?? this.myReaction,
       author: author ?? this.author,
@@ -125,6 +130,7 @@ class StoryModel {
       viewsCount: (json['viewsCount'] as num?)?.toInt() ?? 0,
       reactionsCount: (json['reactionsCount'] as num?)?.toInt() ?? 0,
       commentsCount: (json['commentsCount'] as num?)?.toInt() ?? 0,
+      isArchived: json['isArchived'] as bool? ?? false,
       hasViewedByMe: json['hasViewedByMe'] as bool? ?? false,
       myReaction: json['myReaction'] as String?,
       author: StoryAuthorModel.fromJson(
@@ -150,6 +156,7 @@ class StoryModel {
       'viewsCount': viewsCount,
       'reactionsCount': reactionsCount,
       'commentsCount': commentsCount,
+      'isArchived': isArchived,
       'hasViewedByMe': hasViewedByMe,
       'myReaction': myReaction,
       'author': author.toJson(),

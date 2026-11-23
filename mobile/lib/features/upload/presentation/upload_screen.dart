@@ -8,6 +8,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/upload/presentation/providers/upload_provider.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
 import 'package:mobile/features/creator/presentation/providers/upload_channels_provider.dart';
 
@@ -659,40 +660,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
 
               const SizedBox(height: 16),
 
-              ref
-                  .watch(myPlaylistsProvider)
-                  .when(
-                    data: (playlists) {
-                      if (playlists.isEmpty) return const SizedBox.shrink();
-                      return DropdownButtonFormField<String?>(
-                        initialValue: _playlistId,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: tr('upload.playlist_label'),
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.playlist_add_rounded),
-                        ),
-                        items: [
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text(tr('upload.none_playlist')),
-                          ),
-                          ...playlists.map(
-                            (p) => DropdownMenuItem<String?>(
-                              value: p.id,
-                              child: Text(
-                                p.title,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _playlistId = v),
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (error, stackTrace) => const SizedBox.shrink(),
-                  ),
+              _buildPlaylistSection(context, theme, isDark, tr),
 
               const SizedBox(height: 32),
 
@@ -728,6 +696,278 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
               const SizedBox(height: 24),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistSection(
+    BuildContext context,
+    ThemeData theme,
+    bool isDark,
+    String Function(String, [Map<String, String>?]) tr,
+  ) {
+    final playlistsAsync = ref.watch(myPlaylistsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.playlist_add_rounded,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  tr('upload.playlist_label'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            TextButton.icon(
+              onPressed: () => _showCreatePlaylistDialog(context),
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(
+                tr('playlist.new_btn'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        playlistsAsync.when(
+          data: (playlists) {
+            final hasSelected =
+                _playlistId == null || playlists.any((p) => p.id == _playlistId);
+            final effectiveValue = hasSelected ? _playlistId : null;
+
+            return DropdownButtonFormField<String?>(
+              key: ValueKey(effectiveValue),
+              initialValue: effectiveValue,
+              isExpanded: true,
+              decoration: InputDecoration(
+                hintText: playlists.isEmpty
+                    ? 'No playlists yet — tap "+ Create" to add one'
+                    : 'Select a playlist (optional)',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.playlist_play_rounded),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                suffixIcon: _playlistId != null
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: 'Clear selection',
+                        onPressed: () => setState(() => _playlistId = null),
+                      )
+                    : null,
+              ),
+              items: [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(tr('upload.none_playlist')),
+                ),
+                ...playlists.map(
+                  (p) => DropdownMenuItem<String?>(
+                    value: p.id,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            p.title,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${p.items.length} ${p.items.length == 1 ? "video" : "videos"}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (v) => setState(() => _playlistId = v),
+            );
+          },
+          loading: () => InputDecorator(
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.playlist_play_rounded),
+              labelText: tr('upload.playlist_label'),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('Loading playlists...'),
+              ],
+            ),
+          ),
+          error: (error, _) => Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Failed to load playlists',
+                  style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
+                ),
+              ),
+              TextButton(
+                onPressed: () => ref.invalidate(myPlaylistsProvider),
+                child: Text(tr('common.retry')),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCreatePlaylistDialog(BuildContext context) {
+    final tr = ref.read(trProvider);
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String visibility = 'PUBLIC';
+    final uploadState = ref.read(uploadProvider);
+    final channelId = uploadState.selectedChannel?.id;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(tr('playlist.create_title')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.title_label'),
+                    hintText: tr('playlist.title_hint'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.desc_label'),
+                    hintText: tr('playlist.desc_hint'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: visibility,
+                  decoration: InputDecoration(
+                    labelText: tr('playlist.visibility'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'PUBLIC',
+                      child: Text(tr('playlist.public')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'UNLISTED',
+                      child: Text(tr('playlist.unlisted')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'PRIVATE',
+                      child: Text(tr('playlist.private')),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => visibility = val);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(tr('common.cancel')),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final title = titleCtrl.text.trim();
+                if (title.isEmpty) return;
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(dialogCtx);
+                try {
+                  final newPlaylist = await ref
+                      .read(playlistRepositoryProvider)
+                      .createPlaylist(
+                        title: title,
+                        description: descCtrl.text.trim().isEmpty
+                            ? null
+                            : descCtrl.text.trim(),
+                        visibility: visibility,
+                        videoChannelId: channelId,
+                      );
+                  ref.invalidate(myPlaylistsProvider);
+                  if (mounted) {
+                    setState(() {
+                      _playlistId = newPlaylist.id;
+                    });
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Created and selected playlist "${newPlaylist.title}"',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          tr('playlist.create_failed', {'error': e.toString()}),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(tr('playlist.create')),
+            ),
+          ],
         ),
       ),
     );

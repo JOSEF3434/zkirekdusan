@@ -28,9 +28,21 @@ class PlaylistDetailNotifier
     });
   }
 
+  Future<void> addVideo(String videoId) async {
+    final repo = ref.read(groupRepositoryProvider);
+    await repo.addVideoToPlaylist(arg, videoId);
+    await refresh();
+  }
+
   Future<void> removeVideo(String videoId) async {
     final repo = ref.read(groupRepositoryProvider);
     await repo.removeVideoFromPlaylist(arg, videoId);
+    await refresh();
+  }
+
+  Future<void> reorderVideos(List<String> videoIds) async {
+    final repo = ref.read(groupRepositoryProvider);
+    await repo.reorderPlaylistItems(arg, videoIds);
     await refresh();
   }
 

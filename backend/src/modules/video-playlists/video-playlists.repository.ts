@@ -99,6 +99,11 @@ export class VideoPlaylistsRepository {
   }
 
   async addItem(playlistId: string, videoId: string) {
+    const existing = await this.prisma.videoPlaylistItem.findUnique({
+      where: { playlistId_videoId: { playlistId, videoId } },
+    });
+    if (existing) return existing;
+
     const count = await this.prisma.videoPlaylistItem.count({
       where: { playlistId },
     });
@@ -110,6 +115,18 @@ export class VideoPlaylistsRepository {
       data: { videosCount: { increment: 1 } },
     });
     return item;
+  }
+
+  async reorderItems(playlistId: string, videoIds: string[]) {
+    await this.prisma.$transaction(
+      videoIds.map((videoId, index) =>
+        this.prisma.videoPlaylistItem.updateMany({
+          where: { playlistId, videoId },
+          data: { order: index + 1 },
+        }),
+      ),
+    );
+    return this.findById(playlistId);
   }
 
   async removeItem(playlistId: string, videoId: string) {

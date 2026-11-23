@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/groups/presentation/providers/playlist_detail_provider.dart';
 
 class SaveToPlaylistSheet extends ConsumerStatefulWidget {
   final String videoId;
@@ -38,7 +39,9 @@ class SaveToPlaylistSheet extends ConsumerStatefulWidget {
 
 class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
   final Set<String> _selectedPlaylistIds = {};
+  bool _initialized = false;
   bool _isLoading = false;
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +106,16 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                 ),
               ),
               data: (playlists) {
+                // Initialize selected playlists that already contain this video
+                if (!_initialized) {
+                  _initialized = true;
+                  for (final p in playlists) {
+                    if (p.items.any((item) => item.videoId == widget.videoId)) {
+                      _selectedPlaylistIds.add(p.id);
+                    }
+                  }
+                }
+
                 if (playlists.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -128,98 +141,166 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                   );
                 }
 
-                return ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.4,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: playlists.length,
-                    itemBuilder: (ctx, idx) {
-                      final p = playlists[idx];
-                      final isSelected = _selectedPlaylistIds.contains(p.id);
+                final filtered = _searchQuery.trim().isEmpty
+                    ? playlists
+                    : playlists
+                        .where(
+                          (p) => p.title.toLowerCase().contains(
+                            _searchQuery.toLowerCase(),
+                          ),
+                        )
+                        .toList();
 
-                      return CheckboxListTile(
-                        value: isSelected,
-                        title: Text(
-                          p.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (playlists.length > 4)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: TextField(
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                          decoration: InputDecoration(
+                            hintText: 'Filter playlists...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                        subtitle: Text(
-                          '${p.privacy.toUpperCase()} • ${p.items.length} videos',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        secondary: const Icon(Icons.playlist_play),
-                        onChanged: _isLoading
-                            ? null
-                            : (val) async {
-                                final messenger = ScaffoldMessenger.of(context);
-                                setState(() {
-                                  _isLoading = true;
-                                  if (val == true) {
-                                    _selectedPlaylistIds.add(p.id);
-                                  } else {
-                                    _selectedPlaylistIds.remove(p.id);
-                                  }
-                                });
+                      ),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.4,
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (ctx, idx) {
+                          final p = filtered[idx];
+                          final isSelected = _selectedPlaylistIds.contains(p.id);
 
-                                try {
-                                  final repo = ref.read(
-                                    playlistRepositoryProvider,
-                                  );
-                                  if (val == true) {
-                                    await repo.addVideoToPlaylist(
-                                      p.id,
-                                      widget.videoId,
-                                    );
-                                    if (!mounted) return;
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          tr('playlist.added_to', {
-                                            'title': p.title,
-                                          }),
+                          IconData privacyIcon;
+                          switch (p.visibility.toUpperCase()) {
+                            case 'PRIVATE':
+                              privacyIcon = Icons.lock_outline;
+                              break;
+                            case 'UNLISTED':
+                              privacyIcon = Icons.link;
+                              break;
+                            default:
+                              privacyIcon = Icons.public;
+                          }
+
+                          return CheckboxListTile(
+                            value: isSelected,
+                            title: Text(
+                              p.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Row(
+                              children: [
+                                Icon(
+                                  privacyIcon,
+                                  size: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${p.visibility} • ${p.items.length} ${p.items.length == 1 ? "video" : "videos"}',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            ),
+                            secondary: const Icon(Icons.playlist_play_rounded),
+                            onChanged: _isLoading
+                                ? null
+                                : (val) async {
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
+                                    setState(() {
+                                      _isLoading = true;
+                                      if (val == true) {
+                                        _selectedPlaylistIds.add(p.id);
+                                      } else {
+                                        _selectedPlaylistIds.remove(p.id);
+                                      }
+                                    });
+
+                                    try {
+                                      final repo = ref.read(
+                                        playlistRepositoryProvider,
+                                      );
+                                      if (val == true) {
+                                        await repo.addVideoToPlaylist(
+                                          p.id,
+                                          widget.videoId,
+                                        );
+                                        if (!mounted) return;
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              tr('playlist.added_to', {
+                                                'title': p.title,
+                                              }),
+                                            ),
+                                          ),
+                                        );
+                                      } else {
+                                        await repo.removeVideoFromPlaylist(
+                                          p.id,
+                                          widget.videoId,
+                                        );
+                                        if (!mounted) return;
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              tr('playlist.removed_from', {
+                                                'title': p.title,
+                                              }),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      ref.invalidate(myPlaylistsProvider);
+                                      ref.invalidate(
+                                        playlistDetailProvider(p.id),
+                                      );
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      // Revert state on failure
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedPlaylistIds.remove(p.id);
+                                        } else {
+                                          _selectedPlaylistIds.add(p.id);
+                                        }
+                                      });
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            tr('playlist.action_failed', {
+                                              'error': e.toString(),
+                                            }),
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  } else {
-                                    await repo.removeVideoFromPlaylist(
-                                      p.id,
-                                      widget.videoId,
-                                    );
-                                    if (!mounted) return;
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          tr('playlist.removed_from', {
-                                            'title': p.title,
-                                          }),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  ref.invalidate(myPlaylistsProvider);
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        tr('playlist.action_failed', {
-                                          'error': e.toString(),
-                                        }),
-                                      ),
-                                    ),
-                                  );
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isLoading = false);
-                                  }
-                                }
-                              },
-                      );
-                    },
-                  ),
+                                      );
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _isLoading = false);
+                                      }
+                                    }
+                                  },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -320,6 +401,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                   );
                   await repo.addVideoToPlaylist(created.id, widget.videoId);
                   ref.invalidate(myPlaylistsProvider);
+                  ref.invalidate(playlistDetailProvider(created.id));
                   if (!mounted) return;
                   setState(() {
                     _selectedPlaylistIds.add(created.id);

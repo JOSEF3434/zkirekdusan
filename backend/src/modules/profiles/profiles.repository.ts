@@ -132,7 +132,7 @@ export class ProfilesRepository {
       this.prisma.follow.count({ where: { followingId: userId } }),
       this.prisma.follow.count({ where: { followerId: userId } }),
       this.prisma.groupMember.count({ where: { userId, removedAt: null } }),
-      this.prisma.post.count({ where: { authorId: userId, deletedAt: null } }),
+      this.prisma.story.count({ where: { authorId: userId, deletedAt: null, isArchived: false } }),
       this.prisma.reel.count({ where: { authorId: userId, deletedAt: null } }),
     ]);
 

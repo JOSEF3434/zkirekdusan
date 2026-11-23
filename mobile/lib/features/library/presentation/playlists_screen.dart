@@ -86,6 +86,10 @@ class PlaylistsScreen extends ConsumerWidget {
                     ? playlist.items.first.videoThumbnailUrl
                     : null;
 
+                final videoCount = playlist.items.isNotEmpty
+                    ? playlist.items.length
+                    : playlist.videosCount;
+
                 return InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => context.push('/playlists/${playlist.id}'),
@@ -127,7 +131,7 @@ class PlaylistsScreen extends ConsumerWidget {
                                       vertical: 2,
                                     ),
                                     child: Text(
-                                      '${playlist.items.length} ${playlist.items.length == 1 ? tr('common.video') : tr('common.videos')}',
+                                      '$videoCount ${videoCount == 1 ? tr('common.video') : tr('common.videos')}',
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.white,

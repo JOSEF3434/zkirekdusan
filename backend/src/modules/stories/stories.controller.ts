@@ -7,6 +7,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -124,8 +125,11 @@ export class StoriesController {
   @ApiResponse({ status: 200, type: [StoryResponseDto] })
   async getMyStoryHistory(
     @CurrentUser('sub') userId: string,
+    @Query('archived') archived?: string,
   ): Promise<StoryResponseDto[]> {
-    return this.storiesService.getStoryHistory(userId, userId);
+    const isArchived =
+      archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.storiesService.getStoryHistory(userId, userId, isArchived);
   }
 
   @UseGuards(OptionalJwtAuthGuard)
@@ -135,8 +139,41 @@ export class StoriesController {
   async getUserStoryHistory(
     @Param('userId') targetUserId: string,
     @CurrentUser('sub') viewerId?: string,
+    @Query('archived') archived?: string,
   ): Promise<StoryResponseDto[]> {
-    return this.storiesService.getStoryHistory(targetUserId, viewerId);
+    const isArchived =
+      archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.storiesService.getStoryHistory(targetUserId, viewerId, isArchived);
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Archive story (author only)' })
+  @ApiResponse({ status: 200, type: StoryResponseDto })
+  async archiveStory(
+    @Param('id') storyId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<StoryResponseDto> {
+    return this.storiesService.archiveStory(storyId, userId);
+  }
+
+  @Post(':id/unarchive')
+  @ApiOperation({ summary: 'Unarchive story (author only)' })
+  @ApiResponse({ status: 200, type: StoryResponseDto })
+  async unarchiveStory(
+    @Param('id') storyId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<StoryResponseDto> {
+    return this.storiesService.unarchiveStory(storyId, userId);
+  }
+
+  @Post(':id/repost')
+  @ApiOperation({ summary: 'Repost a story as a new 24-hour story (author only)' })
+  @ApiResponse({ status: 201, type: StoryResponseDto })
+  async repostStory(
+    @Param('id') storyId: string,
+    @CurrentUser('sub') userId: string,
+  ): Promise<StoryResponseDto> {
+    return this.storiesService.repostStory(storyId, userId);
   }
 
   @UseGuards(OptionalJwtAuthGuard)

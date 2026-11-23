@@ -38,6 +38,13 @@ export class UploadVideoDto {
   visibility?: VideoVisibility;
 
   @ApiPropertyOptional({
+    description: 'Optional playlist ID to add video to upon upload',
+  })
+  @IsOptional()
+  @IsString()
+  playlistId?: string;
+
+  @ApiPropertyOptional({
     enum: DownloadPermission,
     default: DownloadPermission.MEMBERS_ONLY,
   })

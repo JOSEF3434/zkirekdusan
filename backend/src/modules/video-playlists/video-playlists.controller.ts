@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import { VideoPlaylistsService } from './video-playlists.service.js';
 import {
   CreatePlaylistDto,
   AddPlaylistItemDto,
+  ReorderPlaylistItemsDto,
 } from './dto/create-playlist.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -101,6 +103,17 @@ export class VideoPlaylistsController {
     @CurrentUser('sub') userId: string,
   ) {
     return this.service.removeItem(id, videoId, userId);
+  }
+
+  @Put(':id/items/reorder')
+  @ApiOperation({ summary: 'Reorder videos in playlist' })
+  @ApiParam({ name: 'id', description: 'Playlist ID' })
+  async reorderItems(
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: ReorderPlaylistItemsDto,
+  ) {
+    return this.service.reorderItems(id, userId, dto.videoIds);
   }
 }
 

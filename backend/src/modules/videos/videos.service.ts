@@ -184,6 +184,34 @@ export class VideosService {
       isDownloadable: dto.isDownloadable,
     });
 
+    if (dto.playlistId) {
+      try {
+        const playlist = await this.prisma.videoPlaylist.findUnique({
+          where: { id: dto.playlistId },
+        });
+        if (playlist) {
+          const count = await this.prisma.videoPlaylistItem.count({
+            where: { playlistId: dto.playlistId },
+          });
+          await this.prisma.videoPlaylistItem.create({
+            data: {
+              playlistId: dto.playlistId,
+              videoId: video.id,
+              order: count + 1,
+            },
+          });
+          await this.prisma.videoPlaylist.update({
+            where: { id: dto.playlistId },
+            data: { videosCount: { increment: 1 } },
+          });
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to automatically add video ${video.id} to playlist ${dto.playlistId}: ${err}`,
+        );
+      }
+    }
+
     return this.mapVideoToDto(video);
   }
 

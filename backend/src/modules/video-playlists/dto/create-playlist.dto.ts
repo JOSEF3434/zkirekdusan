@@ -6,6 +6,7 @@ import {
   IsEnum,
   MaxLength,
   MinLength,
+  IsArray,
 } from 'class-validator';
 import { PlaylistVisibility } from '@prisma/client';
 
@@ -42,4 +43,14 @@ export class AddPlaylistItemDto {
   @ApiProperty({ description: 'Video ID to add to playlist' })
   @IsString()
   videoId!: string;
+}
+
+export class ReorderPlaylistItemsDto {
+  @ApiProperty({
+    description: 'Ordered list of video IDs in the playlist',
+    example: ['video-id-1', 'video-id-2'],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  videoIds!: string[];
 }

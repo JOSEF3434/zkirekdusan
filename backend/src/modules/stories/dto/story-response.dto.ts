@@ -51,6 +51,9 @@ export class StoryResponseDto {
   commentsCount!: number;
 
   @ApiProperty({ example: false })
+  isArchived!: boolean;
+
+  @ApiProperty({ example: false })
   hasViewedByMe?: boolean;
 
   @ApiPropertyOptional({ enum: ReactionType, nullable: true })

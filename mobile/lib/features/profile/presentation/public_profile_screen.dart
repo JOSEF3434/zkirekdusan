@@ -14,7 +14,7 @@ import 'package:mobile/features/chats/presentation/widgets/telegram_qr_sheet.dar
 import 'package:mobile/features/social/data/report_repository.dart';
 import 'package:mobile/features/social/presentation/widgets/report_sheet.dart';
 import 'package:mobile/features/profile/data/models/profile_model.dart';
-import 'package:mobile/features/profile/presentation/providers/profile_posts_provider.dart';
+import 'package:mobile/features/profile/presentation/widgets/profile_posts_list.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_provider.dart';
 import 'package:mobile/features/social/domain/follow_model.dart';
 import 'package:mobile/features/social/presentation/followers_screen.dart';
@@ -416,7 +416,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                       _StatChip(
-                        label: 'Posts',
+                        label: tr('stories.title', {'fallback': 'Stories'}),
                         count: profile.stats.postsCount,
                         onTap: null,
                       ),
@@ -680,10 +680,10 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
-                    tabs: const [
-                      Tab(text: 'Posts'),
-                      Tab(text: 'Followers'),
-                      Tab(text: 'About'),
+                    tabs: [
+                      Tab(text: tr('stories.title', {'fallback': 'Stories'})),
+                      const Tab(text: 'Followers'),
+                      const Tab(text: 'About'),
                     ],
                   ),
                 ),
@@ -695,8 +695,8 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Tab 1: Posts
-          _buildPostsMediaGrid(profile.userId, isDark),
+          // Tab 1: Stories
+          ProfileStoriesList(userId: profile.userId, isMyProfile: false),
 
           // Tab 2: Followers
           _buildFollowersList(profile.userId, isDark),
@@ -1069,170 +1069,6 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen>
           ],
         ),
       ),
-    );
-  }
-
-  // ── Posts Media Grid (Screenshot 1 bottom half) ───────────────────────────
-
-  Widget _buildPostsMediaGrid(String userId, bool isDark) {
-    final state = ref.watch(profilePostsProvider(userId));
-
-    if (state.isLoading && state.posts.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00C6FF)),
-      );
-    }
-
-    if (state.posts.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.grid_view_rounded,
-              size: 48,
-              color: isDark ? Colors.grey[700] : Colors.grey[400],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No posts shared yet',
-              style: TextStyle(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(4),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 4,
-        crossAxisSpacing: 4,
-        childAspectRatio: 0.95,
-      ),
-      itemCount: state.posts.length,
-      itemBuilder: (context, index) {
-        final post = state.posts[index];
-        final mediaUrl = post.media.isNotEmpty
-            ? MediaUrlResolver.resolve(post.media.first.url)
-            : null;
-
-        return GestureDetector(
-          onTap: () {
-            if (post.id.isNotEmpty) {
-              context.push('/video/${post.id}');
-            }
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              color: isDark ? const Color(0xFF17212B) : Colors.grey[300],
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (mediaUrl != null && mediaUrl.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: mediaUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: isDark
-                            ? const Color(0xFF17212B)
-                            : Colors.grey[200],
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: isDark
-                            ? const Color(0xFF1E2638)
-                            : Colors.grey[200],
-                        child: const Icon(
-                          Icons.image_outlined,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      color: isDark
-                          ? const Color(0xFF17212B)
-                          : Colors.grey[100],
-                      child: Center(
-                        child: Text(
-                          post.content ?? '',
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // Bottom Gradient with Like/View counts
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.75),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.favorite_rounded,
-                            size: 13,
-                            color: Colors.redAccent,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post.likesCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.visibility_outlined,
-                            size: 13,
-                            color: Colors.white70,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post.viewsCount}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 

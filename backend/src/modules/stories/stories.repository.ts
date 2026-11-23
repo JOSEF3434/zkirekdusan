@@ -51,6 +51,7 @@ export class StoriesRepository {
       where: {
         expiresAt: { gt: now },
         deletedAt: null,
+        isArchived: false,
       },
       include: {
         author: {
@@ -83,6 +84,7 @@ export class StoriesRepository {
         authorId: userId,
         expiresAt: { gt: now },
         deletedAt: null,
+        isArchived: false,
       },
       include: {
         author: {
@@ -108,12 +110,16 @@ export class StoriesRepository {
     });
   }
 
-  async findUserStoryHistory(userId: string) {
+  async findUserStoryHistory(userId: string, isArchived?: boolean) {
+    const where: any = {
+      authorId: userId,
+      deletedAt: null,
+    };
+    if (typeof isArchived === 'boolean') {
+      where.isArchived = isArchived;
+    }
     return this.prisma.story.findMany({
-      where: {
-        authorId: userId,
-        deletedAt: null,
-      },
+      where,
       include: {
         author: {
           select: {
@@ -133,6 +139,31 @@ export class StoriesRepository {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async setArchived(id: string, isArchived: boolean) {
+    return this.prisma.story.update({
+      where: { id },
+      data: { isArchived },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: { displayName: true, avatar: { select: { url: true } } },
+            },
+          },
+        },
+        file: { select: { url: true } },
+        views: {
+          select: { viewedAt: true },
+        },
+        reactions: {
+          select: { reaction: true },
+        },
+      },
     });
   }
 

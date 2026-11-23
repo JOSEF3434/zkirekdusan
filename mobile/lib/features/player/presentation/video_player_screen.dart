@@ -20,6 +20,7 @@ import 'package:mobile/features/social/presentation/providers/likes_provider.dar
 import 'package:mobile/features/social/presentation/providers/save_provider.dart';
 import 'package:mobile/features/social/presentation/widgets/follow_button.dart';
 import 'package:mobile/features/social/presentation/widgets/share_button.dart';
+import 'package:mobile/features/library/presentation/widgets/save_to_playlist_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:video_player/video_player.dart';
@@ -1255,6 +1256,7 @@ class _VideoMetaSection extends StatelessWidget {
               },
             ),
             _VideoActionSave(videoId: video.id, video: video),
+            _VideoActionPlaylist(videoId: video.id, videoTitle: video.title),
           ],
         ),
         const Divider(height: 32),
@@ -1538,6 +1540,40 @@ class _VideoActionSave extends ConsumerWidget {
           Text(
             isSaved ? 'Saved' : 'Save',
             style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoActionPlaylist extends ConsumerWidget {
+  final String videoId;
+  final String? videoTitle;
+
+  const _VideoActionPlaylist({required this.videoId, this.videoTitle});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () {
+        SaveToPlaylistSheet.show(
+          context,
+          videoId: videoId,
+          videoTitle: videoTitle,
+        );
+      },
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.playlist_add_rounded,
+            size: 24,
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Playlist',
+            style: TextStyle(fontSize: 12),
           ),
         ],
       ),

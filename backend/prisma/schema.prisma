@@ -1003,6 +1003,8 @@ model Story {
   reactionsCount Int @default(0)
   commentsCount  Int @default(0)
 
+  isArchived Boolean @default(false)
+
   expiresAt DateTime // set to createdAt + 24h at creation
 
   views     StoryView[]
@@ -1014,6 +1016,7 @@ model Story {
   updatedAt DateTime  @default(now()) @updatedAt
 
   @@index([authorId, expiresAt])
+  @@index([authorId, isArchived])
   @@index([authorId])
   @@index([expiresAt])
   @@index([createdAt])

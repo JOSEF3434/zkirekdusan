@@ -55,6 +55,11 @@ export class VideoPlaylistsService {
     return { message: 'Item removed from playlist' };
   }
 
+  async reorderItems(playlistId: string, userId: string, videoIds: string[]) {
+    await this.verifyOwnership(playlistId, userId);
+    return this.repo.reorderItems(playlistId, videoIds);
+  }
+
   async findByChannel(videoChannelId: string, page = 1, limit = 20) {
     return this.repo.findByChannel(videoChannelId, page, limit);
   }

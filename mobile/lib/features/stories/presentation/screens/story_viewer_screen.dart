@@ -12,6 +12,7 @@ import 'package:mobile/features/auth/presentation/providers/auth_providers.dart'
 import 'package:mobile/features/stories/data/datasources/stories_remote_datasource.dart';
 import 'package:mobile/features/stories/data/models/story_feed_group_model.dart';
 import 'package:mobile/features/stories/data/models/story_model.dart';
+import 'package:mobile/features/stories/presentation/providers/story_feed_provider.dart';
 import 'package:mobile/features/stories/presentation/providers/story_viewer_provider.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_comment_input.dart';
 import 'package:mobile/features/stories/presentation/widgets/story_progress_bar.dart';
@@ -190,6 +191,107 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     _videoController?.play();
   }
 
+  Future<void> _archiveStory(StoryModel story) async {
+    final notifier = ref.read(storyViewerProvider.notifier);
+    notifier.setOverlayOpen(true);
+    _videoController?.pause();
+    try {
+      await ref.read(storiesRemoteDatasourceProvider).archiveStory(story.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Story added to archive'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+        ref.invalidate(storyFeedProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to archive: $e')),
+        );
+      }
+    } finally {
+      notifier.setOverlayOpen(false);
+      _videoController?.play();
+    }
+  }
+
+  Future<void> _unarchiveStory(StoryModel story) async {
+    final notifier = ref.read(storyViewerProvider.notifier);
+    notifier.setOverlayOpen(true);
+    _videoController?.pause();
+    try {
+      await ref.read(storiesRemoteDatasourceProvider).unarchiveStory(story.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Story removed from archive'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+        ref.invalidate(storyFeedProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to unarchive: $e')),
+        );
+      }
+    } finally {
+      notifier.setOverlayOpen(false);
+      _videoController?.play();
+    }
+  }
+
+  Future<void> _repostStory(StoryModel story) async {
+    final notifier = ref.read(storyViewerProvider.notifier);
+    notifier.setOverlayOpen(true);
+    _videoController?.pause();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Repost Story'),
+        content: const Text(
+          'Repost this story? It will be published as a new 24-hour story.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Repost'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await ref.read(storiesRemoteDatasourceProvider).repostStory(story.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Story reposted successfully!'),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+          ref.invalidate(storyFeedProvider);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to repost: $e')),
+          );
+        }
+      }
+    }
+    notifier.setOverlayOpen(false);
+    _videoController?.play();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(storyViewerProvider);
@@ -315,6 +417,15 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
                                 onToggleMute: _toggleMute,
                                 onDelete: isOwner
                                     ? () => _confirmDeleteStory(currentStory)
+                                    : null,
+                                onArchive: isOwner
+                                    ? () => _archiveStory(currentStory)
+                                    : null,
+                                onUnarchive: isOwner
+                                    ? () => _unarchiveStory(currentStory)
+                                    : null,
+                                onRepost: isOwner
+                                    ? () => _repostStory(currentStory)
                                     : null,
                               ),
                             ],

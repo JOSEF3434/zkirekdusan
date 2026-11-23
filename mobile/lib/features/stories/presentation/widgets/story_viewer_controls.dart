@@ -13,6 +13,9 @@ class StoryViewerControls extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onToggleMute;
   final VoidCallback? onDelete;
+  final VoidCallback? onArchive;
+  final VoidCallback? onUnarchive;
+  final VoidCallback? onRepost;
 
   const StoryViewerControls({
     super.key,
@@ -24,6 +27,9 @@ class StoryViewerControls extends StatelessWidget {
     required this.onClose,
     required this.onToggleMute,
     this.onDelete,
+    this.onArchive,
+    this.onUnarchive,
+    this.onRepost,
   });
 
   @override
@@ -120,7 +126,7 @@ class StoryViewerControls extends StatelessWidget {
             ),
 
           // Options Menu
-          if (isOwner && onDelete != null)
+          if (isOwner)
             PopupMenuButton<String>(
               icon: const Icon(
                 Icons.more_vert_rounded,
@@ -128,21 +134,61 @@ class StoryViewerControls extends StatelessWidget {
                 size: 22,
               ),
               onSelected: (val) {
-                if (val == 'delete') {
+                if (val == 'archive') {
+                  onArchive?.call();
+                } else if (val == 'unarchive') {
+                  onUnarchive?.call();
+                } else if (val == 'repost') {
+                  onRepost?.call();
+                } else if (val == 'delete') {
                   onDelete?.call();
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                      SizedBox(width: 8),
-                      Text('Delete Story', style: TextStyle(color: Colors.red)),
-                    ],
+                if (!story.isArchived && onArchive != null)
+                  const PopupMenuItem(
+                    value: 'archive',
+                    child: Row(
+                      children: [
+                        Icon(Icons.archive_outlined, color: Colors.white70, size: 20),
+                        SizedBox(width: 8),
+                        Text('Archive Story'),
+                      ],
+                    ),
                   ),
-                ),
+                if (story.isArchived && onUnarchive != null)
+                  const PopupMenuItem(
+                    value: 'unarchive',
+                    child: Row(
+                      children: [
+                        Icon(Icons.unarchive_outlined, color: Colors.white70, size: 20),
+                        SizedBox(width: 8),
+                        Text('Remove from Archive'),
+                      ],
+                    ),
+                  ),
+                if (onRepost != null)
+                  const PopupMenuItem(
+                    value: 'repost',
+                    child: Row(
+                      children: [
+                        Icon(Icons.repeat_rounded, color: Color(0xFF00C6FF), size: 20),
+                        SizedBox(width: 8),
+                        Text('Repost Story'),
+                      ],
+                    ),
+                  ),
+                if (onDelete != null)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Text('Delete Story', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
               ],
             ),
 

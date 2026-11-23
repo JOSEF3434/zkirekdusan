@@ -121,4 +121,20 @@ class PlaylistRepository {
       throw Exception('Failed to get playlist details: $e');
     }
   }
+
+  Future<PlaylistDto> reorderPlaylistItems(
+    String playlistId,
+    List<String> videoIds,
+  ) async {
+    try {
+      final response = await _dio.put(
+        '/video-playlists/$playlistId/items/reorder',
+        data: {'videoIds': videoIds},
+      );
+      final raw = response.data['data'] ?? response.data;
+      return PlaylistDto.fromJson(raw as Map<String, dynamic>);
+    } catch (e) {
+      throw Exception('Failed to reorder playlist items: $e');
+    }
+  }
 }

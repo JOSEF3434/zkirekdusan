@@ -70,6 +70,7 @@ class UploadInitRequest {
       'title': title,
       if (description.isNotEmpty) 'description': description,
       'visibility': visibility,
+      if (playlistId != null && playlistId!.isNotEmpty) 'playlistId': playlistId,
       'downloadPermission': downloadPermission,
       'isDownloadable': isDownloadable,
       if (categories.isNotEmpty) 'categories': categories,

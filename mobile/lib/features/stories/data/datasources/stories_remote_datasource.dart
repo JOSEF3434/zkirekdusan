@@ -37,16 +37,23 @@ class StoriesRemoteDatasource {
         .toList();
   }
 
-  Future<List<StoryModel>> getStoryHistory(String userId) async {
+  Future<List<StoryModel>> getStoryHistory(String userId, {bool? archived}) async {
+    final queryParams = archived != null ? {'archived': archived} : null;
     try {
-      final response = await _dio.get('/stories/user/$userId/history');
+      final response = await _dio.get(
+        '/stories/user/$userId/history',
+        queryParameters: queryParams,
+      );
       final list = parseEnvelopeList(response.data);
       return list
           .map((e) => StoryModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (_) {
       try {
-        final response = await _dio.get('/stories/history');
+        final response = await _dio.get(
+          '/stories/history',
+          queryParameters: queryParams,
+        );
         final list = parseEnvelopeList(response.data);
         return list
             .map((e) => StoryModel.fromJson(e as Map<String, dynamic>))
@@ -55,6 +62,24 @@ class StoriesRemoteDatasource {
         return getMyStories();
       }
     }
+  }
+
+  Future<StoryModel> archiveStory(String id) async {
+    final response = await _dio.post('/stories/$id/archive');
+    final data = parseEnvelope(response.data);
+    return StoryModel.fromJson(data);
+  }
+
+  Future<StoryModel> unarchiveStory(String id) async {
+    final response = await _dio.post('/stories/$id/unarchive');
+    final data = parseEnvelope(response.data);
+    return StoryModel.fromJson(data);
+  }
+
+  Future<StoryModel> repostStory(String id) async {
+    final response = await _dio.post('/stories/$id/repost');
+    final data = parseEnvelope(response.data);
+    return StoryModel.fromJson(data);
   }
 
   Future<StoryModel> getStoryById(String id) async {

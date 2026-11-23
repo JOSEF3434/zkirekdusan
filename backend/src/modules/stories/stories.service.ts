@@ -238,8 +238,17 @@ export class StoriesService {
   async getStoryHistory(
     userId: string,
     viewerId?: string,
+    archived?: boolean,
   ): Promise<StoryResponseDto[]> {
-    const stories = await this.storiesRepository.findUserStoryHistory(userId);
+    const isOwner = Boolean(viewerId && viewerId === userId);
+    if (archived === true && !isOwner) {
+      return [];
+    }
+    const filterArchived = isOwner ? archived : false;
+    const stories =
+      filterArchived !== undefined
+        ? await this.storiesRepository.findUserStoryHistory(userId, filterArchived)
+        : await this.storiesRepository.findUserStoryHistory(userId);
     return stories.map((s) => this.mapToDto(s, viewerId));
   }
 
@@ -248,8 +257,11 @@ export class StoriesService {
     viewerId?: string,
   ): Promise<StoryResponseDto> {
     const story = await this.storiesRepository.findById(storyId, viewerId);
-    if (!story || story.expiresAt < new Date()) {
-      throw new NotFoundException('Story not found or has expired');
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+    if (story.isArchived && story.authorId !== viewerId) {
+      throw new ForbiddenException('This story is archived');
     }
     return this.mapToDto(story, viewerId);
   }
@@ -263,8 +275,8 @@ export class StoriesService {
       throw new NotFoundException('Story not found');
     }
 
-    if (story.expiresAt < new Date()) {
-      throw new NotFoundException('Story has expired');
+    if (story.isArchived && story.authorId !== viewerId) {
+      throw new ForbiddenException('This story is archived');
     }
 
     await this.storiesRepository.recordView(storyId, viewerId);
@@ -445,6 +457,57 @@ export class StoriesService {
     return { message: 'Story deleted successfully' };
   }
 
+  async archiveStory(
+    storyId: string,
+    userId: string,
+  ): Promise<StoryResponseDto> {
+    const story = await this.storiesRepository.findById(storyId);
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+    if (story.authorId !== userId) {
+      throw new ForbiddenException('You can only archive your own stories');
+    }
+    const updated = await this.storiesRepository.setArchived(storyId, true);
+    return this.mapToDto(updated, userId);
+  }
+
+  async unarchiveStory(
+    storyId: string,
+    userId: string,
+  ): Promise<StoryResponseDto> {
+    const story = await this.storiesRepository.findById(storyId);
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+    if (story.authorId !== userId) {
+      throw new ForbiddenException('You can only unarchive your own stories');
+    }
+    const updated = await this.storiesRepository.setArchived(storyId, false);
+    return this.mapToDto(updated, userId);
+  }
+
+  async repostStory(
+    storyId: string,
+    userId: string,
+  ): Promise<StoryResponseDto> {
+    const story = await this.storiesRepository.findById(storyId);
+    if (!story) {
+      throw new NotFoundException('Story not found');
+    }
+    if (story.authorId !== userId) {
+      throw new ForbiddenException('You can only repost your own stories');
+    }
+    const newStory = await this.storiesRepository.createStory(userId, {
+      type: story.type,
+      fileId: story.fileId ?? undefined,
+      content: story.content ?? undefined,
+      backgroundColor: story.backgroundColor ?? undefined,
+      textColor: story.textColor ?? undefined,
+    });
+    return this.mapToDto(newStory, userId);
+  }
+
   private sanitizeUrl(url: string | null | undefined): string | null {
     if (!url) return null;
     const isProduction = process.env.NODE_ENV === 'production';
@@ -487,6 +550,7 @@ export class StoriesService {
       viewsCount: s.viewsCount ?? 0,
       reactionsCount: s.reactionsCount ?? 0,
       commentsCount: s.commentsCount ?? 0,
+      isArchived: Boolean(s.isArchived),
       hasViewedByMe,
       myReaction,
       author: {

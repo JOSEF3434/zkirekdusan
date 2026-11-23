@@ -217,6 +217,20 @@ class GroupRepository {
     }
   }
 
+  Future<void> reorderPlaylistItems(
+    String playlistId,
+    List<String> videoIds,
+  ) async {
+    try {
+      await _dio.put(
+        '/video-playlists/$playlistId/items/reorder',
+        data: {'videoIds': videoIds},
+      );
+    } on DioException catch (e) {
+      throw Failure.fromException(e);
+    }
+  }
+
   // ── Group Members ─────────────────────────────────────────────────────────
 
   Future<PaginatedMembers> getGroupMembers(
