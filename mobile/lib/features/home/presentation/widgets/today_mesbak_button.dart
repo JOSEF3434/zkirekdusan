@@ -15,14 +15,14 @@ class TodayMesbakButton extends ConsumerWidget {
     final tr = ref.watch(trProvider);
 
     return Container(
-      width: 76,
-      margin: const EdgeInsets.only(left: 4, right: 12),
+      width: 86,
+      margin: const EdgeInsets.only(left: 4, right: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Tooltip(
-            message: tr('calendar.today_mesbak', {'fallback': 'የእለቱ ምስባክ'}),
+            message: tr('calendar.today_mesbak', {'fallback': 'የእለቱ ስንክሳርና ምስባክ'}),
             child: InkWell(
               onTap: () {
                 final now = EthiopianCalendarUtil.now();
@@ -107,19 +107,20 @@ class TodayMesbakButton extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
-            tr('calendar.today_mesbak', {'fallback': 'የእለቱ ምስባክ'}),
+            tr('calendar.today_mesbak', {'fallback': 'የእለቱ ስንክሳርና ምስባክ'}),
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              fontSize: 10.5,
+              fontSize: 10,
+              height: 1.15,
               color: theme.colorScheme.onSurface,
               fontFamilyFallback: const [
                 'Noto Serif Ethiopic',
                 'Noto Sans Ethiopic',
               ],
             ),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),

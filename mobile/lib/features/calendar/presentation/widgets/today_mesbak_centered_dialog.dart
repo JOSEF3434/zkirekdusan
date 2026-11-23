@@ -118,9 +118,9 @@ class TodayMesbakCenteredDialog extends ConsumerWidget {
 
               const SizedBox(height: 14),
 
-              // Title: የእለቱ ምስባክ
+              // Title: የእለቱ ስንክሳርና ምስባክ
               Text(
-                tr('calendar.today_mesbak', {'fallback': 'የእለቱ ምስባክ'}),
+                tr('calendar.today_mesbak', {'fallback': 'የእለቱ ስንክሳርና ምስባክ'}),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 18,

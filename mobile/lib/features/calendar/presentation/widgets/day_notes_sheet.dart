@@ -8,7 +8,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/media_url_resolver.dart';
 import 'package:mobile/core/utils/media_watermark_service.dart';
-import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_download_settings_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
@@ -20,12 +20,17 @@ import 'package:mobile/features/calendar/presentation/widgets/add_note_sheet.dar
 
 class DayNotesSheet extends ConsumerWidget {
   final EtDatetime selectedDate;
+  final bool isEmbedded;
 
-  const DayNotesSheet({super.key, required this.selectedDate});
+  const DayNotesSheet({
+    super.key,
+    required this.selectedDate,
+    this.isEmbedded = false,
+  });
 
   bool _canManage(WidgetRef ref) {
-    final role = ref.watch(authProvider).user?.role ?? '';
-    return role == 'SUPER_ADMIN';
+    final perms = ref.watch(adminPermissionsProvider);
+    return perms.canManageCalendar;
   }
 
   @override
@@ -41,14 +46,11 @@ class DayNotesSheet extends ConsumerWidget {
     final canManage = _canManage(ref);
     final themeColors = ref.watch(calendarThemeColorsProvider);
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final mainContent = Column(
+      mainAxisSize: isEmbedded ? MainAxisSize.max : MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!isEmbedded) ...[
           // Drag handle
           Center(
             child: Container(
@@ -104,10 +106,11 @@ class DayNotesSheet extends ConsumerWidget {
           ),
 
           const Divider(height: 1),
+        ],
 
-          // Day's Fasts & Holidays Banner / Cards (if any)
-          Consumer(
-            builder: (context, ref, _) {
+        // Day's Fasts & Holidays Banner / Cards (if any)
+        Consumer(
+          builder: (context, ref, _) {
               final dayEvents = ref.watch(
                 calendarEventsForDayProvider((
                   year: selectedDate.year,
@@ -216,13 +219,14 @@ class DayNotesSheet extends ConsumerWidget {
 
           // Notes list
           Flexible(
+            fit: isEmbedded ? FlexFit.tight : FlexFit.loose,
             child: notesAsync.when(
               data: (notes) {
                 if (notes.isEmpty) {
-                  return _buildEmptyState(context, canManage);
+                  return _buildEmptyState(context, ref, canManage);
                 }
                 return ListView.separated(
-                  shrinkWrap: true,
+                  shrinkWrap: !isEmbedded,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: notes.length,
                   separatorBuilder: (_, _) =>
@@ -280,7 +284,7 @@ class DayNotesSheet extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        Navigator.of(context).pop();
+                        if (!isEmbedded) Navigator.of(context).pop();
                         ManageCalendarEventDialog.show(
                           context,
                           prefillYear: selectedDate.year,
@@ -307,7 +311,7 @@ class DayNotesSheet extends ConsumerWidget {
                       icon: const Icon(Icons.add),
                       label: Consumer(
                         builder: (_, ref, _) =>
-                            Text(ref.watch(trProvider)('calendar.add_note')),
+                            Text(ref.watch(trProvider)('calendar.add_note', {'fallback': 'ስንክሳር መዝግብ'})),
                       ),
                     ),
                   ),
@@ -317,12 +321,23 @@ class DayNotesSheet extends ConsumerWidget {
           ] else
             const SizedBox(height: 8),
         ],
+      );
+
+    if (isEmbedded) {
+      return mainContent;
+    }
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
+      child: mainContent,
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool canManage) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref, bool canManage) {
     final theme = Theme.of(context);
+    final tr = ref.watch(trProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -330,26 +345,36 @@ class DayNotesSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.event_note,
-              size: 64,
+              Icons.auto_stories_outlined,
+              size: 56,
               color: theme.colorScheme.primary.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
-              'No notes for this day',
+              tr('calendar.no_notes_day', {'fallback': 'ለዚህ ቀን የተመዘገበ ስንክሳር የለም'}),
               style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                fontFamilyFallback: const [
+                  'Noto Serif Ethiopic',
+                  'Noto Sans Ethiopic',
+                ],
               ),
+              textAlign: TextAlign.center,
             ),
             if (canManage) ...[
               const SizedBox(height: 8),
               Text(
-                'Tap "Add Note" to create one',
+                tr('calendar.tap_add_note_hint', {'fallback': 'አዲስ ስንክሳር ለመመዝገብ "+ ስንክሳር መዝግብ" የሚለውን ይጫኑ'}),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.textTheme.bodySmall?.color?.withValues(
                     alpha: 0.5,
                   ),
+                  fontFamilyFallback: const [
+                    'Noto Serif Ethiopic',
+                    'Noto Sans Ethiopic',
+                  ],
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ],
@@ -454,23 +479,23 @@ class _NoteListItem extends ConsumerWidget {
               return [
               // ── Admin-only actions ──
               if (canManage) ...[
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
                   child: Row(
                     children: [
-                      Icon(Icons.edit_outlined),
-                      SizedBox(width: 12),
-                      Text('Edit'),
+                      const Icon(Icons.edit_outlined),
+                      const SizedBox(width: 12),
+                      Text(ref.watch(trProvider)('common.edit', {'fallback': 'አስተካክል'})),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
+                      const Icon(Icons.delete_outline, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Text(ref.watch(trProvider)('common.delete', {'fallback': 'ሰርዝ'}), style: const TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
@@ -478,24 +503,24 @@ class _NoteListItem extends ConsumerWidget {
               ],
               // ── All users ──
               if (note.content != null && note.content!.isNotEmpty)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'copy',
                   child: Row(
                     children: [
-                      Icon(Icons.copy_outlined),
-                      SizedBox(width: 12),
-                      Text('Copy text'),
+                      const Icon(Icons.copy_outlined),
+                      const SizedBox(width: 12),
+                      Text(ref.watch(trProvider)('common.copy', {'fallback': 'ጽሑፉን ቅዳ'})),
                     ],
                   ),
                 ),
               if (canDownload)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'download',
                   child: Row(
                     children: [
-                      Icon(Icons.download_outlined),
-                      SizedBox(width: 12),
-                      Text('Download media'),
+                      const Icon(Icons.download_outlined),
+                      const SizedBox(width: 12),
+                      Text(ref.watch(trProvider)('calendar.download_media', {'fallback': 'ሚዲያ አውርድ'})),
                     ],
                   ),
                 ),

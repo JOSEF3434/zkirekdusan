@@ -95,7 +95,18 @@ void main() {
     return ProviderScope(
       overrides: [
         trProvider.overrideWithValue(
-          (String key, [Map<String, dynamic>? args]) => key,
+          (String key, [Map<String, dynamic>? args]) {
+            switch (key) {
+              case 'common.edit':
+                return 'Edit';
+              case 'common.delete':
+                return 'Delete';
+              case 'common.copy':
+                return 'Copy text';
+              default:
+                return key;
+            }
+          },
         ),
         pendingSyncCountStreamProvider.overrideWith((ref) => Stream.value(0)),
         authProvider.overrideWith(
@@ -132,7 +143,18 @@ void main() {
     return ProviderScope(
       overrides: [
         trProvider.overrideWithValue(
-          (String key, [Map<String, dynamic>? args]) => key,
+          (String key, [Map<String, dynamic>? args]) {
+            switch (key) {
+              case 'common.edit':
+                return 'Edit';
+              case 'common.delete':
+                return 'Delete';
+              case 'common.copy':
+                return 'Copy text';
+              default:
+                return key;
+            }
+          },
         ),
         pendingSyncCountStreamProvider.overrideWith((ref) => Stream.value(0)),
         authProvider.overrideWith(

@@ -267,7 +267,7 @@ class _ManageMesbakDialogState extends ConsumerState<ManageMesbakDialog> {
                             Expanded(
                               flex: 3,
                               child: DropdownButtonFormField<int>(
-                                value: _selectedMonth,
+                                initialValue: _selectedMonth,
                                 decoration: InputDecoration(
                                   labelText: 'ወር',
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -308,7 +308,7 @@ class _ManageMesbakDialogState extends ConsumerState<ManageMesbakDialog> {
                             SizedBox(
                               width: 85,
                               child: DropdownButtonFormField<int>(
-                                value: _selectedDay > daysInMonth ? 1 : _selectedDay,
+                                initialValue: _selectedDay > daysInMonth ? 1 : _selectedDay,
                                 decoration: InputDecoration(
                                   labelText: 'ቀን',
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

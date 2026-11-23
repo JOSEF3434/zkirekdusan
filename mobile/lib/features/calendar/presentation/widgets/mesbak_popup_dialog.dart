@@ -9,7 +9,9 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
 import 'package:mobile/features/admin/presentation/widgets/manage_mesbak_dialog.dart';
 import 'package:mobile/features/calendar/domain/calendar_note_model.dart';
+import 'package:mobile/features/calendar/presentation/providers/calendar_events_provider.dart';
 import 'package:mobile/features/calendar/presentation/providers/calendar_notes_provider.dart';
+import 'package:mobile/features/calendar/presentation/widgets/day_notes_sheet.dart';
 
 class MesbakPopupDialog extends ConsumerStatefulWidget {
   const MesbakPopupDialog({super.key});
@@ -50,11 +52,13 @@ class MesbakPopupDialog extends ConsumerStatefulWidget {
 }
 
 class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
-  // 0 = Today, 1 = This Week, 2 = This Month, 3 = Filter / Range
+  // 0 = Today Mesbak, 1 = Today Synaxarium, 2 = This Week, 3 = This Month, 4 = Filter / Range
   int _activeTabIndex = 0;
 
   // Filter mode: 0 = Single Day, 1 = Range
   int _filterMode = 0;
+  // In Single Day mode: 0 = Mesbak, 1 = Synaxarium (ስንክሳር)
+  int _singleDayTab = 0;
 
   late EtDatetime _today;
   late int _selectedYear;
@@ -87,6 +91,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     ref.invalidate(calendarNotesForMonthProvider);
     ref.invalidate(calendarNotesForCurrentWeekProvider);
     ref.invalidate(calendarNotesForRangeProvider);
+    ref.invalidate(calendarEventsForDayProvider);
   }
 
   @override
@@ -146,7 +151,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          tr('calendar.mesbak_title', {'fallback': 'የእለቱ ምስባክ'}),
+                          tr('calendar.mesbak_title', {'fallback': 'የእለቱ ስንክሳርና ምስባክ'}),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             fontFamilyFallback: const [
@@ -193,7 +198,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
 
             const Divider(height: 1),
 
-            // Navigation Tabs (Today | This Week | This Month | Filter & Range)
+            // Navigation Tabs (Today Mesbak | Today Synaxarium | This Week | This Month | Filter & Range)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: SingleChildScrollView(
@@ -210,20 +215,27 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                     const SizedBox(width: 8),
                     _buildTabChip(
                       index: 1,
+                      label: tr('calendar.today_synaxarium', {'fallback': 'የዕለቱ ስንክሳር'}),
+                      icon: Icons.auto_stories_rounded,
+                      theme: theme,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTabChip(
+                      index: 2,
                       label: tr('calendar.this_week', {'fallback': 'የዚህ ሳምንት'}),
                       icon: Icons.view_week_rounded,
                       theme: theme,
                     ),
                     const SizedBox(width: 8),
                     _buildTabChip(
-                      index: 2,
+                      index: 3,
                       label: tr('calendar.this_month', {'fallback': 'የዚህ ወር'}),
                       icon: Icons.calendar_month_rounded,
                       theme: theme,
                     ),
                     const SizedBox(width: 8),
                     _buildTabChip(
-                      index: 3,
+                      index: 4,
                       label: tr('calendar.filter_range', {'fallback': 'በቀን / በክልል'}),
                       icon: Icons.tune_rounded,
                       theme: theme,
@@ -239,9 +251,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
             Expanded(
               child: switch (_activeTabIndex) {
                 0 => _buildTodayView(context, theme, perms),
-                1 => _buildThisWeekView(context, theme, perms),
-                2 => _buildThisMonthView(context, theme, perms),
-                3 => _buildFilterRangeView(context, theme, perms),
+                1 => DayNotesSheet(selectedDate: _today, isEmbedded: true),
+                2 => _buildThisWeekView(context, theme, perms),
+                3 => _buildThisMonthView(context, theme, perms),
+                4 => _buildFilterRangeView(context, theme, perms),
                 _ => const SizedBox.shrink(),
               },
             ),
@@ -974,16 +987,46 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _buildSingleDayResult(
-                context,
-                theme,
-                _selectedYear,
-                _filterSingleMonth,
-                _filterSingleDay,
-                perms,
+            const SizedBox(height: 10),
+            Center(
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment<int>(
+                    value: 0,
+                    label: Text('ምስባክ'),
+                    icon: Icon(Icons.menu_book_rounded, size: 16),
+                  ),
+                  ButtonSegment<int>(
+                    value: 1,
+                    label: Text('ስንክሳር'),
+                    icon: Icon(Icons.auto_stories_rounded, size: 16),
+                  ),
+                ],
+                selected: {_singleDayTab},
+                onSelectionChanged: (set) {
+                  setState(() => _singleDayTab = set.first);
+                },
               ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _singleDayTab == 0
+                  ? _buildSingleDayResult(
+                      context,
+                      theme,
+                      _selectedYear,
+                      _filterSingleMonth,
+                      _filterSingleDay,
+                      perms,
+                    )
+                  : DayNotesSheet(
+                      selectedDate: EtDatetime(
+                        year: _selectedYear,
+                        month: _filterSingleMonth,
+                        day: _filterSingleDay,
+                      ),
+                      isEmbedded: true,
+                    ),
             ),
           ] else ...[
             // Range pickers

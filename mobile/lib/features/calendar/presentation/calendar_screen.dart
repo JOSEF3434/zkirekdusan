@@ -78,6 +78,9 @@ class CalendarScreen extends ConsumerWidget {
                   icon: const Icon(Icons.calendar_month_outlined, size: 18),
                   label: Text(
                     tr('calendar.tab_calendar', {'fallback': 'ቀን መቁጠሪያ'}),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontFamilyFallback: [
@@ -92,6 +95,9 @@ class CalendarScreen extends ConsumerWidget {
                   icon: const Icon(Icons.school_outlined, size: 18),
                   label: Text(
                     tr('calendar.tab_alephat', {'fallback': 'ትምህርተ አሌፋት'}),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontFamilyFallback: [
@@ -110,6 +116,7 @@ class CalendarScreen extends ConsumerWidget {
               showSelectedIcon: false,
               style: SegmentedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -172,60 +179,114 @@ class CalendarScreen extends ConsumerWidget {
                 ],
               ),
               actions: [
-                // Add Event / Reminder button for any user
-                IconButton(
-                  visualDensity: VisualDensity.compact,
+                // 3-dot overflow menu for calendar options (Add Event, Notifications, Colors)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 20),
+                  tooltip: tr(
+                    'calendar.more_options',
+                    {'fallback': 'ተጨማሪ አማራጮች'},
+                  ),
                   padding: const EdgeInsets.all(4),
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: const Icon(Icons.add_alarm_rounded, size: 20),
-                  tooltip: tr(
-                    'calendar.add_user_event',
-                    {'fallback': 'ሁነት / ማሳሰቢያ አክል'},
-                  ),
-                  onPressed: () {
-                    CreateUserEventDialog.show(
-                      context,
-                      initialYear: calendarState.year,
-                      initialMonth: calendarState.month,
-                      initialDay: calendarState.selectedDate?.day,
-                    );
+                  onSelected: (action) {
+                    switch (action) {
+                      case 'add_event':
+                        CreateUserEventDialog.show(
+                          context,
+                          initialYear: calendarState.year,
+                          initialMonth: calendarState.month,
+                          initialDay: calendarState.selectedDate?.day,
+                        );
+                        break;
+                      case 'notifications':
+                        FastingHolidayNotificationSheet.show(context);
+                        break;
+                      case 'colors':
+                        CalendarColorSettingsSheet.show(context);
+                        break;
+                    }
                   },
-                ),
-                // Fasting & Holiday Notifications settings shortcut
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: Icon(
-                    fastingHolidayState.isEnabled
-                        ? Icons.notifications_active_rounded
-                        : Icons.notifications_none_rounded,
-                    color: fastingHolidayState.isEnabled
-                        ? const Color(0xFFF59E0B)
-                        : null,
-                    size: 20,
-                  ),
-                  tooltip: tr(
-                    'calendar.fasting_holiday_notif_title',
-                    {'fallback': 'የአጽዋማት እና የበዓላት ማሳወቂያ'},
-                  ),
-                  onPressed: () {
-                    FastingHolidayNotificationSheet.show(context);
-                  },
-                ),
-                // Calendar Color customizer shortcut
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: const Icon(Icons.palette_outlined, size: 20),
-                  tooltip: tr(
-                    'calendar.customize_colors',
-                    {'fallback': 'የቀን መቁጠሪያ ቀለሞች'},
-                  ),
-                  onPressed: () {
-                    CalendarColorSettingsSheet.show(context);
-                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem<String>(
+                      value: 'add_event',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.add_alarm_rounded,
+                            size: 20,
+                            color: Color(0xFF00C6FF),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            tr(
+                              'calendar.add_user_event',
+                              {'fallback': 'ሁነት / ማሳሰቢያ አክል'},
+                            ),
+                            style: const TextStyle(
+                              fontFamilyFallback: [
+                                'Noto Serif Ethiopic',
+                                'Noto Sans Ethiopic',
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'notifications',
+                      child: Row(
+                        children: [
+                          Icon(
+                            fastingHolidayState.isEnabled
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_none_rounded,
+                            size: 20,
+                            color: fastingHolidayState.isEnabled
+                                ? const Color(0xFFF59E0B)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            tr(
+                              'calendar.fasting_holiday_notif_title',
+                              {'fallback': 'የአጽዋማት እና የበዓላት ማሳወቂያ'},
+                            ),
+                            style: const TextStyle(
+                              fontFamilyFallback: [
+                                'Noto Serif Ethiopic',
+                                'Noto Sans Ethiopic',
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'colors',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.palette_outlined,
+                            size: 20,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            tr(
+                              'calendar.customize_colors',
+                              {'fallback': 'የቀን መቁጠሪያ ቀለሞች'},
+                            ),
+                            style: const TextStyle(
+                              fontFamilyFallback: [
+                                'Noto Serif Ethiopic',
+                                'Noto Sans Ethiopic',
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 // Sync status indicator
                 const Padding(

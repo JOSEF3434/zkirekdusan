@@ -419,13 +419,130 @@ export class CalendarEventsService implements OnModuleInit {
   }
 
   /**
+   * Known alias mapping from client/builtin/movable identifiers to Ethiopian canonical event names.
+   */
+  private readonly CANONICAL_ID_ALIASES: Record<string, string> = {
+    'builtin-fast-prophets': 'ጾመ ነቢያት (የገና ጾም)',
+    'builtin-fast-sibket': 'ጾመ ስቢይ (ጾመ ስብከት)',
+    'builtin-fast-filseta': 'ጾመ ፍልሰታ',
+    'builtin-fast-gahad-genna': 'ጾመ ገሃድ (የገና ገሃድ)',
+    'builtin-fast-gahad-timkat': 'ጾመ ገሃድ (የጥምቀት ገሃድ)',
+    'builtin-wed-fri': 'ጾመ ድኅነት (የረቡዕ እና የዓርብ ጾም)',
+    'fast-wed-fri': 'ጾመ ድኅነት (የረቡዕ እና የዓርብ ጾም)',
+    'builtin-tsinset': 'ጽንሰት (በዓለ ጽንሰት)',
+    'builtin-genna': 'ልደት (የገና በዓል)',
+    'builtin-timkat': 'ጥምቀት (ኤጲፋንያ)',
+    'builtin-debre-tabor': 'ደብረ ታቦር (ቡሄ)',
+    'builtin-ketera': 'ከተራ',
+    'builtin-kana': 'ቃና ዘገሊላ',
+    'builtin-gizret': 'ግዝረት (የጌታችን ግዝረት)',
+    'builtin-zemene-sibket': 'ዘመነ ስብከት',
+    'builtin-zemene-berhan': 'ዘመነ ብርሃን',
+    'builtin-zemene-nolawi': 'ዘመነ ኖላዊ',
+    'builtin-meskel': 'መስቀል (ደመራ)',
+    'builtin-ginhete-meskel': 'ግንፈተ መስቀል',
+    'builtin-filseta-maryam': 'ዕርገተ ማርያም (ፍልሰታ)',
+    'builtin-asteroeyo-maryam': 'አስተርእዮ ማርያም',
+    'builtin-lideta-maryam': 'ልደታ ለማርያም',
+    'builtin-tsion-maryam': 'ጽዮን ማርያም',
+    'builtin-baata-maryam': 'በዓታ ለማርያም',
+    'builtin-kidane-mehret': 'ኪዳነ ምሕረት',
+    'builtin-debre-mitmaq': 'ደብረ ምጥማቅ',
+    'builtin-qusquam': 'ቁስቋም ማርያም',
+    'builtin-enkutatash': 'እንቁጣጣሽ (አዲስ ዓመት)',
+    'builtin-yohannes-metmiq-birth': 'ልደተ ዮሐንስ መጥምቅ',
+    'builtin-michael-hidar': 'ኅዳር ሚካኤል',
+    'builtin-michael-sene': 'ሰኔ ሚካኤል',
+    'builtin-gabriel-kulubi': 'ታኅሣሥ ገብርኤል (ቁልቢ)',
+    'builtin-gabriel-hamle': 'ሐምሌ ገብርኤል',
+    'builtin-rufael': 'ጳጉሜን ሩፋኤል',
+    'builtin-urael': 'ጥር ዑራኤል',
+    'builtin-silassie-hidar': 'ኅዳር ሥላሴ',
+    'builtin-silassie-hamle': 'ሐምሌ ሥላሴ',
+    'builtin-giorgis-miazia': 'ሚያዝያ ጊዮርጊስ',
+    'builtin-giorgis-hidar': 'ኅዳር ጊዮርጊስ',
+    'builtin-teklehaymanot-nehase': 'ነሐሴ ተክለ ሃይማኖት',
+    'builtin-teklehaymanot-tahsiss': 'ታኅሣሥ ተክለ ሃይማኖት',
+    'builtin-abo-megabit': 'መጋቢት ገብረ መንፈስ ቅዱስ (አቦ)',
+    'builtin-abo-tikimt': 'ጥቅምት ገብረ መንፈስ ቅዱስ (አቦ)',
+    'builtin-estifanos': 'ቅዱስ እስጢፋኖስ',
+    'builtin-medhanealem-hidar': 'ኅዳር መድኃኔዓለም',
+    'builtin-medhanealem-megabit': 'መጋቢት መድኃኔዓለም',
+    'builtin-emmanuel': 'ታኅሣሥ አማኑኤል',
+    'builtin-peter-paul': 'ጴጥሮስ ወጳውሎስ',
+    'builtin-aregawi': 'አቡነ አረጋዊ',
+  };
+
+  /**
+   * Resolves a built-in canonical or movable template by ID or alias.
+   */
+  private resolveCanonicalTemplate(id: string): any | null {
+    if (!id) return null;
+
+    // 1. Direct match in EOTC_DEFAULT_EVENTS
+    const exactSeed = EOTC_DEFAULT_EVENTS.find((e) => (e as any).id === id || e.name === id);
+    if (exactSeed) return exactSeed;
+
+    // 2. Check alias map
+    const aliasName = this.CANONICAL_ID_ALIASES[id];
+    if (aliasName) {
+      const match = EOTC_DEFAULT_EVENTS.find((e) => e.name === aliasName);
+      if (match) return match;
+    }
+
+    // 3. Builtin Wednesday & Friday fasts
+    if (id.includes('wed-fri')) {
+      const wedFriSeed = EOTC_DEFAULT_EVENTS.find(
+        (e) => e.name.includes('ድኅነት') || e.name.includes('የረቡዕ እና የዓርብ'),
+      );
+      if (wedFriSeed) return wedFriSeed;
+    }
+
+    // 4. Movable events (e.g. movable-nenewe-2019, movable-abiy-tsom-2019)
+    if (id.startsWith('movable-')) {
+      const parts = id.split('-');
+      const yearStr = parts[parts.length - 1];
+      const parsedYear = parseInt(yearStr, 10);
+      const year = !isNaN(parsedYear) && parsedYear > 1900 && parsedYear < 2200 ? parsedYear : 2017;
+      const movables = getMovableEventsForYear(year);
+      const matchedMovable = movables.find((m) => m.id === id);
+      if (matchedMovable) return matchedMovable;
+
+      const key = id.replace(/^movable-/, '').replace(/-\d+$/, '');
+      const byKey = movables.find((m) => m.id.includes(key) || m.nameEn?.toLowerCase().includes(key));
+      if (byKey) return byKey;
+    }
+
+    // 5. Partial name match in default seeds
+    const lowerId = id.toLowerCase();
+    const partialMatch = EOTC_DEFAULT_EVENTS.find(
+      (e) =>
+        e.name.toLowerCase() === lowerId ||
+        (e.nameEn && e.nameEn.toLowerCase() === lowerId),
+    );
+    if (partialMatch) return partialMatch;
+
+    return null;
+  }
+
+  /**
    * Retrieves a single event by ID.
    */
   async findOne(id: string) {
-    const event = await this.prisma.calendarEvent.findFirst({
+    let event = await this.prisma.calendarEvent.findFirst({
       where: { id, deletedAt: null },
     });
     if (!event) {
+      const template = this.resolveCanonicalTemplate(id);
+      if (template) {
+        event = await this.prisma.calendarEvent.findFirst({
+          where: { name: template.name, deletedAt: null },
+        });
+        if (event) {
+          return this.formatEventMetadata(event, event.ethiopianYear ?? 2017);
+        }
+        return this.formatEventMetadata(template, template.ethiopianYear ?? 2017);
+      }
       throw new NotFoundException(`Calendar event ${id} not found`);
     }
     return this.formatEventMetadata(event, event.ethiopianYear ?? 2017);
@@ -498,14 +615,65 @@ export class CalendarEventsService implements OnModuleInit {
   }
 
   /**
-   * Updates an existing event.
+   * Updates an existing event, or upserts if updating a canonical/movable built-in event.
    */
   async update(userId: string, id: string, dto: UpdateCalendarEventDto) {
-    const existing = await this.prisma.calendarEvent.findFirst({
+    let existing = await this.prisma.calendarEvent.findFirst({
       where: { id, deletedAt: null },
     });
+
     if (!existing) {
-      throw new NotFoundException(`Calendar event ${id} not found`);
+      // Check if there is an existing event in DB by matching canonical name or dto name
+      const template = this.resolveCanonicalTemplate(id);
+      const targetName = dto.name || template?.name;
+      if (targetName) {
+        existing = await this.prisma.calendarEvent.findFirst({
+          where: {
+            name: targetName,
+            deletedAt: null,
+            ...(dto.ethiopianYear ? { ethiopianYear: dto.ethiopianYear } : {}),
+          },
+        });
+      }
+
+      if (!existing && template) {
+        // Create new record from template + dto
+        const isMajor = dto.isMajor ?? (dto.importance === 'MAJOR') ?? template.isMajor ?? false;
+        const importance = dto.importance ?? (isMajor ? 'MAJOR' : (template.importance ?? 'NORMAL'));
+        const created = await this.prisma.calendarEvent.create({
+          data: {
+            id,
+            name: dto.name ?? template.name,
+            nameEn: dto.nameEn ?? template.nameEn,
+            type: dto.type ?? template.type,
+            category: dto.category ?? template.category,
+            isRecurring: dto.isRecurring ?? template.isRecurring ?? true,
+            ethiopianYear: dto.ethiopianYear !== undefined ? dto.ethiopianYear : template.ethiopianYear ?? null,
+            startMonth: dto.startMonth ?? template.startMonth,
+            startDay: dto.startDay ?? template.startDay,
+            startYear: dto.startYear ?? template.startYear,
+            endMonth: dto.endMonth ?? template.endMonth,
+            endDay: dto.endDay ?? template.endDay,
+            endYear: dto.endYear ?? template.endYear,
+            description: dto.description !== undefined ? dto.description : template.description,
+            spiritualMeaning: dto.spiritualMeaning !== undefined ? dto.spiritualMeaning : template.spiritualMeaning,
+            fastingRules: dto.fastingRules !== undefined ? dto.fastingRules : template.fastingRules,
+            primaryColor: dto.primaryColor ?? template.primaryColor ?? '#F59E0B',
+            icon: dto.icon ?? template.icon,
+            isMajor,
+            importance,
+            isActive: dto.isActive !== undefined ? dto.isActive : template.isActive,
+            createdById: userId,
+          },
+        });
+        return this.formatEventMetadata(created, created.ethiopianYear ?? 2017);
+      } else if (!existing && !template && dto.name && dto.startMonth && dto.startDay && dto.endMonth && dto.endDay) {
+        return this.create(userId, dto as any);
+      }
+
+      if (!existing) {
+        throw new NotFoundException(`Calendar event ${id} not found`);
+      }
     }
 
     const merged = {
@@ -519,7 +687,7 @@ export class CalendarEventsService implements OnModuleInit {
     this.validateEventDates(merged);
 
     const updated = await this.prisma.calendarEvent.update({
-      where: { id },
+      where: { id: existing.id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.nameEn !== undefined ? { nameEn: dto.nameEn } : {}),
@@ -555,34 +723,106 @@ export class CalendarEventsService implements OnModuleInit {
    * Soft deletes an event.
    */
   async remove(userId: string, id: string) {
-    const existing = await this.prisma.calendarEvent.findFirst({
+    let existing = await this.prisma.calendarEvent.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) {
+      const template = this.resolveCanonicalTemplate(id);
+      if (template) {
+        await this.prisma.calendarEvent.create({
+          data: {
+            id,
+            name: template.name,
+            nameEn: template.nameEn,
+            type: template.type,
+            category: template.category,
+            isRecurring: template.isRecurring ?? true,
+            ethiopianYear: template.ethiopianYear,
+            startMonth: template.startMonth,
+            startDay: template.startDay,
+            endMonth: template.endMonth,
+            endDay: template.endDay,
+            primaryColor: template.primaryColor ?? '#F59E0B',
+            isMajor: template.isMajor ?? false,
+            importance: template.importance ?? 'NORMAL',
+            isActive: false,
+            deletedAt: new Date(),
+            createdById: userId,
+          },
+        });
+        return { success: true, message: 'Calendar event removed successfully' };
+      }
       throw new NotFoundException(`Calendar event ${id} not found`);
     }
 
     await this.prisma.calendarEvent.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+      where: { id: existing.id },
+      data: { deletedAt: new Date(), isActive: false },
     });
 
     return { success: true, message: 'Calendar event removed successfully' };
   }
 
   /**
-   * Toggles active / inactive status of an event.
+   * Toggles active / inactive status of an event, creating it if it was a built-in canonical event.
    */
   async toggleStatus(userId: string, id: string) {
-    const existing = await this.prisma.calendarEvent.findFirst({
+    let existing = await this.prisma.calendarEvent.findFirst({
       where: { id, deletedAt: null },
     });
+
     if (!existing) {
+      const template = this.resolveCanonicalTemplate(id);
+      if (template) {
+        existing = await this.prisma.calendarEvent.findFirst({
+          where: {
+            name: template.name,
+            deletedAt: null,
+            ...(template.ethiopianYear ? { ethiopianYear: template.ethiopianYear } : {}),
+          },
+        });
+      }
+
+      if (existing) {
+        const updated = await this.prisma.calendarEvent.update({
+          where: { id: existing.id },
+          data: { isActive: !existing.isActive },
+        });
+        return this.formatEventMetadata(updated, updated.ethiopianYear ?? 2017);
+      }
+
+      if (template) {
+        const created = await this.prisma.calendarEvent.create({
+          data: {
+            id,
+            name: template.name,
+            nameEn: template.nameEn,
+            type: template.type,
+            category: template.category,
+            isRecurring: template.isRecurring ?? true,
+            ethiopianYear: template.ethiopianYear ?? null,
+            startMonth: template.startMonth,
+            startDay: template.startDay,
+            endMonth: template.endMonth,
+            endDay: template.endDay,
+            description: template.description,
+            spiritualMeaning: template.spiritualMeaning,
+            fastingRules: template.fastingRules,
+            primaryColor: template.primaryColor ?? '#F59E0B',
+            isMajor: template.isMajor ?? false,
+            importance: template.importance ?? (template.isMajor ? 'MAJOR' : 'NORMAL'),
+            isActive: !template.isActive,
+            createdById: userId,
+          },
+        });
+        return this.formatEventMetadata(created, created.ethiopianYear ?? 2017);
+      }
+
       throw new NotFoundException(`Calendar event ${id} not found`);
     }
 
     const updated = await this.prisma.calendarEvent.update({
-      where: { id },
+      where: { id: existing.id },
       data: { isActive: !existing.isActive },
     });
 

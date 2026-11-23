@@ -283,10 +283,28 @@ class _AdminCalendarEventsScreenState
                 // Active status toggle switch
                 Switch(
                   value: event.isActive,
-                  onChanged: (val) {
-                    ref
-                        .read(adminCalendarEventsProvider.notifier)
-                        .toggleStatus(event.id);
+                  onChanged: (val) async {
+                    try {
+                      await ref
+                          .read(adminCalendarEventsProvider.notifier)
+                          .toggleStatus(event.id);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'የሁነቱን ሁኔታ መቀየር አልተቻለም፡ $e',
+                              style: const TextStyle(
+                                fontFamilyFallback: [
+                                  'Noto Serif Ethiopic',
+                                  'Noto Sans Ethiopic',
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
               ],

@@ -98,9 +98,24 @@ class AdminCalendarEventsNotifier
   }
 
   Future<void> toggleStatus(String id) async {
-    await _repo.toggleStatus(id);
-    _invalidateCaches();
-    await loadEvents();
+    try {
+      await _repo.toggleStatus(id);
+      _invalidateCaches();
+      await loadEvents();
+    } catch (e) {
+      // Optimistically toggle state in current list if available
+      final currentList = state.valueOrNull;
+      if (currentList != null) {
+        final updated = currentList.map((ev) {
+          if (ev.id == id) {
+            return ev.copyWith(isActive: !ev.isActive);
+          }
+          return ev;
+        }).toList();
+        state = AsyncValue.data(updated);
+      }
+      rethrow;
+    }
   }
 
   Future<void> deleteEvent(String id) async {
