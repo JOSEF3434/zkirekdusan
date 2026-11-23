@@ -176,7 +176,8 @@ class GroupRepository {
           'title': title,
           if (description != null && description.isNotEmpty)
             'description': description,
-          'videoChannelId': ?videoChannelId,
+          if (videoChannelId != null && videoChannelId.trim().isNotEmpty)
+            'videoChannelId': videoChannelId.trim(),
           'visibility': visibility,
         },
       );

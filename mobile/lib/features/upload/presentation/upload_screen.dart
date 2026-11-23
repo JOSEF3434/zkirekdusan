@@ -8,6 +8,7 @@ import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/upload/presentation/providers/upload_provider.dart';
 import 'package:mobile/features/upload/domain/upload_video_model.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/library/domain/playlist_dto.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/home/presentation/providers/video_feed_provider.dart';
 import 'package:mobile/features/creator/presentation/providers/upload_channels_provider.dart';
@@ -347,6 +348,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
   String _visibility = 'PUBLIC';
   bool _allowDownloads = true;
   String? _playlistId;
+  PlaylistDto? _selectedPlaylist;
   Uint8List? _thumbnailBytes;
 
   @override
@@ -748,17 +750,23 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
         const SizedBox(height: 6),
         playlistsAsync.when(
           data: (playlists) {
-            final hasSelected =
-                _playlistId == null || playlists.any((p) => p.id == _playlistId);
+            final allPlaylists = List<PlaylistDto>.from(playlists);
+            if (_selectedPlaylist != null &&
+                !allPlaylists.any((p) => p.id == _selectedPlaylist!.id)) {
+              allPlaylists.insert(0, _selectedPlaylist!);
+            }
+
+            final hasSelected = _playlistId != null &&
+                allPlaylists.any((p) => p.id == _playlistId);
             final effectiveValue = hasSelected ? _playlistId : null;
 
             return DropdownButtonFormField<String?>(
-              key: ValueKey(effectiveValue),
+              key: ValueKey('playlist_${effectiveValue}_${allPlaylists.length}'),
               initialValue: effectiveValue,
               isExpanded: true,
               decoration: InputDecoration(
-                hintText: playlists.isEmpty
-                    ? 'No playlists yet — tap "+ Create" to add one'
+                hintText: allPlaylists.isEmpty
+                    ? 'No playlists yet — tap "+ New playlist" to add one'
                     : 'Select a playlist (optional)',
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.playlist_play_rounded),
@@ -770,7 +778,10 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18),
                         tooltip: 'Clear selection',
-                        onPressed: () => setState(() => _playlistId = null),
+                        onPressed: () => setState(() {
+                          _playlistId = null;
+                          _selectedPlaylist = null;
+                        }),
                       )
                     : null,
               ),
@@ -779,7 +790,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   value: null,
                   child: Text(tr('upload.none_playlist')),
                 ),
-                ...playlists.map(
+                ...allPlaylists.map(
                   (p) => DropdownMenuItem<String?>(
                     value: p.id,
                     child: Row(
@@ -814,7 +825,11 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   ),
                 ),
               ],
-              onChanged: (v) => setState(() => _playlistId = v),
+              onChanged: (v) => setState(() {
+                _playlistId = v;
+                _selectedPlaylist =
+                    allPlaylists.where((p) => p.id == v).firstOrNull;
+              }),
             );
           },
           loading: () => InputDecorator(
@@ -944,6 +959,7 @@ class _UploadFormWidgetState extends ConsumerState<_UploadFormWidget> {
                   if (mounted) {
                     setState(() {
                       _playlistId = newPlaylist.id;
+                      _selectedPlaylist = newPlaylist;
                     });
                     messenger.showSnackBar(
                       SnackBar(

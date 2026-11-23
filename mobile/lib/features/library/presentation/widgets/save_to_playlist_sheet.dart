@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/library/data/repositories/playlist_repository.dart';
 import 'package:mobile/features/library/presentation/playlists_screen.dart';
+import 'package:mobile/features/library/domain/playlist_dto.dart';
 import 'package:mobile/features/groups/presentation/providers/playlist_detail_provider.dart';
 
 class SaveToPlaylistSheet extends ConsumerStatefulWidget {
@@ -39,7 +40,7 @@ class SaveToPlaylistSheet extends ConsumerStatefulWidget {
 
 class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
   final Set<String> _selectedPlaylistIds = {};
-  bool _initialized = false;
+  final List<PlaylistDto> _locallyCreated = [];
   bool _isLoading = false;
   String _searchQuery = '';
 
@@ -106,17 +107,18 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                 ),
               ),
               data: (playlists) {
-                // Initialize selected playlists that already contain this video
-                if (!_initialized) {
-                  _initialized = true;
-                  for (final p in playlists) {
-                    if (p.items.any((item) => item.videoId == widget.videoId)) {
-                      _selectedPlaylistIds.add(p.id);
-                    }
+                final allPlaylists = [
+                  ..._locallyCreated,
+                  ...playlists.where((p) => !_locallyCreated.any((c) => c.id == p.id)),
+                ];
+
+                for (final p in allPlaylists) {
+                  if (p.items.any((item) => item.videoId == widget.videoId)) {
+                    _selectedPlaylistIds.add(p.id);
                   }
                 }
 
-                if (playlists.isEmpty) {
+                if (allPlaylists.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Center(
@@ -142,8 +144,8 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                 }
 
                 final filtered = _searchQuery.trim().isEmpty
-                    ? playlists
-                    : playlists
+                    ? allPlaylists
+                    : allPlaylists
                         .where(
                           (p) => p.title.toLowerCase().contains(
                             _searchQuery.toLowerCase(),
@@ -404,6 +406,7 @@ class _SaveToPlaylistSheetState extends ConsumerState<SaveToPlaylistSheet> {
                   ref.invalidate(playlistDetailProvider(created.id));
                   if (!mounted) return;
                   setState(() {
+                    _locallyCreated.insert(0, created);
                     _selectedPlaylistIds.add(created.id);
                   });
                   messenger.showSnackBar(

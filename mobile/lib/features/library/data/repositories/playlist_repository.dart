@@ -23,13 +23,11 @@ class PlaylistRepository {
         '/video-playlists',
         queryParameters: {'page': page, 'limit': limit},
       );
-      final rawData = response.data['data'] ?? response.data;
-      if (rawData is List) {
-        return rawData
-            .map((json) => PlaylistDto.fromJson(json as Map<String, dynamic>))
-            .toList();
-      }
-      return [];
+      final envelope = parsePaginatedEnvelope(response.data);
+      final rawList = (envelope['data'] as List?) ?? [];
+      return rawList
+          .map((json) => PlaylistDto.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw Exception('Failed to load playlists: $e');
     }
@@ -49,7 +47,8 @@ class PlaylistRepository {
           if (description != null && description.isNotEmpty)
             'description': description,
           'visibility': visibility.toUpperCase(),
-          'videoChannelId': ?videoChannelId,
+          if (videoChannelId != null && videoChannelId.trim().isNotEmpty)
+            'videoChannelId': videoChannelId.trim(),
         },
       );
       final raw = response.data['data'] ?? response.data;
