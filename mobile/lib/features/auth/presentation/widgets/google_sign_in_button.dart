@@ -6,12 +6,16 @@ class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final String text;
+  final double? width;
+  final double? height;
 
   const GoogleSignInButton({
     super.key,
     required this.onPressed,
     this.isLoading = false,
     this.text = 'Continue with Google',
+    this.width,
+    this.height,
   });
 
   @override
@@ -23,47 +27,52 @@ class GoogleSignInButton extends StatelessWidget {
     final textColor = isDark ? const Color(0xFFE3E3E3) : const Color(0xFF1F1F1F);
     final borderColor = isDark ? const Color(0xFF8E918F) : const Color(0xFF747775);
 
-    return OutlinedButton(
-      onPressed: isLoading ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: backgroundColor,
-        foregroundColor: textColor,
-        side: BorderSide(color: borderColor.withValues(alpha: 0.35), width: 1),
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    return SizedBox(
+      width: width ?? double.infinity,
+      height: height,
+      child: OutlinedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: textColor,
+          side: BorderSide(color: borderColor.withValues(alpha: 0.35), width: 1),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: isDark ? 0 : 0.5,
         ),
-        elevation: isDark ? 0 : 0.5,
-      ),
-      child: isLoading
-          ? SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.colorScheme.primary,
-              ),
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const GoogleIconWidget(size: 20),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    text,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                      letterSpacing: 0.2,
+        child: isLoading
+            ? SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.primary,
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const GoogleIconWidget(size: 20),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      text,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                        letterSpacing: 0.2,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 }

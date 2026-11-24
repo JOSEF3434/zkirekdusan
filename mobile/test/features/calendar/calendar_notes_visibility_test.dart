@@ -315,7 +315,19 @@ class _FakeAuthNotifier extends StateNotifier<AuthState>
   _FakeAuthNotifier(super.state);
 
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
   void clearError() {}
+
+  @override
+  void clearPendingGoogle() {}
+
+  @override
+  Future<bool> signInWithGoogle({bool rememberMe = true}) async => false;
+
+  @override
+  Future<bool> linkGoogleAccountWithPassword(String password) async => false;
 
   @override
   Future<void> login({

@@ -13,6 +13,7 @@ import 'package:mobile/features/stories/presentation/widgets/story_section.dart'
 
 import 'package:mobile/features/profile/data/models/profile_model.dart';
 import 'package:mobile/features/profile/presentation/providers/profile_providers.dart';
+import 'package:mobile/core/utils/localization_service.dart';
 
 void main() {
   group('Responsive Home & Story Strip Tests', () {
@@ -80,6 +81,12 @@ void main() {
           await tester.pumpWidget(
             ProviderScope(
               overrides: [
+                trProvider.overrideWithValue((String key, [Map<String, dynamic>? args]) {
+                  if (args != null && args.containsKey('fallback')) {
+                    return args['fallback']?.toString() ?? key;
+                  }
+                  return key;
+                }),
                 authProvider.overrideWith((ref) {
                   return _MockAuthNotifier(
                     const AuthState(
@@ -187,7 +194,19 @@ class _MockAuthNotifier extends StateNotifier<AuthState>
   _MockAuthNotifier(super.state);
 
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
   void clearError() {}
+
+  @override
+  void clearPendingGoogle() {}
+
+  @override
+  Future<bool> signInWithGoogle({bool rememberMe = true}) async => false;
+
+  @override
+  Future<bool> linkGoogleAccountWithPassword(String password) async => false;
 
   @override
   Future<void> login({
