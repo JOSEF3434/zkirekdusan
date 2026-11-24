@@ -10,6 +10,9 @@ import { GoogleAuthService } from './google-auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RefreshStrategy } from './strategies/refresh.strategy.js';
 import { AuthPolicyModule } from '../auth-policy/auth-policy.module.js';
+import { EmailDeliveryService } from './services/email-delivery.service.js';
+import { SmsDeliveryService } from './services/sms-delivery.service.js';
+import { PasswordRecoveryService } from './services/password-recovery.service.js';
 
 @Module({
   imports: [
@@ -29,7 +32,22 @@ import { AuthPolicyModule } from '../auth-policy/auth-policy.module.js';
     AuthPolicyModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleAuthService, JwtStrategy, RefreshStrategy],
-  exports: [AuthService, GoogleAuthService, JwtModule],
+  providers: [
+    AuthService,
+    GoogleAuthService,
+    JwtStrategy,
+    RefreshStrategy,
+    EmailDeliveryService,
+    SmsDeliveryService,
+    PasswordRecoveryService,
+  ],
+  exports: [
+    AuthService,
+    GoogleAuthService,
+    JwtModule,
+    EmailDeliveryService,
+    SmsDeliveryService,
+    PasswordRecoveryService,
+  ],
 })
 export class AuthModule {}

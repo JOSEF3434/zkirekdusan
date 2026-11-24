@@ -1,4 +1,4 @@
-import type { AuthResponse, AuthTokens, GoogleAuthPayload, GoogleLinkAccountPayload, UserIdentities, UserSummary } from '../types/auth.types.js';
+import type { AuthResponse, AuthTokens, GoogleAuthPayload, GoogleLinkAccountPayload, UserIdentities, UserSummary, RecoveryMethod, RecoveryRequestPayload, RecoveryRequestResponse, RecoveryVerifyPayload, RecoveryVerifyResponse, ValidateTokenResponse, RecoveryResetPayload, RecoveryResetResponse } from '../types/auth.types.js';
 export declare class AuthApiError extends Error {
     statusCode: number;
     code?: string;
@@ -63,6 +63,29 @@ export declare class AuthApiService {
      * Logout and clear local tokens
      */
     logout(): Promise<void>;
+    /**
+     * Request password recovery for Email or Ethiopian phone number
+     */
+    requestPasswordRecovery(payload: RecoveryRequestPayload): Promise<RecoveryRequestResponse>;
+    /**
+     * Verify an SMS OTP code or email recovery token
+     */
+    verifyRecoveryCode(payload: RecoveryVerifyPayload): Promise<RecoveryVerifyResponse>;
+    /**
+     * Validate email reset token before showing password change form
+     */
+    validateRecoveryToken(token: string): Promise<ValidateTokenResponse>;
+    /**
+     * Resend recovery OTP or email link (respects 60s cooldown)
+     */
+    resendRecoveryCode(payload: {
+        method: RecoveryMethod;
+        identifier: string;
+    }): Promise<RecoveryRequestResponse>;
+    /**
+     * Complete password reset
+     */
+    resetPassword(payload: RecoveryResetPayload): Promise<RecoveryResetResponse>;
 }
 export declare const authApi: AuthApiService;
 //# sourceMappingURL=authApi.d.ts.map

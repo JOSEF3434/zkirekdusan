@@ -102,6 +102,42 @@ class MockAuthRepository implements AuthRepository {
 
   @override
   Future<void> saveFlag(String key, String value) async {}
+
+  @override
+  Future<Map<String, dynamic>> requestPasswordRecovery({
+    String? method,
+    String? identifier,
+    String? email,
+    String? phoneNumber,
+  }) async => {'success': true};
+
+  @override
+  Future<Map<String, dynamic>> verifyRecoveryCode({
+    required String method,
+    required String destination,
+    String? code,
+    String? token,
+  }) async => {'valid': true, 'resetToken': 'mock-reset-token'};
+
+  @override
+  Future<Map<String, dynamic>> validateRecoveryToken(String token) async =>
+      {'valid': true};
+
+  @override
+  Future<Map<String, dynamic>> resendRecoveryCode({
+    required String method,
+    required String identifier,
+  }) async => {'success': true};
+
+  @override
+  Future<Map<String, dynamic>> resetPassword({
+    String? method,
+    String? destination,
+    String? code,
+    String? token,
+    String? resetToken,
+    required String password,
+  }) async => {'success': true};
 }
 
 class FakeGoogleSignInService extends GoogleSignInService {

@@ -223,4 +223,71 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String?> getStoredFlag(String key) async {
     return _storage.getToken(key: 'flag_$key');
   }
+
+  // ── Password Recovery Methods ──────────────────────────────────────────────
+
+  @override
+  Future<Map<String, dynamic>> requestPasswordRecovery({
+    String? method,
+    String? identifier,
+    String? email,
+    String? phoneNumber,
+  }) {
+    return _remote.requestPasswordRecovery(
+      method: method,
+      identifier: identifier,
+      email: email,
+      phoneNumber: phoneNumber,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> verifyRecoveryCode({
+    required String method,
+    required String destination,
+    String? code,
+    String? token,
+  }) {
+    return _remote.verifyRecoveryCode(
+      method: method,
+      destination: destination,
+      code: code,
+      token: token,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> validateRecoveryToken(String token) {
+    return _remote.validateRecoveryToken(token);
+  }
+
+  @override
+  Future<Map<String, dynamic>> resendRecoveryCode({
+    required String method,
+    required String identifier,
+  }) {
+    return _remote.resendRecoveryCode(
+      method: method,
+      identifier: identifier,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> resetPassword({
+    String? method,
+    String? destination,
+    String? code,
+    String? token,
+    String? resetToken,
+    required String password,
+  }) {
+    return _remote.resetPassword(
+      method: method,
+      destination: destination,
+      code: code,
+      token: token,
+      resetToken: resetToken,
+      password: password,
+    );
+  }
 }

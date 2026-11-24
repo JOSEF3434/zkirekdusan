@@ -7,6 +7,14 @@ import type {
   GoogleLinkAccountPayload,
   UserIdentities,
   UserSummary,
+  RecoveryMethod,
+  RecoveryRequestPayload,
+  RecoveryRequestResponse,
+  RecoveryVerifyPayload,
+  RecoveryVerifyResponse,
+  ValidateTokenResponse,
+  RecoveryResetPayload,
+  RecoveryResetResponse,
 } from '../types/auth.types.js';
 
 export class AuthApiError extends Error {
@@ -240,6 +248,69 @@ export class AuthApiService {
     } finally {
       this.clearStorage();
     }
+  }
+
+  // ── Password Recovery Methods ─────────────────────────────────────
+
+  /**
+   * Request password recovery for Email or Ethiopian phone number
+   */
+  async requestPasswordRecovery(
+    payload: RecoveryRequestPayload,
+  ): Promise<RecoveryRequestResponse> {
+    return this.request<RecoveryRequestResponse>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Verify an SMS OTP code or email recovery token
+   */
+  async verifyRecoveryCode(
+    payload: RecoveryVerifyPayload,
+  ): Promise<RecoveryVerifyResponse> {
+    return this.request<RecoveryVerifyResponse>('/auth/recovery/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Validate email reset token before showing password change form
+   */
+  async validateRecoveryToken(token: string): Promise<ValidateTokenResponse> {
+    return this.request<ValidateTokenResponse>(
+      `/auth/recovery/validate-token?token=${encodeURIComponent(token)}`,
+      {
+        method: 'GET',
+      },
+    );
+  }
+
+  /**
+   * Resend recovery OTP or email link (respects 60s cooldown)
+   */
+  async resendRecoveryCode(payload: {
+    method: RecoveryMethod;
+    identifier: string;
+  }): Promise<RecoveryRequestResponse> {
+    return this.request<RecoveryRequestResponse>('/auth/recovery/resend', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Complete password reset
+   */
+  async resetPassword(
+    payload: RecoveryResetPayload,
+  ): Promise<RecoveryResetResponse> {
+    return this.request<RecoveryResetResponse>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 }
 

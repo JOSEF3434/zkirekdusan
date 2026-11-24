@@ -99,6 +99,10 @@ class AppLinkService {
     'qr-scan',
     'lock',
     'onboarding',
+    'forgot-password',
+    'verify-otp',
+    'reset-password',
+    'recovery-success',
     // Static web files and framework endpoints
     'index.html',
     'flutter_bootstrap.js',

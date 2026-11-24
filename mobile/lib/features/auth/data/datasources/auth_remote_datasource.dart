@@ -330,4 +330,135 @@ class AuthRemoteDatasource {
     // Fallback if the backend stops using the envelope format
     return map;
   }
+
+  // ── Password Recovery Methods ──────────────────────────────────────────────
+
+  /// POST /auth/forgot-password
+  Future<Map<String, dynamic>> requestPasswordRecovery({
+    String? method,
+    String? identifier,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (method != null) body['method'] = method;
+      if (identifier != null && identifier.isNotEmpty) {
+        body['identifier'] = identifier;
+      }
+      if (email != null && email.isNotEmpty) body['email'] = email;
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        body['phoneNumber'] = phoneNumber;
+      }
+
+      final response = await _dio.post(
+        '/auth/forgot-password',
+        data: body,
+        options: Options(extra: {'skipAuth': true}),
+      );
+      return _parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// POST /auth/recovery/verify
+  Future<Map<String, dynamic>> verifyRecoveryCode({
+    required String method,
+    required String destination,
+    String? code,
+    String? token,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'method': method,
+        'destination': destination,
+      };
+      if (code != null) body['code'] = code;
+      if (token != null) body['token'] = token;
+
+      final response = await _dio.post(
+        '/auth/recovery/verify',
+        data: body,
+        options: Options(extra: {'skipAuth': true}),
+      );
+      return _parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// GET /auth/recovery/validate-token
+  Future<Map<String, dynamic>> validateRecoveryToken(String token) async {
+    try {
+      final response = await _dio.get(
+        '/auth/recovery/validate-token',
+        queryParameters: {'token': token},
+        options: Options(extra: {'skipAuth': true}),
+      );
+      return _parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// POST /auth/recovery/resend
+  Future<Map<String, dynamic>> resendRecoveryCode({
+    required String method,
+    required String identifier,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/recovery/resend',
+        data: {'method': method, 'identifier': identifier},
+        options: Options(extra: {'skipAuth': true}),
+      );
+      return _parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// POST /auth/reset-password
+  Future<Map<String, dynamic>> resetPassword({
+    String? method,
+    String? destination,
+    String? code,
+    String? token,
+    String? resetToken,
+    required String password,
+  }) async {
+    try {
+      final body = <String, dynamic>{'password': password};
+      if (method != null) body['method'] = method;
+      if (destination != null) body['destination'] = destination;
+      if (code != null) body['code'] = code;
+      if (token != null) body['token'] = token;
+      if (resetToken != null) body['resetToken'] = resetToken;
+
+      final response = await _dio.post(
+        '/auth/reset-password',
+        data: body,
+        options: Options(extra: {'skipAuth': true}),
+      );
+      return _parseEnvelope(response.data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
 }

@@ -7,6 +7,7 @@ import { AccountLinkModal } from './AccountLinkModal.js';
 
 export interface LoginViewProps {
   onSuccess?: () => void;
+  onForgotPassword?: () => void;
   brandTitle?: string;
   brandSubtitle?: string;
   allowGoogleAuth?: boolean;
@@ -14,6 +15,7 @@ export interface LoginViewProps {
 
 export const LoginView: React.FC<LoginViewProps> = ({
   onSuccess,
+  onForgotPassword,
   brandTitle = 'Zikre Kedusan',
   brandSubtitle = 'Sign in to access your spiritual sanctuary',
   allowGoogleAuth,
@@ -172,7 +174,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </label>
             <a
               href="#forgot-password"
-              style={{ fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500 }}
+              onClick={(e) => {
+                if (onForgotPassword) {
+                  e.preventDefault();
+                  onForgotPassword();
+                }
+              }}
+              style={{ fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
             >
               Forgot password?
             </a>

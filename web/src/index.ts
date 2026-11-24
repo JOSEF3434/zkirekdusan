@@ -8,6 +8,7 @@ export { GoogleSignInButton, type GoogleSignInButtonProps } from './components/G
 export { AccountLinkModal, type AccountLinkModalProps } from './components/AccountLinkModal.js';
 export { ConnectedAccountsView } from './components/ConnectedAccountsView.js';
 export { LoginView, type LoginViewProps } from './components/LoginView.js';
+export { PasswordRecoveryView, type PasswordRecoveryViewProps } from './components/PasswordRecoveryView.js';
 
 // API Service & Errors
 export { authApi, AuthApiService, AuthApiError } from './services/authApi.js';
@@ -28,4 +29,12 @@ export type {
   GoogleLinkAccountPayload,
   AuthError,
   AuthState,
+  RecoveryMethod,
+  RecoveryRequestPayload,
+  RecoveryRequestResponse,
+  RecoveryVerifyPayload,
+  RecoveryVerifyResponse,
+  ValidateTokenResponse,
+  RecoveryResetPayload,
+  RecoveryResetResponse,
 } from './types/auth.types.js';

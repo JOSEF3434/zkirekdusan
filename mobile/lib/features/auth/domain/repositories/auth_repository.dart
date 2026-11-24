@@ -61,4 +61,46 @@ abstract class AuthRepository {
   /// Used on cold-start when Remember Me is OFF — avoids a blocking/failing
   /// network logout call during app initialisation.
   Future<void> clearSessionLocally();
+
+  // ── Password Recovery Methods ──────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> requestPasswordRecovery({
+    String? method,
+    String? identifier,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  Future<Map<String, dynamic>> verifyRecoveryCode({
+    required String method,
+    required String destination,
+    String? code,
+    String? token,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  Future<Map<String, dynamic>> validateRecoveryToken(String token) async {
+    throw UnimplementedError();
+  }
+
+  Future<Map<String, dynamic>> resendRecoveryCode({
+    required String method,
+    required String identifier,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    String? method,
+    String? destination,
+    String? code,
+    String? token,
+    String? resetToken,
+    required String password,
+  }) async {
+    throw UnimplementedError();
+  }
 }

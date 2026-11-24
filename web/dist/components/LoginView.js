@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.js';
 import { authApi } from '../services/authApi.js';
 import { GoogleSignInButton } from './GoogleSignInButton.js';
 import { AccountLinkModal } from './AccountLinkModal.js';
-export const LoginView = ({ onSuccess, brandTitle = 'Zikre Kedusan', brandSubtitle = 'Sign in to access your spiritual sanctuary', allowGoogleAuth, }) => {
+export const LoginView = ({ onSuccess, onForgotPassword, brandTitle = 'Zikre Kedusan', brandSubtitle = 'Sign in to access your spiritual sanctuary', allowGoogleAuth, }) => {
     const { loginWithPassword, isLoading, isGoogleLoading, isAnyLoading, error, clearError, isAuthenticated } = useAuth();
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
@@ -79,7 +79,12 @@ export const LoginView = ({ onSuccess, brandTitle = 'Zikre Kedusan', brandSubtit
                                     fontSize: '14px',
                                     boxSizing: 'border-box',
                                     outline: 'none',
-                                } })] }), _jsxs("div", { style: { marginBottom: '16px' }, children: [_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }, children: [_jsx("label", { htmlFor: "login-password", style: { fontSize: '13px', fontWeight: 500, color: '#374151' }, children: "Password" }), _jsx("a", { href: "#forgot-password", style: { fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500 }, children: "Forgot password?" })] }), _jsx("input", { id: "login-password", type: "password", value: password, onChange: (e) => setPassword(e.target.value), placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022", required: true, disabled: isLoading, style: {
+                                } })] }), _jsxs("div", { style: { marginBottom: '16px' }, children: [_jsxs("div", { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }, children: [_jsx("label", { htmlFor: "login-password", style: { fontSize: '13px', fontWeight: 500, color: '#374151' }, children: "Password" }), _jsx("a", { href: "#forgot-password", onClick: (e) => {
+                                            if (onForgotPassword) {
+                                                e.preventDefault();
+                                                onForgotPassword();
+                                            }
+                                        }, style: { fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }, children: "Forgot password?" })] }), _jsx("input", { id: "login-password", type: "password", value: password, onChange: (e) => setPassword(e.target.value), placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022", required: true, disabled: isLoading, style: {
                                     width: '100%',
                                     padding: '10px 14px',
                                     borderRadius: '8px',

@@ -6,6 +6,7 @@ export { GoogleSignInButton } from './components/GoogleSignInButton.js';
 export { AccountLinkModal } from './components/AccountLinkModal.js';
 export { ConnectedAccountsView } from './components/ConnectedAccountsView.js';
 export { LoginView } from './components/LoginView.js';
+export { PasswordRecoveryView } from './components/PasswordRecoveryView.js';
 // API Service & Errors
 export { authApi, AuthApiService, AuthApiError } from './services/authApi.js';
 // Configuration

@@ -14,6 +14,10 @@ import 'package:mobile/features/splash/presentation/onboarding_screen.dart';
 import 'package:mobile/features/splash/presentation/providers/splash_provider.dart';
 import 'package:mobile/features/auth/presentation/login_screen.dart';
 import 'package:mobile/features/auth/presentation/register_screen.dart';
+import 'package:mobile/features/auth/presentation/forgot_password_screen.dart';
+import 'package:mobile/features/auth/presentation/otp_verification_screen.dart';
+import 'package:mobile/features/auth/presentation/reset_password_screen.dart';
+import 'package:mobile/features/auth/presentation/recovery_success_screen.dart';
 import 'package:mobile/features/home/presentation/home_screen.dart';
 import 'package:mobile/features/home/presentation/post_detail_screen.dart';
 import 'package:mobile/features/profile/presentation/profile_screen.dart';
@@ -137,7 +141,11 @@ class RouterNotifier extends ChangeNotifier {
   bool _isPublicRoute(String location) {
     if (location == '/login' ||
         location == '/register' ||
-        location == '/onboarding') {
+        location == '/onboarding' ||
+        location == '/forgot-password' ||
+        location == '/verify-otp' ||
+        location.startsWith('/reset-password') ||
+        location == '/recovery-success') {
       return true;
     }
     // Profile deep links
@@ -199,7 +207,12 @@ class RouterNotifier extends ChangeNotifier {
     final prefsState = _ref.read(preferencesProvider);
     final splashCompleted = _ref.read(splashCompletedProvider);
 
-    final isAuthRoute = location == '/login' || location == '/register';
+    final isAuthRoute = location == '/login' ||
+        location == '/register' ||
+        location == '/forgot-password' ||
+        location == '/verify-otp' ||
+        location.startsWith('/reset-password') ||
+        location == '/recovery-success';
     final isSplashRoute = location == '/';
     final isOnboardingRoute = location == '/onboarding';
     final isLockRoute = location == '/lock';
@@ -347,6 +360,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/verify-otp',
+        builder: (context, state) => const OtpVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/recovery-success',
+        builder: (context, state) => const RecoverySuccessScreen(),
       ),
       GoRoute(
         path: '/downloads',

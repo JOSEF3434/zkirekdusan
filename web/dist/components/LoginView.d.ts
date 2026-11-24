@@ -1,6 +1,7 @@
 import React from 'react';
 export interface LoginViewProps {
     onSuccess?: () => void;
+    onForgotPassword?: () => void;
     brandTitle?: string;
     brandSubtitle?: string;
     allowGoogleAuth?: boolean;

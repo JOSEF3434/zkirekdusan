@@ -61,4 +61,47 @@ export interface AuthState {
     error: string | null;
     pendingGoogleIdToken: string | null;
 }
+export type RecoveryMethod = 'EMAIL' | 'PHONE';
+export interface RecoveryRequestPayload {
+    method?: RecoveryMethod;
+    identifier?: string;
+    email?: string;
+    phoneNumber?: string;
+}
+export interface RecoveryRequestResponse {
+    success: boolean;
+    message: string;
+    method: RecoveryMethod;
+    destinationMasked?: string;
+    resendCooldownSeconds: number;
+}
+export interface RecoveryVerifyPayload {
+    method: RecoveryMethod;
+    destination: string;
+    code?: string;
+    token?: string;
+}
+export interface RecoveryVerifyResponse {
+    valid: boolean;
+    message: string;
+    resetToken: string;
+    method: RecoveryMethod;
+}
+export interface ValidateTokenResponse {
+    valid: boolean;
+    email?: string;
+    message: string;
+}
+export interface RecoveryResetPayload {
+    method?: RecoveryMethod;
+    destination?: string;
+    code?: string;
+    token?: string;
+    resetToken?: string;
+    password: string;
+}
+export interface RecoveryResetResponse {
+    success: boolean;
+    message: string;
+}
 //# sourceMappingURL=auth.types.d.ts.map

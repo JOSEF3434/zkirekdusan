@@ -203,6 +203,51 @@ export class AuthApiService {
             this.clearStorage();
         }
     }
+    // ── Password Recovery Methods ─────────────────────────────────────
+    /**
+     * Request password recovery for Email or Ethiopian phone number
+     */
+    async requestPasswordRecovery(payload) {
+        return this.request('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
+    /**
+     * Verify an SMS OTP code or email recovery token
+     */
+    async verifyRecoveryCode(payload) {
+        return this.request('/auth/recovery/verify', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
+    /**
+     * Validate email reset token before showing password change form
+     */
+    async validateRecoveryToken(token) {
+        return this.request(`/auth/recovery/validate-token?token=${encodeURIComponent(token)}`, {
+            method: 'GET',
+        });
+    }
+    /**
+     * Resend recovery OTP or email link (respects 60s cooldown)
+     */
+    async resendRecoveryCode(payload) {
+        return this.request('/auth/recovery/resend', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
+    /**
+     * Complete password reset
+     */
+    async resetPassword(payload) {
+        return this.request('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
 }
 export const authApi = new AuthApiService();
 //# sourceMappingURL=authApi.js.map
