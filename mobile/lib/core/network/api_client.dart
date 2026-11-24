@@ -90,8 +90,9 @@ class PrefixFallbackInterceptor extends Interceptor {
       final uri = reqOptions.uri;
       final uriPath = uri.path;
 
-      // Check if URL currently has /api
-      if (uriPath.startsWith('/api/') || uriPath == '/api') {
+      // Check if URL currently has /api (auth routes are strictly canonical and never fallback)
+      final isAuthRoute = reqOptions.path.contains('/auth') || uriPath.contains('/auth');
+      if (!isAuthRoute && (uriPath.startsWith('/api/') || uriPath == '/api')) {
         final bodyStr = response?.data?.toString() ?? '';
         final isRoutingNotFound = bodyStr.contains('Cannot GET /api/') ||
             bodyStr.contains('Cannot POST /api/') ||

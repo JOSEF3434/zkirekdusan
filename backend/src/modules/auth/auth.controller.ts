@@ -12,6 +12,11 @@ import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { AuthResponseDto } from './dto/auth-response.dto.js';
+import {
+  GoogleAuthDto,
+  GoogleLinkAccountDto,
+  UserIdentitiesDto,
+} from './dto/google-auth.dto.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
@@ -70,5 +75,85 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logout successful' })
   logout(@CurrentUser('sub') userId: string) {
     return this.authService.logout(userId);
+  }
+
+  // ── Google Authentication & Identity Endpoints ────────────────────
+
+  @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Authenticate or register via Google OpenID Connect ID token',
+  })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid, expired, unverified, or unauthorized Google token',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Account with this email already exists — requires linking via password',
+  })
+  googleAuth(@Body() dto: GoogleAuthDto): Promise<AuthResponseDto> {
+    return this.authService.authenticateWithGoogle(dto);
+  }
+
+  @Public()
+  @Post('google/link-account')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Link Google identity to an existing account using account credentials',
+  })
+  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid credentials or invalid Google token',
+  })
+  linkGoogleAccount(@Body() dto: GoogleLinkAccountDto): Promise<AuthResponseDto> {
+    return this.authService.linkGoogleAccount(dto);
+  }
+
+  @Post('google/connect')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Connect Google identity to the currently authenticated account (from Settings)',
+  })
+  @ApiResponse({ status: 200, description: 'Google account linked successfully' })
+  connectGoogle(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: GoogleAuthDto,
+  ) {
+    return this.authService.connectGoogle(userId, dto);
+  }
+
+  @Post('google/disconnect')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Disconnect Google identity from current account (prevented if sole auth method)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Google account disconnected successfully',
+  })
+  disconnectGoogle(@CurrentUser('sub') userId: string) {
+    return this.authService.disconnectGoogle(userId);
+  }
+
+  @Get('identities')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get external identities (Google, etc.) and auth methods for current user',
+  })
+  @ApiResponse({ status: 200, type: UserIdentitiesDto })
+  getIdentities(@CurrentUser('sub') userId: string): Promise<UserIdentitiesDto> {
+    return this.authService.getUserIdentities(userId);
   }
 }

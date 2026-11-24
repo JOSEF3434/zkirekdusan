@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { GoogleAuthService } from './google-auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RefreshStrategy } from './strategies/refresh.strategy.js';
 import { AuthPolicyModule } from '../auth-policy/auth-policy.module.js';
@@ -28,7 +29,7 @@ import { AuthPolicyModule } from '../auth-policy/auth-policy.module.js';
     AuthPolicyModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshStrategy],
-  exports: [AuthService, JwtModule],
+  providers: [AuthService, GoogleAuthService, JwtStrategy, RefreshStrategy],
+  exports: [AuthService, GoogleAuthService, JwtModule],
 })
 export class AuthModule {}

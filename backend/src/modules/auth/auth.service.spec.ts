@@ -6,6 +6,7 @@ import { PasswordService } from '../../common/service/password.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthPolicyService } from '../auth-policy/auth-policy.service.js';
+import { GoogleAuthService } from './google-auth.service.js';
 import { UnauthorizedException } from '@nestjs/common';
 import { LoginDto } from './dto/login.dto.js';
 
@@ -16,6 +17,7 @@ describe('AuthService', () => {
   let mockJwtService: any;
   let mockConfigService: any;
   let mockAuthPolicyService: any;
+  let mockGoogleAuthService: any;
 
   const makeLoginDto = (data: Partial<LoginDto>): LoginDto =>
     Object.assign(new LoginDto(), data);
@@ -72,6 +74,11 @@ describe('AuthService', () => {
       getActivePolicy: jest.fn(),
     };
 
+    mockGoogleAuthService = {
+      verifyIdToken: jest.fn(),
+      getAllowedAudiences: jest.fn().mockReturnValue(['test-client-id']),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -80,6 +87,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: AuthPolicyService, useValue: mockAuthPolicyService },
+        { provide: GoogleAuthService, useValue: mockGoogleAuthService },
       ],
     }).compile();
 

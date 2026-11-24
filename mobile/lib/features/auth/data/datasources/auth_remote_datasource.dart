@@ -162,6 +162,103 @@ class AuthRemoteDatasource {
     }
   }
 
+  /// POST /auth/google
+  /// Authenticates with a verified Google ID token
+  Future<AuthResponseModel> loginWithGoogle({required String idToken}) async {
+    try {
+      final response = await _dio.post(
+        '/auth/google',
+        data: {'idToken': idToken},
+        options: Options(
+          extra: {'skipAuth': true},
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
+        ),
+      );
+      return AuthResponseModel.fromJson(_parseEnvelope(response.data));
+    } on DioException catch (e) {
+      String? errorCode;
+      final data = e.response?.data;
+      if (data is Map) {
+        errorCode = data['code']?.toString();
+      }
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+        details: errorCode,
+      );
+    }
+  }
+
+  /// POST /auth/google/link-account
+  /// Links a Google identity to an existing account using password credentials
+  Future<AuthResponseModel> linkGoogleAccount({
+    required String idToken,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/google/link-account',
+        data: {'idToken': idToken, 'password': password},
+        options: Options(
+          extra: {'skipAuth': true},
+          connectTimeout: const Duration(seconds: 45),
+          receiveTimeout: const Duration(seconds: 45),
+        ),
+      );
+      return AuthResponseModel.fromJson(_parseEnvelope(response.data));
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// GET /auth/identities
+  /// Fetches external authentication identities and password status
+  Future<Map<String, dynamic>> getIdentities() async {
+    try {
+      final response = await _dio.get('/auth/identities');
+      final data = _parseEnvelope(response.data);
+      return Map<String, dynamic>.from(data);
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// POST /auth/google/connect
+  /// Links Google identity to current authenticated session
+  Future<void> connectGoogle({required String idToken}) async {
+    try {
+      await _dio.post(
+        '/auth/google/connect',
+        data: {'idToken': idToken},
+      );
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
+  /// POST /auth/google/disconnect
+  /// Disconnects Google identity from current authenticated account
+  Future<void> disconnectGoogle() async {
+    try {
+      await _dio.post('/auth/google/disconnect');
+    } on DioException catch (e) {
+      throw AppException(
+        _parseDioError(e),
+        code: e.response?.statusCode?.toString(),
+      );
+    }
+  }
+
   String _parseDioError(DioException e) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {

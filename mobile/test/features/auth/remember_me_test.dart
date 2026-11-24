@@ -154,6 +154,25 @@ class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> refreshTokens() async {}
+
+  @override
+  Future<AuthUser> loginWithGoogle(String idToken) async => _tUser;
+
+  @override
+  Future<AuthUser> linkGoogleAccount(String idToken, String password) async =>
+      _tUser;
+
+  @override
+  Future<Map<String, dynamic>> getIdentities() async => {
+        'hasPassword': true,
+        'identities': [],
+      };
+
+  @override
+  Future<void> connectGoogle(String idToken) async {}
+
+  @override
+  Future<void> disconnectGoogle() async {}
 }
 
 class FakeStorageService implements StorageService {

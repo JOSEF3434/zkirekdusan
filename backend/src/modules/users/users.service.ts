@@ -152,4 +152,44 @@ export class UsersService {
       },
     };
   }
+
+  async findFederatedIdentity(provider: string, providerId: string) {
+    return this.usersRepository.findFederatedIdentity(provider, providerId);
+  }
+
+  async findFederatedIdentitiesByUserId(userId: string) {
+    return this.usersRepository.findFederatedIdentitiesByUserId(userId);
+  }
+
+  async createWithFederatedIdentity(data: {
+    email?: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+    avatarUrl?: string;
+    roleId: string;
+    provider: string;
+    providerId: string;
+  }) {
+    return this.usersRepository.createWithFederatedIdentity(data);
+  }
+
+  async linkFederatedIdentity(
+    userId: string,
+    provider: string,
+    providerId: string,
+    email?: string,
+  ) {
+    return this.usersRepository.linkFederatedIdentity(
+      userId,
+      provider,
+      providerId,
+      email,
+    );
+  }
+
+  async unlinkFederatedIdentity(userId: string, provider: string) {
+    return this.usersRepository.unlinkFederatedIdentity(userId, provider);
+  }
 }

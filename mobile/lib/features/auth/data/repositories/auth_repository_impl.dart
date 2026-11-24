@@ -75,6 +75,38 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthUser> loginWithGoogle(String idToken) async {
+    final response = await _remote.loginWithGoogle(idToken: idToken);
+    await _persistSession(response);
+    return _modelToEntity(response.user);
+  }
+
+  @override
+  Future<AuthUser> linkGoogleAccount(String idToken, String password) async {
+    final response = await _remote.linkGoogleAccount(
+      idToken: idToken,
+      password: password,
+    );
+    await _persistSession(response);
+    return _modelToEntity(response.user);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getIdentities() async {
+    return _remote.getIdentities();
+  }
+
+  @override
+  Future<void> connectGoogle(String idToken) async {
+    await _remote.connectGoogle(idToken: idToken);
+  }
+
+  @override
+  Future<void> disconnectGoogle() async {
+    await _remote.disconnectGoogle();
+  }
+
+  @override
   Future<void> logout() async {
     try {
       await _remote.logout();

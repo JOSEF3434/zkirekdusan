@@ -22,6 +22,21 @@ abstract class AuthRepository {
     required String password,
   });
 
+  /// Authenticates with Google OpenID Connect ID token
+  Future<AuthUser> loginWithGoogle(String idToken);
+
+  /// Links Google identity to an existing account using account credentials
+  Future<AuthUser> linkGoogleAccount(String idToken, String password);
+
+  /// Fetches external authentication identities and password status
+  Future<Map<String, dynamic>> getIdentities();
+
+  /// Connects Google identity to the currently authenticated account
+  Future<void> connectGoogle(String idToken);
+
+  /// Disconnects Google identity from current account
+  Future<void> disconnectGoogle();
+
   Future<void> logout();
 
   Future<void> refreshTokens();

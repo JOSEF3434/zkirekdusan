@@ -1,0 +1,1 @@
+{"version":3,"file":"AccountLinkModal.d.ts","sourceRoot":"","sources":["../../src/components/AccountLinkModal.tsx"],"names":[],"mappings":"AACA,OAAO,KAAmB,MAAM,OAAO,CAAC;AAGxC,MAAM,WAAW,qBAAqB;IACpC,MAAM,CAAC,EAAE,OAAO,CAAC;IACjB,OAAO,CAAC,EAAE,MAAM,IAAI,CAAC;CACtB;AAED,eAAO,MAAM,gBAAgB,EAAE,KAAK,CAAC,EAAE,CAAC,qBAAqB,CAmK5D,CAAC"}

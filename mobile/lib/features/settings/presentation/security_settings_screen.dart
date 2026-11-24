@@ -11,6 +11,8 @@ import 'package:mobile/features/security/presentation/providers/app_lock_provide
 import 'package:mobile/features/security/presentation/pin_setup_screen.dart';
 import 'package:mobile/features/security/presentation/pattern_setup_screen.dart';
 import 'package:mobile/features/security/data/pin_service.dart';
+import 'package:mobile/features/settings/presentation/providers/user_identities_provider.dart';
+import 'package:mobile/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class SecuritySettingsScreen extends ConsumerWidget {
   const SecuritySettingsScreen({super.key});
@@ -24,6 +26,8 @@ class SecuritySettingsScreen extends ConsumerWidget {
     final lockNotifier = ref.read(appLockSettingsProvider.notifier);
     final biometricAvailable = ref.watch(biometricAvailableProvider);
     final biometricType = ref.watch(biometricHardwareTypeProvider);
+    final identitiesState = ref.watch(userIdentitiesProvider);
+    final identitiesNotifier = ref.read(userIdentitiesProvider.notifier);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -216,6 +220,68 @@ class SecuritySettingsScreen extends ConsumerWidget {
                 subtitle: tr('settings.security.change_email_desc'),
                 onTap: () {},
                 isLast: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Connected Accounts ─────────────────────────────────────────
+          SettingsGroup(
+            label: tr('settings.connected_accounts'),
+            children: [
+              ListTile(
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF222222)
+                        : const Color(0xFFF1F3F4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const GoogleIconWidget(size: 22),
+                ),
+                title: Text(
+                  tr('settings.google_account'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                subtitle: Text(
+                  identitiesState.isGoogleConnected
+                      ? (identitiesState.googleEmail ??
+                          tr('settings.google_connected'))
+                      : tr('settings.google_not_connected'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: identitiesState.isGoogleConnected
+                        ? const Color(0xFF34A853)
+                        : theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5),
+                  ),
+                ),
+                trailing: identitiesState.isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : identitiesState.isGoogleConnected
+                        ? TextButton(
+                            onPressed: () => _confirmDisconnectGoogle(
+                                context, ref, tr),
+                            child: Text(
+                              tr('settings.disconnect_google'),
+                              style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          )
+                        : FilledButton.tonal(
+                            onPressed: () =>
+                                identitiesNotifier.connectGoogle(),
+                            child: Text(tr('settings.connect_google')),
+                          ),
               ),
             ],
           ),
@@ -732,6 +798,55 @@ class SecuritySettingsScreen extends ConsumerWidget {
             },
             child: Text(tr('settings.security.terminate_all_other'),
                 style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDisconnectGoogle(
+    BuildContext context,
+    WidgetRef ref,
+    String Function(String, [Map<String, dynamic>?]) tr,
+  ) {
+    final state = ref.read(userIdentitiesProvider);
+    if (!state.hasPassword) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(tr('settings.disconnect_google')),
+          content: Text(tr('settings.disconnect_google_warning')),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('common.ok')),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr('settings.disconnect_google')),
+        content: Text(tr('settings.disconnect_google_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(tr('common.cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(userIdentitiesProvider.notifier).disconnectGoogle();
+            },
+            child: Text(
+              tr('settings.security.remove'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),

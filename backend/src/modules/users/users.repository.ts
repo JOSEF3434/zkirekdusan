@@ -14,6 +14,7 @@ export class UsersRepository {
       include: {
         role: true,
         profile: true,
+        federatedIdentities: true,
       },
     });
   }
@@ -202,5 +203,109 @@ export class UsersRepository {
     ]);
 
     return { items, total };
+  }
+
+  async findFederatedIdentity(provider: string, providerId: string) {
+    if (!provider || !providerId) return null;
+    return this.prisma.federatedIdentity.findUnique({
+      where: {
+        provider_providerId: {
+          provider,
+          providerId,
+        },
+      },
+      include: {
+        user: {
+          include: {
+            role: true,
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findFederatedIdentitiesByUserId(userId: string) {
+    if (!userId) return [];
+    return this.prisma.federatedIdentity.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createWithFederatedIdentity(data: {
+    email?: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+    avatarUrl?: string;
+    roleId: string;
+    provider: string;
+    providerId: string;
+  }) {
+    const displayName =
+      data.displayName ||
+      [data.firstName, data.lastName].filter(Boolean).join(' ') ||
+      data.username ||
+      'User';
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: data.email ?? null,
+          username: data.username ?? null,
+          roleId: data.roleId,
+          isEmailVerified: !!data.email,
+          profile: {
+            create: {
+              firstName: data.firstName ?? null,
+              lastName: data.lastName ?? null,
+              displayName,
+            },
+          },
+        },
+        include: {
+          role: true,
+          profile: true,
+        },
+      });
+
+      const identity = await tx.federatedIdentity.create({
+        data: {
+          userId: user.id,
+          provider: data.provider,
+          providerId: data.providerId,
+          email: data.email ?? null,
+        },
+      });
+
+      return { user, identity };
+    });
+  }
+
+  async linkFederatedIdentity(
+    userId: string,
+    provider: string,
+    providerId: string,
+    email?: string,
+  ) {
+    return this.prisma.federatedIdentity.create({
+      data: {
+        userId,
+        provider,
+        providerId,
+        email: email ?? null,
+      },
+    });
+  }
+
+  async unlinkFederatedIdentity(userId: string, provider: string) {
+    return this.prisma.federatedIdentity.deleteMany({
+      where: {
+        userId,
+        provider,
+      },
+    });
   }
 }

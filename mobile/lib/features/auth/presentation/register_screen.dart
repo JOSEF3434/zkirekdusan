@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -57,19 +58,98 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
   }
 
+  void _handleGoogleSignIn() {
+    ref.read(authProvider.notifier).clearError();
+    ref.read(authProvider.notifier).signInWithGoogle();
+  }
+
+  void _showLinkAccountDialog(
+    BuildContext context,
+    String Function(String) tr,
+  ) {
+    final linkPasswordCtrl = TextEditingController();
+    bool obscure = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text(tr('auth.link_google_title')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('auth.link_google_desc'),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: linkPasswordCtrl,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: tr('auth.password_label'),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () =>
+                          setDialogState(() => obscure = !obscure),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  ref.read(authProvider.notifier).clearPendingGoogle();
+                  Navigator.of(dialogCtx).pop();
+                },
+                child: Text(tr('auth.link_google_cancel')),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final pwd = linkPasswordCtrl.text.trim();
+                  if (pwd.isEmpty) return;
+                  Navigator.of(dialogCtx).pop();
+                  await ref
+                      .read(authProvider.notifier)
+                      .linkGoogleAccountWithPassword(pwd);
+                },
+                child: Text(tr('auth.link_google_btn')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tr = ref.watch(trProvider);
+    final cs = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
 
-    ref.listen<AuthState>(authProvider, (_, next) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated && !_hasNavigated) {
         _hasNavigated = true;
         context.go('/home');
+      } else if (next.pendingGoogleIdToken != null &&
+          previous?.pendingGoogleIdToken != next.pendingGoogleIdToken) {
+        _showLinkAccountDialog(context, tr);
       }
     });
-
-    final cs = Theme.of(context).colorScheme;
-    final tr = ref.watch(trProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -319,6 +399,42 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               tr('auth.register'),
                               style: const TextStyle(fontSize: 16),
                             ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            tr('auth.or_divider'),
+                            style: TextStyle(
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Google Sign-In Button
+                    GoogleSignInButton(
+                      text: tr('auth.continue_with_google'),
+                      isLoading: authState.isLoading,
+                      onPressed: _handleGoogleSignIn,
                     ),
                     const SizedBox(height: 24),
 

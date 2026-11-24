@@ -75,6 +75,26 @@ class MockAuthRepo implements AuthRepository {
 
   @override
   Future<void> clearSessionLocally() async {}
+
+  @override
+  Future<AuthUser> loginWithGoogle(String idToken) async =>
+      const AuthUser(id: 'usr-1', email: 'test@example.com', role: 'USER');
+
+  @override
+  Future<AuthUser> linkGoogleAccount(String idToken, String password) async =>
+      const AuthUser(id: 'usr-1', email: 'test@example.com', role: 'USER');
+
+  @override
+  Future<Map<String, dynamic>> getIdentities() async => {
+        'hasPassword': true,
+        'identities': [],
+      };
+
+  @override
+  Future<void> connectGoogle(String idToken) async {}
+
+  @override
+  Future<void> disconnectGoogle() async {}
 }
 
 void main() {
