@@ -20,8 +20,8 @@ class StorySection extends ConsumerWidget {
     // When admin disables stories service, still show the Mesbak button
     if (!ref.watch(storiesEnabledProvider)) {
       return Container(
-        height: 104,
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        height: 110,
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [TodayMesbakButton()],
@@ -42,8 +42,8 @@ class StorySection extends ConsumerWidget {
             : <StoryFeedGroupModel>[];
 
         return Container(
-          height: 104,
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          height: 110,
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             children: [
               Expanded(
@@ -126,8 +126,8 @@ class StorySection extends ConsumerWidget {
 
   Widget _buildFallback(BuildContext context, bool isAuthenticated) {
     return Container(
-      height: 104,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      height: 110,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -174,8 +174,8 @@ class StorySection extends ConsumerWidget {
 
   Widget _buildSkeleton(ThemeData theme) {
     return Container(
-      height: 104,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      height: 110,
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
       child: Row(
         children: [
           Expanded(
