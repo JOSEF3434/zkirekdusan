@@ -3145,6 +3145,9 @@ model LoginPolicy {
   allowPhone    Boolean @default(true)
   allowUsername Boolean @default(true)
 
+  /// Whether Continue with Google / Google authentication is allowed
+  allowGoogleAuth Boolean @default(true)
+
   /// For DUAL_IDENTIFIER: which combination is required
   dualCombination DualIdentifierCombination?
 

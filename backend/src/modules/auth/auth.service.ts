@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -434,6 +435,13 @@ export class AuthService {
    *  - Returns 409 Conflict with 'ACCOUNT_EXISTS_LINK_REQUIRED'.
    */
   async authenticateWithGoogle(dto: GoogleAuthDto): Promise<AuthResponseDto> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowGoogleAuth === false) {
+      throw new ForbiddenException(
+        'Google authentication is currently disabled by administrator.',
+      );
+    }
+
     const verified = await this.googleAuthService.verifyIdToken(dto.idToken);
 
     // Scenario B: Check if this Google identity is already linked
@@ -502,6 +510,13 @@ export class AuthService {
    * Requires proof of account ownership via existing account password.
    */
   async linkGoogleAccount(dto: GoogleLinkAccountDto): Promise<AuthResponseDto> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowGoogleAuth === false) {
+      throw new ForbiddenException(
+        'Google authentication is currently disabled by administrator.',
+      );
+    }
+
     const verified = await this.googleAuthService.verifyIdToken(dto.idToken);
 
     // Ensure this Google identity is not already linked to another account
@@ -566,6 +581,13 @@ export class AuthService {
     userId: string,
     dto: GoogleAuthDto,
   ): Promise<{ message: string; email?: string }> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowGoogleAuth === false) {
+      throw new ForbiddenException(
+        'Google authentication is currently disabled by administrator.',
+      );
+    }
+
     const verified = await this.googleAuthService.verifyIdToken(dto.idToken);
 
     const existingIdentity = await this.usersService.findFederatedIdentity(

@@ -68,6 +68,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowEmail: true,
           allowPhone: true,
           allowUsername: true,
+          allowGoogleAuth: true,
         },
       });
       this.logger.log('Default login policy created (SINGLE_IDENTIFIER, all identifiers enabled)');
@@ -104,6 +105,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: policy!.allowEmail,
       allowPhone: policy!.allowPhone,
       allowUsername: policy!.allowUsername,
+      allowGoogleAuth: policy!.allowGoogleAuth ?? true,
       dualCombination: policy!.dualCombination ?? null,
     };
 
@@ -132,6 +134,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: policy!.allowEmail,
       allowPhone: policy!.allowPhone,
       allowUsername: policy!.allowUsername,
+      allowGoogleAuth: policy!.allowGoogleAuth ?? true,
       dualCombination: policy!.dualCombination ?? null,
       isLocked: policy!.isLocked,
       updatedAt: policy!.updatedAt,
@@ -247,6 +250,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowEmail: existing.allowEmail,
           allowPhone: existing.allowPhone,
           allowUsername: existing.allowUsername,
+          allowGoogleAuth: existing.allowGoogleAuth ?? true,
           dualCombination: existing.dualCombination,
           isLocked: existing.isLocked,
         }
@@ -257,6 +261,10 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: dto.allowEmail ?? true,
       allowPhone: dto.allowPhone ?? true,
       allowUsername: dto.allowUsername ?? true,
+      allowGoogleAuth:
+        dto.allowGoogleAuth !== undefined
+          ? dto.allowGoogleAuth
+          : existing?.allowGoogleAuth ?? true,
       dualCombination: dto.dualCombination ?? null,
       lastModifiedBy: { connect: { id: actorId } },
     };
@@ -266,6 +274,10 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: dto.allowEmail ?? true,
       allowPhone: dto.allowPhone ?? true,
       allowUsername: dto.allowUsername ?? true,
+      allowGoogleAuth:
+        dto.allowGoogleAuth !== undefined
+          ? dto.allowGoogleAuth
+          : existing?.allowGoogleAuth ?? true,
       dualCombination: dto.dualCombination ?? null,
       isLocked: existing?.isLocked ?? false,
     };
@@ -300,6 +312,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: updated.allowEmail,
       allowPhone: updated.allowPhone,
       allowUsername: updated.allowUsername,
+      allowGoogleAuth: updated.allowGoogleAuth,
       dualCombination: updated.dualCombination ?? null,
       isLocked: updated.isLocked,
       updatedAt: updated.updatedAt,
@@ -328,6 +341,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowEmail: true,
           allowPhone: true,
           allowUsername: true,
+          allowGoogleAuth: true,
           dualCombination: null,
           isLocked: false,
           lastModifiedBy: { connect: { id: actorId } },
@@ -364,6 +378,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowEmail: updated.allowEmail,
       allowPhone: updated.allowPhone,
       allowUsername: updated.allowUsername,
+      allowGoogleAuth: updated.allowGoogleAuth,
       dualCombination: updated.dualCombination ?? null,
       isLocked: updated.isLocked,
       updatedAt: updated.updatedAt,

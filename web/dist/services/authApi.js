@@ -174,6 +174,19 @@ export class AuthApiService {
         return res;
     }
     /**
+     * Get public login policy configuration
+     */
+    async getLoginPolicyConfig() {
+        try {
+            return await this.request('/auth-policy/config', {
+                method: 'GET',
+            });
+        }
+        catch {
+            return { allowGoogleAuth: true };
+        }
+    }
+    /**
      * Logout and clear local tokens
      */
     async logout() {

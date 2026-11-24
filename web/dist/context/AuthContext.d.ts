@@ -1,6 +1,8 @@
 import React from 'react';
 import type { AuthState, UserIdentities } from '../types/auth.types.js';
 export interface AuthContextType extends AuthState {
+    isGoogleLoading: boolean;
+    isAnyLoading: boolean;
     signInWithGoogle: (idToken: string) => Promise<boolean>;
     linkGoogleAccountWithPassword: (password: string) => Promise<boolean>;
     loginWithPassword: (credentials: {

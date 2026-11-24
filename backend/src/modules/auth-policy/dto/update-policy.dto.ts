@@ -55,6 +55,14 @@ export class UpdateLoginPolicyDto {
   allowUsername?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Allow Continue with Google as an authentication method',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  allowGoogleAuth?: boolean;
+
+  @ApiPropertyOptional({
     enum: DualIdentifierCombinationDto,
     description: 'Required combination for DUAL_IDENTIFIER policy',
     example: DualIdentifierCombinationDto.EMAIL_PHONE,

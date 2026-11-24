@@ -42,6 +42,7 @@ class AuthState {
   final AuthUser? user;
   final String? error;
   final bool isLoading;
+  final bool isGoogleLoading;
   final String? pendingGoogleIdToken;
   final String? pendingGoogleEmail;
 
@@ -50,15 +51,19 @@ class AuthState {
     this.user,
     this.error,
     this.isLoading = false,
+    this.isGoogleLoading = false,
     this.pendingGoogleIdToken,
     this.pendingGoogleEmail,
   });
+
+  bool get isAnyLoading => isLoading || isGoogleLoading;
 
   AuthState copyWith({
     AuthStatus? status,
     AuthUser? user,
     String? error,
     bool? isLoading,
+    bool? isGoogleLoading,
     String? pendingGoogleIdToken,
     String? pendingGoogleEmail,
     bool clearError = false,
@@ -70,6 +75,7 @@ class AuthState {
       user: clearUser ? null : (user ?? this.user),
       error: clearError ? null : (error ?? this.error),
       isLoading: isLoading ?? this.isLoading,
+      isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
       pendingGoogleIdToken: clearPendingGoogle
           ? null
           : (pendingGoogleIdToken ?? this.pendingGoogleIdToken),
@@ -140,7 +146,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
     bool rememberMe = true,
   }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      isGoogleLoading: false,
+      clearError: true,
+    );
     try {
       final user = await _repository.login(
         email: email,
@@ -192,6 +202,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(
         isLoading: false,
+        isGoogleLoading: false,
         status: AuthStatus.unauthenticated,
         error: errorMessage,
       );
@@ -206,7 +217,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? lastName,
     required String password,
   }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      isGoogleLoading: false,
+      clearError: true,
+    );
     try {
       final user = await _repository.register(
         email: email,
@@ -226,6 +241,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               .replaceFirst('AppException: ', '');
       state = state.copyWith(
         isLoading: false,
+        isGoogleLoading: false,
         status: AuthStatus.unauthenticated,
         error: errorMessage,
       );
@@ -234,7 +250,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<bool> signInWithGoogle({bool rememberMe = true}) async {
     state = state.copyWith(
-      isLoading: true,
+      isGoogleLoading: true,
+      isLoading: false,
       clearError: true,
       clearPendingGoogle: true,
     );
@@ -243,7 +260,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (idToken == null) {
         // User cancelled account picker
         state = state.copyWith(
-          isLoading: false,
+          isGoogleLoading: false,
           status: state.status == AuthStatus.authenticated
               ? state.status
               : AuthStatus.unauthenticated,
@@ -263,7 +280,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         if (e.code == '409' || e.details == 'ACCOUNT_EXISTS_LINK_REQUIRED') {
           // Existing email/password account requires linking
           state = state.copyWith(
-            isLoading: false,
+            isGoogleLoading: false,
             pendingGoogleIdToken: idToken,
             error: e.message,
           );
@@ -280,6 +297,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               .replaceFirst('AppException: ', '');
       state = state.copyWith(
         isLoading: false,
+        isGoogleLoading: false,
         status: AuthStatus.unauthenticated,
         error: errorMessage,
       );
@@ -296,7 +314,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return false;
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      isGoogleLoading: false,
+      clearError: true,
+    );
     try {
       final user = await _repository.linkGoogleAccount(token, password);
       state = AuthState(status: AuthStatus.authenticated, user: user);
@@ -321,7 +343,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      isGoogleLoading: false,
+      clearError: true,
+    );
     try {
       await _repository.logout();
       await _googleSignInService.signOut();

@@ -1,6 +1,7 @@
 // web/src/components/LoginView.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.js';
+import { authApi } from '../services/authApi.js';
 import { GoogleSignInButton } from './GoogleSignInButton.js';
 import { AccountLinkModal } from './AccountLinkModal.js';
 
@@ -8,17 +9,38 @@ export interface LoginViewProps {
   onSuccess?: () => void;
   brandTitle?: string;
   brandSubtitle?: string;
+  allowGoogleAuth?: boolean;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
   onSuccess,
   brandTitle = 'Zikre Kedusan',
   brandSubtitle = 'Sign in to access your spiritual sanctuary',
+  allowGoogleAuth,
 }) => {
-  const { loginWithPassword, isLoading, error, clearError, isAuthenticated } = useAuth();
+  const { loginWithPassword, isLoading, isGoogleLoading, isAnyLoading, error, clearError, isAuthenticated } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [effectiveAllowGoogle, setEffectiveAllowGoogle] = useState<boolean>(
+    allowGoogleAuth ?? true
+  );
+
+  useEffect(() => {
+    if (allowGoogleAuth !== undefined) {
+      setEffectiveAllowGoogle(allowGoogleAuth);
+      return;
+    }
+    let isMounted = true;
+    authApi.getLoginPolicyConfig().then((cfg) => {
+      if (isMounted && cfg && typeof cfg.allowGoogleAuth === 'boolean') {
+        setEffectiveAllowGoogle(cfg.allowGoogleAuth);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [allowGoogleAuth]);
 
   if (isAuthenticated && onSuccess) {
     onSuccess();
@@ -86,26 +108,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
       )}
 
       {/* Continue with Google */}
-      <div style={{ marginBottom: '20px' }}>
-        <GoogleSignInButton text="continue_with" size="large" width="100%" />
-      </div>
+      {effectiveAllowGoogle && (
+        <>
+          <div style={{ marginBottom: '20px' }}>
+            <GoogleSignInButton text="continue_with" size="large" width="100%" />
+          </div>
 
-      {/* Divider */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          margin: '20px 0',
-          color: '#9CA3AF',
-          fontSize: '12px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
-        <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
-        <span style={{ padding: '0 12px' }}>or continue with credentials</span>
-        <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
-      </div>
+          {/* Divider */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              margin: '20px 0',
+              color: '#9CA3AF',
+              fontSize: '12px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
+            <span style={{ padding: '0 12px' }}>or continue with credentials</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }} />
+          </div>
+        </>
+      )}
 
       {/* Password Login Form */}
       <form onSubmit={handleSubmit}>
@@ -186,7 +212,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
         <button
           type="submit"
-          disabled={isLoading || !identifier || !password}
+          disabled={isAnyLoading || !identifier || !password}
           style={{
             width: '100%',
             padding: '12px',
@@ -196,8 +222,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
             color: '#ffffff',
             fontSize: '14px',
             fontWeight: 600,
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: isLoading || !identifier || !password ? 0.7 : 1,
+            cursor: isAnyLoading ? 'not-allowed' : 'pointer',
+            opacity: isAnyLoading || !identifier || !password ? 0.7 : 1,
             transition: 'opacity 0.2s',
           }}
         >

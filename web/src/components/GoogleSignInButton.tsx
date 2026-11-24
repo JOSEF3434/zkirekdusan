@@ -13,6 +13,7 @@ export interface GoogleSignInButtonProps {
   onSuccess?: (idToken: string) => void;
   onError?: (error: Error) => void;
   disabled?: boolean;
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -55,12 +56,15 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
   disabled = false,
+  isLoading: propIsLoading,
   className = '',
 }) => {
   const btnContainerRef = useRef<HTMLDivElement>(null);
   const [gisLoaded, setGisLoaded] = useState(false);
   const [fallbackLoading, setFallbackLoading] = useState(false);
-  const { signInWithGoogle, isLoading } = useAuth();
+  const { signInWithGoogle, isLoading: authLoading, isGoogleLoading } = useAuth();
+  const effectiveIsLoading = propIsLoading ?? (isGoogleLoading ?? false);
+  const isAnyLoading = authLoading || (isGoogleLoading ?? false);
 
   // Load Google Identity Services (GIS) client script if not already present
   useEffect(() => {
@@ -139,8 +143,8 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         ref={btnContainerRef}
         style={{
           display: clientId && gisLoaded ? 'block' : 'none',
-          pointerEvents: disabled || isLoading ? 'none' : 'auto',
-          opacity: disabled || isLoading ? 0.6 : 1,
+          pointerEvents: disabled || isAnyLoading ? 'none' : 'auto',
+          opacity: disabled || isAnyLoading ? 0.6 : 1,
         }}
       />
 
@@ -148,7 +152,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       {(!clientId || !gisLoaded) && (
         <button
           type="button"
-          disabled={disabled || isLoading || fallbackLoading}
+          disabled={disabled || isAnyLoading || fallbackLoading}
           onClick={async () => {
             if (!clientId) {
               const err = new Error('Google Client ID is not configured.');
@@ -176,7 +180,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
             fontSize: '14px',
             fontWeight: 500,
             fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
+            cursor: disabled || isAnyLoading ? 'not-allowed' : 'pointer',
             boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
             transition: 'background-color 0.2s, box-shadow 0.2s',
           }}
@@ -200,7 +204,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
               d="M12 4.93c1.76 0 3.34.61 4.59 1.79l3.58-3.58C18.03 1.15 15.24 0 12 0 7.31 0 3.28 2.61 1.2 6.73l4.07 3.15c.95-2.84 3.6-4.95 6.73-4.95z"
             />
           </svg>
-          <span>Continue with Google</span>
+          <span>{effectiveIsLoading || fallbackLoading ? 'Signing in with Google...' : 'Continue with Google'}</span>
         </button>
       )}
     </div>

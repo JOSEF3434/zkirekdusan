@@ -8,6 +8,7 @@ import 'package:mobile/features/admin/presentation/providers/admin_permissions_p
 import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layout.dart';
 import 'package:mobile/features/auth/data/models/login_policy_model.dart';
 import 'package:mobile/features/auth/presentation/providers/login_policy_provider.dart';
+import 'package:mobile/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class AdminAuthPolicyScreen extends ConsumerStatefulWidget {
   const AdminAuthPolicyScreen({super.key});
@@ -30,6 +31,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
   bool _allowEmail = true;
   bool _allowPhone = true;
   bool _allowUsername = true;
+  bool _allowGoogleAuth = true;
   String _dualCombination = 'EMAIL_PHONE';
   final _reasonCtrl = TextEditingController();
 
@@ -66,6 +68,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
           _allowEmail = data['allowEmail'] as bool? ?? true;
           _allowPhone = data['allowPhone'] as bool? ?? true;
           _allowUsername = data['allowUsername'] as bool? ?? true;
+          _allowGoogleAuth = data['allowGoogleAuth'] as bool? ?? true;
           _dualCombination =
               data['dualCombination'] as String? ?? 'EMAIL_PHONE';
           _isLoading = false;
@@ -182,6 +185,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
         allowEmail: _allowEmail,
         allowPhone: _allowPhone,
         allowUsername: _allowUsername,
+        allowGoogleAuth: _allowGoogleAuth,
         dualCombination:
             _selectedPolicy == 'DUAL_IDENTIFIER' ? _dualCombination : null,
         reason: _reasonCtrl.text.trim().isEmpty ? null : _reasonCtrl.text.trim(),
@@ -194,6 +198,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
         allowEmail: res['allowEmail'] as bool? ?? _allowEmail,
         allowPhone: res['allowPhone'] as bool? ?? _allowPhone,
         allowUsername: res['allowUsername'] as bool? ?? _allowUsername,
+        allowGoogleAuth: res['allowGoogleAuth'] as bool? ?? _allowGoogleAuth,
         dualCombination: res['dualCombination'] as String?,
       );
       ref.read(loginPolicyProvider.notifier).updateLocalPolicy(updatedConfig);
@@ -486,6 +491,30 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
               const SizedBox(height: 24),
             ],
 
+            // Section: Third-Party & Social Sign-In
+            Text(
+              tr('admin.auth_policy.social_auth_section'),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: cs.outlineVariant),
+              ),
+              child: SwitchListTile(
+                secondary: const GoogleIconWidget(size: 24),
+                title: Text(tr('admin.auth_policy.allow_google')),
+                subtitle: Text(tr('admin.auth_policy.allow_google_desc')),
+                value: _allowGoogleAuth,
+                onChanged: (val) => setState(() => _allowGoogleAuth = val),
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Section 3: Live Preview
             Text(
               tr('admin.auth_policy.preview_title'),
@@ -725,6 +754,60 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
               icon: Icons.lock_outline,
               hint: '••••••••',
             ),
+            if (_allowGoogleAuth) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      tr('auth.or_divider'),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Divider(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: cs.outlineVariant,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const GoogleIconWidget(size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('auth.continue_with_google'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

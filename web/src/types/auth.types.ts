@@ -69,6 +69,7 @@ export interface AuthState {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isGoogleLoading?: boolean;
   error: string | null;
   pendingGoogleIdToken: string | null;
 }

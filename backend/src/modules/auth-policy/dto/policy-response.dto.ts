@@ -20,6 +20,9 @@ export class LoginPolicyResponseDto {
   @ApiProperty({ description: 'Username allowed as identifier' })
   allowUsername!: boolean;
 
+  @ApiProperty({ description: 'Whether Continue with Google is allowed as an authentication method', default: true })
+  allowGoogleAuth!: boolean;
+
   @ApiPropertyOptional({
     enum: ['EMAIL_PHONE', 'EMAIL_USERNAME', 'PHONE_USERNAME'],
     nullable: true,
@@ -46,6 +49,9 @@ export class PublicLoginPolicyDto {
 
   @ApiProperty()
   allowUsername!: boolean;
+
+  @ApiProperty({ default: true, description: 'Whether Continue with Google is allowed' })
+  allowGoogleAuth!: boolean;
 
   @ApiPropertyOptional({ enum: ['EMAIL_PHONE', 'EMAIL_USERNAME', 'PHONE_USERNAME'], nullable: true })
   dualCombination?: string | null;

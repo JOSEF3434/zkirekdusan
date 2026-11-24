@@ -53,6 +53,13 @@ export declare class AuthApiService {
      */
     refreshTokens(): Promise<AuthTokens>;
     /**
+     * Get public login policy configuration
+     */
+    getLoginPolicyConfig(): Promise<{
+        allowGoogleAuth?: boolean;
+        activePolicy?: string;
+    }>;
+    /**
      * Logout and clear local tokens
      */
     logout(): Promise<void>;

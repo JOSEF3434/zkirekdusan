@@ -3,11 +3,13 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useRef, useState } from 'react';
 import { authConfig } from '../config/auth.config.js';
 import { useAuth } from '../context/AuthContext.js';
-export const GoogleSignInButton = ({ clientId = authConfig.googleClientId, theme = 'outline', size = 'large', text = 'continue_with', shape = 'rectangular', width = '100%', onSuccess, onError, disabled = false, className = '', }) => {
+export const GoogleSignInButton = ({ clientId = authConfig.googleClientId, theme = 'outline', size = 'large', text = 'continue_with', shape = 'rectangular', width = '100%', onSuccess, onError, disabled = false, isLoading: propIsLoading, className = '', }) => {
     const btnContainerRef = useRef(null);
     const [gisLoaded, setGisLoaded] = useState(false);
     const [fallbackLoading, setFallbackLoading] = useState(false);
-    const { signInWithGoogle, isLoading } = useAuth();
+    const { signInWithGoogle, isLoading: authLoading, isGoogleLoading } = useAuth();
+    const effectiveIsLoading = propIsLoading ?? (isGoogleLoading ?? false);
+    const isAnyLoading = authLoading || (isGoogleLoading ?? false);
     // Load Google Identity Services (GIS) client script if not already present
     useEffect(() => {
         if (typeof window === 'undefined')
@@ -74,9 +76,9 @@ export const GoogleSignInButton = ({ clientId = authConfig.googleClientId, theme
             minHeight: 44,
         }, className: className, children: [_jsx("div", { ref: btnContainerRef, style: {
                     display: clientId && gisLoaded ? 'block' : 'none',
-                    pointerEvents: disabled || isLoading ? 'none' : 'auto',
-                    opacity: disabled || isLoading ? 0.6 : 1,
-                } }), (!clientId || !gisLoaded) && (_jsxs("button", { type: "button", disabled: disabled || isLoading || fallbackLoading, onClick: async () => {
+                    pointerEvents: disabled || isAnyLoading ? 'none' : 'auto',
+                    opacity: disabled || isAnyLoading ? 0.6 : 1,
+                } }), (!clientId || !gisLoaded) && (_jsxs("button", { type: "button", disabled: disabled || isAnyLoading || fallbackLoading, onClick: async () => {
                     if (!clientId) {
                         const err = new Error('Google Client ID is not configured.');
                         if (onError)
@@ -104,9 +106,9 @@ export const GoogleSignInButton = ({ clientId = authConfig.googleClientId, theme
                     fontSize: '14px',
                     fontWeight: 500,
                     fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                    cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
+                    cursor: disabled || isAnyLoading ? 'not-allowed' : 'pointer',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
                     transition: 'background-color 0.2s, box-shadow 0.2s',
-                }, children: [_jsxs("svg", { width: "18", height: "18", viewBox: "0 0 24 24", children: [_jsx("path", { fill: "#4285F4", d: "M23.745 12.27c0-.79-.07-1.54-.195-2.27H12v4.51h6.59c-.28 1.51-1.15 2.78-2.45 3.64v3.08h3.94c2.31-2.13 3.665-5.25 3.665-8.96z" }), _jsx("path", { fill: "#34A853", d: "M12 24c3.24 0 5.96-1.08 8.08-3.02l-3.94-3.08c-1.09.73-2.51 1.17-4.14 1.17-3.13 0-5.78-2.11-6.73-4.95H1.2v3.15C3.28 21.39 7.31 24 12 24z" }), _jsx("path", { fill: "#FBBC05", d: "M5.27 14.12c-.24-.71-.37-1.4-.37-2.12s.13-1.41.37-2.12V6.73H1.2C.44 8.24 0 9.94 0 12s.44 3.76 1.2 5.27l4.07-3.15z" }), _jsx("path", { fill: "#EA4335", d: "M12 4.93c1.76 0 3.34.61 4.59 1.79l3.58-3.58C18.03 1.15 15.24 0 12 0 7.31 0 3.28 2.61 1.2 6.73l4.07 3.15c.95-2.84 3.6-4.95 6.73-4.95z" })] }), _jsx("span", { children: "Continue with Google" })] }))] }));
+                }, children: [_jsxs("svg", { width: "18", height: "18", viewBox: "0 0 24 24", children: [_jsx("path", { fill: "#4285F4", d: "M23.745 12.27c0-.79-.07-1.54-.195-2.27H12v4.51h6.59c-.28 1.51-1.15 2.78-2.45 3.64v3.08h3.94c2.31-2.13 3.665-5.25 3.665-8.96z" }), _jsx("path", { fill: "#34A853", d: "M12 24c3.24 0 5.96-1.08 8.08-3.02l-3.94-3.08c-1.09.73-2.51 1.17-4.14 1.17-3.13 0-5.78-2.11-6.73-4.95H1.2v3.15C3.28 21.39 7.31 24 12 24z" }), _jsx("path", { fill: "#FBBC05", d: "M5.27 14.12c-.24-.71-.37-1.4-.37-2.12s.13-1.41.37-2.12V6.73H1.2C.44 8.24 0 9.94 0 12s.44 3.76 1.2 5.27l4.07-3.15z" }), _jsx("path", { fill: "#EA4335", d: "M12 4.93c1.76 0 3.34.61 4.59 1.79l3.58-3.58C18.03 1.15 15.24 0 12 0 7.31 0 3.28 2.61 1.2 6.73l4.07 3.15c.95-2.84 3.6-4.95 6.73-4.95z" })] }), _jsx("span", { children: effectiveIsLoading || fallbackLoading ? 'Signing in with Google...' : 'Continue with Google' })] }))] }));
 };
 //# sourceMappingURL=GoogleSignInButton.js.map

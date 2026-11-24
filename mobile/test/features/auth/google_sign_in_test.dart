@@ -189,6 +189,44 @@ void main() {
       expect(fakeGoogle.signOutCalled, isTrue);
       expect(notifier.state.status, equals(AuthStatus.unauthenticated));
     });
+
+    test('Password login sets isLoading = true and isGoogleLoading = false', () async {
+      final fakeGoogle = FakeGoogleSignInService();
+      final notifier = AuthNotifier(mockRepo, fakeGoogle);
+
+      // Trigger login
+      final future = notifier.login(
+        email: 'test@example.com',
+        password: 'password123',
+      );
+
+      // While in progress: isLoading must be true, isGoogleLoading must be false
+      expect(notifier.state.isLoading, isTrue);
+      expect(notifier.state.isGoogleLoading, isFalse);
+      expect(notifier.state.isAnyLoading, isTrue);
+
+      await future;
+
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.isGoogleLoading, isFalse);
+    });
+
+    test('Google sign-in sets isGoogleLoading = true and isLoading = false', () async {
+      final fakeGoogle = FakeGoogleSignInService(idTokenToReturn: 'valid-token');
+      final notifier = AuthNotifier(mockRepo, fakeGoogle);
+
+      final future = notifier.signInWithGoogle();
+
+      // While in progress: isGoogleLoading must be true, isLoading must be false
+      expect(notifier.state.isGoogleLoading, isTrue);
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.isAnyLoading, isTrue);
+
+      await future;
+
+      expect(notifier.state.isGoogleLoading, isFalse);
+      expect(notifier.state.isLoading, isFalse);
+    });
   });
 
   group('GoogleSignInButton Widget Tests', () {

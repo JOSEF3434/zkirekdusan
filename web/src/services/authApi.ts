@@ -213,6 +213,19 @@ export class AuthApiService {
   }
 
   /**
+   * Get public login policy configuration
+   */
+  async getLoginPolicyConfig(): Promise<{ allowGoogleAuth?: boolean; activePolicy?: string }> {
+    try {
+      return await this.request<{ allowGoogleAuth?: boolean; activePolicy?: string }>('/auth-policy/config', {
+        method: 'GET',
+      });
+    } catch {
+      return { allowGoogleAuth: true };
+    }
+  }
+
+  /**
    * Logout and clear local tokens
    */
   async logout(): Promise<void> {

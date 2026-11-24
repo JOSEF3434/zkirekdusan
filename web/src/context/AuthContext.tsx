@@ -9,6 +9,8 @@ import type {
 } from '../types/auth.types.js';
 
 export interface AuthContextType extends AuthState {
+  isGoogleLoading: boolean;
+  isAnyLoading: boolean;
   signInWithGoogle: (idToken: string) => Promise<boolean>;
   linkGoogleAccountWithPassword: (password: string) => Promise<boolean>;
   loginWithPassword: (credentials: {
@@ -33,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     tokens: null,
     isAuthenticated: false,
     isLoading: true,
+    isGoogleLoading: false,
     error: null,
     pendingGoogleIdToken: null,
   });
@@ -104,7 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = useCallback(async (idToken: string): Promise<boolean> => {
     setState((prev) => ({
       ...prev,
-      isLoading: true,
+      isGoogleLoading: true,
+      isLoading: false,
       error: null,
       pendingGoogleIdToken: null,
     }));
@@ -116,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tokens: res,
         isAuthenticated: true,
         isLoading: false,
+        isGoogleLoading: false,
         error: null,
         pendingGoogleIdToken: null,
       });
@@ -125,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setState((prev) => ({
           ...prev,
           isLoading: false,
+          isGoogleLoading: false,
           pendingGoogleIdToken: idToken,
           error: 'An account with this email already exists. Please verify your password to link your Google account.',
         }));
@@ -135,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        isGoogleLoading: false,
         isAuthenticated: false,
         error: message,
       }));
@@ -151,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setState((prev) => ({ ...prev, isLoading: true, isGoogleLoading: false, error: null }));
 
     try {
       const res = await authApi.linkGoogleAccount({
@@ -163,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tokens: res,
         isAuthenticated: true,
         isLoading: false,
+        isGoogleLoading: false,
         error: null,
         pendingGoogleIdToken: null,
       });
@@ -172,6 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        isGoogleLoading: false,
         error: message,
       }));
       return false;
@@ -184,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     username?: string;
     password: string;
   }): Promise<boolean> => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setState((prev) => ({ ...prev, isLoading: true, isGoogleLoading: false, error: null }));
     try {
       const res = await authApi.loginWithPassword(credentials);
       setState({
@@ -192,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         tokens: res,
         isAuthenticated: true,
         isLoading: false,
+        isGoogleLoading: false,
         error: null,
         pendingGoogleIdToken: null,
       });
@@ -201,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        isGoogleLoading: false,
         isAuthenticated: false,
         error: message,
       }));
@@ -264,6 +275,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         ...state,
+        isGoogleLoading: state.isGoogleLoading ?? false,
+        isAnyLoading: state.isLoading || (state.isGoogleLoading ?? false),
         signInWithGoogle,
         linkGoogleAccountWithPassword,
         loginWithPassword,

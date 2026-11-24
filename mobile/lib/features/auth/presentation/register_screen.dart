@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/auth/data/models/login_policy_model.dart';
 import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mobile/features/auth/presentation/providers/login_policy_provider.dart';
 import 'package:mobile/features/auth/presentation/widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -140,6 +142,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final tr = ref.watch(trProvider);
     final cs = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
+    final policyAsync = ref.watch(loginPolicyProvider);
+    final policy = policyAsync.value ?? const LoginPolicyConfig();
 
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated && !_hasNavigated) {
@@ -379,7 +383,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                     // Submit
                     FilledButton(
-                      onPressed: authState.isLoading ? null : _submit,
+                      onPressed: authState.isAnyLoading ? null : _submit,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -400,42 +404,45 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               style: const TextStyle(fontSize: 16),
                             ),
                     ),
-                    const SizedBox(height: 18),
+                    if (policy.allowGoogleAuth) ...[
+                      const SizedBox(height: 18),
 
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: cs.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            tr('auth.or_divider'),
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                      // Divider
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              tr('auth.or_divider'),
+                              style: TextStyle(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
+                          Expanded(
+                            child: Divider(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
 
-                    // Google Sign-In Button
-                    GoogleSignInButton(
-                      text: tr('auth.continue_with_google'),
-                      isLoading: authState.isLoading,
-                      onPressed: _handleGoogleSignIn,
-                    ),
+                      // Google Sign-In Button
+                      GoogleSignInButton(
+                        text: tr('auth.continue_with_google'),
+                        isLoading: authState.isGoogleLoading,
+                        onPressed:
+                            authState.isAnyLoading ? null : _handleGoogleSignIn,
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // Sign in link

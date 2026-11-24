@@ -410,7 +410,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     // Submit button
                     FilledButton(
                       onPressed:
-                          authState.isLoading ? null : () => _submit(policy),
+                          authState.isAnyLoading ? null : () => _submit(policy),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -431,42 +431,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               style: const TextStyle(fontSize: 16),
                             ),
                     ),
-                    const SizedBox(height: 18),
+                    if (policy.allowGoogleAuth) ...[
+                      const SizedBox(height: 18),
 
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: cs.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            tr('auth.or_divider'),
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                      // Divider
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: cs.outlineVariant.withValues(alpha: 0.5),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              tr('auth.or_divider'),
+                              style: TextStyle(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
+                          Expanded(
+                            child: Divider(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
 
-                    // Google Sign-In Button
-                    GoogleSignInButton(
-                      text: tr('auth.continue_with_google'),
-                      isLoading: authState.isLoading,
-                      onPressed: _handleGoogleSignIn,
-                    ),
+                      // Google Sign-In Button
+                      GoogleSignInButton(
+                        text: tr('auth.continue_with_google'),
+                        isLoading: authState.isGoogleLoading,
+                        onPressed:
+                            authState.isAnyLoading ? null : _handleGoogleSignIn,
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // Register link

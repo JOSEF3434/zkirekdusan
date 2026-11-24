@@ -9,6 +9,7 @@ export interface GoogleSignInButtonProps {
     onSuccess?: (idToken: string) => void;
     onError?: (error: Error) => void;
     disabled?: boolean;
+    isLoading?: boolean;
     className?: string;
 }
 declare global {

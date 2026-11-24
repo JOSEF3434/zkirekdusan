@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
         tokens: null,
         isAuthenticated: false,
         isLoading: true,
+        isGoogleLoading: false,
         error: null,
         pendingGoogleIdToken: null,
     });
@@ -75,7 +76,8 @@ export const AuthProvider = ({ children }) => {
     const signInWithGoogle = useCallback(async (idToken) => {
         setState((prev) => ({
             ...prev,
-            isLoading: true,
+            isGoogleLoading: true,
+            isLoading: false,
             error: null,
             pendingGoogleIdToken: null,
         }));
@@ -86,6 +88,7 @@ export const AuthProvider = ({ children }) => {
                 tokens: res,
                 isAuthenticated: true,
                 isLoading: false,
+                isGoogleLoading: false,
                 error: null,
                 pendingGoogleIdToken: null,
             });
@@ -96,6 +99,7 @@ export const AuthProvider = ({ children }) => {
                 setState((prev) => ({
                     ...prev,
                     isLoading: false,
+                    isGoogleLoading: false,
                     pendingGoogleIdToken: idToken,
                     error: 'An account with this email already exists. Please verify your password to link your Google account.',
                 }));
@@ -105,6 +109,7 @@ export const AuthProvider = ({ children }) => {
             setState((prev) => ({
                 ...prev,
                 isLoading: false,
+                isGoogleLoading: false,
                 isAuthenticated: false,
                 error: message,
             }));
@@ -119,7 +124,7 @@ export const AuthProvider = ({ children }) => {
             }));
             return false;
         }
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+        setState((prev) => ({ ...prev, isLoading: true, isGoogleLoading: false, error: null }));
         try {
             const res = await authApi.linkGoogleAccount({
                 idToken: state.pendingGoogleIdToken,
@@ -130,6 +135,7 @@ export const AuthProvider = ({ children }) => {
                 tokens: res,
                 isAuthenticated: true,
                 isLoading: false,
+                isGoogleLoading: false,
                 error: null,
                 pendingGoogleIdToken: null,
             });
@@ -140,13 +146,14 @@ export const AuthProvider = ({ children }) => {
             setState((prev) => ({
                 ...prev,
                 isLoading: false,
+                isGoogleLoading: false,
                 error: message,
             }));
             return false;
         }
     }, [state.pendingGoogleIdToken]);
     const loginWithPassword = useCallback(async (credentials) => {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+        setState((prev) => ({ ...prev, isLoading: true, isGoogleLoading: false, error: null }));
         try {
             const res = await authApi.loginWithPassword(credentials);
             setState({
@@ -154,6 +161,7 @@ export const AuthProvider = ({ children }) => {
                 tokens: res,
                 isAuthenticated: true,
                 isLoading: false,
+                isGoogleLoading: false,
                 error: null,
                 pendingGoogleIdToken: null,
             });
@@ -164,6 +172,7 @@ export const AuthProvider = ({ children }) => {
             setState((prev) => ({
                 ...prev,
                 isLoading: false,
+                isGoogleLoading: false,
                 isAuthenticated: false,
                 error: message,
             }));
@@ -224,6 +233,8 @@ export const AuthProvider = ({ children }) => {
     }, []);
     return (_jsx(AuthContext.Provider, { value: {
             ...state,
+            isGoogleLoading: state.isGoogleLoading ?? false,
+            isAnyLoading: state.isLoading || (state.isGoogleLoading ?? false),
             signInWithGoogle,
             linkGoogleAccountWithPassword,
             loginWithPassword,
