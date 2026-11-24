@@ -70,10 +70,13 @@ class TodayMesbakCenteredDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
 
-    final dayName = EthiopianCalendarUtil.getWeekdayName(today.weekday);
-    final monthName = EthiopianCalendarUtil.getMonthName(today.month);
-    final dateSubtitle = '$dayName፣ ${today.day} $monthName ${today.year} ዓ.ም.';
+    final dayName = EthiopianCalendarUtil.getWeekdayName(today.weekday, langCode);
+    final monthName = EthiopianCalendarUtil.getMonthName(today.month, langCode);
+    final dateSubtitle = langCode == 'en'
+        ? '$dayName, $monthName ${today.day}, ${today.year}'
+        : '$dayName፣ ${today.day} $monthName ${today.year} ዓ.ም.';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),

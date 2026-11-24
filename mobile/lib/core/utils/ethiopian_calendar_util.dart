@@ -22,6 +22,40 @@ class EthiopianCalendarUtil {
     'ጳጉሜን', // Pagumen - 13
   ];
 
+  /// Ethiopian month names in English
+  static const List<String> ethiopianMonthNamesEn = [
+    'Meskerem',
+    'Tikimt',
+    'Hidar',
+    'Tahsas',
+    'Tir',
+    'Yekatit',
+    'Megabit',
+    'Miazia',
+    'Ginbot',
+    'Sene',
+    'Hamle',
+    'Nehase',
+    'Pagumen',
+  ];
+
+  /// Ethiopian month names in Ge'ez
+  static const List<String> ethiopianMonthNamesGez = [
+    'መስከረም',
+    'ጥቅምት',
+    'ኅዳር',
+    'ታኅሣሥ',
+    'ጥሪ',
+    'የካቲት',
+    'መጋቢት',
+    'ሚያዝያ',
+    'ግንቦት',
+    'ሰኔ',
+    'ሐምሌ',
+    'ነሐሴ',
+    'ጳጉሜን',
+  ];
+
   /// Ethiopian weekday names in Amharic
   static const List<String> ethiopianWeekdayNames = [
     'ሰኞ', // Monday (Segno)
@@ -31,6 +65,28 @@ class EthiopianCalendarUtil {
     'ዓርብ', // Friday (Arb)
     'ቅዳሜ', // Saturday (Kidame)
     'እሁድ', // Sunday (Ehud)
+  ];
+
+  /// Ethiopian weekday names in English
+  static const List<String> ethiopianWeekdayNamesEn = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  /// Ethiopian weekday names in Ge'ez
+  static const List<String> ethiopianWeekdayNamesGez = [
+    'ሰኑይ',
+    'ሠሉስ',
+    'ረቡዕ',
+    'ሐሙስ',
+    'ዐርብ',
+    'ቀዳሚት',
+    'እሑድ',
   ];
 
   /// Get current Ethiopian date
@@ -50,15 +106,19 @@ class EthiopianCalendarUtil {
     return DateTime.fromMillisecondsSinceEpoch(ethiopian.moment);
   }
 
-  /// Get month name in Amharic
-  static String getMonthName(int month) {
+  /// Get month name by language ('am', 'en', 'gez')
+  static String getMonthName(int month, [String lang = 'am']) {
     if (month < 1 || month > 13) return '';
+    if (lang == 'en') return ethiopianMonthNamesEn[month - 1];
+    if (lang == 'gez') return ethiopianMonthNamesGez[month - 1];
     return ethiopianMonthNames[month - 1];
   }
 
-  /// Get weekday name in Amharic (1-based, Monday = 1)
-  static String getWeekdayName(int weekday) {
+  /// Get weekday name by language ('am', 'en', 'gez')
+  static String getWeekdayName(int weekday, [String lang = 'am']) {
     if (weekday < 1 || weekday > 7) return '';
+    if (lang == 'en') return ethiopianWeekdayNamesEn[weekday - 1];
+    if (lang == 'gez') return ethiopianWeekdayNamesGez[weekday - 1];
     return ethiopianWeekdayNames[weekday - 1];
   }
 
@@ -102,8 +162,12 @@ class EthiopianCalendarUtil {
   }
 
   /// Format Ethiopian date as "DD መስከረም YYYY"
-  static String formatEthiopianDate(EtDatetime date) {
-    return '${date.day} ${getMonthName(date.month)} ${date.year}';
+  static String formatEthiopianDate(EtDatetime date, [String lang = 'am']) {
+    final mName = getMonthName(date.month, lang);
+    if (lang == 'en') {
+      return '$mName ${date.day}, ${date.year}';
+    }
+    return '${date.day} $mName ${date.year}';
   }
 
   /// Format Gregorian date as "Month DD, YYYY"

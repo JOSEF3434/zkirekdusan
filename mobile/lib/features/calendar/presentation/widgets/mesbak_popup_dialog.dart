@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/presentation/providers/preferences_provider.dart';
 import 'package:mobile/core/presentation/widgets/app_network_image.dart';
 import 'package:mobile/core/utils/ethiopian_calendar_util.dart';
 import 'package:mobile/core/utils/localization_service.dart';
@@ -112,6 +113,8 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   }
 
   Future<void> _pickDateForSynaxarium(BuildContext context) async {
+    final langCode = ref.read(preferencesProvider).languageCode;
+    final tr = ref.read(trProvider);
     int tempYear = _synaxariumDate.year;
     int tempMonth = _synaxariumDate.month;
     int tempDay = _synaxariumDate.day;
@@ -124,9 +127,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
           if (tempDay > daysInMonth) tempDay = daysInMonth;
 
           return AlertDialog(
-            title: const Text(
-              'ቀን ይምረጡ',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            title: Text(
+              tr('calendar.select_date', {'fallback': 'ቀን ይምረጡ'}),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -137,16 +140,16 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       flex: 3,
                       child: DropdownButtonFormField<int>(
                         initialValue: tempMonth,
-                        decoration: const InputDecoration(
-                          labelText: 'ወር',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         items: List.generate(13, (i) {
                           final m = i + 1;
                           return DropdownMenuItem(
                             value: m,
-                            child: Text(EthiopianCalendarUtil.getMonthName(m)),
+                            child: Text(EthiopianCalendarUtil.getMonthName(m, langCode)),
                           );
                         }),
                         onChanged: (val) {
@@ -165,9 +168,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       flex: 2,
                       child: DropdownButtonFormField<int>(
                         initialValue: tempDay,
-                        decoration: const InputDecoration(
-                          labelText: 'ቀን',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         items: List.generate(daysInMonth, (i) {
@@ -186,13 +189,13 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('ይቅር'),
+                child: Text(tr('common.cancel', {'fallback': 'ይቅር'})),
               ),
               FilledButton(
                 onPressed: () {
                   Navigator.of(ctx).pop(EtDatetime(year: tempYear, month: tempMonth, day: tempDay));
                 },
-                child: const Text('ቀን ቀይር'),
+                child: Text(tr('calendar.change_date', {'fallback': 'ቀን ቀይር'})),
               ),
             ],
           );
@@ -220,10 +223,13 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     final theme = Theme.of(context);
     final tr = ref.watch(trProvider);
     final perms = ref.watch(adminPermissionsProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
 
-    final String dayName = EthiopianCalendarUtil.getWeekdayName(_today.weekday);
-    final String monthName = EthiopianCalendarUtil.getMonthName(_today.month);
-    final String dateString = '$dayName፣ ${_today.day} $monthName ${_today.year} ዓ.ም.';
+    final String dayName = EthiopianCalendarUtil.getWeekdayName(_today.weekday, langCode);
+    final String monthName = EthiopianCalendarUtil.getMonthName(_today.month, langCode);
+    final String dateString = langCode == 'en'
+        ? '$dayName, $monthName ${_today.day}, ${_today.year}'
+        : '$dayName፣ ${_today.day} $monthName ${_today.year} ዓ.ም.';
 
     return SafeArea(
       child: Container(
@@ -294,6 +300,67 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       ],
                     ),
                   ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.language_rounded),
+                    tooltip: tr('calendar.language', {'fallback': 'ቋንቋ'}),
+                    initialValue: langCode,
+                    onSelected: (code) {
+                      ref.read(preferencesProvider.notifier).setLanguageCode(code);
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'am',
+                        child: Row(
+                          children: [
+                            Text(
+                              'አማርኛ',
+                              style: TextStyle(
+                                fontWeight: langCode == 'am' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            if (langCode == 'am') ...[
+                              const Spacer(),
+                              Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                            ],
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'en',
+                        child: Row(
+                          children: [
+                            Text(
+                              'English',
+                              style: TextStyle(
+                                fontWeight: langCode == 'en' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            if (langCode == 'en') ...[
+                              const Spacer(),
+                              Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                            ],
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'gez',
+                        child: Row(
+                          children: [
+                            Text(
+                              'ግዕዝ',
+                              style: TextStyle(
+                                fontWeight: langCode == 'gez' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            if (langCode == 'gez') ...[
+                              const Spacer(),
+                              Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   if (perms.canManageCalendar)
                     IconButton(
                       icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -329,7 +396,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   children: [
                     _buildTabChip(
                       index: 0,
-                      label: tr('calendar.today', {'fallback': 'የዛሬ ምስባክ'}),
+                      label: tr('calendar.today_mesbak_tab', {'fallback': 'የዛሬ ምስባክ'}),
                       icon: Icons.today_rounded,
                       theme: theme,
                     ),
@@ -424,6 +491,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   // ─────────────────────────────────────────────────────────────
   Widget _buildTodayView(BuildContext context, ThemeData theme, AdminPermissions perms) {
     final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     final notesAsync = ref.watch(
       calendarNotesForDateProvider((
         year: _today.year,
@@ -461,6 +529,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
       ),
       data: (notes) {
         if (notes.isEmpty) {
+          final mName = EthiopianCalendarUtil.getMonthName(_today.month, langCode);
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -481,7 +550,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'ለዛሬ ቀን (${_today.day} ${EthiopianCalendarUtil.getMonthName(_today.month)}) የተመዘገበ ምስባክ የለም',
+                    tr('calendar.no_mesbak_today', {
+                      'fallback': 'ለዛሬ ቀን (${_today.day} $mName) የተመዘገበ ምስባክ የለም',
+                    }),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       fontFamilyFallback: const [
@@ -493,7 +564,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'አስተዳዳሪው ለዚህ ቀን ምስባክ ሲለጥፍ እዚህ ይታያል።',
+                    tr('calendar.admin_will_post_mesbak', {
+                      'fallback': 'አስተዳዳሪው ለዚህ ቀን ምስባክ ሲለጥፍ እዚህ ይታያል።',
+                    }),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontFamilyFallback: const [
@@ -554,6 +627,8 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   // 1.2 SYNAXARIUM (DAY NOTES) VIEW
   // ─────────────────────────────────────────────────────────────
   Widget _buildSynaxariumTab(BuildContext context, ThemeData theme, AdminPermissions perms) {
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     final isToday = _synaxariumDate.year == _today.year &&
         _synaxariumDate.month == _today.month &&
         _synaxariumDate.day == _today.day;
@@ -565,16 +640,16 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: SegmentedButton<int>(
-            segments: const [
+            segments: [
               ButtonSegment<int>(
                 value: 0,
-                label: Text('በአንድ ቀን'),
-                icon: Icon(Icons.today_rounded, size: 16),
+                label: Text(tr('calendar.single_day', {'fallback': 'በአንድ ቀን'})),
+                icon: const Icon(Icons.today_rounded, size: 16),
               ),
               ButtonSegment<int>(
                 value: 1,
-                label: Text('በቀናት ክልል'),
-                icon: Icon(Icons.date_range_rounded, size: 16),
+                label: Text(tr('calendar.date_range', {'fallback': 'በቀናት ክልል'})),
+                icon: const Icon(Icons.date_range_rounded, size: 16),
               ),
             ],
             selected: {_synaxariumMode},
@@ -606,7 +681,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left_rounded, size: 22),
-                    tooltip: 'ቀዳሚ ቀን',
+                    tooltip: tr('calendar.prev_day', {'fallback': 'ቀዳሚ ቀን'}),
                     visualDensity: VisualDensity.compact,
                     onPressed: () {
                       setState(() {
@@ -631,7 +706,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
-                                    EthiopianCalendarUtil.formatEthiopianDate(_synaxariumDate),
+                                    EthiopianCalendarUtil.formatEthiopianDate(_synaxariumDate, langCode),
                                     style: theme.textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       fontFamilyFallback: const [
@@ -650,9 +725,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                       color: Colors.red.shade700,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text(
-                                      'ዛሬ',
-                                      style: TextStyle(
+                                    child: Text(
+                                      tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -664,7 +739,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'ቀን ለመቀየር ይጫኑ • ${EthiopianCalendarUtil.getWeekdayName(_synaxariumDate.weekday)}',
+                              '${tr('calendar.change_date_hint', {'fallback': 'ቀን ለመቀየር ይጫኑ'})} • ${EthiopianCalendarUtil.getWeekdayName(_synaxariumDate.weekday, langCode)}',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 color: theme.colorScheme.onSurfaceVariant,
@@ -677,7 +752,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right_rounded, size: 22),
-                    tooltip: 'ቀጣይ ቀን',
+                    tooltip: tr('calendar.next_day', {'fallback': 'ቀጣይ ቀን'}),
                     visualDensity: VisualDensity.compact,
                     onPressed: () {
                       setState(() {
@@ -696,7 +771,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                           _synaxariumDate = _today;
                         });
                       },
-                      child: const Text('ዛሬ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text(
+                        tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                 ],
               ),
@@ -724,21 +802,27 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 children: [
                   Row(
                     children: [
-                      const Text('ከ፡', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        tr('calendar.from', {'fallback': 'ከ፡'}),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<int>(
                           initialValue: _synaxRangeStartMonth,
-                          decoration: const InputDecoration(
-                            labelText: 'ወር',
+                          decoration: InputDecoration(
+                            labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           ),
                           items: List.generate(13, (i) {
                             final m = i + 1;
                             return DropdownMenuItem<int>(
                               value: m,
-                              child: Text(EthiopianCalendarUtil.getMonthName(m), style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                EthiopianCalendarUtil.getMonthName(m, langCode),
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             );
                           }),
                           onChanged: (val) {
@@ -751,10 +835,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         width: 70,
                         child: DropdownButtonFormField<int>(
                           initialValue: _synaxRangeStartDay,
-                          decoration: const InputDecoration(
-                            labelText: 'ቀን',
+                          decoration: InputDecoration(
+                            labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           ),
                           items: List.generate(30, (i) => DropdownMenuItem<int>(value: i + 1, child: Text('${i + 1}'))),
                           onChanged: (val) {
@@ -767,21 +851,27 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Text('እስከ፡', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        tr('calendar.to', {'fallback': 'እስከ፡'}),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<int>(
                           initialValue: _synaxRangeEndMonth,
-                          decoration: const InputDecoration(
-                            labelText: 'ወር',
+                          decoration: InputDecoration(
+                            labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           ),
                           items: List.generate(13, (i) {
                             final m = i + 1;
                             return DropdownMenuItem<int>(
                               value: m,
-                              child: Text(EthiopianCalendarUtil.getMonthName(m), style: const TextStyle(fontSize: 13)),
+                              child: Text(
+                                EthiopianCalendarUtil.getMonthName(m, langCode),
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             );
                           }),
                           onChanged: (val) {
@@ -794,10 +884,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         width: 70,
                         child: DropdownButtonFormField<int>(
                           initialValue: _synaxRangeEndDay,
-                          decoration: const InputDecoration(
-                            labelText: 'ቀን',
+                          decoration: InputDecoration(
+                            labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           ),
                           items: List.generate(30, (i) => DropdownMenuItem<int>(value: i + 1, child: Text('${i + 1}'))),
                           onChanged: (val) {
@@ -817,7 +907,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       ),
                       onPressed: () => setState(() => _synaxRangeSearched = true),
                       icon: const Icon(Icons.search, size: 18),
-                      label: const Text('ስንክሳር ፈልግ'),
+                      label: Text(tr('calendar.search_synaxarium', {'fallback': 'ስንክሳር ፈልግ'})),
                     ),
                   ),
                 ],
@@ -849,6 +939,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   // ─────────────────────────────────────────────────────────────
   Widget _buildThisWeekView(BuildContext context, ThemeData theme, AdminPermissions perms) {
     final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     final weekAsync = ref.watch(calendarNotesForCurrentWeekProvider);
 
     return weekAsync.when(
@@ -879,8 +970,11 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
             final d = item.date;
             final note = item.note;
             final isToday = d.year == _today.year && d.month == _today.month && d.day == _today.day;
-            final weekdayName = EthiopianCalendarUtil.getWeekdayName(d.weekday);
-            final monthName = EthiopianCalendarUtil.getMonthName(d.month);
+            final weekdayName = EthiopianCalendarUtil.getWeekdayName(d.weekday, langCode);
+            final monthName = EthiopianCalendarUtil.getMonthName(d.month, langCode);
+            final dateText = langCode == 'en'
+                ? '$weekdayName, $monthName ${d.day}'
+                : '$weekdayName፣ ${d.day} $monthName';
 
             return Card(
               elevation: isToday ? 3 : 1,
@@ -910,7 +1004,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '$weekdayName፣ ${d.day} $monthName',
+                            dateText,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
@@ -932,9 +1026,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                               color: Colors.red.shade700,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              'ዛሬ',
-                              style: TextStyle(
+                            child: Text(
+                              tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -946,7 +1040,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         if (note != null) ...[
                           IconButton(
                             icon: const Icon(Icons.copy_rounded, size: 18),
-                            tooltip: 'ቅዳ',
+                            tooltip: tr('calendar.copy', {'fallback': 'ቅዳ'}),
                             onPressed: () => _copyNoteToClipboard(context, note),
                           ),
                         ],
@@ -957,7 +1051,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                               size: 20,
                               color: theme.colorScheme.primary,
                             ),
-                            tooltip: note != null ? 'አስተካክል' : 'ምስባክ መዝግብ',
+                            tooltip: note != null
+                                ? tr('calendar.edit', {'fallback': 'አስተካክል'})
+                                : tr('calendar.add_mesbak', {'fallback': 'ምስባክ መዝግብ'}),
                             onPressed: () {
                               ManageMesbakDialog.show(
                                 context,
@@ -1002,7 +1098,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         ),
                     ] else ...[
                       Text(
-                        'ለዚህ ቀን የተመዘገበ ምስባክ የለም',
+                        tr('calendar.no_mesbak_day', {'fallback': 'ለዚህ ቀን የተመዘገበ ምስባክ የለም'}),
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontStyle: FontStyle.italic,
                           color: theme.colorScheme.onSurfaceVariant,
@@ -1028,6 +1124,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   // ─────────────────────────────────────────────────────────────
   Widget _buildThisMonthView(BuildContext context, ThemeData theme, AdminPermissions perms) {
     final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     final monthNotesAsync = ref.watch(
       calendarNotesForMonthProvider((
         year: _today.year,
@@ -1035,7 +1132,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
       )),
     );
 
-    final monthName = EthiopianCalendarUtil.getMonthName(_today.month);
+    final monthName = EthiopianCalendarUtil.getMonthName(_today.month, langCode);
     final daysInMonth = EthiopianCalendarUtil.getDaysInMonth(_today.year, _today.month);
 
     return monthNotesAsync.when(
@@ -1075,7 +1172,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
               child: Row(
                 children: [
                   Text(
-                    'የ$monthName ወር ምስባካት (${notes.length} የተመዘገቡ)',
+                    '${tr('calendar.month_mesbaks_title', {'month': monthName, 'fallback': 'የ$monthName ወር ምስባካት'})} ${tr('calendar.recorded_count', {'count': '${notes.length}', 'fallback': '(${notes.length} የተመዘገቡ)'})}',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontFamilyFallback: const [
@@ -1095,7 +1192,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         ).then((_) => _refreshAll());
                       },
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('አዲስ ምስባክ'),
+                      label: Text(tr('calendar.new_mesbak', {'fallback': 'አዲስ ምስባክ'})),
                     ),
                 ],
               ),
@@ -1168,9 +1265,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                   color: Colors.red.shade700,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  'ዛሬ',
-                                  style: TextStyle(
+                                child: Text(
+                                  tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -1182,7 +1279,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         ),
                         subtitle: hasNotes
                             ? Text(
-                                dayNotes.first.title ?? 'ምስባክ',
+                                dayNotes.first.title ?? tr('calendar.mesbak', {'fallback': 'ምስባክ'}),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1195,7 +1292,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                 ),
                               )
                             : Text(
-                                'ምስባክ አልተመዘገበም',
+                                tr('calendar.no_mesbak_recorded', {'fallback': 'ምስባክ አልተመዘገበም'}),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontStyle: FontStyle.italic,
@@ -1246,7 +1343,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                         TextButton.icon(
                                           onPressed: () => _copyNoteToClipboard(context, note),
                                           icon: const Icon(Icons.copy_rounded, size: 16),
-                                          label: const Text('ቅዳ'),
+                                          label: Text(tr('calendar.copy', {'fallback': 'ቅዳ'})),
                                         ),
                                         if (perms.canManageCalendar)
                                           TextButton.icon(
@@ -1260,7 +1357,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                               ).then((_) => _refreshAll());
                                             },
                                             icon: const Icon(Icons.edit_outlined, size: 16),
-                                            label: const Text('አስተካክል'),
+                                            label: Text(tr('calendar.edit', {'fallback': 'አስተካክል'})),
                                           ),
                                       ],
                                     ),
@@ -1274,7 +1371,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'ለዚህ ቀን የተመዘገበ ምስባክ የለም',
+                                    tr('calendar.no_mesbak_day', {'fallback': 'ለዚህ ቀን የተመዘገበ ምስባክ የለም'}),
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
@@ -1294,7 +1391,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                                         ).then((_) => _refreshAll());
                                       },
                                       icon: const Icon(Icons.add, size: 14),
-                                      label: const Text('መዝግብ'),
+                                      label: Text(tr('calendar.add_mesbak', {'fallback': 'መዝግብ'})),
                                     ),
                                 ],
                               ),
@@ -1317,6 +1414,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   // 4. FILTER / DATE & RANGE SEARCH VIEW
   // ─────────────────────────────────────────────────────────────
   Widget _buildFilterRangeView(BuildContext context, ThemeData theme, AdminPermissions perms) {
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -1324,16 +1424,16 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
         children: [
           // Filter Mode Selector (Single Day vs Range)
           SegmentedButton<int>(
-            segments: const [
+            segments: [
               ButtonSegment<int>(
                 value: 0,
-                label: Text('በአንድ ቀን'),
-                icon: Icon(Icons.calendar_today_rounded, size: 16),
+                label: Text(tr('calendar.single_day', {'fallback': 'በአንድ ቀን'})),
+                icon: const Icon(Icons.calendar_today_rounded, size: 16),
               ),
               ButtonSegment<int>(
                 value: 1,
-                label: Text('በቀናት ክልል'),
-                icon: Icon(Icons.date_range_rounded, size: 16),
+                label: Text(tr('calendar.date_range', {'fallback': 'በቀናት ክልል'})),
+                icon: const Icon(Icons.date_range_rounded, size: 16),
               ),
             ],
             selected: {_filterMode},
@@ -1357,7 +1457,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   child: DropdownButtonFormField<int>(
                     initialValue: _filterSingleMonth,
                     decoration: InputDecoration(
-                      labelText: 'ወር',
+                      labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
@@ -1366,7 +1466,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       return DropdownMenuItem<int>(
                         value: m,
                         child: Text(
-                          EthiopianCalendarUtil.getMonthName(m),
+                          EthiopianCalendarUtil.getMonthName(m, langCode),
                           style: const TextStyle(
                             fontFamilyFallback: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
                           ),
@@ -1384,7 +1484,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   child: DropdownButtonFormField<int>(
                     initialValue: _filterSingleDay,
                     decoration: InputDecoration(
-                      labelText: 'ቀን',
+                      labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
@@ -1405,16 +1505,16 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
             const SizedBox(height: 10),
             Center(
               child: SegmentedButton<int>(
-                segments: const [
+                segments: [
                   ButtonSegment<int>(
                     value: 0,
-                    label: Text('ምስባክ'),
-                    icon: Icon(Icons.menu_book_rounded, size: 16),
+                    label: Text(tr('calendar.mesbak', {'fallback': 'ምስባክ'})),
+                    icon: const Icon(Icons.menu_book_rounded, size: 16),
                   ),
                   ButtonSegment<int>(
                     value: 1,
-                    label: Text('ስንክሳር'),
-                    icon: Icon(Icons.auto_stories_rounded, size: 16),
+                    label: Text(tr('calendar.synaxarium', {'fallback': 'ስንክሳር'})),
+                    icon: const Icon(Icons.auto_stories_rounded, size: 16),
                   ),
                 ],
                 selected: {_singleDayTab},
@@ -1455,21 +1555,27 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   children: [
                     Row(
                       children: [
-                        const Text('ከ፡', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          tr('calendar.from', {'fallback': 'ከ፡'}),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             initialValue: _rangeStartMonth,
-                            decoration: const InputDecoration(
-                              labelText: 'ወር',
+                            decoration: InputDecoration(
+                              labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
                             items: List.generate(13, (i) {
                               final m = i + 1;
                               return DropdownMenuItem<int>(
                                 value: m,
-                                child: Text(EthiopianCalendarUtil.getMonthName(m), style: const TextStyle(fontSize: 13)),
+                                child: Text(
+                                  EthiopianCalendarUtil.getMonthName(m, langCode),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               );
                             }),
                             onChanged: (val) {
@@ -1482,10 +1588,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                           width: 70,
                           child: DropdownButtonFormField<int>(
                             initialValue: _rangeStartDay,
-                            decoration: const InputDecoration(
-                              labelText: 'ቀን',
+                            decoration: InputDecoration(
+                              labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
                             items: List.generate(30, (i) => DropdownMenuItem<int>(value: i + 1, child: Text('${i + 1}'))),
                             onChanged: (val) {
@@ -1498,21 +1604,27 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Text('እስከ፡', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          tr('calendar.to', {'fallback': 'እስከ፡'}),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<int>(
                             initialValue: _rangeEndMonth,
-                            decoration: const InputDecoration(
-                              labelText: 'ወር',
+                            decoration: InputDecoration(
+                              labelText: tr('calendar.month_label', {'fallback': 'ወር'}),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
                             items: List.generate(13, (i) {
                               final m = i + 1;
                               return DropdownMenuItem<int>(
                                 value: m,
-                                child: Text(EthiopianCalendarUtil.getMonthName(m), style: const TextStyle(fontSize: 13)),
+                                child: Text(
+                                  EthiopianCalendarUtil.getMonthName(m, langCode),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               );
                             }),
                             onChanged: (val) {
@@ -1525,10 +1637,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                           width: 70,
                           child: DropdownButtonFormField<int>(
                             initialValue: _rangeEndDay,
-                            decoration: const InputDecoration(
-                              labelText: 'ቀን',
+                            decoration: InputDecoration(
+                              labelText: tr('calendar.day_label', {'fallback': 'ቀን'}),
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
                             items: List.generate(30, (i) => DropdownMenuItem<int>(value: i + 1, child: Text('${i + 1}'))),
                             onChanged: (val) {
@@ -1540,21 +1652,21 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                     ),
                     const SizedBox(height: 10),
                     SegmentedButton<int>(
-                      segments: const [
+                      segments: [
                         ButtonSegment<int>(
                           value: 0,
-                          label: Text('ስንክሳር'),
-                          icon: Icon(Icons.auto_stories_rounded, size: 16),
+                          label: Text(tr('calendar.synaxarium', {'fallback': 'ስንክሳር'})),
+                          icon: const Icon(Icons.auto_stories_rounded, size: 16),
                         ),
                         ButtonSegment<int>(
                           value: 1,
-                          label: Text('ምስባክ'),
-                          icon: Icon(Icons.menu_book_rounded, size: 16),
+                          label: Text(tr('calendar.mesbak', {'fallback': 'ምስባክ'})),
+                          icon: const Icon(Icons.menu_book_rounded, size: 16),
                         ),
                         ButtonSegment<int>(
                           value: 2,
-                          label: Text('ሁሉም'),
-                          icon: Icon(Icons.apps_rounded, size: 16),
+                          label: Text(tr('calendar.all', {'fallback': 'ሁሉም'})),
+                          icon: const Icon(Icons.apps_rounded, size: 16),
                         ),
                       ],
                       selected: {_rangeType},
@@ -1574,8 +1686,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         icon: const Icon(Icons.search, size: 18),
                         label: Text(
                           _rangeType == 0
-                              ? 'ስንክሳር ፈልግ'
-                              : (_rangeType == 1 ? 'ምስባካትን ፈልግ' : 'ሁሉንም ፈልግ'),
+                              ? tr('calendar.search_synaxarium', {'fallback': 'ስንክሳር ፈልግ'})
+                              : (_rangeType == 1
+                                  ? tr('calendar.search_mesbak', {'fallback': 'ምስባካትን ፈልግ'})
+                                  : tr('calendar.search_all', {'fallback': 'ሁሉንም ፈልግ'})),
                         ),
                       ),
                     ),
@@ -1616,6 +1730,8 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     int day,
     AdminPermissions perms,
   ) {
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     final notesAsync = ref.watch(
       calendarNotesForDateProvider((
         year: year,
@@ -1626,10 +1742,10 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
 
     return notesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('ስህተት: $err')),
+      error: (err, _) => Center(child: Text('${tr('common.error')}: $err')),
       data: (notes) {
         if (notes.isEmpty) {
-          final mName = EthiopianCalendarUtil.getMonthName(month);
+          final mName = EthiopianCalendarUtil.getMonthName(month, langCode);
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1637,7 +1753,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 Icon(Icons.menu_book_outlined, size: 40, color: theme.colorScheme.outline),
                 const SizedBox(height: 10),
                 Text(
-                  'ለ$mName $day የተመዘገበ ምስባክ የለም',
+                  tr('calendar.no_mesbak_day', {'fallback': 'ለ$mName $day የተመዘገበ ምስባክ የለም'}),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
                   ),
@@ -1654,7 +1770,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       ).then((_) => _refreshAll());
                     },
                     icon: const Icon(Icons.add),
-                    label: const Text('ምስባክ መዝግብ'),
+                    label: Text(tr('calendar.add_mesbak', {'fallback': 'ምስባክ መዝግብ'})),
                   ),
                 ],
               ],
@@ -1679,10 +1795,11 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   }
 
   Widget _buildRangeResult(BuildContext context, ThemeData theme, AdminPermissions perms) {
+    final tr = ref.watch(trProvider);
     if (!_rangeSearched) {
       return Center(
         child: Text(
-          'ክልሉን መርጠው "ምስባካትን ፈልግ" የሚለውን ይጫኑ',
+          tr('calendar.prompt_search_mesbak_range', {'fallback': 'ክልሉን መርጠው "ምስባካትን ፈልግ" የሚለውን ይጫኑ'}),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
             fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
@@ -1706,13 +1823,13 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
 
     return rangeAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('ስህተት: $err')),
+      error: (err, _) => Center(child: Text('${tr('common.error')}: $err')),
       data: (notes) {
         final mesbaks = notes.where((n) => n.category == 'MESBAK').toList();
         if (mesbaks.isEmpty) {
           return Center(
             child: Text(
-              'በተመረጠው ክልል ውስጥ የተመዘገበ ምስባክ አልተገኘም',
+              tr('calendar.no_mesbak_range', {'fallback': 'በተመረጠው ክልል ውስጥ የተመዘገበ ምስባክ አልተገኘም'}),
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
               ),
@@ -1751,6 +1868,8 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     required int endDay,
     required bool searched,
   }) {
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     if (!searched) {
       return Center(
         child: Padding(
@@ -1765,7 +1884,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
               ),
               const SizedBox(height: 12),
               Text(
-                'የቀናት ክልሉን መርጠው "ስንክሳር ፈልግ" የሚለውን ይጫኑ',
+                tr('calendar.prompt_search_synax_range', {'fallback': 'የቀናት ክልሉን መርጠው "ስንክሳር ፈልግ" የሚለውን ይጫኑ'}),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
@@ -1796,7 +1915,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
       error: (err, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text('ስህተት: $err'),
+          child: Text('${tr('common.error')}: $err'),
         ),
       ),
       data: (allNotes) {
@@ -1817,7 +1936,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'በተመረጠው የቀናት ክልል ውስጥ የተመዘገበ ስንክሳር አልተገኘም',
+                    tr('calendar.no_synax_range', {'fallback': 'በተመረጠው የቀናት ክልል ውስጥ የተመዘገበ ስንክሳር አልተገኘም'}),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
@@ -1850,8 +1969,11 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
               day: first.ethiopianDay,
             );
             final isToday = date.year == _today.year && date.month == _today.month && date.day == _today.day;
-            final weekday = EthiopianCalendarUtil.getWeekdayName(date.weekday);
-            final monthName = EthiopianCalendarUtil.getMonthName(date.month);
+            final weekday = EthiopianCalendarUtil.getWeekdayName(date.weekday, langCode);
+            final monthName = EthiopianCalendarUtil.getMonthName(date.month, langCode);
+            final dateText = langCode == 'en'
+                ? '$weekday, $monthName ${date.day}, ${date.year}'
+                : '$weekday፣ ${date.day} $monthName ${date.year}';
 
             return Card(
               elevation: isToday ? 2.5 : 1,
@@ -1882,7 +2004,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '$weekday፣ ${date.day} $monthName ${date.year}',
+                            dateText,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12.5,
@@ -1904,9 +2026,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                               color: Colors.red.shade700,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              'ዛሬ',
-                              style: TextStyle(
+                            child: Text(
+                              tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -1916,7 +2038,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                         ],
                         const Spacer(),
                         Text(
-                          '${dayNotes.length} ስንክሳር',
+                          '${dayNotes.length} ${tr('calendar.synaxarium', {'fallback': 'ስንክሳር'})}',
                           style: TextStyle(
                             fontSize: 11,
                             color: theme.colorScheme.onSurfaceVariant,
@@ -1949,6 +2071,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     EtDatetime date,
     AdminPermissions perms,
   ) {
+    final tr = ref.watch(trProvider);
     final hasTitle = note.title != null && note.title!.trim().isNotEmpty;
     final hasContent = note.content != null && note.content!.trim().isNotEmpty;
     final hasMedia = note.media.isNotEmpty;
@@ -2036,19 +2159,22 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 context.push('/calendar/note/${note.id}');
               },
               icon: const Icon(Icons.chrome_reader_mode_outlined, size: 15),
-              label: const Text('ሙሉውን አንብብ', style: TextStyle(fontSize: 12)),
+              label: Text(
+                tr('calendar.read_full', {'fallback': 'ሙሉውን አንብብ'}),
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
             const SizedBox(width: 4),
             IconButton(
               icon: const Icon(Icons.copy_rounded, size: 16),
-              tooltip: 'ቅዳ',
+              tooltip: tr('calendar.copy', {'fallback': 'ቅዳ'}),
               visualDensity: VisualDensity.compact,
               onPressed: () => _copyNoteToClipboard(context, note),
             ),
             if (perms.canManageCalendar) ...[
               IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 17),
-                tooltip: 'አስተካክል',
+                tooltip: tr('calendar.edit', {'fallback': 'አስተካክል'}),
                 visualDensity: VisualDensity.compact,
                 onPressed: () async {
                   await showModalBottomSheet<bool>(
@@ -2061,7 +2187,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 17, color: Colors.red),
-                tooltip: 'ሰርዝ',
+                tooltip: tr('calendar.delete', {'fallback': 'ሰርዝ'}),
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _confirmDeleteSynaxNote(context, note),
               ),
@@ -2073,12 +2199,14 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   }
 
   Widget _buildCombinedRangeResult(BuildContext context, ThemeData theme, AdminPermissions perms) {
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
     if (!_rangeSearched) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'የቀናት ክልሉን መርጠው "ሁሉንም ፈልግ" የሚለውን ይጫኑ',
+            tr('calendar.prompt_search_all_range', {'fallback': 'የቀናት ክልሉን መርጠው "ሁሉንም ፈልግ" የሚለውን ይጫኑ'}),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
@@ -2103,12 +2231,12 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
 
     return rangeAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('ስህተት: $err')),
+      error: (err, _) => Center(child: Text('${tr('common.error')}: $err')),
       data: (allNotes) {
         if (allNotes.isEmpty) {
           return Center(
             child: Text(
-              'በተመረጠው ክልል ውስጥ የተመዘገበ ምስባክ ወይም ስንክሳር አልተገኘም',
+              tr('calendar.no_both_range', {'fallback': 'በተመረጠው ክልል ውስጥ የተመዘገበ ምስባክ ወይም ስንክሳር አልተገኘም'}),
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontFamilyFallback: const ['Noto Serif Ethiopic', 'Noto Sans Ethiopic'],
               ),
@@ -2159,7 +2287,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'ስንክሳር • ${note.ethiopianDay} ${EthiopianCalendarUtil.getMonthName(note.ethiopianMonth)}',
+                            '${tr('calendar.synaxarium', {'fallback': 'ስንክሳር'})} • ${note.ethiopianDay} ${EthiopianCalendarUtil.getMonthName(note.ethiopianMonth, langCode)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -2183,20 +2311,25 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   }
 
   Future<void> _confirmDeleteSynaxNote(BuildContext context, CalendarNoteModel note) async {
+    final tr = ref.read(trProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('ስንክሳር ሰርዝ'),
-        content: Text('ይህንን ስንክሳር (${note.title ?? "ማስታወሻ"}) መሰረዝ ይፈልጋሉ? ይህ ድርጊት አይመለስም።'),
+        title: Text(tr('calendar.delete_synax_title', {'fallback': 'ስንክሳር ሰርዝ'})),
+        content: Text(
+          tr('calendar.delete_synax_confirm', {
+            'fallback': 'ይህንን ስንክሳር (${note.title ?? "ማስታወሻ"}) መሰረዝ ይፈልጋሉ? ይህ ድርጊት አይመለስም።',
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('ይቅር'),
+            child: Text(tr('common.cancel', {'fallback': 'ይቅር'})),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('ሰርዝ'),
+            child: Text(tr('calendar.delete', {'fallback': 'ሰርዝ'})),
           ),
         ],
       ),
@@ -2209,13 +2342,13 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
         _refreshAll();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ስንክሳሩ ተሰርዟል')),
+            SnackBar(content: Text(tr('calendar.synax_deleted', {'fallback': 'ስንክሳሩ ተሰርዟል'}))),
           );
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('ስህተት ተከስቷል: $e')),
+            SnackBar(content: Text('${tr('common.error')}: $e')),
           );
         }
       }
@@ -2232,7 +2365,12 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     required bool isToday,
     required AdminPermissions perms,
   }) {
-    final monthName = EthiopianCalendarUtil.getMonthName(note.ethiopianMonth);
+    final tr = ref.watch(trProvider);
+    final langCode = ref.watch(preferencesProvider.select((s) => s.languageCode));
+    final monthName = EthiopianCalendarUtil.getMonthName(note.ethiopianMonth, langCode);
+    final dateBadgeText = langCode == 'en'
+        ? '$monthName ${note.ethiopianDay}, ${note.ethiopianYear}'
+        : '$monthName ${note.ethiopianDay}፣ ${note.ethiopianYear}';
 
     return Card(
       elevation: isToday ? 2.5 : 1,
@@ -2267,7 +2405,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       const Icon(Icons.menu_book, size: 14, color: Color(0xFF8C6B00)),
                       const SizedBox(width: 6),
                       Text(
-                        '$monthName ${note.ethiopianDay}፣ ${note.ethiopianYear}',
+                        dateBadgeText,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -2286,9 +2424,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                       color: Colors.red.shade700,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text(
-                      'ዛሬ',
-                      style: TextStyle(
+                    child: Text(
+                      tr('calendar.today_badge', {'fallback': 'ዛሬ'}),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -2299,13 +2437,13 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.copy_rounded, size: 19),
-                  tooltip: 'ቅዳ',
+                  tooltip: tr('calendar.copy', {'fallback': 'ቅዳ'}),
                   onPressed: () => _copyNoteToClipboard(context, note),
                 ),
                 if (perms.canManageCalendar)
                   IconButton(
                     icon: Icon(Icons.edit_outlined, size: 20, color: theme.colorScheme.primary),
-                    tooltip: 'አስተካክል',
+                    tooltip: tr('calendar.edit', {'fallback': 'አስተካክል'}),
                     onPressed: () {
                       ManageMesbakDialog.show(
                         context,
@@ -2369,6 +2507,7 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
   }
 
   void _copyNoteToClipboard(BuildContext context, CalendarNoteModel note) {
+    final tr = ref.read(trProvider);
     final buffer = StringBuffer();
     if (note.title != null && note.title!.isNotEmpty) {
       buffer.writeln(note.title);
@@ -2379,9 +2518,9 @@ class _MesbakPopupDialogState extends ConsumerState<MesbakPopupDialog> {
     }
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ምስባኩ ወደ ቅንጥብ ሰሌዳ ተቀድቷል'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(tr('calendar.mesbak_copied', {'fallback': 'ምስባኩ ወደ ቅንጥብ ሰሌዳ ተቀድቷል'})),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
