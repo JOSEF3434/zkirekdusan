@@ -45,14 +45,21 @@ class GoogleSignInService {
 
       final GoogleSignInAuthentication auth = await account.authentication;
       final String? idToken = auth.idToken;
+      final String? accessToken = auth.accessToken;
 
-      if (idToken == null || idToken.isEmpty) {
+      // On Android/iOS, idToken is provided directly by Google Play Services/iOS SDK.
+      // On Flutter Web standard OAuth popup, Google returns an accessToken.
+      final String? token = (idToken != null && idToken.isNotEmpty)
+          ? idToken
+          : accessToken;
+
+      if (token == null || token.isEmpty) {
         throw Exception(
-          'Google authentication succeeded but no ID token was provided.',
+          'Google authentication succeeded but no valid token was provided.',
         );
       }
 
-      return idToken;
+      return token;
     } catch (e) {
       final msg = e.toString().toLowerCase();
       if (msg.contains('canceled') ||
