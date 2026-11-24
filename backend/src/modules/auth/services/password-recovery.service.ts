@@ -1,6 +1,7 @@
 // src/modules/auth/services/password-recovery.service.ts
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,6 +11,7 @@ import crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { UsersService } from '../../users/users.service.js';
 import { PasswordService } from '../../../common/service/password.service.js';
+import { AuthPolicyService } from '../../auth-policy/auth-policy.service.js';
 import { EmailDeliveryService } from './email-delivery.service.js';
 import { SmsDeliveryService } from './sms-delivery.service.js';
 import {
@@ -58,6 +60,7 @@ export class PasswordRecoveryService {
     private readonly emailDeliveryService: EmailDeliveryService,
     private readonly smsDeliveryService: SmsDeliveryService,
     private readonly configService: ConfigService,
+    private readonly authPolicyService: AuthPolicyService,
   ) {
     this.hmacSecret =
       this.configService.get<string>('RECOVERY_HMAC_SECRET') ||
@@ -74,6 +77,13 @@ export class PasswordRecoveryService {
     reqIp?: string,
     userAgent?: string,
   ): Promise<RecoveryRequestResult> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowPasswordReset === false) {
+      throw new ForbiddenException(
+        'Password reset and account recovery are currently disabled by administrator.',
+      );
+    }
+
     const { method, rawIdentifier } = this.resolveMethodAndIdentifier(dto);
 
     if (method === RecoveryMethodType.EMAIL) {
@@ -87,6 +97,13 @@ export class PasswordRecoveryService {
    * Verify an OTP or validate a token before allowing password reset.
    */
   async verifyChallenge(dto: RecoveryVerifyDto): Promise<RecoveryVerifyResult> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowPasswordReset === false) {
+      throw new ForbiddenException(
+        'Password reset and account recovery are currently disabled by administrator.',
+      );
+    }
+
     if (dto.method === RecoveryMethodType.PHONE) {
       if (!dto.code) {
         throw new BadRequestException('Verification code is required for phone recovery.');
@@ -105,6 +122,14 @@ export class PasswordRecoveryService {
    * Validates an email reset token when user opens the link.
    */
   async validateEmailToken(token: string): Promise<{ valid: boolean; email?: string; message: string }> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowPasswordReset === false) {
+      return {
+        valid: false,
+        message: 'Password reset and account recovery are currently disabled by administrator.',
+      };
+    }
+
     if (!token) {
       throw new BadRequestException('Recovery token is required.');
     }
@@ -165,6 +190,13 @@ export class PasswordRecoveryService {
     dto: RecoveryResetPasswordDto,
     reqIp?: string,
   ): Promise<{ success: boolean; message: string }> {
+    const policy = await this.authPolicyService.getActivePolicy();
+    if (policy && policy.allowPasswordReset === false) {
+      throw new ForbiddenException(
+        'Password reset and account recovery are currently disabled by administrator.',
+      );
+    }
+
     const rawToken = dto.resetToken || dto.token;
 
     let challenge: (any & { user: any }) | null = null;

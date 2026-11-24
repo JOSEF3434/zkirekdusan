@@ -69,6 +69,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowPhone: true,
           allowUsername: true,
           allowGoogleAuth: true,
+          allowPasswordReset: true,
         },
       });
       this.logger.log('Default login policy created (SINGLE_IDENTIFIER, all identifiers enabled)');
@@ -106,6 +107,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowPhone: policy!.allowPhone,
       allowUsername: policy!.allowUsername,
       allowGoogleAuth: policy!.allowGoogleAuth ?? true,
+      allowPasswordReset: (policy as any)!.allowPasswordReset ?? true,
       dualCombination: policy!.dualCombination ?? null,
     };
 
@@ -135,6 +137,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowPhone: policy!.allowPhone,
       allowUsername: policy!.allowUsername,
       allowGoogleAuth: policy!.allowGoogleAuth ?? true,
+      allowPasswordReset: (policy as any)!.allowPasswordReset ?? true,
       dualCombination: policy!.dualCombination ?? null,
       isLocked: policy!.isLocked,
       updatedAt: policy!.updatedAt,
@@ -251,6 +254,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowPhone: existing.allowPhone,
           allowUsername: existing.allowUsername,
           allowGoogleAuth: existing.allowGoogleAuth ?? true,
+          allowPasswordReset: (existing as any).allowPasswordReset ?? true,
           dualCombination: existing.dualCombination,
           isLocked: existing.isLocked,
         }
@@ -265,6 +269,10 @@ export class AuthPolicyService implements OnModuleInit {
         dto.allowGoogleAuth !== undefined
           ? dto.allowGoogleAuth
           : existing?.allowGoogleAuth ?? true,
+      allowPasswordReset:
+        dto.allowPasswordReset !== undefined
+          ? dto.allowPasswordReset
+          : (existing as any)?.allowPasswordReset ?? true,
       dualCombination: dto.dualCombination ?? null,
       lastModifiedBy: { connect: { id: actorId } },
     };
@@ -278,6 +286,10 @@ export class AuthPolicyService implements OnModuleInit {
         dto.allowGoogleAuth !== undefined
           ? dto.allowGoogleAuth
           : existing?.allowGoogleAuth ?? true,
+      allowPasswordReset:
+        dto.allowPasswordReset !== undefined
+          ? dto.allowPasswordReset
+          : (existing as any)?.allowPasswordReset ?? true,
       dualCombination: dto.dualCombination ?? null,
       isLocked: existing?.isLocked ?? false,
     };
@@ -313,6 +325,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowPhone: updated.allowPhone,
       allowUsername: updated.allowUsername,
       allowGoogleAuth: updated.allowGoogleAuth,
+      allowPasswordReset: (updated as any).allowPasswordReset ?? true,
       dualCombination: updated.dualCombination ?? null,
       isLocked: updated.isLocked,
       updatedAt: updated.updatedAt,
@@ -342,6 +355,7 @@ export class AuthPolicyService implements OnModuleInit {
           allowPhone: true,
           allowUsername: true,
           allowGoogleAuth: true,
+          allowPasswordReset: true,
           dualCombination: null,
           isLocked: false,
           lastModifiedBy: { connect: { id: actorId } },
@@ -357,6 +371,8 @@ export class AuthPolicyService implements OnModuleInit {
             allowEmail: true,
             allowPhone: true,
             allowUsername: true,
+            allowGoogleAuth: true,
+            allowPasswordReset: true,
             dualCombination: null,
             isLocked: false,
           } as Prisma.InputJsonValue,
@@ -379,6 +395,7 @@ export class AuthPolicyService implements OnModuleInit {
       allowPhone: updated.allowPhone,
       allowUsername: updated.allowUsername,
       allowGoogleAuth: updated.allowGoogleAuth,
+      allowPasswordReset: (updated as any).allowPasswordReset ?? true,
       dualCombination: updated.dualCombination ?? null,
       isLocked: updated.isLocked,
       updatedAt: updated.updatedAt,

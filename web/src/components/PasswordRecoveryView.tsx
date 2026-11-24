@@ -9,6 +9,7 @@ export interface PasswordRecoveryViewProps {
   brandTitle?: string;
   brandSubtitle?: string;
   initialToken?: string;
+  allowPasswordReset?: boolean;
 }
 
 type RecoveryStep = 'INPUT' | 'VERIFY_OTP' | 'RESET_PASSWORD' | 'SUCCESS';
@@ -19,7 +20,11 @@ export const PasswordRecoveryView: React.FC<PasswordRecoveryViewProps> = ({
   brandTitle = 'Zikre Kedusan',
   brandSubtitle = 'Spiritual Sanctuary Account Recovery',
   initialToken,
+  allowPasswordReset,
 }) => {
+  const [effectiveAllowPasswordReset, setEffectiveAllowPasswordReset] = useState<boolean>(
+    allowPasswordReset ?? true
+  );
   const [method, setMethod] = useState<RecoveryMethod>('EMAIL');
   const [step, setStep] = useState<RecoveryStep>('INPUT');
   const [identifier, setIdentifier] = useState('');
@@ -37,7 +42,23 @@ export const PasswordRecoveryView: React.FC<PasswordRecoveryViewProps> = ({
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check URL query parameter for token on mount
+  // Check policy and URL query parameter for token on mount
+  useEffect(() => {
+    if (allowPasswordReset !== undefined) {
+      setEffectiveAllowPasswordReset(allowPasswordReset);
+    } else {
+      let isMounted = true;
+      authApi.getLoginPolicyConfig().then((cfg) => {
+        if (isMounted && cfg && typeof cfg.allowPasswordReset === 'boolean') {
+          setEffectiveAllowPasswordReset(cfg.allowPasswordReset);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [allowPasswordReset]);
+
   useEffect(() => {
     let token = initialToken;
     if (!token && typeof window !== 'undefined') {
@@ -195,6 +216,61 @@ export const PasswordRecoveryView: React.FC<PasswordRecoveryViewProps> = ({
       setIsLoading(false);
     }
   };
+
+  if (!effectiveAllowPasswordReset) {
+    return (
+      <div
+        style={{
+          maxWidth: '440px',
+          margin: '40px auto',
+          padding: '32px 28px',
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+          border: '1px solid #E5E7EB',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <h1 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 700, color: '#1E3A8A' }}>
+            {brandTitle}
+          </h1>
+          <p style={{ margin: 0, fontSize: '13px', color: '#6B7280' }}>{brandSubtitle}</p>
+        </div>
+        <div
+          style={{
+            padding: '16px',
+            backgroundColor: '#FEE2E2',
+            color: '#991B1B',
+            borderRadius: '12px',
+            fontSize: '14px',
+            marginBottom: '24px',
+            lineHeight: 1.5,
+          }}
+        >
+          Password reset and account recovery are currently disabled by the system administrator.
+        </div>
+        {onBackToLogin && (
+          <button
+            onClick={onBackToLogin}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#1E3A8A',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Back to Sign In
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

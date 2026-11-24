@@ -231,3 +231,22 @@ AfroMessage is Ethiopia's leading commercial SMS gateway:
    Ensuring table `password_recovery_challenges` is created automatically.
 3. **CORS Origins**: Ensure `CORS_ORIGINS` includes your web application domain (e.g. `https://zikire-kdusan.onrender.com`).
 4. **Deep Linking Verification**: Verify that mobile deep links for `https://zikire-kdusan.onrender.com/reset-password` route directly to `ResetPasswordScreen`.
+
+---
+
+## 8. Administrative Policy & Kill-Switch Control
+
+Administrators have granular control over the password recovery subsystem through the centralized platform `LoginPolicy`:
+
+- **Field**: `allowPasswordReset` (boolean, defaults to `true`).
+- **Enforcement Layer**:
+  - **Backend (`PasswordRecoveryService`)**: Rejects all recovery requests (`/auth/forgot-password`, `/auth/recovery/request`, `/auth/recovery/verify`, `/auth/reset-password`) with `403 ForbiddenException` when disabled.
+  - **Token Validation**: `validateEmailToken` immediately reports `valid: false` with administrator advisory text.
+  - **Flutter Mobile**:
+    - `AdminAuthPolicyScreen`: Admin switch toggle under *Password Recovery & Account Reset* section with audit trail.
+    - `LoginScreen`: Automatically hides the *Forgot password?* button when disabled.
+    - `ForgotPasswordScreen`: Shows a clear advisory card and disables the submission button if accessed directly.
+  - **React Web**:
+    - `LoginView`: Hides *Forgot password?* link if `allowPasswordReset === false`.
+    - `PasswordRecoveryView`: Renders a friendly administrator notice informing users that recovery is disabled and offering navigation back to sign in.
+

@@ -11,6 +11,7 @@ export interface LoginViewProps {
   brandTitle?: string;
   brandSubtitle?: string;
   allowGoogleAuth?: boolean;
+  allowPasswordReset?: boolean;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
@@ -19,6 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   brandTitle = 'Zikre Kedusan',
   brandSubtitle = 'Sign in to access your spiritual sanctuary',
   allowGoogleAuth,
+  allowPasswordReset,
 }) => {
   const { loginWithPassword, isLoading, isGoogleLoading, isAnyLoading, error, clearError, isAuthenticated } = useAuth();
   const [identifier, setIdentifier] = useState('');
@@ -27,22 +29,35 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [effectiveAllowGoogle, setEffectiveAllowGoogle] = useState<boolean>(
     allowGoogleAuth ?? true
   );
+  const [effectiveAllowPasswordReset, setEffectiveAllowPasswordReset] = useState<boolean>(
+    allowPasswordReset ?? true
+  );
 
   useEffect(() => {
     if (allowGoogleAuth !== undefined) {
       setEffectiveAllowGoogle(allowGoogleAuth);
+    }
+    if (allowPasswordReset !== undefined) {
+      setEffectiveAllowPasswordReset(allowPasswordReset);
+    }
+    if (allowGoogleAuth !== undefined && allowPasswordReset !== undefined) {
       return;
     }
     let isMounted = true;
     authApi.getLoginPolicyConfig().then((cfg) => {
-      if (isMounted && cfg && typeof cfg.allowGoogleAuth === 'boolean') {
-        setEffectiveAllowGoogle(cfg.allowGoogleAuth);
+      if (isMounted && cfg) {
+        if (allowGoogleAuth === undefined && typeof cfg.allowGoogleAuth === 'boolean') {
+          setEffectiveAllowGoogle(cfg.allowGoogleAuth);
+        }
+        if (allowPasswordReset === undefined && typeof cfg.allowPasswordReset === 'boolean') {
+          setEffectiveAllowPasswordReset(cfg.allowPasswordReset);
+        }
       }
     });
     return () => {
       isMounted = false;
     };
-  }, [allowGoogleAuth]);
+  }, [allowGoogleAuth, allowPasswordReset]);
 
   if (isAuthenticated && onSuccess) {
     onSuccess();
@@ -172,18 +187,18 @@ export const LoginView: React.FC<LoginViewProps> = ({
             >
               Password
             </label>
-            <a
-              href="#forgot-password"
-              onClick={(e) => {
-                if (onForgotPassword) {
+            {effectiveAllowPasswordReset && onForgotPassword && (
+              <a
+                href="#forgot-password"
+                onClick={(e) => {
                   e.preventDefault();
                   onForgotPassword();
-                }
-              }}
-              style={{ fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
-            >
-              Forgot password?
-            </a>
+                }}
+                style={{ fontSize: '12px', color: '#1E3A8A', textDecoration: 'none', fontWeight: 500, cursor: 'pointer' }}
+              >
+                Forgot password?
+              </a>
+            )}
           </div>
           <input
             id="login-password"

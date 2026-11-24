@@ -2,7 +2,8 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 // web/src/components/PasswordRecoveryView.tsx
 import { useState, useEffect, useRef } from 'react';
 import { authApi } from '../services/authApi.js';
-export const PasswordRecoveryView = ({ onSuccess, onBackToLogin, brandTitle = 'Zikre Kedusan', brandSubtitle = 'Spiritual Sanctuary Account Recovery', initialToken, }) => {
+export const PasswordRecoveryView = ({ onSuccess, onBackToLogin, brandTitle = 'Zikre Kedusan', brandSubtitle = 'Spiritual Sanctuary Account Recovery', initialToken, allowPasswordReset, }) => {
+    const [effectiveAllowPasswordReset, setEffectiveAllowPasswordReset] = useState(allowPasswordReset ?? true);
     const [method, setMethod] = useState('EMAIL');
     const [step, setStep] = useState('INPUT');
     const [identifier, setIdentifier] = useState('');
@@ -17,7 +18,23 @@ export const PasswordRecoveryView = ({ onSuccess, onBackToLogin, brandTitle = 'Z
     const [maskedDestination, setMaskedDestination] = useState(null);
     const [cooldown, setCooldown] = useState(0);
     const timerRef = useRef(null);
-    // Check URL query parameter for token on mount
+    // Check policy and URL query parameter for token on mount
+    useEffect(() => {
+        if (allowPasswordReset !== undefined) {
+            setEffectiveAllowPasswordReset(allowPasswordReset);
+        }
+        else {
+            let isMounted = true;
+            authApi.getLoginPolicyConfig().then((cfg) => {
+                if (isMounted && cfg && typeof cfg.allowPasswordReset === 'boolean') {
+                    setEffectiveAllowPasswordReset(cfg.allowPasswordReset);
+                }
+            });
+            return () => {
+                isMounted = false;
+            };
+        }
+    }, [allowPasswordReset]);
     useEffect(() => {
         let token = initialToken;
         if (!token && typeof window !== 'undefined') {
@@ -168,6 +185,36 @@ export const PasswordRecoveryView = ({ onSuccess, onBackToLogin, brandTitle = 'Z
             setIsLoading(false);
         }
     };
+    if (!effectiveAllowPasswordReset) {
+        return (_jsxs("div", { style: {
+                maxWidth: '440px',
+                margin: '40px auto',
+                padding: '32px 28px',
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                border: '1px solid #E5E7EB',
+                fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                textAlign: 'center',
+            }, children: [_jsxs("div", { style: { textAlign: 'center', marginBottom: '24px' }, children: [_jsx("h1", { style: { margin: '0 0 8px 0', fontSize: '22px', fontWeight: 700, color: '#1E3A8A' }, children: brandTitle }), _jsx("p", { style: { margin: 0, fontSize: '13px', color: '#6B7280' }, children: brandSubtitle })] }), _jsx("div", { style: {
+                        padding: '16px',
+                        backgroundColor: '#FEE2E2',
+                        color: '#991B1B',
+                        borderRadius: '12px',
+                        fontSize: '14px',
+                        marginBottom: '24px',
+                        lineHeight: 1.5,
+                    }, children: "Password reset and account recovery are currently disabled by the system administrator." }), onBackToLogin && (_jsx("button", { onClick: onBackToLogin, style: {
+                        padding: '10px 20px',
+                        backgroundColor: '#1E3A8A',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }, children: "Back to Sign In" }))] }));
+    }
     return (_jsxs("div", { style: {
             maxWidth: '440px',
             margin: '40px auto',

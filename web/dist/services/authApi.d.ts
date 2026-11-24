@@ -1,4 +1,4 @@
-import type { AuthResponse, AuthTokens, GoogleAuthPayload, GoogleLinkAccountPayload, UserIdentities, UserSummary, RecoveryMethod, RecoveryRequestPayload, RecoveryRequestResponse, RecoveryVerifyPayload, RecoveryVerifyResponse, ValidateTokenResponse, RecoveryResetPayload, RecoveryResetResponse } from '../types/auth.types.js';
+import type { AuthResponse, AuthTokens, GoogleAuthPayload, GoogleLinkAccountPayload, UserIdentities, UserSummary, RecoveryMethod, RecoveryRequestPayload, RecoveryRequestResponse, RecoveryVerifyPayload, RecoveryVerifyResponse, ValidateTokenResponse, RecoveryResetPayload, RecoveryResetResponse, LoginPolicyConfig } from '../types/auth.types.js';
 export declare class AuthApiError extends Error {
     statusCode: number;
     code?: string;
@@ -55,10 +55,7 @@ export declare class AuthApiService {
     /**
      * Get public login policy configuration
      */
-    getLoginPolicyConfig(): Promise<{
-        allowGoogleAuth?: boolean;
-        activePolicy?: string;
-    }>;
+    getLoginPolicyConfig(): Promise<Partial<LoginPolicyConfig>>;
     /**
      * Logout and clear local tokens
      */

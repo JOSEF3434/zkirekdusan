@@ -183,7 +183,7 @@ export class AuthApiService {
             });
         }
         catch {
-            return { allowGoogleAuth: true };
+            return { allowGoogleAuth: true, allowPasswordReset: true };
         }
     }
     /**

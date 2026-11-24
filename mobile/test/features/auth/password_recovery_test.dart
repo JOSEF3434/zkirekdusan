@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/auth/data/models/login_policy_model.dart';
 import 'package:mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile/features/auth/presentation/forgot_password_screen.dart';
 import 'package:mobile/features/auth/presentation/otp_verification_screen.dart';
 import 'package:mobile/features/auth/presentation/reset_password_screen.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
+//import 'package:mobile/features/auth/presentation/providers/login_policy_provider.dart';
 import 'package:mobile/features/auth/presentation/providers/recovery_provider.dart';
 
 class MockRecoveryAuthRepository extends Fake implements AuthRepository {
@@ -21,6 +24,11 @@ class MockRecoveryAuthRepository extends Fake implements AuthRepository {
   String? lastDestination;
   String? lastCode;
   String? lastPassword;
+
+  LoginPolicyConfig policyConfig = const LoginPolicyConfig(allowPasswordReset: true);
+
+  @override
+  Future<LoginPolicyConfig> getLoginPolicyConfig() async => policyConfig;
 
   @override
   Future<Map<String, dynamic>> requestPasswordRecovery({
@@ -171,10 +179,12 @@ void main() {
 
   group('Password Recovery Widget Tests', () {
     testWidgets('ForgotPasswordScreen renders method selection and input', (tester) async {
+      mockRepo.policyConfig = const LoginPolicyConfig(allowPasswordReset: true);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             trProvider.overrideWithValue((key, [args]) => key),
+            authRepositoryProvider.overrideWithValue(mockRepo),
           ],
           child: const MaterialApp(
             home: ForgotPasswordScreen(),
@@ -186,6 +196,26 @@ void main() {
       expect(find.byType(SegmentedButton<RecoveryMethodChoice>), findsOneWidget);
       expect(find.byType(TextFormField), findsOneWidget);
       expect(find.byType(FilledButton), findsOneWidget);
+    });
+
+    testWidgets('ForgotPasswordScreen displays advisory and disables button when allowPasswordReset is false', (tester) async {
+      mockRepo.policyConfig = const LoginPolicyConfig(allowPasswordReset: false);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trProvider.overrideWithValue((key, [args]) => key),
+            authRepositoryProvider.overrideWithValue(mockRepo),
+          ],
+          child: const MaterialApp(
+            home: ForgotPasswordScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('auth.recovery_disabled'), findsOneWidget);
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNull);
     });
 
     testWidgets('OtpVerificationScreen displays 6-digit input and verify button', (tester) async {

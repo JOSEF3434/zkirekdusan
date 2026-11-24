@@ -5,6 +5,7 @@ export interface LoginViewProps {
     brandTitle?: string;
     brandSubtitle?: string;
     allowGoogleAuth?: boolean;
+    allowPasswordReset?: boolean;
 }
 export declare const LoginView: React.FC<LoginViewProps>;
 //# sourceMappingURL=LoginView.d.ts.map

@@ -96,7 +96,7 @@ class _GoogleIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final double w = size.width;
-    final double h = size.height;
+    //final double h = size.height;
     final double s = w / 24.0; // Standard 24x24 Google G viewBox
 
     final paint = Paint()..style = PaintingStyle.fill;

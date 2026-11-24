@@ -63,6 +63,14 @@ export class UpdateLoginPolicyDto {
   allowGoogleAuth?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Allow password reset and account recovery',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  allowPasswordReset?: boolean;
+
+  @ApiPropertyOptional({
     enum: DualIdentifierCombinationDto,
     description: 'Required combination for DUAL_IDENTIFIER policy',
     example: DualIdentifierCombinationDto.EMAIL_PHONE,

@@ -6,6 +6,7 @@ class LoginPolicyConfig {
   final bool allowPhone;
   final bool allowUsername;
   final bool allowGoogleAuth;
+  final bool allowPasswordReset;
   final String? dualCombination;
 
   const LoginPolicyConfig({
@@ -14,6 +15,7 @@ class LoginPolicyConfig {
     this.allowPhone = true,
     this.allowUsername = true,
     this.allowGoogleAuth = true,
+    this.allowPasswordReset = true,
     this.dualCombination,
   });
 
@@ -46,6 +48,7 @@ class LoginPolicyConfig {
       allowPhone: json['allowPhone'] as bool? ?? true,
       allowUsername: json['allowUsername'] as bool? ?? true,
       allowGoogleAuth: json['allowGoogleAuth'] as bool? ?? true,
+      allowPasswordReset: json['allowPasswordReset'] as bool? ?? true,
       dualCombination: json['dualCombination'] as String?,
     );
   }
@@ -56,6 +59,7 @@ class LoginPolicyConfig {
         'allowPhone': allowPhone,
         'allowUsername': allowUsername,
         'allowGoogleAuth': allowGoogleAuth,
+        'allowPasswordReset': allowPasswordReset,
         'dualCombination': dualCombination,
       };
 
@@ -65,6 +69,7 @@ class LoginPolicyConfig {
     bool? allowPhone,
     bool? allowUsername,
     bool? allowGoogleAuth,
+    bool? allowPasswordReset,
     String? dualCombination,
   }) {
     return LoginPolicyConfig(
@@ -73,6 +78,7 @@ class LoginPolicyConfig {
       allowPhone: allowPhone ?? this.allowPhone,
       allowUsername: allowUsername ?? this.allowUsername,
       allowGoogleAuth: allowGoogleAuth ?? this.allowGoogleAuth,
+      allowPasswordReset: allowPasswordReset ?? this.allowPasswordReset,
       dualCombination: dualCombination ?? this.dualCombination,
     );
   }

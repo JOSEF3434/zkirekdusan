@@ -32,6 +32,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
   bool _allowPhone = true;
   bool _allowUsername = true;
   bool _allowGoogleAuth = true;
+  bool _allowPasswordReset = true;
   String _dualCombination = 'EMAIL_PHONE';
   final _reasonCtrl = TextEditingController();
 
@@ -69,6 +70,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
           _allowPhone = data['allowPhone'] as bool? ?? true;
           _allowUsername = data['allowUsername'] as bool? ?? true;
           _allowGoogleAuth = data['allowGoogleAuth'] as bool? ?? true;
+          _allowPasswordReset = data['allowPasswordReset'] as bool? ?? true;
           _dualCombination =
               data['dualCombination'] as String? ?? 'EMAIL_PHONE';
           _isLoading = false;
@@ -186,6 +188,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
         allowPhone: _allowPhone,
         allowUsername: _allowUsername,
         allowGoogleAuth: _allowGoogleAuth,
+        allowPasswordReset: _allowPasswordReset,
         dualCombination:
             _selectedPolicy == 'DUAL_IDENTIFIER' ? _dualCombination : null,
         reason: _reasonCtrl.text.trim().isEmpty ? null : _reasonCtrl.text.trim(),
@@ -199,6 +202,7 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
         allowPhone: res['allowPhone'] as bool? ?? _allowPhone,
         allowUsername: res['allowUsername'] as bool? ?? _allowUsername,
         allowGoogleAuth: res['allowGoogleAuth'] as bool? ?? _allowGoogleAuth,
+        allowPasswordReset: res['allowPasswordReset'] as bool? ?? _allowPasswordReset,
         dualCombination: res['dualCombination'] as String?,
       );
       ref.read(loginPolicyProvider.notifier).updateLocalPolicy(updatedConfig);
@@ -511,6 +515,30 @@ class _AdminAuthPolicyScreenState extends ConsumerState<AdminAuthPolicyScreen>
                 subtitle: Text(tr('admin.auth_policy.allow_google_desc')),
                 value: _allowGoogleAuth,
                 onChanged: (val) => setState(() => _allowGoogleAuth = val),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Section: Password Recovery & Account Reset
+            Text(
+              tr('admin.auth_policy.recovery_section'),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: cs.outlineVariant),
+              ),
+              child: SwitchListTile(
+                secondary: Icon(Icons.lock_reset_rounded, color: cs.primary),
+                title: Text(tr('admin.auth_policy.allow_password_reset')),
+                subtitle: Text(tr('admin.auth_policy.allow_password_reset_desc')),
+                value: _allowPasswordReset,
+                onChanged: (val) => setState(() => _allowPasswordReset = val),
               ),
             ),
             const SizedBox(height: 24),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/utils/localization_service.dart';
+import 'package:mobile/features/auth/data/models/login_policy_model.dart';
+import 'package:mobile/features/auth/presentation/providers/login_policy_provider.dart';
 import 'package:mobile/features/auth/presentation/providers/recovery_provider.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -49,6 +51,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final tr = ref.watch(trProvider);
     final cs = Theme.of(context).colorScheme;
     final recovery = ref.watch(recoveryProvider);
+    final policyAsync = ref.watch(loginPolicyProvider);
+    final policy = policyAsync.value ?? const LoginPolicyConfig();
 
     return Scaffold(
       appBar: AppBar(
@@ -105,6 +109,34 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     const SizedBox(height: 24),
 
                     // Method Selection Segmented Button
+                    if (!policy.allowPasswordReset) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.errorContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: cs.error.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: cs.error, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                tr('auth.recovery_disabled'),
+                                style: TextStyle(
+                                  color: cs.error,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     SegmentedButton<RecoveryMethodChoice>(
                       segments: [
                         ButtonSegment(
@@ -205,7 +237,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
                     // Submit Button
                     FilledButton(
-                      onPressed: recovery.isLoading ? null : _submit,
+                      onPressed: recovery.isLoading || !policy.allowPasswordReset ? null : _submit,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

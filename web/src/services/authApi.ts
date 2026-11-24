@@ -15,6 +15,7 @@ import type {
   ValidateTokenResponse,
   RecoveryResetPayload,
   RecoveryResetResponse,
+  LoginPolicyConfig,
 } from '../types/auth.types.js';
 
 export class AuthApiError extends Error {
@@ -223,13 +224,13 @@ export class AuthApiService {
   /**
    * Get public login policy configuration
    */
-  async getLoginPolicyConfig(): Promise<{ allowGoogleAuth?: boolean; activePolicy?: string }> {
+  async getLoginPolicyConfig(): Promise<Partial<LoginPolicyConfig>> {
     try {
-      return await this.request<{ allowGoogleAuth?: boolean; activePolicy?: string }>('/auth-policy/config', {
+      return await this.request<Partial<LoginPolicyConfig>>('/auth-policy/config', {
         method: 'GET',
       });
     } catch {
-      return { allowGoogleAuth: true };
+      return { allowGoogleAuth: true, allowPasswordReset: true };
     }
   }
 

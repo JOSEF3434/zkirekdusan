@@ -126,3 +126,13 @@ export interface RecoveryResetResponse {
   success: boolean;
   message: string;
 }
+
+export interface LoginPolicyConfig {
+  activePolicy: string;
+  allowEmail: boolean;
+  allowPhone: boolean;
+  allowUsername: boolean;
+  allowGoogleAuth: boolean;
+  allowPasswordReset: boolean;
+  dualCombination?: string | null;
+}

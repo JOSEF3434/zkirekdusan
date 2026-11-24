@@ -23,6 +23,9 @@ export class LoginPolicyResponseDto {
   @ApiProperty({ description: 'Whether Continue with Google is allowed as an authentication method', default: true })
   allowGoogleAuth!: boolean;
 
+  @ApiProperty({ description: 'Whether password reset and account recovery is allowed', default: true })
+  allowPasswordReset!: boolean;
+
   @ApiPropertyOptional({
     enum: ['EMAIL_PHONE', 'EMAIL_USERNAME', 'PHONE_USERNAME'],
     nullable: true,
@@ -52,6 +55,9 @@ export class PublicLoginPolicyDto {
 
   @ApiProperty({ default: true, description: 'Whether Continue with Google is allowed' })
   allowGoogleAuth!: boolean;
+
+  @ApiProperty({ default: true, description: 'Whether password reset and account recovery is allowed' })
+  allowPasswordReset!: boolean;
 
   @ApiPropertyOptional({ enum: ['EMAIL_PHONE', 'EMAIL_USERNAME', 'PHONE_USERNAME'], nullable: true })
   dualCombination?: string | null;
