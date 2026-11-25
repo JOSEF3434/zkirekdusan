@@ -298,21 +298,66 @@ export class AdminUsersService {
   }
 
   async deleteUser(actorId: string, userId: string, reason?: string) {
-    if (!reason)
-      throw new BadRequestException('A reason is required to delete a user');
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      include: { role: { select: { name: true } } },
+    });
+    if (!actor || (actor.role as any)?.name !== AppRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Only SUPER_ADMIN can delete users');
+    }
+
+    if (actorId === userId) {
+      throw new BadRequestException('Cannot delete your own account');
+    }
+
     await this.assertNotLastSuperAdmin(userId, 'delete');
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: { select: { name: true } } },
+    });
     if (!user) throw new NotFoundException(`User ${userId} not found`);
 
-    // Soft delete via status + anonymize sensitive data
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        status: 'BANNED',
-        email: `deleted_${userId}@deleted.invalid`,
-        username: `deleted_${userId}`,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      // Clean up or reassign non-cascading foreign key references before deleting the user
+      await tx.groupInvite.deleteMany({
+        where: { OR: [{ senderId: userId }, { recipientId: userId }] },
+      });
+      await tx.pinnedMessage.deleteMany({ where: { pinnedById: userId } });
+      await tx.streamModerator.deleteMany({
+        where: { OR: [{ userId }, { assignedById: userId }] },
+      });
+      await tx.groupAuditLog.deleteMany({ where: { actorId: userId } });
+      await tx.streamHighlight.deleteMany({ where: { createdById: userId } });
+      await tx.streamPoll.deleteMany({ where: { createdById: userId } });
+      await tx.groupPoll.deleteMany({ where: { createdById: userId } });
+
+      await tx.groupTopic.updateMany({
+        where: { createdById: userId },
+        data: { createdById: actorId },
+      });
+      await tx.group.updateMany({
+        where: { approvedById: userId },
+        data: { approvedById: null },
+      });
+      await tx.group.updateMany({
+        where: { createdById: userId },
+        data: { createdById: actorId },
+      });
+      await tx.file.updateMany({
+        where: { uploadedById: userId },
+        data: { uploadedById: actorId },
+      });
+      await tx.video.updateMany({
+        where: { uploadedById: userId },
+        data: { uploadedById: actorId },
+      });
+      await tx.liveStream.updateMany({
+        where: { createdById: userId },
+        data: { createdById: actorId },
+      });
+
+      await tx.user.delete({ where: { id: userId } });
     });
 
     await this.audit.emit({
@@ -320,12 +365,19 @@ export class AdminUsersService {
       action: 'USER_DELETED',
       targetType: 'USER',
       targetId: userId,
-      before: { username: user.username, email: user.email },
-      after: { status: 'BANNED', anonymized: true },
+      before: {
+        username: user.username,
+        email: user.email,
+        role: (user.role as any)?.name,
+      },
+      after: { deleted: true },
       reason,
     });
 
-    return { success: true };
+    return {
+      success: true,
+      message: `User ${user.username ?? userId} has been permanently deleted.`,
+    };
   }
 
   /**

@@ -529,6 +529,18 @@ class AdminRepository {
     return res.statusCode == 200 || res.statusCode == 201;
   }
 
+  Future<bool> deleteUser(String userId, {String? reason}) async {
+    try {
+      final res = await _dio.delete(
+        '/admin/users/$userId',
+        data: reason != null && reason.isNotEmpty ? {'reason': reason} : null,
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─────────────────────────────────────────────
   // Groups Management
   // ─────────────────────────────────────────────

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/admin/data/admin_repository.dart';
 import 'package:mobile/features/admin/presentation/providers/admin_permissions_provider.dart';
+import 'package:mobile/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_search_bar.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_filter_chips.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_status_badge.dart';
@@ -106,12 +107,19 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       title = 'Reactivate Account';
       message = 'Reactivate user @${user.username ?? user.id}?';
       color = Colors.green;
+    } else if (action == 'DELETE') {
+      title = 'Delete User';
+      message =
+          'Permanently delete user @${user.username ?? user.id} from the database? This action cannot be undone.';
+      color = Colors.red;
+      requireReason = true;
     }
 
     final reason = await AdminConfirmationDialog.show(
       context,
       title: title,
       message: message,
+      confirmLabel: action == 'DELETE' ? 'Delete' : 'Confirm',
       confirmColor: color,
       requireReason: requireReason,
     );
@@ -127,11 +135,19 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       ok = await repo.deactivateUser(user.id, reason: reason);
     } else if (action == 'ACTIVATE') {
       ok = await repo.activateUser(user.id);
+    } else if (action == 'DELETE') {
+      ok = await repo.deleteUser(user.id, reason: reason);
     }
 
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Action $action applied successfully')),
+        SnackBar(
+          content: Text(
+            action == 'DELETE'
+                ? 'User deleted from database'
+                : 'Action $action applied successfully',
+          ),
+        ),
       );
       _fetchUsers(reset: true);
     }
@@ -184,6 +200,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
   Widget build(BuildContext context) {
     final tr = ref.watch(trProvider);
     final perms = ref.watch(adminPermissionsProvider);
+    final currentUserId = ref.watch(authProvider).user?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -380,6 +397,20 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                                         Icon(Icons.cancel_outlined, color: Colors.grey, size: 18),
                                         SizedBox(width: 8),
                                         Text('Deactivate'),
+                                      ],
+                                    ),
+                                  ),
+                                if (perms.isSuperAdmin && user.id != currentUserId)
+                                  const PopupMenuItem(
+                                    value: 'DELETE',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_forever, color: Colors.red, size: 18),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Delete User',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
                                       ],
                                     ),
                                   ),

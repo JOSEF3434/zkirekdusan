@@ -4,6 +4,7 @@
   Param,
   Patch,
   Post,
+  Delete,
   Body,
   UseGuards,
   Query,
@@ -161,5 +162,19 @@ export class AdminUsersController {
       success: true,
       message: `User ${user.username ?? id} has been reactivated.`,
     };
+  }
+
+  @Delete(':id')
+  @Roles(AppRole.SUPER_ADMIN)
+  @Permissions('users.delete')
+  @ApiOperation({
+    summary: 'Permanently delete a user from the database (SUPER_ADMIN only)',
+  })
+  async deleteUser(
+    @Param('id') id: string,
+    @CurrentUser('sub') actorId: string,
+    @Body() body?: { reason?: string },
+  ) {
+    return this.usersService.deleteUser(actorId, id, body?.reason);
   }
 }
