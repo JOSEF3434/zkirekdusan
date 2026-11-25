@@ -93,6 +93,8 @@ import 'package:mobile/features/admin/presentation/screens/admin_storage_screen.
 import 'package:mobile/features/admin/presentation/screens/admin_notifications_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_audit_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_system_screen.dart';
+import 'package:mobile/features/admin/presentation/screens/admin_system_report_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/user_system_report_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_spam_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/group_management_screen.dart';
 import 'package:mobile/features/admin/presentation/screens/admin_reports_screen.dart';
@@ -849,6 +851,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const AdminSystemScreen(),
           ),
           GoRoute(
+            path: '/admin/system-report',
+            builder: (context, state) => const AdminSystemReportScreen(),
+          ),
+          GoRoute(
             path: '/admin/spam',
             builder: (context, state) => const AdminSpamScreen(),
           ),
@@ -972,6 +978,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   return null;
                 },
                 builder: (context, state) => const AdminSettingsScreen(),
+              ),
+              GoRoute(
+                path: 'system-report',
+                builder: (context, state) => const UserSystemReportScreen(),
               ),
             ],
           ),

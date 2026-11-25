@@ -442,6 +442,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push('/admin/system'),
                   ),
+                if (perms.isAdmin)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.assessment_rounded,
+                      color: Colors.blueAccent,
+                    ),
+                    title: Text(tr('admin.system_report', {'fallback': 'System Report'})),
+                    subtitle: Text(tr('admin.system_report_sub', {'fallback': 'Server, database, deployment & financial cost reports'})),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/admin/system-report'),
+                  ),
                 if (perms.canManageLoginPolicy)
                   ListTile(
                     leading: const Icon(

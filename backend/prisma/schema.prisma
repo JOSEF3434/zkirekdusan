@@ -470,6 +470,10 @@ model User {
   createdAlephat22Entries Alephat22Entry[] @relation("Alephat22Creator")
   updatedAlephat22Entries Alephat22Entry[] @relation("Alephat22Updater")
 
+  // System Report Relations
+  createdSystemReports SystemReport[]         @relation("SystemReportCreator")
+  updatedSystemReports SystemReport[]         @relation("SystemReportUpdater")
+  systemReportViews    UserSystemReportView[] @relation("UserSystemReportViews")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3821,4 +3825,242 @@ model GroupAuditLog {
   @@index([actorId])
   @@index([createdAt(sort: Desc)])
   @@map("group_audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// SYSTEM REPORT & INFRASTRUCTURE MONITORING
+// ─────────────────────────────────────────────
+
+enum SystemReportStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+}
+
+enum SystemReportDisplayMode {
+  SETTINGS_ONLY
+  POPUP_ONLY
+  BOTH
+}
+
+enum CostCategory {
+  SERVER_HOSTING
+  DATABASE
+  API_SERVICES
+  STORAGE_CDN
+  BANDWIDTH
+  EMAIL
+  SMS
+  PUSH_NOTIFICATIONS
+  BACKUP
+  MONITORING
+  OTHER
+}
+
+enum CostBillingPeriod {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+enum CostType {
+  ACTUAL
+  ESTIMATED
+}
+
+model SystemReport {
+  id                         String                  @id @default(uuid())
+  title                      String                  @default("System Infrastructure & Operations Report")
+  summary                    String?
+  notes                      String?
+  status                     SystemReportStatus      @default(DRAFT)
+  revision                   Int                     @default(1)
+  publishedAt                DateTime?
+  unpublishedAt              DateTime?
+
+  createdById                String?
+  createdBy                  User?                   @relation("SystemReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById                String?
+  updatedBy                  User?                   @relation("SystemReportUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Global Visibility Control — MANDATORY DEFAULT FALSE
+  enableUserVisibility       Boolean                 @default(false)
+  displayMode                SystemReportDisplayMode @default(SETTINGS_ONLY)
+
+  // Category Visibility Flags — ALL DEFAULT FALSE
+  displayServerInfo          Boolean                 @default(false)
+  displayServerCosts         Boolean                 @default(false)
+  displayDatabaseInfo        Boolean                 @default(false)
+  displayDatabaseCosts       Boolean                 @default(false)
+  displayApiInfo             Boolean                 @default(false)
+  displayApiCosts            Boolean                 @default(false)
+  displayDeploymentInfo      Boolean                 @default(false)
+  displayDeploymentCosts     Boolean                 @default(false)
+  displayStorageInfo         Boolean                 @default(false)
+  displayBackupInfo          Boolean                 @default(false)
+  displayMaintenanceInfo     Boolean                 @default(false)
+  displayUptimeInfo          Boolean                 @default(false)
+  displayAdditionalCosts     Boolean                 @default(false)
+
+  // A. Server and Infrastructure Fields
+  serverProvider             String?
+  serverServiceName          String?
+  serverLocation             String?
+  serverRegion               String?
+  serverPlan                 String?
+  serverHostingType          String?
+  serverCpu                  String?
+  serverRam                  String?
+  serverDiskCapacity         String?
+  serverAvailableStorage     String?
+  serverStatus               String?
+  serverHealth               String?
+  serverUptime               String?
+  serverMaintenanceInfo      String?
+  serverBackupConfig         String?
+  serverBackupStorage        String?
+  serverMonthlyCost          Decimal?                @db.Decimal(10, 2)
+  serverYearlyCost           Decimal?                @db.Decimal(10, 2)
+  serverCostCurrency         String                  @default("USD")
+
+  // Server Individual Field Visibility Flags — ALL DEFAULT FALSE
+  showServerProvider         Boolean                 @default(false)
+  showServerServiceName      Boolean                 @default(false)
+  showServerLocation         Boolean                 @default(false)
+  showServerRegion           Boolean                 @default(false)
+  showServerPlan             Boolean                 @default(false)
+  showServerHostingType      Boolean                 @default(false)
+  showServerCpu              Boolean                 @default(false)
+  showServerRam              Boolean                 @default(false)
+  showServerDiskCapacity     Boolean                 @default(false)
+  showServerAvailableStorage Boolean                 @default(false)
+  showServerStatus           Boolean                 @default(false)
+  showServerHealth           Boolean                 @default(false)
+  showServerUptime           Boolean                 @default(false)
+  showServerMaintenanceInfo  Boolean                 @default(false)
+  showServerBackupConfig     Boolean                 @default(false)
+  showServerBackupStorage    Boolean                 @default(false)
+  showServerMonthlyCost      Boolean                 @default(false)
+  showServerYearlyCost       Boolean                 @default(false)
+
+  // B. Database Information Fields
+  dbProvider                 String?
+  dbEngine                   String?
+  dbHostingPlan              String?
+  dbInfrastructure           String?
+  dbStorageUsage             String?
+  dbStorageCapacity          String?
+  dbBackupStatus             String?
+  dbHealth                   String?
+  dbAvailability             String?
+  dbMonthlyCost              Decimal?                @db.Decimal(10, 2)
+  dbYearlyCost               Decimal?                @db.Decimal(10, 2)
+  dbCostCurrency             String                  @default("USD")
+
+  // Database Individual Field Visibility Flags — ALL DEFAULT FALSE
+  showDbProvider             Boolean                 @default(false)
+  showDbEngine               Boolean                 @default(false)
+  showDbHostingPlan          Boolean                 @default(false)
+  showDbInfrastructure       Boolean                 @default(false)
+  showDbStorageUsage         Boolean                 @default(false)
+  showDbStorageCapacity      Boolean                 @default(false)
+  showDbBackupStatus         Boolean                 @default(false)
+  showDbHealth               Boolean                 @default(false)
+  showDbAvailability         Boolean                 @default(false)
+  showDbMonthlyCost          Boolean                 @default(false)
+  showDbYearlyCost           Boolean                 @default(false)
+
+  // C. API and Backend Services Fields
+  apiServiceName             String?
+  apiAvailability            String?
+  apiStatus                  String?
+  apiResponseTime            String?
+  apiUsageStats              String?
+  apiHostingCost             Decimal?                @db.Decimal(10, 2)
+  apiExternalCost            Decimal?                @db.Decimal(10, 2)
+  apiCostCurrency            String                  @default("USD")
+
+  // API Individual Field Visibility Flags — ALL DEFAULT FALSE
+  showApiServiceName         Boolean                 @default(false)
+  showApiAvailability        Boolean                 @default(false)
+  showApiStatus              Boolean                 @default(false)
+  showApiResponseTime        Boolean                 @default(false)
+  showApiUsageStats          Boolean                 @default(false)
+  showApiHostingCost         Boolean                 @default(false)
+  showApiExternalCost        Boolean                 @default(false)
+
+  // D. Deployment Information Fields
+  deploymentProvider         String?
+  deploymentEnvironment      String?
+  appVersion                 String?
+  lastDeploymentDate         DateTime?
+  buildStatus                String?
+  deploymentCost             Decimal?                @db.Decimal(10, 2)
+  deploymentCostCurrency     String                  @default("USD")
+  environmentInfo            String?
+
+  // Deployment Individual Field Visibility Flags — ALL DEFAULT FALSE
+  showDeploymentProvider     Boolean                 @default(false)
+  showDeploymentEnvironment  Boolean                 @default(false)
+  showAppVersion             Boolean                 @default(false)
+  showLastDeploymentDate     Boolean                 @default(false)
+  showBuildStatus            Boolean                 @default(false)
+  showDeploymentCost         Boolean                 @default(false)
+  showEnvironmentInfo        Boolean                 @default(false)
+
+  // E. Additional Service Costs Relation
+  costs                      SystemServiceCost[]
+  views                      UserSystemReportView[]
+
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  @@index([status])
+  @@index([enableUserVisibility])
+  @@map("system_reports")
+}
+
+model SystemServiceCost {
+  id              String            @id @default(uuid())
+  reportId        String
+  report          SystemReport      @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  serviceName     String
+  category        CostCategory      @default(OTHER)
+  provider        String?
+  amount          Decimal           @db.Decimal(10, 2)
+  currency        String            @default("USD")
+  billingPeriod   CostBillingPeriod @default(MONTHLY)
+  costType        CostType          @default(ACTUAL)
+  description     String?
+  lastUpdatedDate DateTime?         @default(now())
+
+  // Visibility Switch — MANDATORY DEFAULT FALSE
+  isVisible       Boolean           @default(false)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([reportId])
+  @@index([category])
+  @@map("system_service_costs")
+}
+
+model UserSystemReportView {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation("UserSystemReportViews", fields: [userId], references: [id], onDelete: Cascade)
+  reportId    String
+  report      SystemReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  revision    Int
+  viewedAt    DateTime      @default(now())
+  dismissedAt DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, reportId, revision])
+  @@index([userId])
+  @@index([reportId])
+  @@map("user_system_report_views")
 }

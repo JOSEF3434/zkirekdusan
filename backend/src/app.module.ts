@@ -78,6 +78,7 @@ import { BooksModule } from './modules/books/books.module.js';
 // Phase 7 — Admin Platform & Moderation
 import { AdminModule } from './modules/admin/admin.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { SystemReportModule } from './modules/system-report/system-report.module.js';
 
 // Health Check
 import { HealthModule } from './modules/health/health.module.js';
@@ -206,6 +207,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
     // Phase 7 — Admin Platform & Reports
     AdminModule,
     ReportsModule,
+    SystemReportModule,
 
     // Deep Link Verification (Android App Links & iOS Universal Links)
     WellKnownModule,

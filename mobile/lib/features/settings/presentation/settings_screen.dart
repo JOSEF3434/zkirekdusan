@@ -137,6 +137,13 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () => _showAboutDialog(context, theme, tr),
                   ),
                   _SettingsTile(
+                    icon: Icons.assessment_outlined,
+                    iconColor: const Color(0xFF2196F3),
+                    title: tr('settings.system_report', {'fallback': 'System Report'}),
+                    subtitle: tr('settings.system_report_sub', {'fallback': 'Platform infrastructure, hosting & uptime'}),
+                    onTap: () => context.push('/settings/system-report'),
+                  ),
+                  _SettingsTile(
                     icon: Icons.bug_report_outlined,
                     iconColor: const Color(0xFFFF9F43),
                     title: tr('settings.report_problem'),
