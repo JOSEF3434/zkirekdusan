@@ -10,6 +10,7 @@ import 'package:mobile/features/admin/presentation/widgets/admin_responsive_layo
 import 'package:mobile/features/admin/presentation/widgets/admin_section_card.dart';
 import 'package:mobile/features/admin/presentation/widgets/admin_status_badge.dart';
 import 'package:mobile/features/settings/presentation/screens/user_system_report_screen.dart';
+import 'package:mobile/features/settings/presentation/widgets/platform_overview_view.dart';
 
 class AdminSystemReportScreen extends ConsumerStatefulWidget {
   const AdminSystemReportScreen({super.key});
@@ -148,13 +149,22 @@ class _AdminSystemReportScreenState
   bool _showDeploymentCost = false;
   bool _showEnvironmentInfo = false;
 
+  // Platform Overview visibility switches
+  bool _displayPlatformOverview = false;
+  bool _showUsersOverview = false;
+  bool _showGroupsOverview = false;
+  bool _showChannelsOverview = false;
+  bool _showVideosOverview = false;
+  bool _showTopVideosOverview = false;
+  bool _showLiveStreamsOverview = false;
+
   bool _isInitialized = false;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -288,6 +298,13 @@ class _AdminSystemReportScreenState
     _displayDeploymentInfo = m.displayDeploymentInfo;
     _displayDeploymentCosts = m.displayDeploymentCosts;
     _displayAdditionalCosts = m.displayAdditionalCosts;
+    _displayPlatformOverview = m.displayPlatformOverview;
+    _showUsersOverview = m.showUsersOverview;
+    _showGroupsOverview = m.showGroupsOverview;
+    _showChannelsOverview = m.showChannelsOverview;
+    _showVideosOverview = m.showVideosOverview;
+    _showTopVideosOverview = m.showTopVideosOverview;
+    _showLiveStreamsOverview = m.showLiveStreamsOverview;
 
     _showServerProvider = m.showServerProvider;
     _showServerServiceName = m.showServerServiceName;
@@ -467,6 +484,14 @@ class _AdminSystemReportScreenState
         'showBuildStatus': _showBuildStatus,
         'showDeploymentCost': _showDeploymentCost,
         'showEnvironmentInfo': _showEnvironmentInfo,
+
+        'displayPlatformOverview': _displayPlatformOverview,
+        'showUsersOverview': _showUsersOverview,
+        'showGroupsOverview': _showGroupsOverview,
+        'showChannelsOverview': _showChannelsOverview,
+        'showVideosOverview': _showVideosOverview,
+        'showTopVideosOverview': _showTopVideosOverview,
+        'showLiveStreamsOverview': _showLiveStreamsOverview,
       });
 
       if (mounted) {
@@ -701,6 +726,7 @@ class _AdminSystemReportScreenState
           controller: _tabController,
           isScrollable: true,
           tabs: const [
+            Tab(icon: Icon(Icons.analytics_outlined), text: 'Overview'),
             Tab(icon: Icon(Icons.visibility_outlined), text: 'Visibility'),
             Tab(icon: Icon(Icons.dns_outlined), text: 'Server'),
             Tab(icon: Icon(Icons.storage_outlined), text: 'Database'),
@@ -723,6 +749,7 @@ class _AdminSystemReportScreenState
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    _buildOverviewTab(),
                     _buildVisibilityTab(model),
                     _buildServerTab(),
                     _buildDatabaseTab(),
@@ -991,7 +1018,107 @@ class _AdminSystemReportScreenState
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // ── PLATFORM OVERVIEW VISIBILITY SWITCHES ──
+            AdminSectionCard(
+              title: 'Platform Overview Display Controls',
+              subtitle:
+                  'Choose whether live platform totals (users, groups, channels, top videos, live streams) appear in the public report (ALL OFF by default)',
+              child: Column(
+                children: [
+                  _buildVisibilitySwitch(
+                    title: 'Display Platform Overview Section',
+                    subtitle: 'Master toggle for live platform overview statistics',
+                    value: _displayPlatformOverview,
+                    onChanged: (v) => setState(() => _displayPlatformOverview = v),
+                  ),
+                  const Divider(),
+                  _buildVisibilitySwitch(
+                    title: 'Show Users Breakdown (by Role)',
+                    subtitle: 'Total users and role distribution',
+                    value: _showUsersOverview,
+                    onChanged: (v) => setState(() => _showUsersOverview = v),
+                  ),
+                  _buildVisibilitySwitch(
+                    title: 'Show Groups Summary',
+                    subtitle: 'Total groups, active/pending counts, members',
+                    value: _showGroupsOverview,
+                    onChanged: (v) => setState(() => _showGroupsOverview = v),
+                  ),
+                  _buildVisibilitySwitch(
+                    title: 'Show Channels Directory',
+                    subtitle: 'Channels with uploaded videos and live stream counts',
+                    value: _showChannelsOverview,
+                    onChanged: (v) => setState(() => _showChannelsOverview = v),
+                  ),
+                  _buildVisibilitySwitch(
+                    title: 'Show Videos Details & Totals',
+                    subtitle: 'Video counts, views, likes, comments, downloads',
+                    value: _showVideosOverview,
+                    onChanged: (v) => setState(() => _showVideosOverview = v),
+                  ),
+                  _buildVisibilitySwitch(
+                    title: 'Show Top Videos Rankings',
+                    subtitle: 'Top videos by likes, comments, views, and downloads',
+                    value: _showTopVideosOverview,
+                    onChanged: (v) => setState(() => _showTopVideosOverview = v),
+                  ),
+                  _buildVisibilitySwitch(
+                    title: 'Show Live Streams & Viewers',
+                    subtitle: 'Live stream counts and viewer metrics',
+                    value: _showLiveStreamsOverview,
+                    onChanged: (v) => setState(() => _showLiveStreamsOverview = v),
+                  ),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // 0. All-Over System Report Overview Tab
+  // ─────────────────────────────────────────────
+  Widget _buildOverviewTab() {
+    final overviewState = ref.watch(adminPlatformOverviewProvider);
+
+    return overviewState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 12),
+              Text('Failed to load platform overview: $err', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                onPressed: () => ref.invalidate(adminPlatformOverviewProvider),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (overview) => RefreshIndicator(
+        onRefresh: () async => ref.invalidate(adminPlatformOverviewProvider),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: AdminResponsiveLayout(
+            child: PlatformOverviewView(
+              overview: overview,
+              isAdminView: true,
+              onRefresh: () => ref.invalidate(adminPlatformOverviewProvider),
+            ),
+          ),
         ),
       ),
     );

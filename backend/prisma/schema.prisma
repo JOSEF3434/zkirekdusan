@@ -3901,6 +3901,13 @@ model SystemReport {
   displayMaintenanceInfo     Boolean                 @default(false)
   displayUptimeInfo          Boolean                 @default(false)
   displayAdditionalCosts     Boolean                 @default(false)
+  displayPlatformOverview    Boolean                 @default(false)
+  showUsersOverview          Boolean                 @default(false)
+  showGroupsOverview         Boolean                 @default(false)
+  showChannelsOverview       Boolean                 @default(false)
+  showVideosOverview         Boolean                 @default(false)
+  showTopVideosOverview      Boolean                 @default(false)
+  showLiveStreamsOverview    Boolean                 @default(false)
 
   // A. Server and Infrastructure Fields
   serverProvider             String?

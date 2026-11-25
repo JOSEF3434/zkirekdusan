@@ -98,6 +98,13 @@ class SystemReportAdminModel {
   final bool displayMaintenanceInfo;
   final bool displayUptimeInfo;
   final bool displayAdditionalCosts;
+  final bool displayPlatformOverview;
+  final bool showUsersOverview;
+  final bool showGroupsOverview;
+  final bool showChannelsOverview;
+  final bool showVideosOverview;
+  final bool showTopVideosOverview;
+  final bool showLiveStreamsOverview;
 
   // Server Fields
   final String? serverProvider;
@@ -234,6 +241,13 @@ class SystemReportAdminModel {
     required this.displayMaintenanceInfo,
     required this.displayUptimeInfo,
     required this.displayAdditionalCosts,
+    required this.displayPlatformOverview,
+    required this.showUsersOverview,
+    required this.showGroupsOverview,
+    required this.showChannelsOverview,
+    required this.showVideosOverview,
+    required this.showTopVideosOverview,
+    required this.showLiveStreamsOverview,
     this.serverProvider,
     this.serverServiceName,
     this.serverLocation,
@@ -359,6 +373,13 @@ class SystemReportAdminModel {
       displayMaintenanceInfo: json['displayMaintenanceInfo'] as bool? ?? false,
       displayUptimeInfo: json['displayUptimeInfo'] as bool? ?? false,
       displayAdditionalCosts: json['displayAdditionalCosts'] as bool? ?? false,
+      displayPlatformOverview: json['displayPlatformOverview'] as bool? ?? false,
+      showUsersOverview: json['showUsersOverview'] as bool? ?? false,
+      showGroupsOverview: json['showGroupsOverview'] as bool? ?? false,
+      showChannelsOverview: json['showChannelsOverview'] as bool? ?? false,
+      showVideosOverview: json['showVideosOverview'] as bool? ?? false,
+      showTopVideosOverview: json['showTopVideosOverview'] as bool? ?? false,
+      showLiveStreamsOverview: json['showLiveStreamsOverview'] as bool? ?? false,
 
       // Server
       serverProvider: json['serverProvider'] as String?,

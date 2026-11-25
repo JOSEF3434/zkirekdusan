@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/utils/localization_service.dart';
 import 'package:mobile/features/settings/domain/public_system_report_model.dart';
 import 'package:mobile/features/settings/presentation/providers/user_system_report_provider.dart';
+import 'package:mobile/features/settings/presentation/widgets/platform_overview_view.dart';
 
 class UserSystemReportScreen extends ConsumerWidget {
   final PublicSystemReportModel? previewReport;
@@ -335,6 +336,12 @@ class UserSystemReportScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Platform Overview (Only if admin enabled) ─────────
+            if (report.overview != null) ...[
+              PlatformOverviewView(overview: report.overview!),
               const SizedBox(height: 16),
             ],
 

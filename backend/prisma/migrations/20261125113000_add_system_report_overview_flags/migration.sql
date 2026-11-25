@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "system_reports"
+  ADD COLUMN IF NOT EXISTS "displayPlatformOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showUsersOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showGroupsOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showChannelsOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showVideosOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showTopVideosOverview" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "showLiveStreamsOverview" BOOLEAN NOT NULL DEFAULT false;

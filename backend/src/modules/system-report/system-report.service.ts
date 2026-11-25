@@ -23,6 +23,8 @@ import {
   PublicApiInfoDto,
   PublicDeploymentInfoDto,
   PublicCostItemDto,
+  PlatformOverviewDto,
+  PlatformOverviewTopVideoDto,
 } from './dto/public-system-report.dto.js';
 import {
   SystemReport,
@@ -443,12 +445,401 @@ export class SystemReportService {
   }
 
   /**
+   * Computes live all-over platform statistics directly from PostgreSQL:
+   * - Total users broken down by role and status
+   * - Total groups & messaging channels
+   * - Video channels with uploaded video count & live stream count
+   * - Total videos with full engagement & storage/duration breakdown
+   * - Top videos ranked by likes, comments, views, and downloads
+   * - Total live streams with viewer metrics and recent/active list
+   * - Platform-wide content & storage totals
+   */
+  async getPlatformOverview(): Promise<PlatformOverviewDto> {
+    const [
+      rolesWithCounts,
+      usersByStatus,
+      groupsByStatus,
+      totalGroupMembers,
+      messagingChannelsCount,
+      videoChannelsList,
+      totalVideoChannels,
+      activeVideoChannels,
+      pendingVideoChannels,
+      verifiedVideoChannels,
+      channelSubscribersAgg,
+      videosByStatus,
+      publicVideosCount,
+      videoAggregates,
+      completedDownloadsCount,
+      topByLikes,
+      topByComments,
+      topByViews,
+      topByDownloads,
+      streamsByStatus,
+      streamAggregates,
+      uniqueStreamViewersCount,
+      recentStreams,
+      totalPosts,
+      totalStories,
+      totalBooks,
+      fileStats,
+      totalReports,
+      pendingReports,
+    ] = await Promise.all([
+      this.prisma.role.findMany({
+        select: {
+          name: true,
+          _count: { select: { users: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.user.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+      this.prisma.group.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+      this.prisma.groupMember.count({ where: { removedAt: null } }),
+      this.prisma.channel.count({ where: { deletedAt: null } }),
+      this.prisma.videoChannel.findMany({
+        where: { deletedAt: null },
+        orderBy: [{ totalViewsCount: 'desc' }, { subscribersCount: 'desc' }],
+        take: 50,
+        select: {
+          id: true,
+          name: true,
+          handle: true,
+          status: true,
+          isVerified: true,
+          subscribersCount: true,
+          totalViewsCount: true,
+          _count: {
+            select: {
+              videos: { where: { deletedAt: null, status: { not: 'DELETED' } } },
+              liveStreams: { where: { deletedAt: null } },
+            },
+          },
+          liveStreams: {
+            where: { deletedAt: null, status: 'LIVE' },
+            select: { id: true },
+          },
+        },
+      }),
+      this.prisma.videoChannel.count({ where: { deletedAt: null } }),
+      this.prisma.videoChannel.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+      this.prisma.videoChannel.count({ where: { deletedAt: null, status: 'PENDING' } }),
+      this.prisma.videoChannel.count({ where: { deletedAt: null, isVerified: true } }),
+      this.prisma.videoChannel.aggregate({
+        where: { deletedAt: null },
+        _sum: { subscribersCount: true },
+      }),
+      this.prisma.video.groupBy({
+        by: ['status'],
+        where: { deletedAt: null, status: { not: 'DELETED' } },
+        _count: { id: true },
+      }),
+      this.prisma.video.count({
+        where: { deletedAt: null, status: { not: 'DELETED' }, visibility: 'PUBLIC' },
+      }),
+      this.prisma.video.aggregate({
+        where: { deletedAt: null, status: { not: 'DELETED' } },
+        _sum: {
+          viewsCount: true,
+          likesCount: true,
+          dislikesCount: true,
+          commentsCount: true,
+          sharesCount: true,
+          bookmarksCount: true,
+          downloadsCount: true,
+          duration: true,
+        },
+      }),
+      this.prisma.downloadRecord.count({ where: { status: 'COMPLETED' } }),
+      this.queryTopVideos({ likesCount: 'desc' }),
+      this.queryTopVideos({ commentsCount: 'desc' }),
+      this.queryTopVideos({ viewsCount: 'desc' }),
+      this.queryTopVideos({ downloadsCount: 'desc' }),
+      this.prisma.liveStream.groupBy({
+        by: ['status'],
+        where: { deletedAt: null },
+        _count: { id: true },
+      }),
+      this.prisma.liveStream.aggregate({
+        where: { deletedAt: null },
+        _sum: {
+          currentViewerCount: true,
+          totalViewerCount: true,
+          totalChatMessages: true,
+          totalReactions: true,
+          likesCount: true,
+        },
+        _max: {
+          peakViewerCount: true,
+        },
+      }),
+      this.prisma.streamViewer.count(),
+      this.prisma.liveStream.findMany({
+        where: { deletedAt: null },
+        orderBy: [
+          { currentViewerCount: 'desc' },
+          { peakViewerCount: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        take: 20,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          status: true,
+          currentViewerCount: true,
+          peakViewerCount: true,
+          totalViewerCount: true,
+          likesCount: true,
+          totalChatMessages: true,
+          totalReactions: true,
+          startedAt: true,
+          endedAt: true,
+          videoChannel: { select: { name: true } },
+        },
+      }),
+      this.prisma.post.count({ where: { deletedAt: null } }),
+      this.prisma.story.count(),
+      this.prisma.book.count(),
+      this.prisma.file.aggregate({
+        _count: { id: true },
+        _sum: { size: true },
+      }),
+      this.prisma.report.count(),
+      this.prisma.report.count({ where: { status: 'PENDING' } }),
+    ]);
+
+    const userStatusMap: Record<string, number> = {};
+    let totalUsers = 0;
+    for (const row of usersByStatus) {
+      userStatusMap[row.status] = row._count.id;
+      totalUsers += row._count.id;
+    }
+
+    const groupStatusMap: Record<string, number> = {};
+    let totalGroups = 0;
+    for (const row of groupsByStatus) {
+      groupStatusMap[row.status] = row._count.id;
+      totalGroups += row._count.id;
+    }
+
+    const videoStatusMap: Record<string, number> = {};
+    let totalVideos = 0;
+    for (const row of videosByStatus) {
+      videoStatusMap[row.status] = row._count.id;
+      totalVideos += row._count.id;
+    }
+
+    const streamStatusMap: Record<string, number> = {};
+    let totalStreams = 0;
+    for (const row of streamsByStatus) {
+      streamStatusMap[row.status] = row._count.id;
+      totalStreams += row._count.id;
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      users: {
+        total: totalUsers,
+        byRole: rolesWithCounts.map((r) => ({
+          role: r.name,
+          count: r._count.users,
+        })),
+        byStatus: userStatusMap,
+      },
+      groups: {
+        total: totalGroups,
+        active: groupStatusMap['ACTIVE'] ?? 0,
+        pending: groupStatusMap['PENDING_APPROVAL'] ?? 0,
+        suspended: groupStatusMap['SUSPENDED'] ?? 0,
+        totalMembers: totalGroupMembers,
+        messagingChannels: messagingChannelsCount,
+      },
+      channels: {
+        total: totalVideoChannels,
+        active: activeVideoChannels,
+        pending: pendingVideoChannels,
+        verified: verifiedVideoChannels,
+        totalSubscribers: channelSubscribersAgg._sum.subscribersCount ?? 0,
+        items: videoChannelsList.map((ch) => ({
+          id: ch.id,
+          name: ch.name,
+          handle: ch.handle,
+          status: ch.status,
+          isVerified: ch.isVerified,
+          subscribersCount: ch.subscribersCount,
+          uploadedVideosCount: ch._count.videos,
+          liveStreamsCount: ch._count.liveStreams,
+          activeLiveStreamsCount: ch.liveStreams.length,
+          totalViewsCount: Number(ch.totalViewsCount ?? 0),
+        })),
+      },
+      videos: {
+        total: totalVideos,
+        ready: videoStatusMap['READY'] ?? 0,
+        processing: (videoStatusMap['PROCESSING'] ?? 0) + (videoStatusMap['UPLOADING'] ?? 0),
+        failed: videoStatusMap['FAILED'] ?? 0,
+        publicCount: publicVideosCount,
+        totalViews: Number(videoAggregates._sum.viewsCount ?? 0),
+        totalLikes: videoAggregates._sum.likesCount ?? 0,
+        totalDislikes: videoAggregates._sum.dislikesCount ?? 0,
+        totalComments: videoAggregates._sum.commentsCount ?? 0,
+        totalShares: videoAggregates._sum.sharesCount ?? 0,
+        totalBookmarks: videoAggregates._sum.bookmarksCount ?? 0,
+        totalDownloads: videoAggregates._sum.downloadsCount ?? 0,
+        completedDownloadRecords: completedDownloadsCount,
+        totalDurationSeconds: Math.round(videoAggregates._sum.duration ?? 0),
+      },
+      topVideos: {
+        byLikes: topByLikes,
+        byComments: topByComments,
+        byViews: topByViews,
+        byDownloads: topByDownloads,
+      },
+      liveStreams: {
+        total: totalStreams,
+        liveNow: streamStatusMap['LIVE'] ?? 0,
+        ended: streamStatusMap['ENDED'] ?? 0,
+        scheduled: streamStatusMap['SCHEDULED'] ?? 0,
+        currentViewers: streamAggregates._sum.currentViewerCount ?? 0,
+        peakViewersMax: streamAggregates._max.peakViewerCount ?? 0,
+        totalViewerJoins: streamAggregates._sum.totalViewerCount ?? 0,
+        uniqueViewerRecords: uniqueStreamViewersCount,
+        totalChatMessages: streamAggregates._sum.totalChatMessages ?? 0,
+        totalReactions: streamAggregates._sum.totalReactions ?? 0,
+        totalLikes: streamAggregates._sum.likesCount ?? 0,
+        recentAndActive: recentStreams.map((s) => ({
+          id: s.id,
+          title: s.title,
+          slug: s.slug,
+          status: s.status,
+          channelName: s.videoChannel?.name,
+          currentViewerCount: s.currentViewerCount,
+          peakViewerCount: s.peakViewerCount,
+          totalViewerCount: s.totalViewerCount,
+          likesCount: s.likesCount,
+          totalChatMessages: s.totalChatMessages,
+          totalReactions: s.totalReactions,
+          startedAt: s.startedAt?.toISOString(),
+          endedAt: s.endedAt?.toISOString(),
+        })),
+      },
+      platformTotals: {
+        totalPosts,
+        totalStories,
+        totalBooks,
+        totalFiles: fileStats._count.id,
+        totalStorageBytes: Number(fileStats._sum.size ?? 0),
+        totalAbuseReports: totalReports,
+        pendingAbuseReports: pendingReports,
+      },
+    };
+  }
+
+  private async queryTopVideos(
+    orderBy: Record<string, 'asc' | 'desc'>,
+  ): Promise<PlatformOverviewTopVideoDto[]> {
+    const rows = await this.prisma.video.findMany({
+      where: { deletedAt: null, status: { not: 'DELETED' } },
+      orderBy: [orderBy, { createdAt: 'desc' }],
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        thumbnailUrl: true,
+        status: true,
+        visibility: true,
+        duration: true,
+        viewsCount: true,
+        likesCount: true,
+        commentsCount: true,
+        downloadsCount: true,
+        sharesCount: true,
+        publishedAt: true,
+        videoChannel: {
+          select: { name: true, handle: true },
+        },
+      },
+    });
+
+    return rows.map((v) => ({
+      id: v.id,
+      title: v.title,
+      slug: v.slug,
+      thumbnailUrl: v.thumbnailUrl ?? undefined,
+      channelName: v.videoChannel?.name,
+      channelHandle: v.videoChannel?.handle,
+      status: v.status,
+      visibility: v.visibility,
+      duration: v.duration ?? undefined,
+      viewsCount: Number(v.viewsCount ?? 0),
+      likesCount: v.likesCount,
+      commentsCount: v.commentsCount,
+      downloadsCount: v.downloadsCount,
+      sharesCount: v.sharesCount,
+      publishedAt: v.publishedAt?.toISOString(),
+    }));
+  }
+
+  private filterOverviewForPublic(
+    report: SystemReport,
+    fullOverview?: PlatformOverviewDto,
+  ): PlatformOverviewDto | undefined {
+    if (!report.displayPlatformOverview || !fullOverview) {
+      return undefined;
+    }
+
+    const filtered: PlatformOverviewDto = {
+      generatedAt: fullOverview.generatedAt,
+    };
+
+    if (report.showUsersOverview && fullOverview.users) {
+      filtered.users = fullOverview.users;
+    }
+    if (report.showGroupsOverview && fullOverview.groups) {
+      filtered.groups = fullOverview.groups;
+    }
+    if (report.showChannelsOverview && fullOverview.channels) {
+      filtered.channels = fullOverview.channels;
+    }
+    if (report.showVideosOverview && fullOverview.videos) {
+      filtered.videos = fullOverview.videos;
+    }
+    if (report.showTopVideosOverview && fullOverview.topVideos) {
+      filtered.topVideos = fullOverview.topVideos;
+    }
+    if (report.showLiveStreamsOverview && fullOverview.liveStreams) {
+      filtered.liveStreams = fullOverview.liveStreams;
+    }
+
+    const hasAnySection =
+      filtered.users ||
+      filtered.groups ||
+      filtered.channels ||
+      filtered.videos ||
+      filtered.topVideos ||
+      filtered.liveStreams;
+
+    return hasAnySection ? filtered : undefined;
+  }
+
+  /**
    * Previews what an ordinary user will see for the specified report.
    * Ignores the global enableUserVisibility flag so the admin can inspect the filtered output.
    */
   async previewPublicReport(id: string): Promise<PublicSystemReportDto> {
     const report = await this.getAdminReportById(id);
-    return this.buildSanitizedReport(report, false);
+    const overview = report.displayPlatformOverview
+      ? await this.getPlatformOverview()
+      : undefined;
+    return this.buildSanitizedReport(report, false, overview);
   }
 
   /**
@@ -489,7 +880,10 @@ export class SystemReportService {
       hasDismissed = !!(view && view.dismissedAt);
     }
 
-    const sanitized = this.buildSanitizedReport(report, hasDismissed);
+    const overview = report.displayPlatformOverview
+      ? await this.getPlatformOverview()
+      : undefined;
+    const sanitized = this.buildSanitizedReport(report, hasDismissed, overview);
     return { available: true, report: sanitized };
   }
 
@@ -534,6 +928,7 @@ export class SystemReportService {
   private buildSanitizedReport(
     report: SystemReport & { costs?: SystemServiceCost[] },
     hasDismissed: boolean,
+    fullOverview?: PlatformOverviewDto,
   ): PublicSystemReportDto {
     // 1. Server info filtering
     let server: PublicServerInfoDto | undefined = undefined;
@@ -692,6 +1087,7 @@ export class SystemReportService {
       api,
       deployment,
       costs,
+      overview: this.filterOverviewForPublic(report, fullOverview),
       hasDismissed,
     };
   }

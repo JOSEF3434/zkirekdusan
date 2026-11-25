@@ -27,6 +27,13 @@ class SystemReportRepository {
     return SystemReportAdminModel.fromJson(data);
   }
 
+  /// Retrieves live platform-wide overview statistics
+  Future<PlatformOverviewModel> getPlatformOverview() async {
+    final response = await _dio.get('/admin/system-report/overview');
+    final data = parseEnvelope(response.data);
+    return PlatformOverviewModel.fromJson(data);
+  }
+
   /// Updates report general information and field values
   Future<SystemReportAdminModel> updateReport(
     String id,

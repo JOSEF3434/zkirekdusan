@@ -5,6 +5,12 @@ import 'package:mobile/features/admin/data/system_report_repository.dart';
 import 'package:mobile/features/admin/domain/system_report_model.dart';
 import 'package:mobile/features/settings/domain/public_system_report_model.dart';
 
+final adminPlatformOverviewProvider =
+    FutureProvider.autoDispose<PlatformOverviewModel>((ref) async {
+  final repo = ref.watch(systemReportRepositoryProvider);
+  return repo.getPlatformOverview();
+});
+
 final adminSystemReportProvider =
     StateNotifierProvider<AdminSystemReportNotifier, AsyncValue<SystemReportAdminModel>>(
   (ref) {

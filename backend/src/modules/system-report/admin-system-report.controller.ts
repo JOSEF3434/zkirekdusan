@@ -43,6 +43,12 @@ export class AdminSystemReportController {
     return this.systemReportService.getLatestOrCreate(adminId);
   }
 
+  @Get('overview')
+  @ApiOperation({ summary: 'Get live all-over platform overview (users by role, groups, channels, videos, top videos, live streams)' })
+  async getPlatformOverview() {
+    return this.systemReportService.getPlatformOverview();
+  }
+
   @Get('all')
   @ApiOperation({ summary: 'List all system reports' })
   async getAllReports() {

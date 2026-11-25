@@ -80,6 +80,41 @@ export class UpdateVisibilityDto {
   @IsBoolean()
   displayAdditionalCosts?: boolean;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  displayPlatformOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showUsersOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showGroupsOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showChannelsOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showVideosOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showTopVideosOverview?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  showLiveStreamsOverview?: boolean;
+
   // Individual Server fields
   @ApiPropertyOptional()
   @IsOptional()
